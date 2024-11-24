@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A.R.E Dashboard - Autostereoscoping Rendering Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        :root {
+            --bg-primary: #080810;
+            --bg-secondary: rgba(255, 255, 255, 0.05);
+            --text-primary: #fff;
+            --text-secondary: #a0a0a0;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --nav-bg: rgba(8, 8, 16, 0.8);
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --queue-item-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f5f5f7;
+            --bg-secondary: rgba(0, 0, 0, 0.05);
+            --text-primary: #000;
+            --text-secondary: #666;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --nav-bg: rgba(245, 245, 247, 0.8);
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --queue-item-bg: rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            transition: background-color 0.3s ease;
+        }
+
+        nav {
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            background: var(--nav-bg);
+            backdrop-filter: blur(10px);
+            transition: background-color 0.3s ease;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            background: var(--queue-item-bg);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--text-primary);
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+        }
+
+        main {
+            padding-top: 100px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            transition: background-color 0.3s ease;
+        }
+
+        .stat-card h3 {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .render-queue {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            transition: background-color 0.3s ease;
+        }
+
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .queue-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .new-render-btn {
+            padding: 0.5rem 1rem;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .new-render-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .queue-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .queue-item {
+            background: var(--queue-item-bg);
+            padding: 1rem;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s ease;
+            color: var(--text-primary);
+        }
+
+        .progress-bar {
+            width: 200px;
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            transition: width 0.3s ease;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-processing {
+            background: rgba(0, 242, 254, 0.1);
+            color: #00f2fe;
+        }
+
+        .status-queued {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .queue-item {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .progress-bar {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <div class="logo">A.R.E Dashboard</div>
+            <div class="nav-right">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"/>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                </button>
+                <div class="user-profile">
+                    <span>Welcome, User</span>
+                    <div class="avatar"></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <h3>Active Renders</h3>
+                <div class="stat-value" id="activeRenders">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Completed Today</h3>
+                <div class="stat-value" id="completedToday">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Average Render Time</h3>
+                <div class="stat-value" id="avgRenderTime">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>GPU Usage</h3>
+                <div class="stat-value" id="gpuUsage">0%</div>
+            </div>
+        </div>
+
+        <div class="render-queue">
+            <div class="queue-header">
+                <h2 class="queue-title">Render Queue</h2>
+                <button class="new-render-btn" onclick="addNewRender()">New Render</button>
+            </div>
+            <div class="queue-list" id="queueList">
+                <!-- Queue items will be added here dynamically -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Theme management
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Load saved theme
+        function loadSavedTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.body.setAttribute('data-theme', savedTheme);
+            }
+        }
+
+        // Simulated data for demonstration
+        let renders = [
+            { id: 1, name: 'Product Visualization', progress: 75, status: 'processing' },
+            { id: 2, name: 'Architectural Scene', progress: 30, status: 'processing' },
+            { id: 3, name: 'Character Model', progress: 0, status: 'queued' }
+        ];
+
+        // Initialize dashboard
+        function initializeDashboard() {
+            loadSavedTheme();
+            updateStats();
+            updateRenderQueue();
+            setInterval(updateProgress, 1000);
+        }
+
+        // Update statistics
+        function updateStats() {
+            document.getElementById('activeRenders').textContent = renders.filter(r => r.status === 'processing').length;
+            document.getElementById('completedToday').textContent = '24';
+            document.getElementById('avgRenderTime').textContent = '4.2m';
+            document.getElementById('gpuUsage').textContent = '87%';
+        }
+
+        // Update render queue display
+        function updateRenderQueue() {
+            const queueList = document.getElementById('queueList');
+            queueList.innerHTML = '';
+
+            renders.forEach(render => {
+                const queueItem = document.createElement('div');
+                queueItem.className = 'queue-item';
+                queueItem.innerHTML = `
+                    <div>${render.name}</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${render.progress}%"></div>
+                    </div>
+                    <div class="status-badge status-${render.status}">${render.status}</div>
+                `;
+                queueList.appendChild(queueItem);
+            });
+        }
+
+        // Simulate progress updates
+        function updateProgress() {
+            renders = renders.map(render => {
+                if (render.status === 'processing' && render.progress < 100) {
+                    return {
+                        ...render,
+                        progress: Math.min(render.progress + 1, 100)
+                    };
+                }
+                if (render.progress === 100) {
+                    render.status = 'completed';
+                }
+                return render;
+            });
+
+            updateRenderQueue();
+            updateStats();
+        }
+
+        // Add new render to queue
+        function addNewRender() {
+            const newRender = {
+                id: renders.length + 1,
+                name: `New Render ${renders.length + 1}`,
+                progress: 0,
+                status: 'queued'
+            };
+            renders.push(newRender);
+            updateRenderQueue();
+            updateStats();
+        }
+
+        // Initialize the dashboard when the page loads
+        window.onload = initializeDashboard;
+    </script>
+</body>
+</html>
