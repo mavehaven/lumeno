@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Autostereoscopic Rendering Engine</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success: #059669;
+            --success-dark: #047857;
+            --neutral-50: #f8fafc;
+            --neutral-100: #f1f5f9;
+            --neutral-200: #e2e8f0;
+            --neutral-800: #1e293b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--neutral-100);
+            color: var(--neutral-800);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--neutral-200);
+        }
+
+        .logo {
+            height: 120px;
+            width: auto;
+        }
+
+        .title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--neutral-800);
+            margin: 0;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--neutral-200);
+            border-radius: 0.75rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--neutral-50);
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: white;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .control-group {
+            background: var(--neutral-50);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            border: 1px solid var(--neutral-200);
+        }
+
+        .control-group h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--neutral-800);
+        }
+
+        .slider-group {
+            margin: 1rem 0;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            margin: 0.5rem 0;
+            border: none;
+            border-radius: 0.5rem;
+            background: var(--primary);
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        button:hover {
+            background: var(--primary-dark);
+        }
+
+        button:disabled {
+            background: var(--neutral-200);
+            cursor: not-allowed;
+        }
+
+        .download-button {
+            background: var(--success);
+        }
+
+        .download-button:hover {
+            background: var(--success-dark);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--neutral-800);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: var(--neutral-200);
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--primary-dark);
+        }
+
+        .preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .preview-view {
+            background: var(--neutral-50);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--neutral-200);
+        }
+
+        .preview-view h4 {
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            color: var(--neutral-800);
+        }
+
+        canvas {
+            max-width: 100%;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        }
+
+        #output {
+            position: relative;
+            margin: 2rem 0;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        .status {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            background: var(--neutral-800);
+            color: white;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(1rem);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        .status.processing {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" alt="Logo" class="logo">
+            <h1 class="title">Autostereoscopic Rendering Engine</h1>
+        </div>
+        
+        <div class="upload-area" id="dropZone">
+            <p>Drop an image here or click to upload</p>
+            <input type="file" id="imageInput" accept="image/*" style="display: none;">
+        </div>
+
+        <div class="status" id="status">Processing image...</div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <h3>View Settings</h3>
+                <button id="viewLeft">Left View</button>
+                <button id="viewRight">Right View</button>
+                <button id="viewCombined">Combined View</button>
+                <button id="toggleBarrier">Toggle Barrier</button>
+            </div>
+
+            <div class="control-group">
+                <h3>3D Effects</h3>
+                <div class="slider-group">
+                    <label>3D Separation</label>
+                    <input type="range" id="separation" min="1" max="50" value="15">
+                </div>
+                <div class="slider-group">
+                    <label>Barrier Width</label>
+                    <input type="range" id="barrierWidth" min="1" max="10" value="2">
+                </div>
+                <div class="slider-group">
+                    <label>Barrier Opacity</label>
+                    <input type="range" id="barrierOpacity" min="0" max="100" value="50">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Image Enhancement</h3>
+                <div class="slider-group">
+                    <label>Hole Fill</label>
+                    <input type="range" id="holeFill" min="0" max="100" value="50">
+                </div>
+                <div class="slider-group">
+                    <label>Brightness</label>
+                    <input type="range" id="brightness" min="-100" max="100" value="0">
+                </div>
+                <div class="slider-group">
+                    <label>Contrast</label>
+                    <input type="range" id="contrast" min="-100" max="100" value="0">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Download Options</h3>
+                <button id="downloadCurrent" class="download-button">Download Current View</button>
+                <button id="downloadFull" class="download-button">Download Full Resolution</button>
+                <div class="slider-group">
+                    <label>Output Quality</label>
+                    <input type="range" id="outputQuality" min="1" max="100" value="90">
+                </div>
+            </div>
+        </div>
+        
+        <div id="output"></div>
+        
+        <div class="preview-container">
+            <div class="preview-view">
+                <h4>Left View</h4>
+                <canvas id="leftPreview"></canvas>
+            </div>
+            <div class="preview-view">
+                <h4>Right View</h4>
+                <canvas id="rightPreview"></canvas>
+            </div>
+        </div>
+    </div>
+    <script>
+      class AutostereoscopicEngine {
+    constructor() {
+        this.initializeElements();
+        this.initializeEventListeners();
+        this.initializeState();
+    }
+
+    initializeElements() {
+        // Main elements
+        this.dropZone = document.getElementById('dropZone');
+        this.imageInput = document.getElementById('imageInput');
+        this.output = document.getElementById('output');
+        this.status = document.getElementById('status');
+
+        // Preview canvases
+        this.leftPreview = document.getElementById('leftPreview');
+        this.rightPreview = document.getElementById('rightPreview');
+        this.leftCtx = this.leftPreview.getContext('2d');
+        this.rightCtx = this.rightPreview.getContext('2d');
+
+        // Control buttons
+        this.viewLeftBtn = document.getElementById('viewLeft');
+        this.viewRightBtn = document.getElementById('viewRight');
+        this.viewCombinedBtn = document.getElementById('viewCombined');
+        this.toggleBarrierBtn = document.getElementById('toggleBarrier');
+        this.downloadCurrentBtn = document.getElementById('downloadCurrent');
+        this.downloadFullBtn = document.getElementById('downloadFull');
+
+        // Sliders
+        this.separationSlider = document.getElementById('separation');
+        this.barrierWidthSlider = document.getElementById('barrierWidth');
+        this.barrierOpacitySlider = document.getElementById('barrierOpacity');
+        this.holeFillSlider = document.getElementById('holeFill');
+        this.brightnessSlider = document.getElementById('brightness');
+        this.contrastSlider = document.getElementById('contrast');
+        this.outputQualitySlider = document.getElementById('outputQuality');
+    }
+
+    initializeState() {
+        this.currentImage = null;
+        this.processedImage = null;
+        this.currentView = 'combined';
+        this.barrierVisible = true;
+        this.settings = {
+            separation: 15,
+            barrierWidth: 2,
+            barrierOpacity: 50,
+            holeFill: 50,
+            brightness: 0,
+            contrast: 0,
+            outputQuality: 90
+        };
+    }
+
+    initializeEventListeners() {
+        // File upload listeners
+        this.dropZone.addEventListener('click', () => this.imageInput.click());
+        this.dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.dropZone.style.borderColor = 'var(--primary)';
+        });
+        this.dropZone.addEventListener('dragleave', () => {
+            this.dropZone.style.borderColor = 'var(--neutral-200)';
+        });
+        this.dropZone.addEventListener('drop', (e) => this.handleDrop(e));
+        this.imageInput.addEventListener('change', (e) => this.handleFileSelect(e));
+
+        // View control listeners
+        this.viewLeftBtn.addEventListener('click', () => this.setView('left'));
+        this.viewRightBtn.addEventListener('click', () => this.setView('right'));
+        this.viewCombinedBtn.addEventListener('click', () => this.setView('combined'));
+        this.toggleBarrierBtn.addEventListener('click', () => this.toggleBarrier());
+
+        // Download listeners
+        this.downloadCurrentBtn.addEventListener('click', () => this.downloadCurrent());
+        this.downloadFullBtn.addEventListener('click', () => this.downloadFull());
+
+        // Slider listeners
+        this.separationSlider.addEventListener('input', () => {
+            this.settings.separation = parseInt(this.separationSlider.value);
+            this.updateImage();
+        });
+        this.barrierWidthSlider.addEventListener('input', () => {
+            this.settings.barrierWidth = parseInt(this.barrierWidthSlider.value);
+            this.updateImage();
+        });
+        this.barrierOpacitySlider.addEventListener('input', () => {
+            this.settings.barrierOpacity = parseInt(this.barrierOpacitySlider.value);
+            this.updateImage();
+        });
+        this.holeFillSlider.addEventListener('input', () => {
+            this.settings.holeFill = parseInt(this.holeFillSlider.value);
+            this.updateImage();
+        });
+        this.brightnessSlider.addEventListener('input', () => {
+            this.settings.brightness = parseInt(this.brightnessSlider.value);
+            this.updateImage();
+        });
+        this.contrastSlider.addEventListener('input', () => {
+            this.settings.contrast = parseInt(this.contrastSlider.value);
+            this.updateImage();
+        });
+        this.outputQualitySlider.addEventListener('input', () => {
+            this.settings.outputQuality = parseInt(this.outputQualitySlider.value);
+        });
+    }
+
+    async handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.dropZone.style.borderColor = 'var(--neutral-200)';
+        
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            await this.loadImage(e.dataTransfer.files[0]);
+        }
+    }
+
+    async handleFileSelect(e) {
+        if (e.target.files && e.target.files[0]) {
+            await this.loadImage(e.target.files[0]);
+        }
+    }
+
+    async loadImage(file) {
+        if (!file.type.startsWith('image/')) {
+            alert('Please upload an image file');
+            return;
+        }
+
+        this.showStatus('Loading image...');
+        
+        try {
+            const reader = new FileReader();
+            const imageLoadPromise = new Promise((resolve) => {
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.src = e.target.result;
+                };
+            });
+
+            reader.readAsDataURL(file);
+            this.currentImage = await imageLoadPromise;
+            await this.processImage();
+            this.hideStatus();
+        } catch (error) {
+            console.error('Error loading image:', error);
+            this.hideStatus();
+            alert('Error loading image');
+        }
+    }
+
+    async processImage() {
+        this.showStatus('Processing image...');
+
+        try {
+            // Create offscreen canvas for processing
+            const canvas = document.createElement('canvas');
+            canvas.width = this.currentImage.width;
+            canvas.height = this.currentImage.height;
+            const ctx = canvas.getContext('2d');
+
+            // Draw original image
+            ctx.drawImage(this.currentImage, 0, 0);
+
+            // Apply image processing effects
+            this.applyImageEffects(ctx);
+
+            // Generate stereo views
+            const { leftView, rightView } = this.generateStereoViews(ctx);
+
+            // Update preview canvases
+            this.updatePreviews(leftView, rightView);
+
+            // Generate combined view with barrier
+            this.processedImage = this.generateCombinedView(leftView, rightView);
+
+            // Update main output
+            this.updateOutput();
+            
+            this.hideStatus();
+        } catch (error) {
+            console.error('Error processing image:', error);
+            this.hideStatus();
+            alert('Error processing image');
+        }
+    }
+
+    applyImageEffects(ctx) {
+        const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+        const data = imageData.data;
+
+        // Apply brightness and contrast
+        const brightness = this.settings.brightness;
+        const contrast = this.settings.contrast;
+        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+        for (let i = 0; i < data.length; i += 4) {
+            // Apply brightness
+            data[i] += brightness;
+            data[i + 1] += brightness;
+            data[i + 2] += brightness;
+
+            // Apply contrast
+            data[i] = factor * (data[i] - 128) + 128;
+            data[i + 1] = factor * (data[i + 1] - 128) + 128;
+            data[i + 2] = factor * (data[i + 2] - 128) + 128;
+
+            // Ensure values stay within bounds
+            for (let j = 0; j < 3; j++) {
+                data[i + j] = Math.max(0, Math.min(255, data[i + j]));
+            }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+    }
+
+    generateStereoViews(ctx) {
+        const separation = this.settings.separation;
+        
+        // Create canvases for left and right views
+        const leftCanvas = document.createElement('canvas');
+        const rightCanvas = document.createElement('canvas');
+        [leftCanvas.width, rightCanvas.width] = [ctx.canvas.width, ctx.canvas.width];
+        [leftCanvas.height, rightCanvas.height] = [ctx.canvas.height, ctx.canvas.height];
+        
+        const leftCtx = leftCanvas.getContext('2d');
+        const rightCtx = rightCanvas.getContext('2d');
+
+        // Generate displaced views
+        leftCtx.drawImage(ctx.canvas, -separation/2, 0);
+        rightCtx.drawImage(ctx.canvas, separation/2, 0);
+
+        return {
+            leftView: leftCanvas,
+            rightView: rightCanvas
+        };
+    }
+
+    generateCombinedView(leftView, rightView) {
+        const canvas = document.createElement('canvas');
+        canvas.width = leftView.width;
+        canvas.height = leftView.height;
+        const ctx = canvas.getContext('2d');
+
+        // Draw left view
+        ctx.drawImage(leftView, 0, 0);
+
+        // Create barrier pattern
+        if (this.barrierVisible) {
+            const barrierWidth = this.settings.barrierWidth;
+            const opacity = this.settings.barrierOpacity / 100;
+            
+            ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+            for (let x = 0; x < canvas.width; x += barrierWidth * 2) {
+                ctx.fillRect(x, 0, barrierWidth, canvas.height);
+            }
+        }
+
+        // Draw right view with masking
+        const rightCtx = rightView.getContext('2d');
+        const rightImageData = rightCtx.getImageData(0, 0, rightView.width, rightView.height);
+        const combinedImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                if ((x % (this.settings.barrierWidth * 2)) >= this.settings.barrierWidth) {
+                    const i = (y * canvas.width + x) * 4;
+                    for (let c = 0; c < 4; c++) {
+                        combinedImageData.data[i + c] = rightImageData.data[i + c];
+                    }
+                }
+            }
+        }
+
+        ctx.putImageData(combinedImageData, 0, 0);
+        return canvas;
+    }
+
+    updatePreviews(leftView, rightView) {
+        // Update left preview
+        this.leftPreview.width = leftView.width;
+        this.leftPreview.height = leftView.height;
+        this.leftCtx.drawImage(leftView, 0, 0);
+
+        // Update right preview
+        this.rightPreview.width = rightView.width;
+        this.rightPreview.height = rightView.height;
+        this.rightCtx.drawImage(rightView, 0, 0);
+    }
+
+    updateOutput() {
+        this.output.innerHTML = '';
+        const canvas = document.createElement('canvas');
+        canvas.width = this.processedImage.width;
+        canvas.height = this.processedImage.height;
+        const ctx = canvas.getContext('2d');
+
+        switch (this.currentView) {
+            case 'left':
+                ctx.drawImage(this.leftPreview, 0, 0);
+                break;
+            case 'right':
+                ctx.drawImage(this.rightPreview, 0, 0);
+                break;
+            case 'combined':
+                ctx.drawImage(this.processedImage, 0, 0);
+                break;
+        }
+
+        this.output.appendChild(canvas);
+    }
+
+    setView(view) {
+        this.currentView = view;
+        this.updateOutput();
+    }
+
+    toggleBarrier() {
+        this.barrierVisible = !this.barrierVisible;
+        if (this.processedImage) {
+            this.processImage();
+        }
+    }
+
+    downloadCurrent() {
+        if (!this.processedImage) return;
+        
+        const canvas = this.output.querySelector('canvas');
+        const link = document.createElement('a');
+        link.download = 'stereoscopic_image.png';
+        link.href = canvas.toDataURL(`image/png`, this.settings.outputQuality / 100);
+        link.click();
+    }
+
+    downloadFull() {
+        if (!this.processedImage) return;
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = this.currentImage.width;
+        canvas.height = this.currentImage.height;
+        const ctx = canvas.getContext('2d');
+        
+        ctx.drawImage(this.processedImage, 0, 0, canvas.width, canvas.height);
+        
+        const link = document.createElement('a');
+        link.download = 'stereoscopic_image_full.png';
+        link.href = canvas.toDataURL(`image/png`, this.settings.outputQuality / 100);
+        link.click();
+    }
+
+    showStatus(message) {
+        this.status.textContent = message;
+        this.status.classList.add('processing');
+    }
+
+    hideStatus() {
+        this.status.classList.remove('processing');
+    }
+
+    updateImage() {
+        if (this.currentImage) {
+            this.processImage();
+        }
+    }
+}
+
+// Initialize the engine when the DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.stereoEngine = new AutostereoscopicEngine();
+});
+    </script>
+</body>
+</html>
