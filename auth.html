@@ -266,9 +266,7 @@
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" required>
-                    <p class="password-requirements">
-                        Must be at least 8 characters long with 1 uppercase letter, 1 number, and 1 special character
-                    </p>
+                    <p class="password-requirements">Password must be at least 8 characters, include a number and a special character.</p>
                 </div>
 
                 <div class="form-group">
@@ -276,33 +274,25 @@
                     <input type="password" id="confirm-password" name="confirm-password" required>
                 </div>
 
-                <div id="error-message" class="error-message"></div>
+                <div id="error-message" class="error-message">Please fill out all fields and make sure passwords match.</div>
 
-                <button type="submit" class="submit-button">Create Account</button>
+                <button type="submit" class="submit-button">Sign Up</button>
             </form>
 
-            <div class="login-link">
-                Already have an account? <a href="/login">Log in</a>
-            </div>
+            <p class="login-link">Already have an account? <a href="/login.html">Log in</a></p>
 
             <div class="social-signup">
                 <p>Or sign up with</p>
                 <div class="social-buttons">
-                    <button onclick="signInWithGoogle()" class="social-button">
-                        <img src="/api/placeholder/20/20" alt="Google">
-                        Google
-                    </button>
-                    <button onclick="signInWithGitHub()" class="social-button">
-                        <img src="/api/placeholder/20/20" alt="GitHub">
-                        GitHub
-                    </button>
+                    <button class="social-button" onclick="googleSignIn()">Sign up with Google</button>
+                    <button class="social-button" onclick="githubSignIn()">Sign up with GitHub</button>
                 </div>
             </div>
         </div>
     </main>
 
     <footer>
-        <p>&copy; 2024 LumenOS. All rights reserved.</p>
+        <p>&copy; 2024 AI Rendering Platform. All rights reserved.</p>
     </footer>
 
     <script>
@@ -317,83 +307,65 @@
     measurementId: "G-CEZ4PHV9GE"
   };
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
 
-        // Show error message
         function showError(message) {
-            const errorElement = document.getElementById('error-message');
-            errorElement.textContent = message;
-            errorElement.style.display = 'block';
+            const errorMessageDiv = document.getElementById("error-message");
+            errorMessageDiv.innerText = message;
+            errorMessageDiv.style.display = 'block';
         }
 
-        // Handle form submission
-        async function handleSignup(event) {
+        function handleSignup(event) {
             event.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password');
-            const confirmPassword = document.getElementById('confirm-password');
-            const name = document.getElementById('name').value;
-            
-            // Password validation
-            if (password.value !== confirmPassword.value) {
-                showError('Passwords do not match!');
-                return;
-            }
-            
-            const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{8,})/;
-            if (!passwordRegex.test(password.value)) {
-                showError('Password does not meet requirements!');
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            const confirmPassword = document.getElementById("confirm-password").value;
+
+            if (password !== confirmPassword) {
+                showError("Passwords do not match.");
                 return;
             }
 
-            try {
-                // Create user with email and password
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password.value);
-                
-                // Update user profile with name
-                await userCredential.user.updateProfile({
-                    displayName: name
+            auth.createUserWithEmailAndPassword(email, password)
+                .then(userCredential => {
+                    const user = userCredential.user;
+                    alert("User created: " + user.email);
+                    // Handle after signup logic here
+                })
+                .catch(error => {
+                    showError(error.message);
                 });
-
-                // Redirect to dashboard or home page
-                window.location.href = '/dashboard';
-            } catch (error) {
-                showError(error.message);
-            }
         }
 
-        // Google Sign In
-        async function signInWithGoogle() {
+        function googleSignIn() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            try {
-                await auth.signInWithPopup(provider);
-                window.location.href = '/dashboard';
-            } catch (error) {
-                showError(error.message);
-            }
+            auth.signInWithPopup(provider)
+                .then(result => {
+                    const user = result.user;
+                    console.log(user);
+                    alert("Google sign-in successful!");
+                    // Redirect or handle post-login action
+                })
+                .catch(error => {
+                    showError(error.message);
+                });
         }
 
-        // GitHub Sign In
-        async function signInWithGitHub() {
+        function githubSignIn() {
             const provider = new firebase.auth.GithubAuthProvider();
-            try {
-                await auth.signInWithPopup(provider);
-                window.location.href = '/dashboard';
-            } catch (error) {
-                showError(error.message);
-            }
+            auth.signInWithPopup(provider)
+                .then(result => {
+                    const user = result.user;
+                    console.log(user);
+                    alert("GitHub sign-in successful!");
+                    // Redirect or handle post-login action
+                })
+                .catch(error => {
+                    showError(error.message);
+                });
         }
-
-        // Listen for auth state changes
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                // User is signed in, redirect to dashboard
-                window.location.href = '/dashboard';
-            }
-        });
     </script>
 </body>
 </html>
+
