@@ -297,7 +297,8 @@
 
     <script>
         // Firebase configuration - Replace with your Firebase config
-        const firebaseConfig = {
+        // Firebase configuration
+const firebaseConfig = {
     apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
     authDomain: "lumenos-749a1.firebaseapp.com",
     projectId: "lumenos-749a1",
@@ -305,66 +306,142 @@
     messagingSenderId: "857410556058",
     appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
     measurementId: "G-CEZ4PHV9GE"
-  };
+};
 
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
 
-        function showError(message) {
-            const errorMessageDiv = document.getElementById("error-message");
-            errorMessageDiv.innerText = message;
-            errorMessageDiv.style.display = 'block';
-        }
+// Enhanced password validation function
+function validatePassword(password) {
+    // Check length
+    if (password.length < 8) {
+        return "Password must be at least 8 characters long";
+    }
+    
+    // Check for at least one number
+    if (!/\d/.test(password)) {
+        return "Password must contain at least one number";
+    }
+    
+    // Check for at least one special character
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        return "Password must contain at least one special character";
+    }
+    
+    return null; // No errors
+}
 
-        function handleSignup(event) {
-            event.preventDefault();
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-            const confirmPassword = document.getElementById("confirm-password").value;
+function showError(message) {
+    const errorMessageDiv = document.getElementById("error-message");
+    errorMessageDiv.innerText = message;
+    errorMessageDiv.style.display = 'block';
+}
 
-            if (password !== confirmPassword) {
-                showError("Passwords do not match.");
-                return;
+function handleSignup(event) {
+    event.preventDefault();
+    
+    // Get form values
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const confirmPassword = document.getElementById("confirm-password").value;
+
+    // Clear previous error
+    showError('');
+
+    // Validate inputs
+    if (!name || !email || !password || !confirmPassword) {
+        showError("Please fill out all fields.");
+        return;
+    }
+
+    // Check password match
+    if (password !== confirmPassword) {
+        showError("Passwords do not match.");
+        return;
+    }
+
+    // Validate password strength
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+        showError(passwordError);
+        return;
+    }
+
+    // Attempt to create user
+    auth.createUserWithEmailAndPassword(email, password)
+        .then(userCredential => {
+            const user = userCredential.user;
+            
+            // Optional: Update user profile with name
+            return user.updateProfile({
+                displayName: name
+            }).then(() => user);
+        })
+        .then(user => {
+            // Send email verification
+            return user.sendEmailVerification();
+        })
+        .then(() => {
+            alert("Account created! Please check your email to verify your account.");
+            // Optional: Redirect to a welcome page or dashboard
+            // window.location.href = '/dashboard.html';
+        })
+        .catch(error => {
+            // More detailed error handling
+            switch(error.code) {
+                case 'auth/email-already-in-use':
+                    showError("This email is already registered. Try logging in instead.");
+                    break;
+                case 'auth/invalid-email':
+                    showError("The email address is not valid.");
+                    break;
+                case 'auth/operation-not-allowed':
+                    showError("Email/password accounts are not enabled.");
+                    break;
+                case 'auth/weak-password':
+                    showError("The password is too weak.");
+                    break;
+                default:
+                    showError("An error occurred: " + error.message);
             }
+            console.error("Signup Error:", error);
+        });
+}
 
-            auth.createUserWithEmailAndPassword(email, password)
-                .then(userCredential => {
-                    const user = userCredential.user;
-                    alert("User created: " + user.email);
-                    // Handle after signup logic here
-                })
-                .catch(error => {
-                    showError(error.message);
-                });
-        }
+function googleSignIn() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider)
+        .then(result => {
+            const user = result.user;
+            alert("Google sign-in successful! Welcome " + user.displayName);
+            // Redirect or handle post-login action
+            // window.location.href = '/dashboard.html';
+        })
+        .catch(error => {
+            showError("Google Sign-In Error: " + error.message);
+            console.error("Google Signin Error:", error);
+        });
+}
 
-        function googleSignIn() {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider)
-                .then(result => {
-                    const user = result.user;
-                    console.log(user);
-                    alert("Google sign-in successful!");
-                    // Redirect or handle post-login action
-                })
-                .catch(error => {
-                    showError(error.message);
-                });
-        }
+function githubSignIn() {
+    const provider = new firebase.auth.GithubAuthProvider();
+    auth.signInWithPopup(provider)
+        .then(result => {
+            const user = result.user;
+            alert("GitHub sign-in successful! Welcome " + user.displayName);
+            // Redirect or handle post-login action
+            // window.location.href = '/dashboard.html';
+        })
+        .catch(error => {
+            showError("GitHub Sign-In Error: " + error.message);
+            console.error("GitHub Signin Error:", error);
+        });
+}
 
-        function githubSignIn() {
-            const provider = new firebase.auth.GithubAuthProvider();
-            auth.signInWithPopup(provider)
-                .then(result => {
-                    const user = result.user;
-                    console.log(user);
-                    alert("GitHub sign-in successful!");
-                    // Redirect or handle post-login action
-                })
-                .catch(error => {
-                    showError(error.message);
-                });
-        }
+// Add event listener to form
+document.getElementById('signup-form').addEventListener('submit', handleSignup);
     </script>
 </body>
 </html>
