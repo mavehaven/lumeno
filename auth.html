@@ -296,21 +296,31 @@
     </footer>
 
     <script>
-        // Firebase configuration - Replace with your Firebase config
-        // Firebase configuration
+       // Updated Firebase v9+ initialization script
+import { initializeApp } from 'https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.0/firebase-app.js';
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  GithubAuthProvider,
+  sendEmailVerification
+} from 'https://cdnjs.cloudflare.com/ajax/libs/firebase/10.8.0/firebase-auth.js';
+
+// Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
-    authDomain: "lumenos-749a1.firebaseapp.com",
-    projectId: "lumenos-749a1",
-    storageBucket: "lumenos-749a1.firebasestorage.app",
-    messagingSenderId: "857410556058",
-    appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
-    measurementId: "G-CEZ4PHV9GE"
+  apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
+  authDomain: "lumenos-749a1.firebaseapp.com",
+  projectId: "lumenos-749a1",
+  storageBucket: "lumenos-749a1.firebasestorage.app",
+  messagingSenderId: "857410556058",
+  appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
+  measurementId: "G-CEZ4PHV9GE"
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
 // Enhanced password validation function
 function validatePassword(password) {
@@ -335,10 +345,10 @@ function validatePassword(password) {
 function showError(message) {
     const errorMessageDiv = document.getElementById("error-message");
     errorMessageDiv.innerText = message;
-    errorMessageDiv.style.display = 'block';
+    errorMessageDiv.style.display = message ? 'block' : 'none';
 }
 
-function handleSignup(event) {
+async function handleSignup(event) {
     event.preventDefault();
     
     // Get form values
@@ -369,80 +379,88 @@ function handleSignup(event) {
         return;
     }
 
-    // Attempt to create user
-    auth.createUserWithEmailAndPassword(email, password)
-        .then(userCredential => {
-            const user = userCredential.user;
-            
-            // Optional: Update user profile with name
-            return user.updateProfile({
-                displayName: name
-            }).then(() => user);
-        })
-        .then(user => {
-            // Send email verification
-            return user.sendEmailVerification();
-        })
-        .then(() => {
-            alert("Account created! Please check your email to verify your account.");
-            // Optional: Redirect to a welcome page or dashboard
-            // window.location.href = '/dashboard.html';
-        })
-        .catch(error => {
-            // More detailed error handling
-            switch(error.code) {
-                case 'auth/email-already-in-use':
-                    showError("This email is already registered. Try logging in instead.");
-                    break;
-                case 'auth/invalid-email':
-                    showError("The email address is not valid.");
-                    break;
-                case 'auth/operation-not-allowed':
-                    showError("Email/password accounts are not enabled.");
-                    break;
-                case 'auth/weak-password':
-                    showError("The password is too weak.");
-                    break;
-                default:
-                    showError("An error occurred: " + error.message);
-            }
-            console.error("Signup Error:", error);
-        });
+    try {
+        // Attempt to create user
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        
+        // Send email verification
+        await sendEmailVerification(user);
+        
+        alert("Account created! Please check your email to verify your account.");
+        // Optional: Redirect to a welcome page or dashboard
+        // window.location.href = '/dashboard.html';
+    } catch (error) {
+        // More detailed error handling
+        let errorMessage = "An error occurred during signup.";
+        switch(error.code) {
+            case 'auth/email-already-in-use':
+                errorMessage = "This email is already registered. Try logging in instead.";
+                break;
+            case 'auth/invalid-email':
+                errorMessage = "The email address is not valid.";
+                break;
+            case 'auth/operation-not-allowed':
+                errorMessage = "Email/password accounts are not enabled.";
+                break;
+            case 'auth/weak-password':
+                errorMessage = "The password is too weak.";
+                break;
+            default:
+                errorMessage = "Signup error: " + error.message;
+        }
+        showError(errorMessage);
+        console.error("Signup Error:", error);
+    }
 }
 
-function googleSignIn() {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider)
-        .then(result => {
-            const user = result.user;
-            alert("Google sign-in successful! Welcome " + user.displayName);
-            // Redirect or handle post-login action
-            // window.location.href = '/dashboard.html';
-        })
-        .catch(error => {
-            showError("Google Sign-In Error: " + error.message);
-            console.error("Google Signin Error:", error);
-        });
+async function googleSignIn() {
+    const provider = new GoogleAuthProvider();
+    try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        alert("Google sign-in successful! Welcome " + user.displayName);
+        // Redirect or handle post-login action
+        // window.location.href = '/dashboard.html';
+    } catch (error) {
+        showError("Google Sign-In Error: " + error.message);
+        console.error("Google Signin Error:", error);
+    }
 }
 
-function githubSignIn() {
-    const provider = new firebase.auth.GithubAuthProvider();
-    auth.signInWithPopup(provider)
-        .then(result => {
-            const user = result.user;
-            alert("GitHub sign-in successful! Welcome " + user.displayName);
-            // Redirect or handle post-login action
-            // window.location.href = '/dashboard.html';
-        })
-        .catch(error => {
-            showError("GitHub Sign-In Error: " + error.message);
-            console.error("GitHub Signin Error:", error);
-        });
+async function githubSignIn() {
+    const provider = new GithubAuthProvider();
+    try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        alert("GitHub sign-in successful! Welcome " + user.displayName);
+        // Redirect or handle post-login action
+        // window.location.href = '/dashboard.html';
+    } catch (error) {
+        showError("GitHub Sign-In Error: " + error.message);
+        console.error("GitHub Signin Error:", error);
+    }
 }
 
-// Add event listener to form
-document.getElementById('signup-form').addEventListener('submit', handleSignup);
+// Add event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const signupForm = document.getElementById('signup-form');
+    if (signupForm) {
+        signupForm.addEventListener('submit', handleSignup);
+    }
+    
+    const googleSignInBtn = document.querySelector('button[onclick="googleSignIn()"]');
+    if (googleSignInBtn) {
+        googleSignInBtn.addEventListener('click', googleSignIn);
+    }
+    
+    const githubSignInBtn = document.querySelector('button[onclick="githubSignIn()"]');
+    if (githubSignInBtn) {
+        githubSignInBtn.addEventListener('click', githubSignIn);
+    }
+});
     </script>
 </body>
 </html>
+
 
