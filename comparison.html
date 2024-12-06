@@ -19,6 +19,8 @@
             --nav-bg: rgba(8, 8, 16, 0.8);
             --card-bg: rgba(255, 255, 255, 0.05);
             --queue-item-bg: rgba(255, 255, 255, 0.1);
+            --error-color: #ff4444;
+            --success-color: #00ff9d;
         }
         [data-theme="light"] {
             --bg-primary: #f5f5f7;
@@ -68,42 +70,54 @@
             padding-left: 2rem;
             padding-right: 2rem;
         }
-        .comparison-card {
+
+        /* Upload Area Styles */
+        .upload-area {
             background: var(--card-bg);
             padding: 3rem;
             border-radius: 20px;
-            border: 1px solid var(--border-color);
+            text-align: center;
             margin-bottom: 2rem;
-            transition: transform 0.3s ease;
+            border: 2px dashed var(--border-color);
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
-        .card-title {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 2rem;
-            background: linear-gradient(45deg, #00f2fe, #4facfe);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .upload-area:hover {
+            border-color: #00f2fe;
+            background: var(--queue-item-bg);
         }
-        .comparison-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
+        .upload-area.dragging {
+            border-color: #4facfe;
+            background: var(--queue-item-bg);
         }
-        .image-container {
+
+        /* Interactive Comparison Styles */
+        .interactive-container {
             position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
             border-radius: 20px;
             overflow: hidden;
             transform-style: preserve-3d;
             perspective: 1000px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
+        }
+        .image-stack {
+            position: relative;
+            width: 100%;
+            height: 0;
+            padding-bottom: 75%;
+            border-radius: 20px;
+            overflow: hidden;
         }
         .comparison-image {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: auto;
-            display: block;
-            transition: transform 0.3s ease;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 0.5s ease;
         }
         .image-overlay {
             position: absolute;
@@ -114,84 +128,129 @@
             background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
             color: white;
             transform: translateZ(20px);
+            transition: transform 0.3s ease;
         }
-        .overlay-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        .overlay-description {
-            font-size: 0.9rem;
-            opacity: 0.9;
-            line-height: 1.4;
-        }
-        .improvements {
-            background: var(--bg-secondary);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-top: 3rem;
-        }
-        .improvements-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 2rem;
+        .toggle-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 1rem 2rem;
             background: linear-gradient(45deg, #00f2fe, #4facfe);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 10;
+            opacity: 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
-        .improvements-grid {
+        .interactive-container:hover .toggle-button {
+            opacity: 1;
+        }
+        .comparison-label {
+            position: absolute;
+            top: 2rem;
+            left: 2rem;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            z-index: 5;
+            transition: opacity 0.3s ease;
+        }
+
+        /* Control Panels */
+        .controls-container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            margin-top: 2rem;
+        }
+        .controls-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 1.5rem;
         }
-        .improvement-item {
-            background: var(--queue-item-bg);
+        .control-group {
             padding: 1.5rem;
+            background: var(--queue-item-bg);
             border-radius: 15px;
-            transition: transform 0.3s ease;
         }
-        .improvement-item:hover {
-            transform: translateY(-5px);
+        .slider-group {
+            margin-bottom: 1.5rem;
         }
-        .improvement-item h4 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
+        .slider-group label {
+            display: block;
             color: var(--text-primary);
-        }
-        .improvement-item p {
+            margin-bottom: 0.5rem;
             font-size: 0.9rem;
-            color: var(--text-secondary);
-            line-height: 1.6;
         }
-        .action-button {
-            padding: 0.75rem 1.5rem;
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
             background: linear-gradient(45deg, #00f2fe, #4facfe);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-weight: 500;
+            border-radius: 50%;
             cursor: pointer;
-            transition: all 0.3s ease;
         }
-        .action-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 242, 254, 0.3);
+
+        /* Output Preview */
+        .preview-card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            margin-top: 2rem;
         }
+        .preview-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+        #output {
+            width: 100%;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+        }
+
+        /* Status Messages */
+        .status-message {
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .status-message.error {
+            background: var(--error-color);
+            color: white;
+        }
+        .status-message.success {
+            background: var(--success-color);
+            color: var(--bg-primary);
+        }
+
         @media (max-width: 768px) {
             main {
                 padding: 80px 1rem 1rem 1rem;
             }
-            .comparison-card {
-                padding: 1.5rem;
-            }
-            .comparison-grid {
+            .controls-grid {
                 grid-template-columns: 1fr;
-            }
-            .improvements-grid {
-                grid-template-columns: 1fr;
-            }
-            .card-title {
-                font-size: 1.5rem;
             }
         }
     </style>
@@ -199,132 +258,400 @@
 <body>
     <nav>
         <div class="nav-container">
-            <div  src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" </div>
-            <button class="action-button" onclick="toggleTheme()">Toggle Theme</button>
+            <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" 
+             width="200" 
+             height="100" 
+             alt="External SVG"
+             class="logo-img">
+            <button class="toggle-button" onclick="toggleTheme()">Toggle Theme</button>
         </div>
     </nav>
 
     <main>
-        <div class="comparison-card">
-            <h1 class="card-title">Advanced Depth Comparison</h1>
-            
-            <div class="comparison-grid">
-                <div class="image-container" data-tilt>
-                    <img 
-                        src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1733493041524x190763083252621250/_8ca2c7ee-2093-4d86-aa94-20e2fd5cd931.jpg" 
-                        alt="Standard 3D Depth" 
-                        class="comparison-image" 
-                        id="standardImage"
-                    >
-                    <div class="image-overlay">
-                        <h3 class="overlay-title">Standard 3D Depth</h3>
-                        <p class="overlay-description">Traditional depth mapping technology with basic spatial perception</p>
-                    </div>
-                </div>
-                
-                <div class="image-container" data-tilt>
-                    <img 
-                        src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1733492993876x888137917352089100/LumenOS%20COver.png" 
-                        alt="Enhanced Lenticular Depth" 
-                        class="comparison-image" 
-                        id="enhancedImage"
-                    >
-                    <div class="image-overlay">
-                        <h3 class="overlay-title">Enhanced Lenticular Depth</h3>
-                        <p class="overlay-description">Advanced depth processing with our revolutionary engine</p>
-                    </div>
-                </div>
+        <div class="upload-area" id="dropZone">
+            <p>Drop your image here or click to upload</p>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+
+        <div class="interactive-container" id="interactiveContainer">
+            <div class="image-stack">
+                <img 
+                    src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1733493041524x190763083252621250/_8ca2c7ee-2093-4d86-aa94-20e2fd5cd931.jpg" 
+                    alt="Standard 3D Depth" 
+                    class="comparison-image" 
+                    id="standardImage"
+                >
+                <img 
+                    src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1733492993876x888137917352089100/LumenOS%20COver.png" 
+                    alt="Enhanced Lenticular Depth" 
+                    class="comparison-image" 
+                    id="enhancedImage"
+                    style="opacity: 0;"
+                >
+                <div class="comparison-label" id="comparisonLabel">Standard View</div>
+                <button class="toggle-button" id="toggleButton">Toggle View</button>
             </div>
-            
-            <div class="improvements">
-                <h3 class="improvements-title">Key Enhancements</h3>
-                <div class="improvements-grid">
-                    <div class="improvement-item">
-                        <h4>Enhanced Depth Perception</h4>
-                        <p>Experience superior spatial separation between elements, creating an immersive three-dimensional effect that brings your content to life.</p>
+        </div>
+
+        <div class="controls-container">
+            <div class="controls-grid">
+                <div class="control-group">
+                    <h3>Lenticular Settings</h3>
+                    <div class="slider-group">
+                        <label>LPI (Lines Per Inch) <span class="value-display">40 LPI</span></label>
+                        <input type="range" id="lpi" min="20" max="100" value="40">
                     </div>
-                    <div class="improvement-item">
-                        <h4>Precise Layer Management</h4>
-                        <p>Our advanced algorithm ensures perfect handling of multiple depth planes, positioning each element accurately in 3D space.</p>
+                    <div class="slider-group">
+                        <label>Viewing Angle <span class="value-display">45°</span></label>
+                        <input type="range" id="angle" min="30" max="60" value="45">
                     </div>
-                    <div class="improvement-item">
-                        <h4>Natural Transitions</h4>
-                        <p>Enjoy smooth, natural gradients between depth levels that eliminate jarring transitions and provide a seamless viewing experience.</p>
+                    <div class="slider-group">
+                        <label>Stereo Separation <span class="value-display">15px</span></label>
+                        <input type="range" id="separation" min="1" max="50" value="15">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Image Enhancement</h3>
+                    <div class="slider-group">
+                        <label>Depth Intensity <span class="value-display">50%</span></label>
+                        <input type="range" id="depth" min="0" max="100" value="50">
+                    </div>
+                    <div class="slider-group">
+                        <label>Sharpness <span class="value-display">50%</span></label>
+                        <input type="range" id="sharpness" min="0" max="100" value="50">
                     </div>
                 </div>
             </div>
         </div>
-    </main>
 
-    <script>
-        function toggleTheme() {
-            const body = document.body;
-            if (body.getAttribute('data-theme') === 'light') {
-                body.removeAttribute('data-theme');
-            } else {
-                body.setAttribute('data-theme', 'light');
+        <div class="preview-card">
+            <h3>Final Output</h3>
+            <div id="output"></div>
+        </div>
+    </main>
+<script>
+  class LenticularEngine {
+    constructor() {
+        // Initialize settings with default values
+        this.settings = {
+            lpi: 40,
+            angle: 45,
+            separation: 15,
+            depth: 50,
+            sharpness: 50,
+            outputQuality: 90,
+            dpi: 300
+        };
+        
+        this.currentView = 'standard';
+        this.sourceImage = null;
+        this.setupEventListeners();
+        this.initialize3DEffects();
+    }
+
+    setupEventListeners() {
+        // Upload handling
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', this.handleDragOver.bind(this));
+        dropZone.addEventListener('drop', this.handleDrop.bind(this));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+        fileInput.addEventListener('change', (e) => this.handleFiles(e.target.files));
+
+        // Control sliders
+        const sliders = document.querySelectorAll('input[type="range"]');
+        sliders.forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                const valueDisplay = e.target.parentElement.querySelector('.value-display');
+                const value = e.target.value;
+                const suffix = this.getValueSuffix(e.target.id);
+                valueDisplay.textContent = `${value}${suffix}`;
+                this.settings[e.target.id] = parseFloat(value);
+                this.updateOutput();
+            });
+        });
+
+        // Toggle view button
+        const toggleButton = document.getElementById('toggleButton');
+        if (toggleButton) {
+            toggleButton.addEventListener('click', () => this.toggleView());
+        }
+    }
+
+    getValueSuffix(id) {
+        const suffixes = {
+            angle: '°',
+            lpi: ' LPI',
+            separation: 'px',
+            depth: '%',
+            sharpness: '%'
+        };
+        return suffixes[id] || '';
+    }
+
+    handleDragOver(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.getElementById('dropZone').classList.add('dragging');
+    }
+
+    handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const dropZone = document.getElementById('dropZone');
+        dropZone.classList.remove('dragging');
+        
+        const files = e.dataTransfer.files;
+        this.handleFiles(files);
+    }
+
+    async handleFiles(files) {
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) {
+                this.showStatus('Only image files are allowed', 'error');
+                continue;
+            }
+
+            try {
+                const imageUrl = await this.processImage(file);
+                this.updatePreview(imageUrl);
+                this.showStatus('Image processed successfully', 'success');
+            } catch (error) {
+                this.showStatus('Error processing image', 'error');
+                console.error(error);
+            }
+        }
+    }
+
+    async processImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    this.sourceImage = img;
+                    this.applyLenticularEffect(img)
+                        .then(resolve)
+                        .catch(reject);
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async applyLenticularEffect(image) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        canvas.width = image.width;
+        canvas.height = image.height;
+        
+        // Draw the original image
+        ctx.drawImage(image, 0, 0);
+        
+        // Apply depth effect
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        this.applyDepthMap(imageData);
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Apply lenticular interlacing
+        this.applyInterlacing(ctx, canvas.width, canvas.height);
+        
+        return canvas.toDataURL('image/png', this.settings.outputQuality / 100);
+    }
+
+    applyDepthMap(imageData) {
+        const data = imageData.data;
+        const width = imageData.width;
+        const height = imageData.height;
+        const depthIntensity = this.settings.depth / 100;
+
+        for (let i = 0; i < data.length; i += 4) {
+            const x = (i / 4) % width;
+            const y = Math.floor((i / 4) / width);
+            
+            // Calculate depth based on position and luminance
+            const luminance = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) / 255;
+            const depth = (x / width + y / height + luminance) / 3;
+            
+            // Apply depth effect
+            const offset = Math.round(depth * depthIntensity * this.settings.separation);
+            if (x + offset < width) {
+                const targetIndex = i + offset * 4;
+                data[targetIndex] = data[i];
+                data[targetIndex + 1] = data[i + 1];
+                data[targetIndex + 2] = data[i + 2];
+            }
+        }
+    }
+
+    applyInterlacing(ctx, width, height) {
+        const lineHeight = Math.max(1, Math.round(this.settings.dpi / this.settings.lpi));
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        tempCtx.drawImage(ctx.canvas, 0, 0);
+        
+        ctx.clearRect(0, 0, width, height);
+        
+        for (let y = 0; y < height; y++) {
+            const sourceY = y + (y % lineHeight < lineHeight / 2 ? 
+                               Math.floor(this.settings.separation / 2) : 
+                               -Math.floor(this.settings.separation / 2));
+                               
+            if (sourceY >= 0 && sourceY < height) {
+                ctx.drawImage(tempCanvas, 
+                    0, sourceY, width, 1,
+                    0, y, width, 1);
             }
         }
 
-        function initialize3DEffects() {
-            const imageContainers = document.querySelectorAll('.image-container');
+        // Apply viewing angle adjustment if not 45 degrees
+        if (this.settings.angle !== 45) {
+            const angleOffset = Math.tan((this.settings.angle - 45) * Math.PI / 180) * height;
+            const angleCanvas = document.createElement('canvas');
+            angleCanvas.width = width;
+            angleCanvas.height = height;
+            const angleCtx = angleCanvas.getContext('2d');
             
-            imageContainers.forEach(container => {
-                let timeoutId = null;
-                
-                container.addEventListener('mousemove', (e) => {
-                    if (timeoutId) clearTimeout(timeoutId);
-                    
-                    const rect = container.getBoundingClientRect();
-                    const x = (e.clientX - rect.left) / rect.width;
-                    const y = (e.clientY - rect.top) / rect.height;
-                    
-                    const rotateX = (y - 0.5) * 20;
-                    const rotateY = (x - 0.5) * 20;
-                    
-                    container.style.transform = `
-                        perspective(1000px) 
-                        rotateX(${-rotateX}deg) 
-                        rotateY(${rotateY}deg) 
-                        scale3d(1.05, 1.05, 1.05)
-                    `;
-                    
-                    const overlay = container.querySelector('.image-overlay');
-                    overlay.style.transform = `
-                        translateZ(50px) 
-                        rotateX(${rotateX * 0.5}deg) 
-                        rotateY(${-rotateY * 0.5}deg)
-                    `;
-                });
-                
-                container.addEventListener('mouseleave', () => {
-                    timeoutId = setTimeout(() => {
-                        container.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)';
-                        const overlay = container.querySelector('.image-overlay');
-                        overlay.style.transform = 'translateZ(0) rotateX(0) rotateY(0)';
-                    }, 100);
-                });
-                
-                container.addEventListener('mouseenter', () => {
-                    if (timeoutId) clearTimeout(timeoutId);
-                });
-            });
-
-            // Image load verification
-            document.querySelectorAll('.comparison-image').forEach(img => {
-                img.addEventListener('load', () => {
-                    console.log(`Loaded: ${img.alt}`);
-                    img.style.opacity = 1;
-                });
-                
-                img.addEventListener('error', () => {
-                    console.error(`Failed to load: ${img.alt}`);
-                    img.style.opacity = 0.5;
-                });
-            });
+            angleCtx.drawImage(ctx.canvas, 0, 0);
+            ctx.clearRect(0, 0, width, height);
+            ctx.transform(1, 0, angleOffset / height, 1, 0, 0);
+            ctx.drawImage(angleCanvas, 0, 0);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
         }
+    }
 
-        document.addEventListener('DOMContentLoaded', initialize3DEffects);
-    </script>
+    updatePreview(imageUrl) {
+        const standardImage = document.getElementById('standardImage');
+        const enhancedImage = document.getElementById('enhancedImage');
+        
+        if (this.currentView === 'standard') {
+            if (standardImage) standardImage.src = imageUrl;
+        } else {
+            if (enhancedImage) enhancedImage.src = imageUrl;
+        }
+        
+        const output = document.getElementById('output');
+        if (output) {
+            const img = new Image();
+            img.src = imageUrl;
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            output.innerHTML = '';
+            output.appendChild(img);
+        }
+    }
+
+    toggleView() {
+        const standardImage = document.getElementById('standardImage');
+        const enhancedImage = document.getElementById('enhancedImage');
+        const label = document.getElementById('comparisonLabel');
+
+        if (this.currentView === 'standard') {
+            if (standardImage) standardImage.style.opacity = '0';
+            if (enhancedImage) enhancedImage.style.opacity = '1';
+            if (label) label.textContent = 'Enhanced View';
+            this.currentView = 'enhanced';
+        } else {
+            if (standardImage) standardImage.style.opacity = '1';
+            if (enhancedImage) enhancedImage.style.opacity = '0';
+            if (label) label.textContent = 'Standard View';
+            this.currentView = 'standard';
+        }
+    }
+
+    initialize3DEffects() {
+        const container = document.getElementById('interactiveContainer');
+        if (!container) return;
+
+        let timeoutId = null;
+
+        container.addEventListener('mousemove', (e) => {
+            if (timeoutId) clearTimeout(timeoutId);
+
+            const rect = container.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+
+            const rotateX = (y - 0.5) * 20;
+            const rotateY = (x - 0.5) * 20;
+
+            container.style.transform = `
+                perspective(1000px) 
+                rotateX(${-rotateX}deg) 
+                rotateY(${rotateY}deg) 
+                scale3d(1.05, 1.05, 1.05)
+            `;
+
+            const overlay = container.querySelector('.image-overlay');
+            if (overlay) {
+                overlay.style.transform = `
+                    translateZ(50px) 
+                    rotateX(${rotateX * 0.5}deg) 
+                    rotateY(${-rotateY * 0.5}deg)
+                `;
+            }
+        });
+
+        container.addEventListener('mouseleave', () => {
+            timeoutId = setTimeout(() => {
+                container.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) scale3d(1, 1, 1)';
+                const overlay = container.querySelector('.image-overlay');
+                if (overlay) {
+                    overlay.style.transform = 'translateZ(0) rotateX(0) rotateY(0)';
+                }
+            }, 100);
+        });
+    }
+
+    showStatus(message, type) {
+        const statusDiv = document.getElementById('statusMessage');
+        if (!statusDiv) return;
+
+        statusDiv.className = `status-message ${type}`;
+        statusDiv.textContent = message;
+        setTimeout(() => {
+            statusDiv.className = 'status-message';
+            statusDiv.textContent = '';
+        }, 3000);
+    }
+
+    updateOutput() {
+        if (this.sourceImage) {
+            this.applyLenticularEffect(this.sourceImage)
+                .then(imageUrl => this.updatePreview(imageUrl))
+                .catch(error => {
+                    console.error('Error updating output:', error);
+                    this.showStatus('Error updating output', 'error');
+                });
+        }
+    }
+}
+
+// Theme toggling functionality
+function toggleTheme() {
+    const body = document.body;
+    if (body.getAttribute('data-theme') === 'light') {
+        body.removeAttribute('data-theme');
+    } else {
+        body.setAttribute('data-theme', 'light');
+    }
+}
+
+// Initialize the engine when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    window.lenticularEngine = new LenticularEngine();
+});
+</script>
 </body>
 </html>
