@@ -250,10 +250,27 @@
                     <li>Basic Rendering Capabilities</li>
                     <li>Standard Resolution</li>
                 </ul>
-                <button class="cta-button" onclick="handlePayment('basic', 999)">
-                    <span class="spinner"></span>
-                    <span class="button-text">Get Started</span>
-                </button>
+                <div id="paypal-button-container-P-4A47154330062743GM5KIXUQ"></div>
+<script src="https://www.paypal.com/sdk/js?client-id=AZllIyLc516tf0cbPYsAP7STd9UG1lXvKZOSqodlghwKpm4oRN0F6EMVNiKoOUzfs91AaeagLtg55geR&vault=true&intent=subscription" data-sdk-integration-source="button-factory"></script>
+<script>
+  paypal.Buttons({
+      style: {
+          shape: 'rect',
+          color: 'black',
+          layout: 'horizontal',
+          label: 'subscribe'
+      },
+      createSubscription: function(data, actions) {
+        return actions.subscription.create({
+          /* Creates the subscription */
+          plan_id: 'P-4A47154330062743GM5KIXUQ'
+        });
+      },
+      onApprove: function(data, actions) {
+        alert(data.subscriptionID); // You can add optional success message for the subscriber here
+      }
+  }).render('#paypal-button-container-P-4A47154330062743GM5KIXUQ'); // Renders the PayPal button
+</script>
             </div>
 
             <!-- Pro Plan -->
@@ -291,77 +308,5 @@
     <footer>
         <p>&copy; 2024 LumenOS. All rights reserved.</p>
     </footer>
-
-    <script>
-        // Initialize Yoco SDK
-        const yoco = new window.YocoSDK({
-            publicKey: 'pk_live_5e73b676rr5mqEMe1a24'
-        });
-
-        // Handle payment processing
-        function handlePayment(planId, amountInCents) {
-            // Show loading state
-            const button = document.querySelector(`[data-plan="${planId}"] .cta-button`);
-            button.classList.add('processing');
-
-            yoco.showPopup({
-                amountInCents: amountInCents,
-                currency: 'USD',
-                name: planId === 'basic' ? 'Basic A.R.E Plan' : 'Pro A.R.E Plan',
-                description: 'Monthly Subscription',
-                callback: function(result) {
-                    if (result.error) {
-                        console.error('Error:', result.error.message);
-                        alert('Payment failed: ' + result.error.message);
-                    } else {
-                        sendTokenToServer(result.id, planId, amountInCents)
-                            .then(() => {
-                                window.location.href = '/dashboard';
-                            })
-                            .catch(error => {
-                                alert('Payment processing failed. Please try again.');
-                                console.error('Error:', error);
-                            });
-                    }
-                    button.classList.remove('processing');
-                }
-            });
-        }
-
-        // Send payment token to server
-        async function sendTokenToServer(token, planId, amount) {
-            try {
-                const response = await fetch('/api/process-payment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        token,
-                        planId,
-                        amount
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('Payment processing failed');
-                }
-
-                return await response.json();
-            } catch (error) {
-                console.error('Error:', error);
-                throw error;
-            }
-        }
-
-        // Add selection effect to price cards
-        document.querySelectorAll('.price-card').forEach(card => {
-            card.addEventListener('click', () => {
-                document.querySelectorAll('.price-card').forEach(c => 
-                    c.classList.remove('selected'));
-                card.classList.add('selected');
-            });
-        });
-    </script>
 </body>
 </html>
