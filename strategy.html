@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        :root {
+            --primary: #2563eb;    
+            --secondary: #475569;  
+            --success: #22c55e;    
+            --danger: #ef4444;     
+            --warning: #eab308;    
+            --background: #f8fafc; 
+            --text: #1e293b;       
+        }
+        /* Original styles */
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--background);
+            color: var(--text);
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .matrix {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            background: var(--secondary);
+            padding: 2px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .cell {
+            background: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+        }
+        .header {
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+        }
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s;
+            margin: 5px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background: var(--success); color: white; }
+        .warning { background: var(--warning); color: white; }
+        .charts { 
+            margin-top: 20px;
+            height: 400px;
+        }
+        .chart-container {
+            height: 200px;
+            margin-bottom: 20px;
+        }
+
+        /* New UI enhancement styles */
+        .hint-box {
+            background: #f8fafc;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .move-history {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .move-indicator {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .strategy-preview {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .preview-card {
+            padding: 10px;
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Game Theory Simulator</h1>
+        
+        <!-- Scenario Selection -->
+        <div class="scenario-select panel">
+            <h2>Select Scenario</h2>
+            <select id="scenarioSelect" onchange="changeScenario()">
+                <option value="classic">Classic Prisoner's Dilemma</option>
+                <option value="business">Business Negotiation</option>
+                <option value="market">Market Competition</option>
+                <option value="resource">Resource Management</option>
+            </select>
+            
+            <div class="hint-box">
+                <h3>Current Scenario</h3>
+                <div id="scenarioDescription"></div>
+                <div id="scenarioHint" class="theory-explanation"></div>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <!-- Game Interface -->
+            <div class="panel">
+                <h2>Decision Matrix</h2>
+                
+                <!-- Move History -->
+                <div class="move-history" id="moveHistory"></div>
+                
+                <!-- Strategy Preview -->
+                <div class="strategy-preview">
+                    <div class="preview-card">
+                        <h4>If You Cooperate</h4>
+                        <div id="cooperatePreview"></div>
+                    </div>
+                    <div class="preview-card">
+                        <h4>If You Compete</h4>
+                        <div id="defectPreview"></div>
+                    </div>
+                </div>
+                
+                <div class="matrix" id="payoffMatrix"></div>
+                <div class="controls">
+                    <button class="btn" id="choice1Btn" onclick="makeMove('cooperate')">Cooperate</button>
+                    <button class="btn" id="choice2Btn" onclick="makeMove('defect')">Defect</button>
+                </div>
+                <div class="score">Score: <span id="score">0</span></div>
+                <div class="status" id="status"></div>
+            </div>
+            
+            <!-- Analysis Panel -->
+            <div class="panel">
+                <h2>Analysis</h2>
+                <div id="analysis"></div>
+                <div class="charts">
+                    <div class="chart-container">
+                        <canvas id="strategyChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="payoffChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Original scenarios with enhanced descriptions
+        const scenarios = {
+            classic: {
+                name: "Classic Prisoner's Dilemma",
+                description: "The fundamental game theory scenario studying cooperation vs. competition",
+                theory: "Nash Equilibrium occurs when both players defect, despite cooperation being better for both",
+                hint: "Consider the long-term implications of your choices. Watch how your opponent responds.",
+                options: {
+                    choice1: "Cooperate",
+                    choice2: "Defect"
+                },
+                payoffs: {
+                    bothCooperate: [3, 3],
+                    bothDefect: [1, 1],
+                    cooperateDefect: [0, 5],
+                    defectCooperate: [5, 0]
+                }
+            },
+            business: {
+                name: "Business Negotiation",
+                description: "Strategic information sharing in negotiations",
+                theory: "Studies how trust and transparency affect long-term business relationships",
+                hint: "Building trust can lead to mutual benefits, but be wary of exploitation.",
+                options: {
+                    choice1: "Share Info",
+                    choice2: "Withhold"
+                },
+                payoffs: {
+                    bothCooperate: [4, 4],
+                    bothDefect: [1, 1],
+                    cooperateDefect: [0, 6],
+                    defectCooperate: [6, 0]
+                }
+            },
+            market: {
+                name: "Market Competition",
+                description: "Price competition between firms",
+                theory: "Demonstrates how price wars can lead to suboptimal market outcomes",
+                hint: "Aggressive pricing might give short-term gains but can trigger costly price wars.",
+                options: {
+                    choice1: "Maintain Price",
+                    choice2: "Cut Price"
+                },
+                payoffs: {
+                    bothCooperate: [5, 5],
+                    bothDefect: [2, 2],
+                    cooperateDefect: [1, 7],
+                    defectCooperate: [7, 1]
+                }
+            },
+            resource: {
+                name: "Resource Management",
+                description: "Managing shared resources in a community",
+                theory: "Illustrates the tragedy of the commons in resource allocation",
+                hint: "Sustainable practices benefit everyone, but exploitation can be tempting.",
+                options: {
+                    choice1: "Conserve",
+                    choice2: "Exploit"
+                },
+                payoffs: {
+                    bothCooperate: [4, 4],
+                    bothDefect: [1, 1],
+                    cooperateDefect: [0, 5],
+                    defectCooperate: [5, 0]
+                }
+            }
+        };
+
+        // Game state management
+        let state = {
+            round: 0,
+            score: 0,
+            history: [],
+            opponentHistory: [],
+            currentScenario: 'classic',
+            payoffs: scenarios.classic.payoffs
+        };
+
+        let strategyChart, payoffChart;
+
+        // Enhanced initialization function
+        function initCharts() {
+            if (strategyChart) strategyChart.destroy();
+            if (payoffChart) payoffChart.destroy();
+
+            const strategyCtx = document.getElementById('strategyChart').getContext('2d');
+            strategyChart = new Chart(strategyCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Cooperation Rate',
+                        data: [],
+                        borderColor: '#2563eb',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1
+                        }
+                    }
+                }
+            });
+
+            const payoffCtx = document.getElementById('payoffChart').getContext('2d');
+            payoffChart = new Chart(payoffCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Average Payoff',
+                        data: [],
+                        borderColor: '#22c55e',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Original game mechanics with enhanced feedback
+        function getAIMove() {
+            if (state.round < 2) return Math.random() > 0.5 ? 'cooperate' : 'defect';
+
+            const lastPlayerMove = state.history[state.history.length - 1];
+            const lastAIMove = state.opponentHistory[state.opponentHistory.length - 1];
+            const playerCoopRate = state.history.filter(m => m === 'cooperate').length / state.history.length;
+
+            // Enhanced AI strategy
+            switch(state.currentScenario) {
+                case 'business':
+                    if (playerCoopRate > 0.6) return 'cooperate';
+                    break;
+                case 'market':
+                    if (playerCoopRate < 0.4) return 'defect';
+                    break;
+                case 'resource':
+                    if (lastPlayerMove === 'cooperate') return Math.random() > 0.7 ? 'defect' : 'cooperate';
+                    break;
+            }
+
+            if (playerCoopRate > 0.7) {
+                return Math.random() > 0.8 ? 'defect' : 'cooperate';
+            } else if (playerCoopRate < 0.3) {
+                return Math.random() > 0.4 ? 'cooperate' : 'defect';
+            }
+
+            return lastPlayerMove === lastAIMove ? lastAIMove : 
+                   (lastAIMove === 'cooperate' ? 'defect' : 'cooperate');
+        }
+
+        function makeMove(playerMove) {
+            const aiMove = getAIMove();
+            state.history.push(playerMove);
+            state.opponentHistory.push(aiMove);
+            
+            let payoff;
+            if (playerMove === 'cooperate' && aiMove === 'cooperate') {
+                payoff = state.payoffs.bothCooperate[0];
+            } else if (playerMove === 'cooperate' && aiMove === 'defect') {
+                payoff = state.payoffs.cooperateDefect[0];
+            } else if (playerMove === 'defect' && aiMove === 'cooperate') {
+                payoff = state.payoffs.defectCooperate[0];
+            } else {
+                payoff = state.payoffs.bothDefect[0];
+            }
+            
+            state.score += payoff;
+            state.round++;
+            
+            updateUI(playerMove, aiMove, payoff);
+            updateCharts();
+            analyzeStrategy();
+            updateMoveHistory();
+        }
+
+        // New UI update functions
+        function updateMoveHistory() {
+            const history = document.getElementById('moveHistory');
+            const recentMoves = state.history.slice(-5);
+            history.innerHTML = recentMoves.map((move, i) => `
+                <div class="move-indicator ${move}">
+                    Round ${state.round - (recentMoves.length - i - 1)}:
+                    ${scenarios[state.currentScenario].options[move === 'cooperate' ? 'choice1' : 'choice2']}
+                </div>
+            `).join('');
+        }
+
+        function updatePreview() {
+            const scenario = scenarios[state.currentScenario];
+            document.getElementById('cooperatePreview').innerHTML = `
+                Best case: +${scenario.payoffs.bothCooperate[0]} (mutual cooperation)<br>
+                Worst case: +${scenario.payoffs.cooperateDefect[0]} (opponent defects)
+            `;
+            document.getElementById('defectPreview').innerHTML = `
+                Best case: +${scenario.payoffs.defectCooperate[0]} (exploit cooperation)<br>
+                Worst case: +${scenario.payoffs.bothDefect[0]} (mutual defection)
+            `;
+        }
+
+        // Enhanced scenario change function
+        function changeScenario() {
+            const scenario = document.getElementById('scenarioSelect').value;
+            state.currentScenario = scenario;
+            state.payoffs = scenarios[scenario].payoffs;
+            
+            document.getElementById('scenarioDescription').innerHTML = `
+                <p><strong>${scenarios[scenario].description}</strong></p>
+            `;
+            document.getElementById('scenarioHint').innerHTML = `
+                <p><em>${scenarios[scenario].hint}</em></p>
+            `;
+            document.getElementById('choice1Btn').textContent = scenarios[scenario].options.choice1;
+            document.getElementById('choice2Btn').textContent = scenarios[scenario].options.choice2;
+            
+            state.round = 0;
+            state.score = 0;
+            state.history = [];
+            state.opponentHistory = [];
+            
+            initMatrix();
+            initCharts();
+            updateUI('reset', 'reset', 0);
+            updatePreview();
+            document.getElementById('analysis').innerHTML = '<h3>Strategy Analysis</h3><p>Make your first move to begin analysis.</p>';
+        }
+
+        function initMatrix() {
+            const matrix = document.getElementById('payoffMatrix');
+            const scenario = scenarios[state.currentScenario];
+            matrix.innerHTML = `
+                <div class="cell header">You / AI</div>
+                <div class="cell header">${scenario.options.choice1}</div>
+                <div class="cell header">${scenario.options.choice2}</div>
+                <div class="cell header">${scenario.options.choice1}</div>
+                <div class="cell">${state.payoffs.bothCooperate[0]},${state.payoffs.bothCooperate[1]}</div>
+                <div class="cell">${state.payoffs.cooperateDefect[0]},${state.payoffs.cooperateDefect[1]}</div>
+                <div class="cell header">${scenario.options.choice2}</div>
+                <div class="cell">${state.payoffs.defectCooperate[0]},${state.payoffs.defectCooperate[1]}</div>
+                <div class="cell">${state.payoffs.bothDefect[0]},${state.payoffs.bothDefect[1]}</div>
+            `;
+        }
+
+        function updateUI(playerMove, aiMove, payoff) {
+            document.getElementById('score').textContent = state.score;
+            
+            const status = document.getElementById('status');
+            if (playerMove === 'reset') {
+                status.textContent = 'New game started. Choose your strategy!';
+                status.className = 'status';
+                return;
+            }
+            
+            const scenario = scenarios[state.currentScenario];
+            const playerChoice = scenario.options[playerMove === 'cooperate' ? 'choice1' : 'choice2'];
+            const aiChoice = scenario.options[aiMove === 'cooperate' ? 'choice1' : 'choice2'];
+            
+            status.textContent = `Round ${state.round}: You chose ${playerChoice}, AI chose ${aiChoice}. Payoff: ${payoff}`;
+            status.className = 'status ' + (payoff > 2 ? 'success' : 'warning');
+        }
+
+        function updateCharts() {
+            const cooperationRate = state.history.filter(m => m === 'cooperate').length / state.history.length;
+            const avgPayoff = state.score / state.round;
+
+            strategyChart.data.labels.push(state.round);
+            strategyChart.data.datasets[0].data.push(cooperationRate);
+            strategyChart.update();
+
+            payoffChart.data.labels.push(state.round);
+            payoffChart.data.datasets[0].data.push(avgPayoff);
+            payoffChart.update();
+        }
+
+        function analyzeStrategy() {
+            const analysis = document.getElementById('analysis');
+            const recentMoves = state.history.slice(-5);
+            const recentCoopRate = recentMoves.filter(m => m === 'cooperate').length / recentMoves.length;
+            const scenario = scenarios[state.currentScenario];
+            
+            let feedback = '<h3>Strategy Analysis</h3>';
+            
+            if (state.round < 5) {
+                feedback += '<p>Building initial strategy profile...</p>';
+                feedback += `<p>Hint: ${scenario.hint}</p>`;
+            } else {
+                feedback += `<p>Recent ${scenario.options.choice1} rate: ${(recentCoopRate * 100).toFixed(1)}%</p>`;
+                
+                // Scenario-specific analysis
+                const pattern = detectPattern();
+                const avgPayoff = state.score / state.round;
+                const equilStatus = calculateNashEquilibrium();
+
+                feedback += `<div class="hint-box">
+                    <p><strong>Pattern:</strong> ${pattern}</p>
+                    <p><strong>Average Payoff:</strong> ${avgPayoff.toFixed(2)}</p>
+                    <p><strong>Equilibrium Status:</strong> ${equilStatus}</p>
+                </div>`;
+
+                // Strategic advice based on scenario and performance
+                if (avgPayoff > 3.5) {
+                    feedback += '<p class="success">Excellent strategy! Maintaining optimal balance.</p>';
+                } else if (avgPayoff < 2) {
+                    feedback += '<p class="warning">Consider adjusting your approach. Review the scenario hints.</p>';
+                }
+
+                feedback += `<div class="theory-explanation">
+                    <h4>Game Theory Insight:</h4>
+                    <p>${scenario.theory}</p>
+                </div>`;
+            }
+            
+            analysis.innerHTML = feedback;
+        }
+
+        function detectPattern() {
+            if (state.history.length < 5) return "Building pattern data...";
+            
+            const recent = state.history.slice(-5);
+            const cooperateCount = recent.filter(m => m === 'cooperate').length;
+            
+            if (cooperateCount === 5) return "Pure Cooperation Strategy";
+            if (cooperateCount === 0) return "Pure Competition Strategy";
+            if (cooperateCount >= 4) return "Mostly Cooperative";
+            if (cooperateCount <= 1) return "Mostly Competitive";
+            
+            // Check for alternating pattern
+            let alternating = true;
+            for (let i = 1; i < recent.length; i++) {
+                if (recent[i] === recent[i-1]) {
+                    alternating = false;
+                    break;
+                }
+            }
+            if (alternating) return "Alternating Strategy";
+            
+            return "Mixed Strategy";
+        }
+
+        function calculateNashEquilibrium() {
+            const payoffs = state.payoffs;
+            
+            // Check if mutual cooperation is Nash
+            const coopIsNash = payoffs.bothCooperate[0] >= payoffs.defectCooperate[0] &&
+                             payoffs.bothCooperate[1] >= payoffs.cooperateDefect[1];
+            
+            // Check if mutual defection is Nash
+            const defectIsNash = payoffs.bothDefect[0] >= payoffs.cooperateDefect[0] &&
+                               payoffs.bothDefect[1] >= payoffs.defectCooperate[1];
+            
+            if (coopIsNash && defectIsNash) return "Multiple equilibria possible";
+            if (coopIsNash) return "Cooperation is optimal";
+            if (defectIsNash) return "Competition is optimal";
+            return "No pure strategy equilibrium";
+        }
+
+        // Initialize game
+        window.onload = function() {
+            changeScenario();
+        };
+</script>
+</body>
+<html>
