@@ -186,282 +186,329 @@
     </div>
 
     <script>
-        class MobileStereoscopicEngine {
-            constructor() {
-                this.setupDOM();
-                this.setupEventListeners();
-                this.isMobileMode = false;
-                this.isAnimating = false;
-                this.animationPhase = 0;
-                this.frames = [];
+        class OptimizedStereoscopicEngine {
+    constructor() {
+        this.setupDOM();
+        this.setupEventListeners();
+        this.isMobileMode = false;
+        this.isAnimating = false;
+        this.animationPhase = 0;
+        this.frames = [];
+        // Pre-create reusable canvases
+        this.leftViewCanvas = document.createElement('canvas');
+        this.rightViewCanvas = document.createElement('canvas');
+        this.barrierCanvas = document.createElement('canvas');
+        // Create off-screen buffer
+        this.buffer = document.createElement('canvas');
+        this.bufferCtx = this.buffer.getContext('2d', { alpha: false });
+        // Store previous values for dirty checking
+        this.previousValues = {
+            barrierWidth: 0,
+            barrierOpacity: 0
+        };
+    }
+
+    setupDOM() {
+        this.dropZone = document.getElementById('dropZone');
+        this.imageInput = document.getElementById('imageInput');
+        this.outputCanvas = document.getElementById('outputCanvas');
+        this.leftPreview = document.getElementById('leftPreview');
+        this.rightPreview = document.getElementById('rightPreview');
+        // Use alpha: false for better performance when we don't need transparency
+        this.ctx = this.outputCanvas.getContext('2d', { alpha: false });
+        this.modeIndicator = document.getElementById('modeIndicator');
+    }
+
+    setupEventListeners() {
+        // File upload handling
+        this.dropZone.addEventListener('click', () => this.imageInput.click());
+        this.dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.add('drag-over');
+        });
+        this.dropZone.addEventListener('dragleave', () => {
+            this.dropZone.classList.remove('drag-over');
+        });
+        this.dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                this.loadImage(file);
             }
+        });
+        this.imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) this.loadImage(file);
+        });
 
-            setupDOM() {
-                this.dropZone = document.getElementById('dropZone');
-                this.imageInput = document.getElementById('imageInput');
-                this.outputCanvas = document.getElementById('outputCanvas');
-                this.leftPreview = document.getElementById('leftPreview');
-                this.rightPreview = document.getElementById('rightPreview');
-                this.ctx = this.outputCanvas.getContext('2d');
-                this.modeIndicator = document.getElementById('modeIndicator');
-            }
+        // Mode toggle
+        document.getElementById('toggleMode').addEventListener('click', () => {
+            this.isMobileMode = !this.isMobileMode;
+            this.modeIndicator.textContent = this.isMobileMode ? 'Mobile Mode' : 'Desktop Mode';
+            if (this.sourceImage) this.updateView();
+        });
 
-            setupEventListeners() {
-                // File upload handling
-                this.dropZone.addEventListener('click', () => this.imageInput.click());
-                this.dropZone.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    this.dropZone.classList.add('drag-over');
-                });
-                this.dropZone.addEventListener('dragleave', () => {
-                    this.dropZone.classList.remove('drag-over');
-                });
-                this.dropZone.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    this.dropZone.classList.remove('drag-over');
-                    const file = e.dataTransfer.files[0];
-                    if (file && file.type.startsWith('image/')) {
-                        this.loadImage(file);
-                    }
-                });
-                this.imageInput.addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (file) this.loadImage(file);
-                });
+        // Animation controls
+        document.getElementById('startAnim').addEventListener('click', () => this.startAnimation());
+        document.getElementById('stopAnim').addEventListener('click', () => this.stopAnimation());
+        document.getElementById('exportGif').addEventListener('click', () => this.exportAsGif());
 
-                // Mode toggle
-                document.getElementById('toggleMode').addEventListener('click', () => {
-                    this.isMobileMode = !this.isMobileMode;
-                    this.modeIndicator.textContent = this.isMobileMode ? 'Mobile Mode' : 'Desktop Mode';
-                    if (this.sourceImage) this.updateView();
-                });
+        // Update on control changes using debounce for performance
+        const controls = ['separation', 'animSpeed', 'motionRange', 'barrierWidth', 'barrierOpacity', 'depthIntensity'];
+        controls.forEach(id => {
+            const element = document.getElementById(id);
+            element.addEventListener('input', this.debounce(() => {
+                if (this.sourceImage) this.updateView();
+            }, 16)); // Debounced to roughly match 60fps
+        });
+    }
 
-                // Animation controls
-                document.getElementById('startAnim').addEventListener('click', () => this.startAnimation());
-                document.getElementById('stopAnim').addEventListener('click', () => this.stopAnimation());
-                document.getElementById('exportGif').addEventListener('click', () => this.exportAsGif());
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 
-                // Update on control changes
-                ['separation', 'animSpeed', 'motionRange', 'barrierWidth', 'barrierOpacity', 'depthIntensity']
-                    .forEach(id => {
-                        document.getElementById(id).addEventListener('input', () => {
-                            if (this.sourceImage) this.updateView();
-                        });
-                    });
-            }
-
-            loadImage(file) {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    this.sourceImage = new Image();
-                    this.sourceImage.onload = () => {
-                        this.setupCanvases();
-                        this.updateView();
-                    };
-                    this.sourceImage.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-
-            setupCanvases() {
-                const maxWidth = 800;
-                const scale = Math.min(1, maxWidth / this.sourceImage.width);
-                
-                this.outputCanvas.width = this.sourceImage.width * scale;
-                this.outputCanvas.height = this.sourceImage.height * scale;
-                
-                this.leftPreview.width = this.rightPreview.width = this.outputCanvas.width / 4;
-                this.leftPreview.height = this.rightPreview.height = this.outputCanvas.height / 4;
-            }
-
-            createView(offset, phase = null) {
-                const canvas = document.createElement('canvas');
-                canvas.width = this.outputCanvas.width;
-                canvas.height = this.outputCanvas.height;
-                const ctx = canvas.getContext('2d');
-                
-                const baseOffset = document.getElementById('separation').value;
-                const depthIntensity = document.getElementById('depthIntensity').value / 100;
-                const motionRange = document.getElementById('motionRange').value / 100;
-                
-                // Calculate dynamic separation based on animation phase if provided
-                let dynamicOffset = offset * baseOffset / 25; // Increased base separation
-                if (phase !== null) {
-                    // Add sine wave motion to separation
-                    dynamicOffset *= (1 + Math.sin(phase) * motionRange);
-                }
-
-                // Apply perspective transform for more dramatic depth
-                ctx.save();
-                
-                // Scale slightly to prevent edge artifacts
-                const scale = 1 + Math.abs(dynamicOffset) / 1000;
-                ctx.scale(scale, scale);
-                ctx.translate(-this.outputCanvas.width * (scale - 1) / 2, -this.outputCanvas.height * (scale - 1) / 2);
-                
-                // Apply horizontal shift
-                ctx.translate(dynamicOffset, 0);
-                
-                // Add subtle vertical shift based on horizontal position
-                ctx.translate(0, Math.abs(dynamicOffset) * 0.1);
-                
-                // Draw the image
-                ctx.drawImage(this.sourceImage, 0, 0, canvas.width, canvas.height);
-                ctx.restore();
-
-                return canvas;
-            }
-
-            createBarrierStrips() {
-                const canvas = document.createElement('canvas');
-                canvas.width = this.outputCanvas.width;
-                canvas.height = this.outputCanvas.height;
-                const ctx = canvas.getContext('2d');
-
-                const barrierWidth = parseInt(document.getElementById('barrierWidth').value);
-                const opacity = document.getElementById('barrierOpacity').value / 100;
-
-                for (let x = 0; x < canvas.width; x += barrierWidth * 2) {
-                    ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
-                    ctx.fillRect(x, 0, barrierWidth, canvas.height);
-                }
-
-                return canvas;
-            }
-
-            updateView() {
-                if (!this.sourceImage) return;
-
-                // Create views with dynamic separation for animation
-                const leftView = this.createView(-1, this.animationPhase);
-                const rightView = this.createView(1, this.animationPhase);
-
-                // Update previews
-                this.leftPreview.getContext('2d').drawImage(leftView, 0, 0, 
-                    this.leftPreview.width, this.leftPreview.height);
-                this.rightPreview.getContext('2d').drawImage(rightView, 0, 0, 
-                    this.rightPreview.width, this.rightPreview.height);
-
-                if (this.isMobileMode) {
-                    // Mobile mode: smooth transition
-                    const phase = (1 + Math.sin(this.animationPhase)) / 2;
-                    this.ctx.globalAlpha = 1 - phase;
-                    this.ctx.drawImage(leftView, 0, 0);
-                    this.ctx.globalAlpha = phase;
-                    this.ctx.drawImage(rightView, 0, 0);
-                    this.ctx.globalAlpha = 1;
-                } else {
-                    // Desktop mode: barrier strip effect
-                    const barrierWidth = parseInt(document.getElementById('barrierWidth').value);
-                    
-                    for (let x = 0; x < this.outputCanvas.width; x += barrierWidth * 2) {
-                        // Left view strip
-                        this.ctx.drawImage(leftView, 
-                            x, 0, barrierWidth, this.outputCanvas.height,
-                            x, 0, barrierWidth, this.outputCanvas.height);
-                        
-                        // Right view strip
-                        if (x + barrierWidth < this.outputCanvas.width) {
-                            this.ctx.drawImage(rightView,
-                                x + barrierWidth, 0, barrierWidth, this.outputCanvas.height,
-                                x + barrierWidth, 0, barrierWidth, this.outputCanvas.height);
-                        }
-                    }
-
-                    // Apply barrier overlay
-                    const barrier = this.createBarrierStrips();
-                    this.ctx.drawImage(barrier, 0, 0);
-                }
-            }
-
-            startAnimation() {
-                if (this.isAnimating) return;
-                this.isAnimating = true;
-                this.animate();
-            }
-
-            stopAnimation() {
-                this.isAnimating = false;
-                if (this.animationFrame) {
-                    cancelAnimationFrame(this.animationFrame);
-                }
-            }
-
-            animate() {
-                if (!this.isAnimating) return;
-
-                const speed = document.getElementById('animSpeed').value / 1000;
-                this.animationPhase += speed;
+    loadImage(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.sourceImage = new Image();
+            this.sourceImage.onload = () => {
+                this.setupCanvases();
                 this.updateView();
+            };
+            this.sourceImage.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
 
-                this.animationFrame = requestAnimationFrame(() => this.animate());
-            }
+    setupCanvases() {
+        const maxWidth = 800;
+        const scale = Math.min(1, maxWidth / this.sourceImage.width);
+        
+        const width = this.sourceImage.width * scale;
+        const height = this.sourceImage.height * scale;
+        
+        // Set dimensions for all canvases at once
+        [this.outputCanvas, this.buffer, this.leftViewCanvas, this.rightViewCanvas, this.barrierCanvas]
+            .forEach(canvas => {
+                canvas.width = width;
+                canvas.height = height;
+            });
+        
+        // Preview canvases are quarter size
+        this.leftPreview.width = this.rightPreview.width = width / 4;
+        this.leftPreview.height = this.rightPreview.height = height / 4;
+    }
 
-           async exportAsGif() {
-                if (!this.sourceImage) return;
-
-                this.progressPanel.style.display = 'block';
-                this.progressBar.style.width = '0%';
-                this.progressText.textContent = 'Preparing GIF...';
-
-                try {
-                    const frameCount = 30;
-                    const gif = new GIF({
-                        workers: 2,
-                        quality: 10,
-                        width: this.outputCanvas.width,
-                        height: this.outputCanvas.height,
-                        workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
-                    });
-
-                    const wasAnimating = this.isAnimating;
-                    this.stopAnimation();
-
-                    for (let i = 0; i < frameCount; i++) {
-                        this.progressText.textContent = `Generating frame ${i + 1}/${frameCount}`;
-                        this.progressBar.style.width = `${(i / frameCount) * 50}%`;
-                        
-                        const phase = (i / frameCount) * Math.PI * 2;
-                        this.animationPhase = phase;
-                        this.updateView();
-                        
-                        gif.addFrame(this.outputCanvas, { delay: 50, copy: true });
-                        await new Promise(resolve => setTimeout(resolve, 0));
-                    }
-
-                    return new Promise((resolve, reject) => {
-                        gif.on('finished', (blob) => {
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'stereoscopic.gif';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                            
-                            this.progressPanel.style.display = 'none';
-                            if (wasAnimating) this.startAnimation();
-                            resolve();
-                        });
-
-                        gif.on('progress', (p) => {
-                            this.progressBar.style.width = `${50 + (p * 50)}%`;
-                            this.progressText.textContent = `Encoding GIF: ${Math.round(p * 100)}%`;
-                        });
-
-                        gif.render();
-                    });
-                } catch (error) {
-                    console.error('Error generating GIF:', error);
-                    this.progressPanel.style.display = 'none';
-                    alert('Error generating GIF. Please try again.');
-                }
-            }
+    createView(offset, phase = null) {
+        const canvas = offset < 0 ? this.leftViewCanvas : this.rightViewCanvas;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        const baseOffset = document.getElementById('separation').value;
+        const depthIntensity = document.getElementById('depthIntensity').value / 100;
+        const motionRange = document.getElementById('motionRange').value / 100;
+        
+        let dynamicOffset = offset * baseOffset / 25;
+        if (phase !== null) {
+            dynamicOffset *= (1 + Math.sin(phase) * motionRange);
         }
 
-        // Initialize the engine
-        const engine = new MobileStereoscopicEngine();
+        ctx.save();
+        // Use integer values for better performance
+        const scale = 1 + Math.abs(dynamicOffset) / 1000;
+        ctx.setTransform(
+            scale,
+            0,
+            0,
+            scale,
+            -canvas.width * (scale - 1) / 2 + dynamicOffset,
+            -canvas.height * (scale - 1) / 2 + Math.abs(dynamicOffset) * 0.1
+        );
+        
+        ctx.drawImage(this.sourceImage, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+
+        return canvas;
+    }
+
+    createBarrierStrips() {
+        const barrierWidth = parseInt(document.getElementById('barrierWidth').value);
+        const opacity = document.getElementById('barrierOpacity').value / 100;
+        
+        // Only recreate barrier if parameters changed
+        if (barrierWidth === this.previousValues.barrierWidth && 
+            opacity === this.previousValues.barrierOpacity) {
+            return this.barrierCanvas;
+        }
+        
+        const ctx = this.barrierCanvas.getContext('2d', { alpha: true });
+        ctx.clearRect(0, 0, this.barrierCanvas.width, this.barrierCanvas.height);
+        
+        // Draw barriers in a single path
+        ctx.beginPath();
+        for (let x = 0; x < this.barrierCanvas.width; x += barrierWidth * 2) {
+            ctx.rect(x, 0, barrierWidth, this.barrierCanvas.height);
+        }
+        ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+        ctx.fill();
+        
+        this.previousValues.barrierWidth = barrierWidth;
+        this.previousValues.barrierOpacity = opacity;
+        
+        return this.barrierCanvas;
+    }
+
+    updateView() {
+        if (!this.sourceImage) return;
+
+        const leftView = this.createView(-1, this.animationPhase);
+        const rightView = this.createView(1, this.animationPhase);
+
+        // Update previews using faster drawImage
+        const leftCtx = this.leftPreview.getContext('2d', { alpha: false });
+        const rightCtx = this.rightPreview.getContext('2d', { alpha: false });
+        leftCtx.drawImage(leftView, 0, 0, this.leftPreview.width, this.leftPreview.height);
+        rightCtx.drawImage(rightView, 0, 0, this.rightPreview.width, this.rightPreview.height);
+
+        // Clear buffer once
+        this.bufferCtx.clearRect(0, 0, this.buffer.width, this.buffer.height);
+
+        if (this.isMobileMode) {
+            const phase = (1 + Math.sin(this.animationPhase)) / 2;
+            this.bufferCtx.globalAlpha = 1 - phase;
+            this.bufferCtx.drawImage(leftView, 0, 0);
+            this.bufferCtx.globalAlpha = phase;
+            this.bufferCtx.drawImage(rightView, 0, 0);
+            this.bufferCtx.globalAlpha = 1;
+        } else {
+            const barrierWidth = parseInt(document.getElementById('barrierWidth').value);
+            
+            // Draw strips in batches for better performance
+            const batchSize = 10;
+            for (let i = 0; i < this.buffer.width; i += barrierWidth * 2 * batchSize) {
+                for (let j = 0; j < batchSize && i + j * barrierWidth * 2 < this.buffer.width; j++) {
+                    const x = i + j * barrierWidth * 2;
+                    // Draw left and right strips
+                    this.bufferCtx.drawImage(leftView, 
+                        x, 0, barrierWidth, this.buffer.height,
+                        x, 0, barrierWidth, this.buffer.height);
+                    
+                    if (x + barrierWidth < this.buffer.width) {
+                        this.bufferCtx.drawImage(rightView,
+                            x + barrierWidth, 0, barrierWidth, this.buffer.height,
+                            x + barrierWidth, 0, barrierWidth, this.buffer.height);
+                    }
+                }
+            }
+
+            // Apply barrier overlay
+            this.bufferCtx.drawImage(this.createBarrierStrips(), 0, 0);
+        }
+
+        // Single draw operation to main canvas
+        this.ctx.drawImage(this.buffer, 0, 0);
+    }
+
+    startAnimation() {
+        if (this.isAnimating) return;
+        this.isAnimating = true;
+        this.animate();
+    }
+
+    stopAnimation() {
+        this.isAnimating = false;
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+        }
+    }
+
+    animate() {
+        if (!this.isAnimating) return;
+
+        const speed = document.getElementById('animSpeed').value / 1000;
+        this.animationPhase += speed;
+        
+        // Use requestAnimationFrame timestamp for smoother animation
+        const animate = (timestamp) => {
+            if (!this.isAnimating) return;
+            this.updateView();
+            this.animationFrame = requestAnimationFrame(animate);
+        };
+        
+        this.animationFrame = requestAnimationFrame(animate);
+    }
+
+    async exportAsGif() {
+        if (!this.sourceImage) return;
+
+        try {
+            const frameCount = 30;
+            const gif = new GIF({
+                workers: 4, // Increased from 2 to 4 for faster processing
+                quality: 10,
+                width: this.outputCanvas.width,
+                height: this.outputCanvas.height,
+                workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+            });
+
+            const wasAnimating = this.isAnimating;
+            this.stopAnimation();
+
+            // Pre-render frames to avoid GIF encoding delays
+            const frames = [];
+            for (let i = 0; i < frameCount; i++) {
+                const phase = (i / frameCount) * Math.PI * 2;
+                this.animationPhase = phase;
+                this.updateView();
+                frames.push(this.outputCanvas.toDataURL('image/png'));
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+
+            // Add frames to GIF
+            for (const frame of frames) {
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = frame;
+                });
+                gif.addFrame(img, { delay: 50 });
+            }
+
+            return new Promise((resolve, reject) => {
+                gif.on('finished', (blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'stereoscopic.gif';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    if (wasAnimating) this.startAnimation();
+                    resolve();
+                });
+
+                gif.render();
+            });
+        } catch (error) {
+            console.error('Error generating GIF:', error);
+            alert('Error generating GIF. Please try again.');
+        }
+    }
+}
+
+// Initialize the engine
+const engine = new OptimizedStereoscopicEngine();
     </script>
 </body>
 </html>
