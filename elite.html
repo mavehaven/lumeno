@@ -186,7 +186,7 @@
     </div>
 
     <script>
-        class MobileStereoscopicEngine {
+class MobileStereoscopicEngine {
             constructor() {
                 this.setupDOM();
                 this.setupEventListeners();
@@ -194,6 +194,7 @@
                 this.isAnimating = false;
                 this.animationPhase = 0;
                 this.frames = [];
+                this.isProcessing = false;
             }
 
             setupDOM() {
@@ -204,10 +205,23 @@
                 this.rightPreview = document.getElementById('rightPreview');
                 this.ctx = this.outputCanvas.getContext('2d');
                 this.modeIndicator = document.getElementById('modeIndicator');
+                this.progressPanel = document.getElementById('progressPanel');
+                this.progressBar = document.getElementById('progressBar');
+                this.progressText = document.getElementById('progressText');
+                this.statusMessage = document.getElementById('statusMessage');
+                this.exportButton = document.getElementById('exportGif');
+            }
+
+            showStatus(message, type = 'success') {
+                this.statusMessage.textContent = message;
+                this.statusMessage.className = `status-message ${type}`;
+                this.statusMessage.style.display = 'block';
+                setTimeout(() => {
+                    this.statusMessage.style.display = 'none';
+                }, 3000);
             }
 
             setupEventListeners() {
-                // File upload handling
                 this.dropZone.addEventListener('click', () => this.imageInput.click());
                 this.dropZone.addEventListener('dragover', (e) => {
                     e.preventDefault();
@@ -222,6 +236,8 @@
                     const file = e.dataTransfer.files[0];
                     if (file && file.type.startsWith('image/')) {
                         this.loadImage(file);
+                    } else {
+                        this.showStatus('Please upload an image file', 'error');
                     }
                 });
                 this.imageInput.addEventListener('change', (e) => {
@@ -229,19 +245,18 @@
                     if (file) this.loadImage(file);
                 });
 
-                // Mode toggle
                 document.getElementById('toggleMode').addEventListener('click', () => {
                     this.isMobileMode = !this.isMobileMode;
                     this.modeIndicator.textContent = this.isMobileMode ? 'Mobile Mode' : 'Desktop Mode';
                     if (this.sourceImage) this.updateView();
                 });
 
-                // Animation controls
                 document.getElementById('startAnim').addEventListener('click', () => this.startAnimation());
                 document.getElementById('stopAnim').addEventListener('click', () => this.stopAnimation());
-                document.getElementById('exportGif').addEventListener('click', () => this.exportAsGif());
+                this.exportButton.addEventListener('click', () => {
+                    if (!this.isProcessing) this.exportAsGif();
+                });
 
-                // Update on control changes
                 ['separation', 'animSpeed', 'motionRange', 'barrierWidth', 'barrierOpacity', 'depthIntensity']
                     .forEach(id => {
                         document.getElementById(id).addEventListener('input', () => {
@@ -257,6 +272,9 @@
                     this.sourceImage.onload = () => {
                         this.setupCanvases();
                         this.updateView();
+                        this.dropZone.classList.add('has-image');
+                        this.showStatus('Image loaded successfully');
+                        this.exportButton.disabled = false;
                     };
                     this.sourceImage.src = e.target.result;
                 };
@@ -284,28 +302,20 @@
                 const depthIntensity = document.getElementById('depthIntensity').value / 100;
                 const motionRange = document.getElementById('motionRange').value / 100;
                 
-                // Calculate dynamic separation based on animation phase if provided
-                let dynamicOffset = offset * baseOffset / 25; // Increased base separation
+                let dynamicOffset = offset * baseOffset / 25;
                 if (phase !== null) {
-                    // Add sine wave motion to separation
                     dynamicOffset *= (1 + Math.sin(phase) * motionRange);
                 }
 
-                // Apply perspective transform for more dramatic depth
                 ctx.save();
                 
-                // Scale slightly to prevent edge artifacts
                 const scale = 1 + Math.abs(dynamicOffset) / 1000;
                 ctx.scale(scale, scale);
                 ctx.translate(-this.outputCanvas.width * (scale - 1) / 2, -this.outputCanvas.height * (scale - 1) / 2);
                 
-                // Apply horizontal shift
                 ctx.translate(dynamicOffset, 0);
+                ctx.translate(0, Math.abs(dynamicOffset) * 0.1 * depthIntensity);
                 
-                // Add subtle vertical shift based on horizontal position
-                ctx.translate(0, Math.abs(dynamicOffset) * 0.1);
-                
-                // Draw the image
                 ctx.drawImage(this.sourceImage, 0, 0, canvas.width, canvas.height);
                 ctx.restore();
 
@@ -321,8 +331,8 @@
                 const barrierWidth = parseInt(document.getElementById('barrierWidth').value);
                 const opacity = document.getElementById('barrierOpacity').value / 100;
 
+                ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
                 for (let x = 0; x < canvas.width; x += barrierWidth * 2) {
-                    ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
                     ctx.fillRect(x, 0, barrierWidth, canvas.height);
                 }
 
@@ -332,35 +342,31 @@
             updateView() {
                 if (!this.sourceImage) return;
 
-                // Create views with dynamic separation for animation
                 const leftView = this.createView(-1, this.animationPhase);
                 const rightView = this.createView(1, this.animationPhase);
 
-                // Update previews
                 this.leftPreview.getContext('2d').drawImage(leftView, 0, 0, 
                     this.leftPreview.width, this.leftPreview.height);
                 this.rightPreview.getContext('2d').drawImage(rightView, 0, 0, 
                     this.rightPreview.width, this.rightPreview.height);
 
                 if (this.isMobileMode) {
-                    // Mobile mode: smooth transition
                     const phase = (1 + Math.sin(this.animationPhase)) / 2;
+                    this.ctx.clearRect(0, 0, this.outputCanvas.width, this.outputCanvas.height);
                     this.ctx.globalAlpha = 1 - phase;
                     this.ctx.drawImage(leftView, 0, 0);
                     this.ctx.globalAlpha = phase;
                     this.ctx.drawImage(rightView, 0, 0);
                     this.ctx.globalAlpha = 1;
                 } else {
-                    // Desktop mode: barrier strip effect
                     const barrierWidth = parseInt(document.getElementById('barrierWidth').value);
+                    this.ctx.clearRect(0, 0, this.outputCanvas.width, this.outputCanvas.height);
                     
                     for (let x = 0; x < this.outputCanvas.width; x += barrierWidth * 2) {
-                        // Left view strip
                         this.ctx.drawImage(leftView, 
                             x, 0, barrierWidth, this.outputCanvas.height,
                             x, 0, barrierWidth, this.outputCanvas.height);
                         
-                        // Right view strip
                         if (x + barrierWidth < this.outputCanvas.width) {
                             this.ctx.drawImage(rightView,
                                 x + barrierWidth, 0, barrierWidth, this.outputCanvas.height,
@@ -368,7 +374,6 @@
                         }
                     }
 
-                    // Apply barrier overlay
                     const barrier = this.createBarrierStrips();
                     this.ctx.drawImage(barrier, 0, 0);
                 }
@@ -377,11 +382,15 @@
             startAnimation() {
                 if (this.isAnimating) return;
                 this.isAnimating = true;
+                document.getElementById('startAnim').classList.add('active');
+                document.getElementById('stopAnim').classList.remove('active');
                 this.animate();
             }
 
             stopAnimation() {
                 this.isAnimating = false;
+                document.getElementById('startAnim').classList.remove('active');
+                document.getElementById('stopAnim').classList.add('active');
                 if (this.animationFrame) {
                     cancelAnimationFrame(this.animationFrame);
                 }
@@ -397,9 +406,11 @@
                 this.animationFrame = requestAnimationFrame(() => this.animate());
             }
 
-           async exportAsGif() {
-                if (!this.sourceImage) return;
-
+            async exportAsGif() {
+                if (!this.sourceImage || this.isProcessing) return;
+                
+                this.isProcessing = true;
+                this.exportButton.disabled = true;
                 this.progressPanel.style.display = 'block';
                 this.progressBar.style.width = '0%';
                 this.progressText.textContent = 'Preparing GIF...';
@@ -429,39 +440,44 @@
                         await new Promise(resolve => setTimeout(resolve, 0));
                     }
 
-                    return new Promise((resolve, reject) => {
-                        gif.on('finished', (blob) => {
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'stereoscopic.gif';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                            
-                            this.progressPanel.style.display = 'none';
-                            if (wasAnimating) this.startAnimation();
-                            resolve();
-                        });
-
-                        gif.on('progress', (p) => {
-                            this.progressBar.style.width = `${50 + (p * 50)}%`;
-                            this.progressText.textContent = `Encoding GIF: ${Math.round(p * 100)}%`;
-                        });
-
-                        gif.render();
+                    gif.on('progress', (p) => {
+                        this.progressBar.style.width = `${50 + (p * 50)}%`;
+                        this.progressText.textContent = `Encoding GIF: ${Math.round(p * 100)}%`;
                     });
+
+                    gif.on('finished', (blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'stereoscopic.gif';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        this.progressPanel.style.display = 'none';
+                        this.exportButton.disabled = false;
+                        this.isProcessing = false;
+                        this.showStatus('GIF exported successfully!');
+                        
+                        if (wasAnimating) this.startAnimation();
+                    });
+
+                    gif.render();
                 } catch (error) {
                     console.error('Error generating GIF:', error);
                     this.progressPanel.style.display = 'none';
-                    alert('Error generating GIF. Please try again.');
+                    this.exportButton.disabled = false;
+                    this.isProcessing = false;
+                    this.showStatus('Error generating GIF. Please try again.', 'error');
                 }
             }
         }
 
-        // Initialize the engine
-        const engine = new MobileStereoscopicEngine();
+        // Initialize the engine when the page loads
+        window.addEventListener('load', () => {
+            const engine = new MobileStereoscopicEngine();
+        });
     </script>
 </body>
 </html>
