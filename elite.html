@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Mobile-Optimized Autostereoscopic Engine</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
@@ -9,65 +10,85 @@
             margin: 0 auto;
             padding: 20px;
             background: #f0f0f0;
+            line-height: 1.6;
         }
         .container {
             background: white;
             padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .upload-area {
-            border: 2px dashed #ccc;
-            padding: 20px;
+            border: 3px dashed #e0e0e0;
+            padding: 40px 20px;
             text-align: center;
             margin-bottom: 20px;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.3s ease;
+            background: #fafafa;
         }
         .upload-area:hover {
-            background: #f8f9fa;
+            background: #f0f7ff;
             border-color: #0070f3;
         }
         .upload-area.drag-over {
             background: #e3f2fd;
             border-color: #2196f3;
+            transform: scale(1.02);
+        }
+        .upload-area p {
+            margin: 0;
+            color: #666;
+            font-size: 1.1em;
+        }
+        .upload-area.has-image {
+            border-style: solid;
+            border-color: #4caf50;
+            background: #f1f8e9;
         }
         .controls {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
             margin: 20px 0;
         }
         .control-panel {
             background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .control-panel h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.2em;
         }
         .control-group {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
         }
         .preview-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            gap: 20px;
             margin: 20px 0;
         }
         .preview-box {
             background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .preview-box h3 {
             margin: 0 0 10px 0;
-            font-size: 0.9em;
+            font-size: 1em;
             color: #666;
         }
         canvas {
             max-width: 100%;
             height: auto;
-            border-radius: 4px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         #outputCanvas {
             width: 100%;
@@ -76,13 +97,29 @@
         }
         label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: 500;
             color: #333;
         }
         input[type="range"] {
             width: 100%;
             margin: 8px 0;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #0070f3;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #0051b3;
         }
         input[type="file"] {
             display: none;
@@ -91,31 +128,91 @@
             background: #0070f3;
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 10px 20px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: background 0.3s ease;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 0.9em;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
         button:hover {
             background: #0051b3;
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
         }
         button.active {
             background: #004299;
         }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
         .export-panel {
             margin-top: 20px;
-            padding: 15px;
+            padding: 20px;
             background: #f8f9fa;
-            border-radius: 8px;
+            border-radius: 12px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
         }
         .mode-indicator {
             display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 4px 12px;
+            border-radius: 6px;
             background: #e3f2fd;
             color: #0070f3;
-            font-size: 0.8em;
+            font-size: 0.9em;
             margin-left: 10px;
+            font-weight: 500;
+        }
+        .progress-panel {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #0070f3;
+            transition: width 0.3s ease;
+        }
+        .progress-text {
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+        }
+        .status-message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            display: none;
+        }
+        .status-message.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        .status-message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
         }
     </style>
 </head>
@@ -127,6 +224,8 @@
             <p>Drop image here or click to upload</p>
             <input type="file" id="imageInput" accept="image/*">
         </div>
+
+        <div id="statusMessage" class="status-message"></div>
 
         <div class="controls">
             <div class="control-panel">
@@ -179,14 +278,21 @@
         </div>
 
         <div class="export-panel">
-            <button id="exportGif">Export as GIF</button>
+            <button id="exportGif" disabled>Export as GIF</button>
             <button id="startAnim">Start Animation</button>
             <button id="stopAnim">Stop Animation</button>
+        </div>
+
+        <div class="progress-panel" id="progressPanel">
+            <div class="progress-text" id="progressText">Preparing...</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
         </div>
     </div>
 
     <script>
-class MobileStereoscopicEngine {
+        class MobileStereoscopicEngine {
             constructor() {
                 this.setupDOM();
                 this.setupEventListeners();
@@ -478,6 +584,6 @@ class MobileStereoscopicEngine {
         window.addEventListener('load', () => {
             const engine = new MobileStereoscopicEngine();
         });
-    </script>
-</body>
-</html>
+        </script>
+        </body>
+        </html>
