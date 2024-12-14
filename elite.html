@@ -523,93 +523,75 @@
                 this.progressText.textContent = 'Preparing GIF...';
 
                 try {
-                    const frameCount = 40; // Increased for smoother animation
+                    // Create frames first
+                    const frames = [];
+                    const frameCount = 30;
+                    
+                    // Generate all frames first
+                    for (let i = 0; i < frameCount; i++) {
+                        const phase = (i / frameCount) * Math.PI * 2;
+                        this.animationPhase = phase;
+                        this.updateView();
+                        
+                        // Create a copy of the canvas
+                        const frameCanvas = document.createElement('canvas');
+                        frameCanvas.width = this.outputCanvas.width;
+                        frameCanvas.height = this.outputCanvas.height;
+                        const frameCtx = frameCanvas.getContext('2d');
+                        frameCtx.drawImage(this.outputCanvas, 0, 0);
+                        
+                        frames.push(frameCanvas);
+                        
+                        this.progressText.textContent = `Generating frame ${i + 1}/${frameCount}`;
+                        this.progressBar.style.width = `${(i / frameCount) * 30}%`;
+                        
+                        // Allow UI to update
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+
+                    this.progressText.textContent = 'Creating GIF...';
+                    
+                    // Create GIF
                     const gif = new GIF({
-                        workers: 4,
-                        quality: 5, // Lower number = better quality (1-20)
-                        width: Math.min(this.outputCanvas.width, 800), // Increased max width
-                        height: Math.min(this.outputCanvas.height, 800), // Increased max height
-                        workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js',
-                        background: '#fff',
-                        dither: 'FloydSteinberg', // Add dithering for better color quality
-                        transparent: null, // Remove transparency for better quality
-                        repeat: 0 // Loop forever
+                        workers: 2,
+                        quality: 10,
+                        width: Math.min(this.outputCanvas.width, 800),
+                        height: Math.min(this.outputCanvas.height, 800),
+                        workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
                     });
 
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = gif.options.width;
-                    tempCanvas.height = gif.options.height;
-                    const tempCtx = tempCanvas.getContext('2d', { 
-                        alpha: false // Disable alpha for better quality
+                    // Add frames to GIF
+                    for (let i = 0; i < frames.length; i++) {
+                        gif.addFrame(frames[i], {delay: 50});
+                        this.progressBar.style.width = `${30 + (i / frames.length) * 30}%`;
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+
+                    // Handle GIF rendering
+                    gif.on('progress', p => {
+                        this.progressBar.style.width = `${60 + (p * 40)}%`;
+                        this.progressText.textContent = `Encoding GIF: ${Math.round(p * 100)}%`;
                     });
 
-                    const wasAnimating = this.isAnimating;
-                    this.stopAnimation();
-
-                    return new Promise((resolve, reject) => {
-                        gif.on('progress', (p) => {
-                            this.progressBar.style.width = `${50 + (p * 50)}%`;
-                            this.progressText.textContent = `Encoding GIF: ${Math.round(p * 100)}%`;
-                        });
-
-                        gif.on('finished', (blob) => {
-                            try {
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
-                                a.download = 'stereoscopic.gif';
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(url);
-                                
-                                this.progressPanel.style.display = 'none';
-                                this.exportButton.disabled = false;
-                                this.isProcessing = false;
-                                this.showStatus('GIF exported successfully!');
-                                
-                                if (wasAnimating) this.startAnimation();
-                                resolve();
-                            } catch (error) {
-                                reject(error);
-                            }
-                        });
-
-                        // Add frames with improved quality handling
-                        const addFrame = async (index) => {
-                            if (index >= frameCount) {
-                                gif.render();
-                                return;
-                            }
-
-                            this.progressText.textContent = `Generating frame ${index + 1}/${frameCount}`;
-                            this.progressBar.style.width = `${(index / frameCount) * 50}%`;
-                            
-                            const phase = (index / frameCount) * Math.PI * 2;
-                            this.animationPhase = phase;
-                            this.updateView();
-                            
-                            // Clear and prepare temp canvas
-                            tempCtx.fillStyle = '#ffffff';
-                            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-                            
-                            // Use high-quality scaling
-                            tempCtx.imageSmoothingEnabled = true;
-                            tempCtx.imageSmoothingQuality = 'high';
-                            tempCtx.drawImage(this.outputCanvas, 0, 0, tempCanvas.width, tempCanvas.height);
-                            
-                            gif.addFrame(tempCanvas, { 
-                                delay: 40, // Slightly faster animation (25fps)
-                                copy: true,
-                                dispose: 2 // Clear frame before drawing next
-                            });
-
-                            // Use setTimeout to prevent UI blocking
-                            setTimeout(() => addFrame(index + 1), 0);
-                        };
-
-                        addFrame(0);
+                    gif.on('finished', blob => {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'stereoscopic.gif';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        this.progressPanel.style.display = 'none';
+                        this.exportButton.disabled = false;
+                        this.isProcessing = false;
+                        this.showStatus('GIF exported successfully!');
                     });
+
+                    // Start rendering
+                    this.progressText.textContent = 'Rendering GIF...';
+                    gif.render();
 
                 } catch (error) {
                     console.error('Error generating GIF:', error);
@@ -617,6 +599,15 @@
                     this.exportButton.disabled = false;
                     this.isProcessing = false;
                     this.showStatus('Error generating GIF. Please try again.', 'error');
+                    
+                    // Log detailed error information
+                    console.error('Detailed error:', {
+                        message: error.message,
+                        stack: error.stack,
+                        hasSourceImage: !!this.sourceImage,
+                        canvasWidth: this.outputCanvas.width,
+                        canvasHeight: this.outputCanvas.height
+                    });
                 }
             }
         }
