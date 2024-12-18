@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optical Design Suite</title>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg-light: #f3f4f6;
+            --bg-dark: #111827;
+            --text-light: #f9fafb;
+            --text-dark: #111827;
+            --panel-light: #ffffff;
+            --panel-dark: #1f2937;
+            --border-light: #e5e7eb;
+            --border-dark: #374151;
+            --svg-light: #2563eb;
+            --svg-dark: #add8e6;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.5;
+            transition: background-color 0.3s, color 0.3s;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        body.dark-theme {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+        }
+
+        /* Navigation Bar */
+        .nav-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            backdrop-filter: blur(8px);
+            transition: background-color 0.3s;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .dark-theme .nav-bar {
+            background-color: rgba(31, 41, 55, 0.8);
+            border-bottom: 1px solid var(--border-dark);
+        }
+
+        .nav-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .app-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        /* Tab Buttons */
+        .tab-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .tab-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 0.875rem;
+            font-weight: 500;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        .dark-theme .tab-button {
+            background-color: var(--panel-dark);
+            color: var(--text-light);
+        }
+
+        .tab-button.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        .dark-theme .theme-toggle {
+            background-color: var(--panel-dark);
+            color: var(--text-light);
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 6rem 1rem 2rem;
+        }
+
+        /* Panels */
+        .panel {
+            background-color: var(--panel-light);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s;
+        }
+
+        .dark-theme .panel {
+            background-color: var(--panel-dark);
+        }
+
+        .panel-title {
+            font-size: 1.125rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+
+        /* Grid Layouts */
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .grid-layout {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* SVG Preview */
+        #fresnel-preview {
+            width: 100%;
+            height: auto;
+            border: 1px solid var(--border-light);
+            border-radius: 0.5rem;
+            background-color: var(--panel-light);
+        }
+
+        .dark-theme #fresnel-preview {
+            border-color: var(--border-dark);
+            background-color: var(--panel-dark);
+        }
+
+        #fresnel-preview path {
+            fill: var(--svg-light);
+            stroke: var(--primary-color);
+            stroke-width: 0.5;
+        }
+
+        .dark-theme #fresnel-preview path {
+            fill: var(--svg-dark);
+            stroke: #87ceeb;
+        }
+
+        /* Parameter Controls */
+        .parameter-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .parameter-group label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .parameter-slider {
+            width: 100%;
+            height: 6px;
+            background-color: var(--border-light);
+            border-radius: 3px;
+            appearance: none;
+            outline: none;
+        }
+
+        .dark-theme .parameter-slider {
+            background-color: var(--border-dark);
+        }
+
+        .parameter-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .parameter-slider::-webkit-slider-thumb:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* File Upload Area */
+        .upload-area {
+            border: 2px dashed var(--border-light);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 1.5rem;
+            background-color: var(--panel-light);
+        }
+
+        .dark-theme .upload-area {
+            border-color: var(--border-dark);
+            background-color: var(--panel-dark);
+        }
+
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: var(--primary-color);
+            background-color: var(--bg-light);
+        }
+
+        .dark-theme .upload-area:hover, 
+        .dark-theme .upload-area.drag-over {
+            background-color: var(--bg-dark);
+        }
+
+        .upload-area i {
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        /* Preview Areas */
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .preview-item canvas,
+        .preview-output canvas {
+            width: 100%;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-light);
+            background-color: var(--panel-light);
+        }
+
+        .dark-theme .preview-item canvas,
+        .dark-theme .preview-output canvas {
+            border-color: var(--border-dark);
+            background-color: var(--panel-dark);
+        }
+
+        /* Preview Labels */
+        .preview-label {
+            font-size: 0.875rem;
+            color: var(--text-dark);
+            opacity: 0.7;
+            margin-bottom: 0.5rem;
+        }
+
+        .dark-theme .preview-label {
+            color: var(--text-light);
+        }
+
+        /* Input Controls */
+        .control-group input[type="number"] {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            border: 1px solid var(--border-light);
+            background-color: var(--panel-light);
+            color: var(--text-dark);
+            transition: all 0.3s;
+        }
+
+        .dark-theme .control-group input[type="number"] {
+            border-color: var(--border-dark);
+            background-color: var(--panel-dark);
+            color: var(--text-light);
+        }
+
+        /* Processing Indicator */
+        .processing-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            margin-top: 1rem;
+        }
+
+        .processing-indicator i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Export Button */
+        .export-button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: background-color 0.3s;
+            font-weight: 500;
+        }
+
+        .export-button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Hidden Elements */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+    <body class="light-theme">
+    <div id="app">
+        <!-- Navigation Bar -->
+        <nav class="nav-bar">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <h1 class="app-title">Optical Design Suite</h1>
+                    <div class="tab-buttons">
+                        <button class="tab-button active" data-tab="fresnel">
+                            <i class="fas fa-circle-notch"></i> Fresnel Designer
+                        </button>
+                        <button class="tab-button" data-tab="lenticular">
+                            <i class="fas fa-layer-group"></i> Lenticular Engine
+                        </button>
+                    </div>
+                </div>
+                <button class="theme-toggle" aria-label="Toggle theme">
+                    <i class="fas fa-sun"></i>
+                    <i class="fas fa-moon hidden"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Fresnel Designer Tab -->
+            <div class="tab-content" id="fresnel-tab">
+                <div class="grid-layout">
+                    <!-- Preview Panel -->
+                    <div class="panel">
+                        <h3 class="panel-title">Lens Preview</h3>
+                        <div class="preview-container">
+                            <svg id="fresnel-preview" viewBox="0 0 300 150">
+                                <path d="" fill="#2563eb" stroke="#1e40af" stroke-width="0.5"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Parameters Panel -->
+                    <div class="panel">
+                        <h3 class="panel-title">Lens Parameters</h3>
+                        <div class="parameters-container">
+                            <div class="parameter-group">
+                                <label>
+                                    Diameter (mm)
+                                    <span class="parameter-value">100</span>
+                                </label>
+                                <input type="range" min="50" max="200" value="100" class="parameter-slider" data-param="diameter">
+                            </div>
+                            <div class="parameter-group">
+                                <label>
+                                    Focal Length (mm)
+                                    <span class="parameter-value">150</span>
+                                </label>
+                                <input type="range" min="50" max="300" value="150" class="parameter-slider" data-param="focalLength">
+                            </div>
+                            <div class="parameter-group">
+                                <label>
+                                    Groove Spacing (mm)
+                                    <span class="parameter-value">2</span>
+                                </label>
+                                <input type="range" min="0.5" max="5" step="0.5" value="2" class="parameter-slider" data-param="grooveSpacing">
+                            </div>
+                            <div class="parameter-group">
+                                <label>
+                                    Base Thickness (mm)
+                                    <span class="parameter-value">3</span>
+                                </label>
+                                <input type="range" min="1" max="5" step="0.5" value="3" class="parameter-slider" data-param="thickness">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Analysis -->
+                <div class="panel performance-panel">
+                    <h3 class="panel-title">Performance Analysis</h3>
+                    <div class="metrics-grid">
+                        <div class="metric">
+                            <h4>F-Number</h4>
+                            <p class="metric-value" id="f-number">f/1.5</p>
+                        </div>
+                        <div class="metric">
+                            <h4>Light Transmission</h4>
+                            <p class="metric-value" id="transmission">92%</p>
+                        </div>
+                        <div class="metric">
+                            <h4>Collection Angle</h4>
+                            <p class="metric-value" id="collection-angle">18.4°</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lenticular Engine Tab -->
+            <div class="tab-content hidden" id="lenticular-tab">
+                <!-- File Upload Area -->
+                <div class="upload-area" id="upload-zone">
+                    <input type="file" id="image-input" accept="image/*" class="hidden">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Drop your image here or click to upload</p>
+                </div>
+
+                <div class="grid-layout">
+                    <!-- Preview Panel -->
+                    <div class="panel">
+                        <h3 class="panel-title">Preview</h3>
+                        <div class="preview-grid">
+                            <div class="preview-item">
+                                <p class="preview-label">Left View</p>
+                                <canvas id="left-canvas"></canvas>
+                            </div>
+                            <div class="preview-item">
+                                <p class="preview-label">Right View</p>
+                                <canvas id="right-canvas"></canvas>
+                            </div>
+                        </div>
+                        <div class="preview-output">
+                            <p class="preview-label">Interlaced Output</p>
+                            <canvas id="output-canvas"></canvas>
+                        </div>
+                        <div class="processing-indicator hidden">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Processing...</span>
+                        </div>
+                    </div>
+
+                    <!-- Controls Panel -->
+                    <div class="panel">
+                        <h3 class="panel-title">Lenticular Settings</h3>
+                        
+                        <!-- Size Controls -->
+                        <div class="size-controls">
+                            <div class="control-group">
+                                <label>Width (cm)</label>
+                                <input type="number" min="1" value="12" class="size-input" data-param="width">
+                            </div>
+                            <div class="control-group">
+                                <label>Height (cm)</label>
+                                <input type="number" min="1" value="12" class="size-input" data-param="height">
+                            </div>
+                        </div>
+
+                        <!-- Quantity Control -->
+                        <div class="control-group">
+                            <label>Quantity</label>
+                            <input type="number" min="1" value="1" class="quantity-input" data-param="quantity">
+                        </div>
+
+                        <!-- Technical Settings -->
+                        <div class="parameter-group">
+                            <label>
+                                Lines Per Inch (LPI)
+                                <span class="parameter-value">40</span>
+                            </label>
+                            <input type="range" min="20" max="100" value="40" class="parameter-slider" data-param="lpi">
+                        </div>
+                        <div class="parameter-group">
+                            <label>
+                                Stereo Separation
+                                <span class="parameter-value">15</span>
+                            </label>
+                            <input type="range" min="1" max="50" value="15" class="parameter-slider" data-param="separation">
+                        </div>
+                        <div class="parameter-group">
+                            <label>
+                                Brightness
+                                <span class="parameter-value">0</span>
+                            </label>
+                            <input type="range" min="-100" max="100" value="0" class="parameter-slider" data-param="brightness">
+                        </div>
+                        <div class="parameter-group">
+                            <label>
+                                Contrast
+                                <span class="parameter-value">0</span>
+                            </label>
+                            <input type="range" min="-100" max="100" value="0" class="parameter-slider" data-param="contrast">
+                        </div>
+                        
+                        <div class="parameter-group">
+                            <label>
+                                Wavelength (nm)
+                                <span class="parameter-value">550</span>
+                            </label>
+                            <input type="range" min="200" max="800" value="550" class="parameter-slider" data-param="wavelength">
+                        </div>
+                        <div class="parameter-group">
+                            <label>
+                                Optical Density
+                                <span class="parameter-value">3.0</span>
+                            </label>
+                            <input type="range" min="0" max="6" step="0.1" value="3.0" class="parameter-slider" data-param="opticalDensity">
+                        </div>
+
+                        <!-- Price Calculation -->
+                        <div class="price-panel">
+                            <h4>Price Calculation</h4>
+                            <div class="price-details">
+                                <div class="price-row">
+                                    <span>Area:</span>
+                                    <span id="area-value">1.00 squares (12x12cm)</span>
+                                </div>
+                                <div class="price-row">
+                                    <span>Base Price:</span>
+                                    <span id="base-price">$10.00</span>
+                                </div>
+                                <div class="price-row total">
+                                    <span>Total Price:</span>
+                                    <span id="total-price">$10.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Export Button -->
+                        <button class="export-button" id="export-btn">
+                            <i class="fas fa-download"></i>
+                            Export for Printing
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</body>
+<script>
+  // Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Global Utilities
+    const Utils = {
+        clamp: (num, min, max) => Math.min(Math.max(num, min), max),
+        toRadians: (deg) => deg * (Math.PI / 180),
+        toDegrees: (rad) => rad * (180 / Math.PI),
+        formatCurrency: (amount) => `$${amount.toFixed(2)}`,
+        updateParamValue: (el, value) => {
+            const label = el.parentElement.querySelector('.parameter-value');
+            if (label) label.textContent = value;
+        }
+    };
+
+    // Theme Management
+    class ThemeManager {
+        constructor() {
+            this.toggle = document.querySelector('.theme-toggle');
+            this.sunIcon = this.toggle.querySelector('.fa-sun');
+            this.moonIcon = this.toggle.querySelector('.fa-moon');
+            this.currentTheme = localStorage.getItem('theme') || 'light';
+            this.init();
+        }
+
+        init() {
+            this.applyTheme(this.currentTheme);
+            this.toggle.addEventListener('click', () => {
+                this.currentTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+                this.applyTheme(this.currentTheme);
+            });
+        }
+
+        applyTheme(theme) {
+            document.body.className = `${theme}-theme`;
+            localStorage.setItem('theme', theme);
+            this.sunIcon.classList.toggle('hidden', theme === 'light');
+            this.moonIcon.classList.toggle('hidden', theme === 'dark');
+        }
+    }
+
+    // Tab Management
+    class TabManager {
+        constructor() {
+            this.tabs = document.querySelectorAll('.tab-button');
+            this.contents = document.querySelectorAll('.tab-content');
+            this.init();
+        }
+
+        init() {
+            this.tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.dataset.tab;
+                    this.tabs.forEach(t => t.classList.toggle('active', t === tab));
+                    this.contents.forEach(content => {
+                        content.classList.toggle('hidden', content.id !== `${tabId}-tab`);
+                    });
+                });
+            });
+        }
+    }
+
+    // Fresnel Lens Designer
+class FresnelDesigner {
+    constructor() {
+        this.svg = document.getElementById('fresnel-preview');
+        this.path = this.svg.querySelector('path');
+        this.params = {
+            diameter: 100,           // mm
+            focalLength: 150,        // mm
+            grooveSpacing: 2,        // mm
+            thickness: 3,            // mm
+            wavelength: 550,         // nm
+            bandwidth: 10,           // nm
+            opticalDensity: 3.0,     // OD for opaque zones
+            transmission: 90,         // Base transmission %
+            refractiveIndex: 1.5,    // Base refractive index at design wavelength
+            dispersion: 0.008,       // Material dispersion
+            zoneOpacity: 0.999,      // Opacity of dark zones
+            surfaceRoughness: 5,     // nm
+            material: 'PETG'
+        };
+        this.init();
+    }
+
+        init() {
+            const sliders = document.querySelectorAll('[data-param]');
+            sliders.forEach(slider => {
+                if (this.params.hasOwnProperty(slider.dataset.param)) {
+                    slider.addEventListener('input', (e) => {
+                        const param = e.target.dataset.param;
+                        this.params[param] = parseFloat(e.target.value);
+                        Utils.updateParamValue(e.target, e.target.value);
+                        this.updatePreview();
+                        this.updateMetrics();
+                    });
+                }
+            });
+            this.updatePreview();
+            this.updateMetrics();
+        }
+        
+        calculateWavelengthDependentProperties(wavelength) {
+        const n = this.params.refractiveIndex + 
+                 this.params.dispersion * (wavelength - this.params.wavelength);
+        const phase = 2 * Math.PI * (n - 1) * this.params.thickness / wavelength;
+        const R = Math.pow((n - 1)/(n + 1), 2);
+        const absorption = Math.exp(-this.params.opticalDensity * this.params.thickness);
+        const transmission = (1 - R) * (1 - R) * absorption;
+        return { n, phase, transmission };
+    }
+
+    calculateZoneProfile(radius) {
+        const { wavelength, focalLength } = this.params;
+        const m = Math.floor(radius * radius / (wavelength * focalLength));
+        const depth = wavelength / (2 * (this.params.refractiveIndex - 1));
+        const transmission = m % 2 === 0 ? 
+            this.params.transmission / 100 : 
+            Math.pow(10, -this.params.opticalDensity);
+        return {
+            depth,
+            transmission,
+            phaseShift: (2 * Math.PI * radius * radius) / (wavelength * focalLength)
+        };
+    }
+
+        generatePath() {
+            const width = 300;
+            const height = 150;
+            const centerY = height / 2;
+            const numGrooves = Math.floor(this.params.diameter / (2 * this.params.grooveSpacing));
+            const paths = [];
+
+            for (let i = 0; i < numGrooves; i++) {
+                const x1 = width/2 - (i * this.params.grooveSpacing * 2);
+                const x2 = x1 - this.params.grooveSpacing * 2;
+                const angle = Math.atan((x1) / this.params.focalLength);
+                const h = this.params.grooveSpacing * Math.tan(angle);
+                
+                paths.push(`M ${x1} ${centerY} L ${x2} ${centerY-h} L ${x2} ${centerY} Z`);
+                paths.push(`M ${width-x1} ${centerY} L ${width-x2} ${centerY-h} L ${width-x2} ${centerY} Z`);
+            }
+            return paths.join(' ');
+        }
+
+        updatePreview() {
+            this.path.setAttribute('d', this.generatePath());
+        }
+
+        c// Find the calculateMetrics() method in your FresnelDesigner class and update it:
+calculateMetrics() {
+    const fNumber = this.params.focalLength / this.params.diameter;
+    const transmission = this.calculateTransmission();
+    const collectionAngle = Utils.toDegrees(
+        Math.atan(this.params.diameter / (2 * this.params.focalLength))
+    );
+    return { fNumber, transmission, collectionAngle };
+}
+
+// Update the calculateTransmission() method:
+calculateTransmission() {
+    // Base material transmission
+    const materialFactors = {
+        'PETG': 0.92,
+        'clear-resin': 0.95,
+        'clear-pla': 0.88
+    };
+    const materialTransmission = materialFactors[this.params.material];
+
+    // Fresnel reflection losses
+    const n = this.params.refractiveIndex;
+    const R = Math.pow((n - 1)/(n + 1), 2);
+    const fresnelTransmission = (1 - R) * (1 - R);
+
+    // Absorption losses based on optical density
+    const absorption = Math.exp(-this.params.opticalDensity * this.params.thickness / 1000);
+
+    // Surface scattering losses
+    const surfaceLoss = Math.exp(-Math.pow(4 * Math.PI * this.params.surfaceRoughness / this.params.wavelength, 2));
+
+    // Combined transmission
+    const totalTransmission = materialTransmission * fresnelTransmission * absorption * surfaceLoss;
+
+    return totalTransmission;
+}
+
+// Update the updateMetrics() method:
+updateMetrics() {
+    const metrics = this.calculateMetrics();
+    document.getElementById('f-number').textContent = `f/${metrics.fNumber.toFixed(1)}`;
+    document.getElementById('transmission').textContent = 
+        `${(metrics.transmission * 100).toFixed(1)}%`;
+    document.getElementById('collection-angle').textContent = 
+        `${metrics.collectionAngle.toFixed(1)}°`;
+}
+    }
+
+    // Lenticular Engine
+    class LenticularEngine {
+        constructor() {
+            this.settings = {
+                lpi: 40,
+                separation: 15,
+                width: 12,
+                height: 12,
+                quantity: 1,
+                brightness: 0,
+                contrast: 0,
+                dpi: 300
+            };
+            
+            this.canvases = {
+                left: document.getElementById('left-canvas'),
+                right: document.getElementById('right-canvas'),
+                output: document.getElementById('output-canvas')
+            };
+            
+            this.contexts = {
+                left: this.canvases.left.getContext('2d'),
+                right: this.canvases.right.getContext('2d'),
+                output: this.canvases.output.getContext('2d')
+            };
+            
+            this.uploadZone = document.getElementById('upload-zone');
+            this.imageInput = document.getElementById('image-input');
+            this.processingIndicator = document.querySelector('.processing-indicator');
+            this.exportBtn = document.getElementById('export-btn');
+            
+            this.init();
+        }
+
+        init() {
+            this.setupUploadHandlers();
+            this.setupControlHandlers();
+            this.setupExportHandler();
+            this.updatePricing();
+        }
+
+        setupUploadHandlers() {
+            this.uploadZone.addEventListener('click', () => this.imageInput.click());
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                this.uploadZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                this.uploadZone.addEventListener(eventName, () => {
+                    this.uploadZone.classList.add('drag-over');
+                });
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                this.uploadZone.addEventListener(eventName, () => {
+                    this.uploadZone.classList.remove('drag-over');
+                });
+            });
+            
+            this.uploadZone.addEventListener('drop', (e) => {
+                const file = e.dataTransfer.files[0];
+                if (file?.type.startsWith('image/')) {
+                    this.processImage(file);
+                }
+            });
+            
+            this.imageInput.addEventListener('change', (e) => {
+                const file = e.target.files?.[0];
+                if (file) this.processImage(file);
+            });
+        }
+
+        setupControlHandlers() {
+            document.querySelectorAll('[data-param]').forEach(control => {
+                if (this.settings.hasOwnProperty(control.dataset.param)) {
+                    control.addEventListener('input', (e) => {
+                        const param = e.target.dataset.param;
+                        this.settings[param] = parseFloat(e.target.value);
+                        Utils.updateParamValue(e.target, e.target.value);
+                        this.updatePricing();
+                        if (this.currentImage) this.processStereoPair();
+                    });
+                }
+            });
+        }
+
+        setupExportHandler() {
+            this.exportBtn.addEventListener('click', () => this.exportImage());
+        }
+
+        processImage(file) {
+            this.showProcessing();
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    this.currentImage = img;
+                    this.processStereoPair();
+                    this.hideProcessing();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        processStereoPair() {
+            if (!this.currentImage) return;
+            
+            const width = this.currentImage.width;
+            const height = this.currentImage.height;
+            
+            Object.values(this.canvases).forEach(canvas => {
+                canvas.width = width;
+                canvas.height = height;
+            });
+            
+            // Process left and right views
+            const views = {
+                left: { offset: -this.settings.separation, context: this.contexts.left },
+                right: { offset: this.settings.separation, context: this.contexts.right }
+            };
+            
+            Object.entries(views).forEach(([_, view]) => {
+                view.context.clearRect(0, 0, width, height);
+                view.context.drawImage(
+                    this.currentImage,
+                    view.offset, 0,
+                    width + (2 * Math.abs(view.offset)), height
+                );
+            });
+            
+            this.generateInterlaced();
+        }
+
+        generateInterlaced() {
+            const width = this.canvases.left.width;
+            const height = this.canvases.left.height;
+            const stripWidth = Math.round(this.settings.dpi / this.settings.lpi);
+            
+            const leftData = this.contexts.left.getImageData(0, 0, width, height);
+            const rightData = this.contexts.right.getImageData(0, 0, width, height);
+            const outputData = this.contexts.output.createImageData(width, height);
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const i = (y * width + x) * 4;
+                    const isLeftStrip = Math.floor(x / stripWidth) % 2 === 0;
+                    const sourceData = isLeftStrip ? leftData.data : rightData.data;
+                    
+                    for (let c = 0; c < 3; c++) {
+                        outputData.data[i + c] = sourceData[i + c];
+                    }
+                    outputData.data[i + 3] = 255; // Alpha
+                }
+            }
+            
+            this.applyImageAdjustments(outputData);
+            this.contexts.output.putImageData(outputData, 0, 0);
+        }
+
+        applyImageAdjustments(imageData) {
+            const brightness = this.settings.brightness;
+            const contrast = (this.settings.contrast + 100) / 100;
+            
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                for (let j = 0; j < 3; j++) {
+                    let value = imageData.data[i + j];
+                    value += brightness;
+                    value = ((value - 128) * contrast) + 128;
+                    imageData.data[i + j] = Utils.clamp(value, 0, 255);
+                }
+            }
+        }
+
+        updatePricing() {
+            const area = (this.settings.width * this.settings.height) / 144; // Area in 12x12cm squares
+            const basePrice = 10 * Math.ceil(area);
+            const total = basePrice * this.settings.quantity;
+            
+            document.getElementById('area-value').textContent = 
+                `${area.toFixed(2)} squares (12x12cm)`;
+            document.getElementById('base-price').textContent = 
+                Utils.formatCurrency(basePrice);
+            document.getElementById('total-price').textContent = 
+                Utils.formatCurrency(total);
+        }
+
+        exportImage() {
+            if (!this.canvases.output.width) return;
+            
+            const scaledWidth = this.settings.width * (this.settings.dpi / 2.54);
+            const scaledHeight = this.settings.height * (this.settings.dpi / 2.54);
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = scaledWidth;
+            tempCanvas.height = scaledHeight;
+            
+            const ctx = tempCanvas.getContext('2d');
+            ctx.drawImage(this.canvases.output, 0, 0, scaledWidth, scaledHeight);
+            
+            const link = document.createElement('a');
+            link.download = 'lenticular-print.png';
+            link.href = tempCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        showProcessing() {
+            this.processingIndicator.classList.remove('hidden');
+        }
+
+        hideProcessing() {
+            this.processingIndicator.classList.add('hidden');
+        }
+    }
+
+    // Initialize all components
+    const themeManager = new ThemeManager();
+    const tabManager = new TabManager();
+    const fresnelDesigner = new FresnelDesigner();
+    const lenticularEngine = new LenticularEngine();
+});
+</script>
