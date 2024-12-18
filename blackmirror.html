@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LumenOS Mirror</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.29.0/feather.min.js"></script>
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(-3deg); }
+            50% { transform: translateY(-10px) rotate(-3deg); }
+        }
+
+        .vision-pro-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            animation: float 3s ease-in-out infinite;
+            transform-origin: center center;
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+        }
+
+        :root {
+            --widget-transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            background: linear-gradient(135deg, rgb(17, 24, 39), rgb(0, 0, 0));
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .mirror-frame {
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
+        }
+
+        .widget {
+            position: absolute;
+            transition: var(--widget-transition);
+            transform-style: preserve-3d;
+            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .widget:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .widget.selected {
+            transform: scale(1.5) translateZ(40px);
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .ambient-light {
+            animation: pulse 4s infinite;
+            pointer-events: none;
+        }
+
+        .widget-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, opacity 0.3s ease-out;
+            opacity: 0;
+        }
+
+        .widget.selected .widget-content {
+            max-height: 200px;
+            opacity: 1;
+        }
+
+        .mirror-frame::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            background: linear-gradient(45deg, 
+                rgba(255,255,255,0.1) 0%,
+                rgba(255,255,255,0.05) 50%,
+                rgba(255,255,255,0.1) 100%);
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.5; }
+        }
+
+        .perspective-container {
+            perspective: 2000px;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        .widget-depth-1 { --depth: 1; }
+        .widget-depth-2 { --depth: 2; }
+        .widget-depth-3 { --depth: 3; }
+        .widget-depth-4 { --depth: 4; }
+        .widget-depth-5 { --depth: 5; }
+        .widget-depth-6 { --depth: 6; }
+    </style>
+</head>
+<body>
+    <div class="perspective-container">
+        <div id="mirror" class="mirror-frame absolute inset-8 rounded-2xl shadow-2xl border border-white border-opacity-10">
+            <!-- Ambient Light Effect -->
+            <div class="absolute inset-0 rounded-2xl overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-tr from-blue-500 to-purple-500 opacity-20"></div>
+                <div class="ambient-light absolute inset-0 bg-gradient-to-bl from-purple-500 to-blue-500 opacity-10"></div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="absolute top-8 left-8 right-8 flex justify-between items-center text-white text-opacity-80 z-50">
+                <div class="flex items-center space-x-6">
+                    <div class="flex items-center space-x-2 bg-black bg-opacity-20 backdrop-blur-sm rounded-lg px-4 py-2">
+                        <i data-feather="clock" class="w-6 h-6"></i>
+                        <span id="clock" class="text-xl font-light">12:00</span>
+                    </div>
+                    <div class="flex items-center space-x-2 bg-black bg-opacity-20 backdrop-blur-sm rounded-lg px-4 py-2">
+                        <i data-feather="sun" class="w-6 h-6"></i>
+                        <span class="text-xl font-light">72°</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="p-2 rounded-full hover:bg-white hover:bg-opacity-10 transition-colors backdrop-blur-sm">
+                        <i data-feather="mic" class="w-6 h-6 text-white text-opacity-60"></i>
+                    </button>
+                    <button class="p-2 rounded-full hover:bg-white hover:bg-opacity-10 transition-colors backdrop-blur-sm">
+                        <i data-feather="settings" class="w-6 h-6 text-white text-opacity-60"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Widgets Container -->
+            <div id="widgets-container" class="absolute inset-0 flex items-center justify-center">
+                <!-- Widgets will be inserted here by JavaScript -->
+            </div>
+
+            <!-- Power Button -->
+            <button id="power-btn" class="absolute bottom-8 right-8 p-3 rounded-full hover:bg-white hover:bg-opacity-10 transition-colors backdrop-blur-sm">
+                <div class="w-3 h-3 rounded-full bg-green-500 shadow-lg"></div>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Feather Icons
+        feather.replace();
+
+        // Update clock
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+            document.getElementById('clock').textContent = timeString;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Widget Data
+        const widgets = [
+            { 
+                id: 'calendar', 
+                icon: 'calendar', 
+                label: 'Calendar',
+                content: 'Today: 3 meetings\n2:00 PM - Design Review\n4:00 PM - Team Sync'
+            },
+            { 
+                id: 'weather', 
+                icon: 'cloud', 
+                label: 'Weather',
+                content: '72° Partly Cloudy\nHigh: 75° Low: 65°\nPrecipitation: 20%'
+            },
+            { 
+                id: 'health', 
+                icon: 'heart', 
+                label: 'Health',
+                content: 'Steps: 8,542\nHeart Rate: 72 bpm\nSleep: 7h 30m'
+            },
+            { 
+                id: 'home', 
+                icon: 'home', 
+                label: 'Home Control',
+                content: 'Living Room: 72°\nLights: 60%\nSecurity: Armed'
+            },
+            { 
+                id: 'shopping', 
+                icon: 'shopping-bag', 
+                label: 'Shopping',
+                content: '3 items in cart\nDelivery: Tomorrow'
+            },
+            { 
+                id: 'music', 
+                icon: 'music', 
+                label: 'Music',
+                content: 'Now Playing: Ambient\nVolume: 40%'
+            }
+        ];
+
+        // Mirror State
+        let isActive = true;
+        let selectedWidgetId = null;
+        let layout = 'grid';
+
+        // Create and append widgets
+        const widgetsContainer = document.getElementById('widgets-container');
+        
+        function createWidget(widget, index) {
+            const widgetElement = document.createElement('div');
+            widgetElement.className = `widget widget-depth-${index + 1} p-6 rounded-xl cursor-pointer`;
+            widgetElement.setAttribute('data-widget-id', widget.id);
+            
+            widgetElement.innerHTML = `
+                <div class="flex flex-col items-center">
+                    <i data-feather="${widget.icon}" class="w-8 h-8 text-white"></i>
+                    <span class="block mt-2 text-sm font-light text-white text-opacity-80">${widget.label}</span>
+                    <div class="widget-content mt-4 text-sm text-white text-opacity-70 whitespace-pre-line">
+                        ${widget.content}
+                    </div>
+                </div>
+            `;
+            
+            return widgetElement;
+        }
+
+        function updateWidgetPositions(layout = 'grid') {
+            const containerWidth = widgetsContainer.offsetWidth;
+            const containerHeight = widgetsContainer.offsetHeight;
+            
+            widgets.forEach((widget, index) => {
+                const element = document.querySelector(`[data-widget-id="${widget.id}"]`);
+                if (!element) return;
+
+                if (layout === 'grid') {
+                    const row = Math.floor(index / 3);
+                    const col = index % 3;
+                    const baseX = containerWidth * 0.2 + (col * containerWidth * 0.25);
+                    const baseY = containerHeight * 0.2 + (row * containerHeight * 0.3);
+                    
+                    element.style.left = `${baseX}px`;
+                    element.style.top = `${baseY}px`;
+                } else if (layout === 'focus' && selectedWidgetId) {
+                    if (widget.id === selectedWidgetId) {
+                        element.style.left = '50%';
+                        element.style.top = '50%';
+                        element.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                    } else {
+                        const angle = ((index * (360 / (widgets.length - 1))) + 90) * (Math.PI / 180);
+                        const radius = Math.min(containerWidth, containerHeight) * 0.3;
+                        const x = containerWidth / 2 + Math.cos(angle) * radius;
+                        const y = containerHeight / 2 + Math.sin(angle) * radius;
+                        
+                        element.style.left = `${x}px`;
+                        element.style.top = `${y}px`;
+                        element.style.transform = 'translate(-50%, -50%)';
+                    }
+                }
+            });
+        }
+
+        // Initialize widgets
+        widgets.forEach((widget, index) => {
+            const widgetElement = createWidget(widget, index);
+            widgetsContainer.appendChild(widgetElement);
+        });
+        feather.replace();
+        updateWidgetPositions();
+
+        // Handle widget clicks
+        document.querySelectorAll('.widget').forEach(widget => {
+            widget.addEventListener('click', () => {
+                const widgetId = widget.getAttribute('data-widget-id');
+                if (selectedWidgetId === widgetId) {
+                    widget.classList.remove('selected');
+                    selectedWidgetId = null;
+                    layout = 'grid';
+                } else {
+                    document.querySelectorAll('.widget').forEach(w => w.classList.remove('selected'));
+                    widget.classList.add('selected');
+                    selectedWidgetId = widgetId;
+                    layout = 'focus';
+                }
+                updateWidgetPositions(layout);
+            });
+        });
+
+        // Enhanced parallax effect
+        document.addEventListener('mousemove', (e) => {
+            const { clientX, clientY } = e;
+            const { innerWidth, innerHeight } = window;
+            
+            const moveX = (clientX / innerWidth - 0.5) * 20;
+            const moveY = (clientY / innerHeight - 0.5) * 20;
+            
+            // Mirror tilt effect
+            const mirror = document.getElementById('mirror');
+            mirror.style.transform = `
+                perspective(2000px) 
+                rotateX(${-moveY * 0.5}deg) 
+                rotateY(${moveX * 0.5}deg)
+                translateZ(0)
+            `;
+            
+            // Parallax effect for widgets
+            document.querySelectorAll('.widget').forEach(widget => {
+                if (widget.classList.contains('selected')) return;
+                
+                const depth = parseFloat(widget.className.match(/widget-depth-(\d+)/)[1]) * 0.5;
+                const translateX = moveX * depth;
+                const translateY = moveY * depth;
+                const translateZ = depth * 10;
+                
+                widget.style.transform = `
+                    translate3d(${translateX}px, ${translateY}px, ${translateZ}px)
+                `;
+            });
+        });
+
+        // Handle power button
+        const powerBtn = document.getElementById('power-btn');
+        powerBtn.addEventListener('click', () => {
+            isActive = !isActive;
+            powerBtn.querySelector('div').className = `w-3 h-3 rounded-full ${isActive ? 'bg-green-500' : 'bg-red-500'} shadow-lg`;
+            document.getElementById('mirror').style.opacity = isActive ? '1' : '0.7';
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            updateWidgetPositions(layout);
+        });
+    </script>
+</body>
+</html>
