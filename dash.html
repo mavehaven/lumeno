@@ -532,7 +532,14 @@
     </main>
 
     <script>
-        class AutostereoscopicEngine {
+        // Global state management
+const state = {
+    activeRenders: [],
+    completedRenders: [],
+    currentRender: null
+};
+
+class AutostereoscopicEngine {
     constructor() {
         this.initializeElements();
         this.initializeEventListeners();
@@ -554,6 +561,83 @@
             outputQuality: 90
         };
         this.processing = false;
+    }
+
+    initializeElements() {
+        // Initialize main elements
+        this.dropZone = document.getElementById('dropZone');
+        this.imageInput = document.getElementById('imageInput');
+        this.output = document.getElementById('output');
+        this.leftPreview = document.getElementById('leftPreview');
+        this.rightPreview = document.getElementById('rightPreview');
+        
+        // Initialize view controls
+        this.viewControls = {
+            left: document.getElementById('viewLeft'),
+            right: document.getElementById('viewRight'),
+            combined: document.getElementById('viewCombined'),
+            barrier: document.getElementById('toggleBarrier')
+        };
+
+        // Initialize sliders
+        this.sliders = {
+            separation: document.getElementById('separation'),
+            barrierWidth: document.getElementById('barrierWidth'),
+            barrierOpacity: document.getElementById('barrierOpacity'),
+            holeFill: document.getElementById('holeFill'),
+            brightness: document.getElementById('brightness'),
+            contrast: document.getElementById('contrast'),
+            outputQuality: document.getElementById('outputQuality')
+        };
+
+        // Initialize download buttons
+        this.downloadButtons = {
+            current: document.getElementById('downloadCurrent'),
+            full: document.getElementById('downloadFull')
+        };
+    }
+
+    initializeEventListeners() {
+        // Drop zone listeners
+        if (this.dropZone) {
+            this.dropZone.addEventListener('dragover', this.handleDragOver.bind(this));
+            this.dropZone.addEventListener('dragleave', this.handleDragLeave.bind(this));
+            this.dropZone.addEventListener('drop', this.handleDrop.bind(this));
+            this.dropZone.addEventListener('click', () => this.imageInput.click());
+        }
+
+        // File input listener
+        if (this.imageInput) {
+            this.imageInput.addEventListener('change', this.handleFileSelect.bind(this));
+        }
+
+        // View control listeners
+        Object.entries(this.viewControls).forEach(([view, element]) => {
+            if (element) {
+                element.addEventListener('click', () => {
+                    this.currentView = view;
+                    this.updateOutput();
+                });
+            }
+        });
+
+        // Slider listeners
+        Object.entries(this.sliders).forEach(([setting, element]) => {
+            if (element) {
+                element.addEventListener('input', (e) => {
+                    this.settings[setting] = parseFloat(e.target.value);
+                    this.processImage();
+                });
+            }
+        });
+
+        // Download button listeners
+        if (this.downloadButtons.current) {
+            this.downloadButtons.current.addEventListener('click', this.downloadCurrent.bind(this));
+        }
+        if (this.downloadButtons.full) {
+            this.downloadButtons.full.addEventListener('click', this.downloadFull.bind(this));
+        }
     }
 
     async processImage() {
@@ -584,9 +668,14 @@
             
             this.updateOutput();
             this.updateProgress(100);
+
+            // Save to Firebase if user is logged in
+            if (currentUser) {
+                await this.saveRenderToFirebase();
+            }
         } catch (error) {
             console.error('Error processing image:', error);
-            this.updateQueueItemStatus('error');
+            this.handleError(error);
         } finally {
             this.processing = false;
         }
@@ -615,16 +704,10 @@
         for (let i = 0; i < data.length; i += 4) {
             // Process RGB channels
             for (let j = 0; j < 3; j++) {
-                // Apply brightness first
                 let value = data[i + j] + brightness;
-                
-                // Then apply contrast
                 value = factor * (value - 128) + 128;
-                
-                // Clamp values
                 data[i + j] = Math.max(0, Math.min(255, value));
             }
-            // Keep alpha channel unchanged
         }
 
         ctx.putImageData(imageData, 0, 0);
@@ -636,7 +719,6 @@
 
         const separation = this.settings.separation;
         
-        // Create canvases with proper dimensions
         const leftCanvas = document.createElement('canvas');
         const rightCanvas = document.createElement('canvas');
         const width = sourceCanvas.width + Math.abs(separation);
@@ -648,28 +730,26 @@
         const leftCtx = leftCanvas.getContext('2d');
         const rightCtx = rightCanvas.getContext('2d');
 
-        // Clear canvases
         leftCtx.clearRect(0, 0, width, height);
         rightCtx.clearRect(0, 0, width, height);
 
-        // Draw with offset
         leftCtx.drawImage(sourceCanvas, separation > 0 ? separation : 0, 0);
         rightCtx.drawImage(sourceCanvas, separation < 0 ? -separation : 0, 0);
 
         return { leftView: leftCanvas, rightView: rightCanvas };
     }
 
-        async generateCombinedView(leftView, rightView) {
+    async generateCombinedView(leftView, rightView) {
         if (!leftView || !rightView) return null;
 
         const canvas = document.createElement('canvas');
         [canvas.width, canvas.height] = [leftView.width, leftView.height];
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-        // First draw left view
+        // Draw left view
         ctx.drawImage(leftView, 0, 0);
 
-        // Create barrier pattern if enabled
+        // Add barrier pattern
         if (this.barrierVisible) {
             const barrierWidth = Math.max(1, Math.min(10, this.settings.barrierWidth));
             const opacity = this.settings.barrierOpacity / 100;
@@ -680,31 +760,25 @@
             }
         }
 
-        // Get image data for both views
+        // Interlace views
         const rightCtx = rightView.getContext('2d');
         const rightImageData = rightCtx.getImageData(0, 0, rightView.width, rightView.height);
         const combinedImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const combined = combinedImageData.data;
-        const right = rightImageData.data;
-
-        // Interlace views
+        
         const barrierWidth = Math.max(1, Math.min(10, this.settings.barrierWidth));
         for (let y = 0; y < canvas.height; y++) {
             for (let x = 0; x < canvas.width; x++) {
                 if ((x % (barrierWidth * 2)) >= barrierWidth) {
                     const i = (y * canvas.width + x) * 4;
-                    // Copy all channels including alpha
-                    combined[i] = right[i];     // R
-                    combined[i + 1] = right[i + 1]; // G
-                    combined[i + 2] = right[i + 2]; // B
-                    combined[i + 3] = right[i + 3]; // A
+                    for (let j = 0; j < 4; j++) {
+                        combinedImageData.data[i + j] = rightImageData.data[i + j];
+                    }
                 }
             }
         }
 
         ctx.putImageData(combinedImageData, 0, 0);
 
-        // Apply hole filling if needed
         if (this.settings.holeFill > 0) {
             await this.applyHoleFill(ctx);
         }
@@ -717,24 +791,20 @@
         const data = imageData.data;
         const holeFillStrength = this.settings.holeFill / 100;
         const width = ctx.canvas.width;
-        const threshold = 50; // Hole detection threshold
+        const threshold = 50;
 
-        // Process each pixel except edges
         for (let y = 0; y < ctx.canvas.height; y++) {
             for (let x = 1; x < width - 1; x++) {
                 const i = (y * width + x) * 4;
                 const leftPixel = i - 4;
                 const rightPixel = i + 4;
 
-                // Check each color channel
                 for (let c = 0; c < 3; c++) {
                     const channelIndex = i + c;
                     const diff = Math.abs(data[leftPixel + c] - data[rightPixel + c]);
                     
                     if (diff > threshold) {
-                        // Calculate interpolated value
                         const interpolated = (data[leftPixel + c] + data[rightPixel + c]) / 2;
-                        // Blend with original based on strength
                         data[channelIndex] = interpolated * holeFillStrength + 
                                            data[channelIndex] * (1 - holeFillStrength);
                     }
@@ -745,131 +815,17 @@
         ctx.putImageData(imageData, 0, 0);
     }
 
-    updateOutput() {
-        if (!this.output || !this.processedImage) return;
+    async updatePreviews(leftView, rightView) {
+        if (!this.leftPreview || !this.rightPreview) return;
 
-        this.output.innerHTML = '';
-        const canvas = document.createElement('canvas');
-        [canvas.width, canvas.height] = [this.processedImage.width, this.processedImage.height];
-        const ctx = canvas.getContext('2d');
+        const leftCtx = this.leftPreview.getContext('2d');
+        const rightCtx = this.rightPreview.getContext('2d');
 
-        try {
-            switch (this.currentView) {
-                case 'left':
-                    if (this.leftPreview) {
-                        ctx.drawImage(this.leftPreview, 0, 0);
-                    }
-                    break;
-                case 'right':
-                    if (this.rightPreview) {
-                        ctx.drawImage(this.rightPreview, 0, 0);
-                    }
-                    break;
-                case 'combined':
-                default:
-                    ctx.drawImage(this.processedImage, 0, 0);
-                    break;
-            }
-            this.output.appendChild(canvas);
-        } catch (error) {
-            console.error('Error updating output:', error);
-        }
-    }
+        leftCtx.clearRect(0, 0, this.leftPreview.width, this.leftPreview.height);
+        rightCtx.clearRect(0, 0, this.rightPreview.width, this.rightPreview.height);
 
-    updateProgress(progress) {
-        if (state.currentRender) {
-            state.currentRender.progress = Math.min(100, Math.max(0, progress));
-            if (progress >= 100) {
-                state.currentRender.status = 'completed';
-                state.currentRender.endTime = Date.now();
-                state.completedRenders.push(state.currentRender);
-                state.activeRenders = state.activeRenders.filter(r => r.id !== state.currentRender.id);
-            }
-            this.updateQueueList();
-        }
-    }
-            async loadImage(file) {
-        if (!file.type.startsWith('image/')) {
-            alert('Please upload an image file');
-            return;
-        }
-
-        try {
-            const img = await this.createImageFromFile(file);
-            this.currentImage = img;
-            this.createRenderJob();
-            await this.processImage();
-        } catch (error) {
-            console.error('Error loading image:', error);
-            this.updateQueueItemStatus('error');
-            alert('Error loading image');
-        }
-    }
-
-    createImageFromFile(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = () => reject(new Error('Failed to load image'));
-                img.src = e.target.result;
-            };
-            
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsDataURL(file);
-        });
-    }
-
-    createRenderJob() {
-        const jobId = Date.now();
-        const job = {
-            id: jobId,
-            status: 'processing',
-            progress: 0,
-            startTime: Date.now(),
-            fileName: this.currentImage.src.split('/').pop().split('?')[0]
-        };
-        
-        state.currentRender = job;
-        state.activeRenders.push(job);
-        this.updateQueueList();
-    }
-
-    updateQueueList() {
-        const queueList = document.getElementById('queueList');
-        if (!queueList) return;
-
-        queueList.innerHTML = '';
-
-        // Add active renders
-        state.activeRenders.forEach(render => {
-            this.addQueueItem(render);
-        });
-
-        // Add most recent completed renders
-        state.completedRenders.slice(-5).forEach(render => {
-            this.addQueueItem(render);
-        });
-
-        this.updateDashboardStats();
-    }
-
-    addQueueItem(render) {
-        const queueList = document.getElementById('queueList');
-        if (!queueList) return;
-
-        const item = document.createElement('div');
-        item.className = 'queue-item';
-        item.innerHTML = `
-            <div>Render #${render.id}</div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: ${render.progress}%"></div>
-            </div>
-            <div class="status-badge status-${render.status}">${render.status}</div>
-        `;
-        queueList.insertBefore(item, queueList.firstChild);
+        leftCtx.drawImage(leftView, 0, 0, this.leftPreview.width, this.leftPreview.height);
+        rightCtx.drawImage(rightView, 0, 0, this.rightPreview.width, this.rightPreview.height);
     }
 
     handleDragOver(e) {
@@ -910,8 +866,47 @@
         if (file) {
             await this.loadImage(file);
         }
-        // Reset input value to allow selecting the same file again
         e.target.value = '';
+    }
+
+    async loadImage(file) {
+        if (!file.type.startsWith('image/')) {
+            alert('Please upload an image file');
+            return;
+        }
+
+        try {
+            const img = await this.createImageFromFile(file);
+            this.currentImage = img;
+            this.createRenderJob();
+            await this.processImage();
+        } catch (error) {
+            console.error('Error loading image:', error);
+            this.handleError(error);
+        }
+    }
+
+    createImageFromFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('Failed to load image'));
+                img.src = e.target.result;
+            };
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    handleError(error) {
+        console.error('Error:', error);
+        alert(`Error: ${error.message || 'Something went wrong'}`);
+        if (state.currentRender) {
+            state.currentRender.status = 'error';
+            this.updateQueueList();
+        }
     }
 
     downloadCurrent() {
@@ -951,391 +946,309 @@
         }
     }
 
-         const firebaseConfig = {
-            apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
-            authDomain: "lumenos-749a1.firebaseapp.com",
-            projectId: "lumenos-749a1",
-            storageBucket: "lumenos-749a1.firebasestorage.app",
-            messagingSenderId: "857410556058",
-            appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
-            measurementId: "G-CEZ4PHV9GE"
-        };
+    updateOutput() {
+        if (!this.output || !this.processedImage) return;
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        firebase.analytics();
+        this.output.innerHTML = '';
+        const canvas = document.createElement('canvas');
+        [canvas.width, canvas.height] = [this.processedImage.width, this.processedImage.height];
+        const ctx = canvas.getContext('2d');
 
-        // Get Firebase services
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+        try {
+            switch (this.currentView) {
+                case 'left':
+                    if (this.leftPreview) {
+                        ctx.drawImage(this.leftPreview, 0, 0);
+                    }
+                    break;
+                case 'right':
+                    if (this.rightPreview) {
+                        ctx.drawImage(this.rightPreview, 0, 0);
+                    }
+                    break;
+                case 'combined':
+                default:
+                    ctx.drawImage(this.processedImage, 0, 0);
+                    break;
+            }
+            this.output.appendChild(canvas);
+        } catch (error) {
+            console.error('Error updating output:', error);
+        }
+    }
+
+    updateProgress(progress) {
+        if (!state.currentRender) return;
         
-        // Global state for authentication
-        let currentUser = null;
+        state.currentRender.progress = Math.min(100, Math.max(0, progress));
+        if (progress >= 100) {
+            state.currentRender.status = 'completed';
+            state.currentRender.endTime = Date.now();
+            state.completedRenders.push(state.currentRender);
+            state.activeRenders = state.activeRenders.filter(r => r.id !== state.currentRender.id);
 
-        // Auth state observer
-        auth.onAuthStateChanged((user) => {
-            currentUser = user;
-            if (user) {
-                // User is signed in
-                showDashboard();
-                loadUserData();
-            } else {
-                // User is signed out
-                showLoginForm();
+            // Update Firebase if user is logged in
+            if (currentUser) {
+                updateRenderProgress(state.currentRender.id, progress, 'completed');
             }
+        }
+        this.updateQueueList();
+    }
+
+    updateQueueList() {
+        const queueList = document.getElementById('queueList');
+        if (!queueList) return;
+
+        queueList.innerHTML = '';
+
+        // Add active renders
+        state.activeRenders.forEach(render => {
+            this.addQueueItem(render);
         });
 
-        // Authentication functions
-        function signIn(email, password) {
-            return auth.signInWithEmailAndPassword(email, password)
-                .catch(error => {
-                    console.error('Error signing in:', error);
-                    alert(error.message);
-                });
-        }
-
-        function signUp(email, password) {
-            return auth.createUserWithEmailAndPassword(email, password)
-                .then(async (userCredential) => {
-                    // Create user document in Firestore
-                    await db.collection('users').doc(userCredential.user.uid).set({
-                        email: email,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        preferences: {
-                            defaultQuality: 90,
-                            autoSave: true
-                        }
-                    });
-                })
-                .catch(error => {
-                    console.error('Error signing up:', error);
-                    alert(error.message);
-                });
-        }
-
-        function signOut() {
-            auth.signOut().then(() => {
-                window.location.reload();
-            }).catch(error => {
-                console.error('Error signing out:', error);
-            });
-        }
-
-        // Firestore data functions
-        async function saveRenderJob(jobData) {
-            if (!currentUser) return null;
-
-            try {
-                const renderRef = await db.collection('renders').add({
-                    userId: currentUser.uid,
-                    ...jobData,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                return renderRef.id;
-            } catch (error) {
-                console.error('Error saving render job:', error);
-                return null;
-            }
-        }
-
-        async function updateRenderProgress(renderId, progress, status) {
-            if (!currentUser) return;
-
-            try {
-                await db.collection('renders').doc(renderId).update({
-                    progress,
-                    status,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            } catch (error) {
-                console.error('Error updating render progress:', error);
-            }
-        }
-
-        async function loadUserData() {
-            if (!currentUser) return;
-
-            try {
-                // Get user's active renders
-                const activeRendersSnapshot = await db.collection('renders')
-                    .where('userId', '==', currentUser.uid)
-                    .where('status', '==', 'processing')
-                    .orderBy('createdAt', 'desc')
-                    .get();
-
-                const activeRenders = activeRendersSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-
-                // Get user's completed renders
-                const completedRendersSnapshot = await db.collection('renders')
-                    .where('userId', '==', currentUser.uid)
-                    .where('status', '==', 'completed')
-                    .orderBy('createdAt', 'desc')
-                    .limit(5)
-                    .get();
-
-                const completedRenders = completedRendersSnapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-
-                // Update UI with the data
-                updateDashboardUI(activeRenders, completedRenders);
-            } catch (error) {
-                console.error('Error loading user data:', error);
-            }
-        }
-
-        // UI update functions
-        function showLoginForm() {
-            const mainContent = document.querySelector('main');
-            mainContent.innerHTML = `
-                <div class="auth-container" style="max-width: 400px; margin: 100px auto; padding: 20px;">
-                    <div class="card-bg" style="background: var(--card-bg); padding: 2rem; border-radius: 15px; backdrop-filter: blur(10px); border: 1px solid var(--border-color);">
-                        <h2 style="text-align: center; margin-bottom: 20px;">Sign In</h2>
-                        <form id="loginForm" style="display: flex; flex-direction: column; gap: 15px;">
-                            <input type="email" id="email" placeholder="Email" required 
-                                style="padding: 10px; border-radius: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary);">
-                            <input type="password" id="password" placeholder="Password" required 
-                                style="padding: 10px; border-radius: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary);">
-                            <button type="submit" 
-                                style="padding: 10px; border-radius: 5px; background: linear-gradient(45deg, var(--primary-dark), var(--primary)); color: white; border: none; cursor: pointer;">
-                                Sign In
-                            </button>
-                        </form>
-                        <p style="text-align: center; margin-top: 15px;">
-                            <a href="#" id="toggleAuth" style="color: var(--primary);">Need an account? Sign up</a>
-                        </p>
-                    </div>
-                </div>
-            `;
-
-            // Add event listeners
-            const loginForm = document.getElementById('loginForm');
-            const toggleAuth = document.getElementById('toggleAuth');
-            let isLogin = true;
-
-            toggleAuth.addEventListener('click', (e) => {
-                e.preventDefault();
-                isLogin = !isLogin;
-                const title = document.querySelector('h2');
-                const button = loginForm.querySelector('button');
-                const toggle = document.getElementById('toggleAuth');
-
-                title.textContent = isLogin ? 'Sign In' : 'Sign Up';
-                button.textContent = isLogin ? 'Sign In' : 'Sign Up';
-                toggle.textContent = isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in';
-            });
-
-            loginForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-
-                if (isLogin) {
-                    await signIn(email, password);
-                } else {
-                    await signUp(email, password);
-                }
-            });
-        }
-
-        function showDashboard() {
-            // Re-enable your original dashboard content
-            document.getElementById('dashboard-tab').style.display = 'block';
-            
-            // Add logout button to nav
-            const nav = document.querySelector('.nav-links');
-            if (!nav.querySelector('.logout-btn')) {
-                const logoutBtn = document.createElement('a');
-                logoutBtn.href = '#';
-                logoutBtn.className = 'logout-btn';
-                logoutBtn.textContent = 'Logout';
-                logoutBtn.onclick = signOut;
-                nav.appendChild(logoutBtn);
-            }
-        }
-
-        function updateDashboardUI(activeRenders, completedRenders) {
-            // Update dashboard statistics
-            document.getElementById('activeRenders').textContent = activeRenders.length;
-            document.getElementById('completedToday').textContent = completedRenders.length;
-            
-            // Calculate average time
-            const avgTime = completedRenders.reduce((acc, render) => {
-                return acc + (render.updatedAt - render.createdAt);
-            }, 0) / (completedRenders.length || 1);
-            
-            document.getElementById('avgTime').textContent = Math.round(avgTime / 1000) + 's';
-            document.getElementById('totalRenders').textContent = completedRenders.length;
-
-            // Update queue list
-            const queueList = document.getElementById('queueList');
-            queueList.innerHTML = '';
-
-            // Add active renders
-            activeRenders.forEach(render => {
-                addQueueItem(render);
-            });
-
-            // Add completed renders
-            completedRenders.forEach(render => {
-                addQueueItem(render);
-            });
-        }
-
-        function addQueueItem(render) {
-            const queueList = document.getElementById('queueList');
-            const item = document.createElement('div');
-            item.className = 'queue-item';
-            item.innerHTML = `
-                <div>Render #${render.id}</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${render.progress}%"></div>
-                </div>
-                <div class="status-badge status-${render.status}">${render.status}</div>
-            `;
-            queueList.appendChild(item);
-        }
-
-            const state = {
-            activeRenders: [],
-            completedRenders: [],
-            currentRender: null
-        };
-
-        class AutostereoscopicEngine {
-            constructor() {
-                this.initializeElements();
-                this.initializeEventListeners();
-                this.initializeState();
-            }
-
-            initializeElements() {
-                this.dropZone = document.getElementById('dropZone');
-                this.imageInput = document.getElementById('imageInput');
-                this.output = document.getElementById('output');
-                this.leftPreview = document.getElementById('leftPreview');
-                this.rightPreview = document.getElementById('rightPreview');
-                
-                // Initialize control elements
-                this.viewControls = {
-                    left: document.getElementById('viewLeft'),
-                    right: document.getElementById('viewRight'),
-                    combined: document.getElementById('viewCombined'),
-                    barrier: document.getElementById('toggleBarrier')
-                };
-
-                this.sliders = {
-                    separation: document.getElementById('separation'),
-                    barrierWidth: document.getElementById('barrierWidth'),
-                    barrierOpacity: document.getElementById('barrierOpacity'),
-                    holeFill: document.getElementById('holeFill'),
-                    brightness: document.getElementById('brightness'),
-                    contrast: document.getElementById('contrast'),
-                    outputQuality: document.getElementById('outputQuality')
-                };
-
-                this.downloadButtons = {
-                    current: document.getElementById('downloadCurrent'),
-                    full: document.getElementById('downloadFull')
-                };
-            }
-
-            initializeEventListeners() {
-                if (this.dropZone) {
-                    this.dropZone.addEventListener('dragover', (e) => this.handleDragOver(e));
-                    this.dropZone.addEventListener('dragleave', (e) => this.handleDragLeave(e));
-                    this.dropZone.addEventListener('drop', (e) => this.handleDrop(e));
-                    this.dropZone.addEventListener('click', () => this.imageInput.click());
-                }
-
-                if (this.imageInput) {
-                    this.imageInput.addEventListener('change', (e) => this.handleFileSelect(e));
-                }
-
-                // View control listeners
-                Object.entries(this.viewControls).forEach(([view, element]) => {
-                    if (element) {
-                        element.addEventListener('click', () => {
-                            this.currentView = view;
-                            this.updateOutput();
-                        });
-                    }
-                });
-
-                // Slider listeners
-                Object.entries(this.sliders).forEach(([setting, element]) => {
-                    if (element) {
-                        element.addEventListener('input', (e) => {
-                            this.settings[setting] = parseFloat(e.target.value);
-                            this.processImage();
-                        });
-                    }
-                });
-
-                // Download button listeners
-                if (this.downloadButtons.current) {
-                    this.downloadButtons.current.addEventListener('click', () => this.downloadCurrent());
-                }
-                if (this.downloadButtons.full) {
-                    this.downloadButtons.full.addEventListener('click', () => this.downloadFull());
-                }
-            }
-
-            // ... (rest of the AutostereoscopicEngine class methods remain the same)
-        }
-
-        // Firebase configuration and initialization
-        const firebaseConfig = {
-            apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
-            authDomain: "lumenos-749a1.firebaseapp.com",
-            projectId: "lumenos-749a1",
-            storageBucket: "lumenos-749a1.firebasestorage.app",
-            messagingSenderId: "857410556058",
-            appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
-            measurementId: "G-CEZ4PHV9GE"
-        };
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        firebase.analytics();
-
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        let currentUser = null;
-        let engine = null;
-
-        // Tab switching function
-        function switchTab(tabName) {
-            const tabs = document.querySelectorAll('.tab-content');
-            tabs.forEach(tab => {
-                tab.classList.remove('active');
-                if (tab.id === `${tabName}-tab`) {
-                    tab.classList.add('active');
-                }
-            });
-        }
-
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', () => {
-            // Initialize the engine
-            engine = new AutostereoscopicEngine();
-
-            // Set up authentication observer
-            auth.onAuthStateChanged((user) => {
-                currentUser = user;
-                if (user) {
-                    showDashboard();
-                    loadUserData();
-                } else {
-                    showLoginForm();
-                }
-            });
+        // Add completed renders
+        state.completedRenders.slice(-5).forEach(render => {
+            this.addQueueItem(render);
         });
+
+        this.updateDashboardStats();
+    }
+
+    updateDashboardStats() {
+        const activeRenders = document.getElementById('activeRenders');
+        const completedToday = document.getElementById('completedToday');
+        const avgTime = document.getElementById('avgTime');
+        const totalRenders = document.getElementById('totalRenders');
+
+        if (activeRenders) activeRenders.textContent = state.activeRenders.length;
+        if (completedToday) completedToday.textContent = state.completedRenders.length;
+        if (totalRenders) totalRenders.textContent = state.activeRenders.length + state.completedRenders.length;
+
+        if (avgTime && state.completedRenders.length > 0) {
+            const avg = state.completedRenders.reduce((acc, render) => {
+                return acc + (render.endTime - render.startTime);
+            }, 0) / state.completedRenders.length;
+            avgTime.textContent = `${Math.round(avg / 1000)}s`;
+        }
+    }
+
+    addQueueItem(render) {
+        const queueList = document.getElementById('queueList');
+        if (!queueList) return;
+
+        const item = document.createElement('div');
+        item.className = 'queue-item';
+        item.setAttribute('data-render-id', render.id);
+        item.innerHTML = `
+            <div>Render #${render.id}</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${render.progress}%"></div>
+            </div>
+            <div class="status-badge status-${render.status}">${render.status}</div>
+        `;
+        queueList.appendChild(item);
+    }
+}
+
+        // Firebase Configuration and Initialization
+const firebaseConfig = {
+    apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
+    authDomain: "lumenos-749a1.firebaseapp.com",
+    projectId: "lumenos-749a1",
+    storageBucket: "lumenos-749a1.firebasestorage.app",
+    messagingSenderId: "857410556058",
+    appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
+    measurementId: "G-CEZ4PHV9GE"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+firebase.analytics();
+
+// Global variables
+const auth = firebase.auth();
+const db = firebase.firestore();
+let currentUser = null;
+let engine = null;
+
+// Auth state observer
+auth.onAuthStateChanged((user) => {
+    currentUser = user;
+    if (user) {
+        showDashboard();
+        loadUserData();
+    } else {
+        showLoginForm();
+    }
+});
+
+// Tab switching function
+function switchTab(tabName) {
+    const tabs = document.querySelectorAll('.tab-content');
+    tabs.forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.id === `${tabName}-tab`) {
+            tab.classList.add('active');
+        }
+    });
+}
+
+// Authentication functions
+async function signIn(email, password) {
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+    } catch (error) {
+        console.error('Error signing in:', error);
+        alert(error.message);
+    }
+}
+
+async function signUp(email, password) {
+    try {
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        await db.collection('users').doc(userCredential.user.uid).set({
+            email: email,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            preferences: {
+                defaultQuality: 90,
+                autoSave: true
+            }
+        });
+    } catch (error) {
+        console.error('Error signing up:', error);
+        alert(error.message);
+    }
+}
+
+function signOut() {
+    auth.signOut()
+        .then(() => window.location.reload())
+        .catch(error => console.error('Error signing out:', error));
+}
+
+// UI Functions
+function showDashboard() {
+    const mainContent = document.querySelector('main');
+    // Re-enable original dashboard content
+    document.getElementById('dashboard-tab').style.display = 'block';
+    
+    // Add logout button
+    const nav = document.querySelector('.nav-links');
+    if (!nav.querySelector('.logout-btn')) {
+        const logoutBtn = document.createElement('a');
+        logoutBtn.href = '#';
+        logoutBtn.className = 'logout-btn';
+        logoutBtn.textContent = 'Logout';
+        logoutBtn.onclick = signOut;
+        nav.appendChild(logoutBtn);
+    }
+}
+
+function showLoginForm() {
+    const mainContent = document.querySelector('main');
+    mainContent.innerHTML = `
+        <div class="auth-container">
+            <div class="card-bg">
+                <h2>Sign In</h2>
+                <form id="loginForm">
+                    <input type="email" id="email" placeholder="Email" required>
+                    <input type="password" id="password" placeholder="Password" required>
+                    <button type="submit">Sign In</button>
+                </form>
+                <p class="toggle-text">
+                    <a href="#" id="toggleAuth">Need an account? Sign up</a>
+                </p>
+            </div>
+        </div>
+    `;
+
+    // Add form listeners
+    const loginForm = document.getElementById('loginForm');
+    const toggleAuth = document.getElementById('toggleAuth');
+    let isLogin = true;
+
+    toggleAuth.addEventListener('click', (e) => {
+        e.preventDefault();
+        isLogin = !isLogin;
+        const title = document.querySelector('h2');
+        const button = loginForm.querySelector('button');
+        const toggle = document.getElementById('toggleAuth');
+
+        title.textContent = isLogin ? 'Sign In' : 'Sign Up';
+        button.textContent = isLogin ? 'Sign In' : 'Sign Up';
+        toggle.textContent = isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in';
+    });
+
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        if (isLogin) {
+            await signIn(email, password);
+        } else {
+            await signUp(email, password);
+        }
+    });
+}
+
+// Data loading functions
+async function loadUserData() {
+    if (!currentUser) return;
+
+    try {
+        // Get user's active renders
+        const activeRendersSnapshot = await db.collection('renders')
+            .where('userId', '==', currentUser.uid)
+            .where('status', '==', 'processing')
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        const activeRenders = activeRendersSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        // Get user's completed renders
+        const completedRendersSnapshot = await db.collection('renders')
+            .where('userId', '==', currentUser.uid)
+            .where('status', '==', 'completed')
+            .orderBy('createdAt', 'desc')
+            .limit(5)
+            .get();
+
+        const completedRenders = completedRendersSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        // Update state
+        state.activeRenders = activeRenders;
+        state.completedRenders = completedRenders;
+
+        // Update UI
+        if (engine) {
+            engine.updateQueueList();
+        }
+    } catch (error) {
+        console.error('Error loading user data:', error);
+    }
+}
+
+// Initialize application
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize the engine
+    engine = new AutostereoscopicEngine();
+    
+    // Initialize tab listeners
+    document.querySelectorAll('[onclick^="switchTab"]').forEach(element => {
+        const tabName = element.getAttribute('onclick').match(/'([^']+)'/)[1];
+        element.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchTab(tabName);
+        });
+    });
+});
             
 </script>
 </body>
