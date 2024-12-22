@@ -7,6 +7,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-analytics-compat.js"></script>
     <style>
         :root {
             --primary: #4facfe;
@@ -946,6 +950,256 @@
             alert('Error downloading image');
         }
     }
+
+         const firebaseConfig = {
+            apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
+            authDomain: "lumenos-749a1.firebaseapp.com",
+            projectId: "lumenos-749a1",
+            storageBucket: "lumenos-749a1.firebasestorage.app",
+            messagingSenderId: "857410556058",
+            appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
+            measurementId: "G-CEZ4PHV9GE"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        firebase.analytics();
+
+        // Get Firebase services
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // Global state for authentication
+        let currentUser = null;
+
+        // Auth state observer
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            if (user) {
+                // User is signed in
+                showDashboard();
+                loadUserData();
+            } else {
+                // User is signed out
+                showLoginForm();
+            }
+        });
+
+        // Authentication functions
+        function signIn(email, password) {
+            return auth.signInWithEmailAndPassword(email, password)
+                .catch(error => {
+                    console.error('Error signing in:', error);
+                    alert(error.message);
+                });
+        }
+
+        function signUp(email, password) {
+            return auth.createUserWithEmailAndPassword(email, password)
+                .then(async (userCredential) => {
+                    // Create user document in Firestore
+                    await db.collection('users').doc(userCredential.user.uid).set({
+                        email: email,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        preferences: {
+                            defaultQuality: 90,
+                            autoSave: true
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error signing up:', error);
+                    alert(error.message);
+                });
+        }
+
+        function signOut() {
+            auth.signOut().then(() => {
+                window.location.reload();
+            }).catch(error => {
+                console.error('Error signing out:', error);
+            });
+        }
+
+        // Firestore data functions
+        async function saveRenderJob(jobData) {
+            if (!currentUser) return null;
+
+            try {
+                const renderRef = await db.collection('renders').add({
+                    userId: currentUser.uid,
+                    ...jobData,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                return renderRef.id;
+            } catch (error) {
+                console.error('Error saving render job:', error);
+                return null;
+            }
+        }
+
+        async function updateRenderProgress(renderId, progress, status) {
+            if (!currentUser) return;
+
+            try {
+                await db.collection('renders').doc(renderId).update({
+                    progress,
+                    status,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (error) {
+                console.error('Error updating render progress:', error);
+            }
+        }
+
+        async function loadUserData() {
+            if (!currentUser) return;
+
+            try {
+                // Get user's active renders
+                const activeRendersSnapshot = await db.collection('renders')
+                    .where('userId', '==', currentUser.uid)
+                    .where('status', '==', 'processing')
+                    .orderBy('createdAt', 'desc')
+                    .get();
+
+                const activeRenders = activeRendersSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Get user's completed renders
+                const completedRendersSnapshot = await db.collection('renders')
+                    .where('userId', '==', currentUser.uid)
+                    .where('status', '==', 'completed')
+                    .orderBy('createdAt', 'desc')
+                    .limit(5)
+                    .get();
+
+                const completedRenders = completedRendersSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Update UI with the data
+                updateDashboardUI(activeRenders, completedRenders);
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+
+        // UI update functions
+        function showLoginForm() {
+            const mainContent = document.querySelector('main');
+            mainContent.innerHTML = `
+                <div class="auth-container" style="max-width: 400px; margin: 100px auto; padding: 20px;">
+                    <div class="card-bg" style="background: var(--card-bg); padding: 2rem; border-radius: 15px; backdrop-filter: blur(10px); border: 1px solid var(--border-color);">
+                        <h2 style="text-align: center; margin-bottom: 20px;">Sign In</h2>
+                        <form id="loginForm" style="display: flex; flex-direction: column; gap: 15px;">
+                            <input type="email" id="email" placeholder="Email" required 
+                                style="padding: 10px; border-radius: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                            <input type="password" id="password" placeholder="Password" required 
+                                style="padding: 10px; border-radius: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                            <button type="submit" 
+                                style="padding: 10px; border-radius: 5px; background: linear-gradient(45deg, var(--primary-dark), var(--primary)); color: white; border: none; cursor: pointer;">
+                                Sign In
+                            </button>
+                        </form>
+                        <p style="text-align: center; margin-top: 15px;">
+                            <a href="#" id="toggleAuth" style="color: var(--primary);">Need an account? Sign up</a>
+                        </p>
+                    </div>
+                </div>
+            `;
+
+            // Add event listeners
+            const loginForm = document.getElementById('loginForm');
+            const toggleAuth = document.getElementById('toggleAuth');
+            let isLogin = true;
+
+            toggleAuth.addEventListener('click', (e) => {
+                e.preventDefault();
+                isLogin = !isLogin;
+                const title = document.querySelector('h2');
+                const button = loginForm.querySelector('button');
+                const toggle = document.getElementById('toggleAuth');
+
+                title.textContent = isLogin ? 'Sign In' : 'Sign Up';
+                button.textContent = isLogin ? 'Sign In' : 'Sign Up';
+                toggle.textContent = isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in';
+            });
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                if (isLogin) {
+                    await signIn(email, password);
+                } else {
+                    await signUp(email, password);
+                }
+            });
+        }
+
+        function showDashboard() {
+            // Re-enable your original dashboard content
+            document.getElementById('dashboard-tab').style.display = 'block';
+            
+            // Add logout button to nav
+            const nav = document.querySelector('.nav-links');
+            if (!nav.querySelector('.logout-btn')) {
+                const logoutBtn = document.createElement('a');
+                logoutBtn.href = '#';
+                logoutBtn.className = 'logout-btn';
+                logoutBtn.textContent = 'Logout';
+                logoutBtn.onclick = signOut;
+                nav.appendChild(logoutBtn);
+            }
+        }
+
+        function updateDashboardUI(activeRenders, completedRenders) {
+            // Update dashboard statistics
+            document.getElementById('activeRenders').textContent = activeRenders.length;
+            document.getElementById('completedToday').textContent = completedRenders.length;
+            
+            // Calculate average time
+            const avgTime = completedRenders.reduce((acc, render) => {
+                return acc + (render.updatedAt - render.createdAt);
+            }, 0) / (completedRenders.length || 1);
+            
+            document.getElementById('avgTime').textContent = Math.round(avgTime / 1000) + 's';
+            document.getElementById('totalRenders').textContent = completedRenders.length;
+
+            // Update queue list
+            const queueList = document.getElementById('queueList');
+            queueList.innerHTML = '';
+
+            // Add active renders
+            activeRenders.forEach(render => {
+                addQueueItem(render);
+            });
+
+            // Add completed renders
+            completedRenders.forEach(render => {
+                addQueueItem(render);
+            });
+        }
+
+        function addQueueItem(render) {
+            const queueList = document.getElementById('queueList');
+            const item = document.createElement('div');
+            item.className = 'queue-item';
+            item.innerHTML = `
+                <div>Render #${render.id}</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${render.progress}%"></div>
+                </div>
+                <div class="status-badge status-${render.status}">${render.status}</div>
+            `;
+            queueList.appendChild(item);
+        }
             
 </script>
 </body>
