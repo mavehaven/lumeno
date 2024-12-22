@@ -1200,6 +1200,142 @@
             `;
             queueList.appendChild(item);
         }
+
+            const state = {
+            activeRenders: [],
+            completedRenders: [],
+            currentRender: null
+        };
+
+        class AutostereoscopicEngine {
+            constructor() {
+                this.initializeElements();
+                this.initializeEventListeners();
+                this.initializeState();
+            }
+
+            initializeElements() {
+                this.dropZone = document.getElementById('dropZone');
+                this.imageInput = document.getElementById('imageInput');
+                this.output = document.getElementById('output');
+                this.leftPreview = document.getElementById('leftPreview');
+                this.rightPreview = document.getElementById('rightPreview');
+                
+                // Initialize control elements
+                this.viewControls = {
+                    left: document.getElementById('viewLeft'),
+                    right: document.getElementById('viewRight'),
+                    combined: document.getElementById('viewCombined'),
+                    barrier: document.getElementById('toggleBarrier')
+                };
+
+                this.sliders = {
+                    separation: document.getElementById('separation'),
+                    barrierWidth: document.getElementById('barrierWidth'),
+                    barrierOpacity: document.getElementById('barrierOpacity'),
+                    holeFill: document.getElementById('holeFill'),
+                    brightness: document.getElementById('brightness'),
+                    contrast: document.getElementById('contrast'),
+                    outputQuality: document.getElementById('outputQuality')
+                };
+
+                this.downloadButtons = {
+                    current: document.getElementById('downloadCurrent'),
+                    full: document.getElementById('downloadFull')
+                };
+            }
+
+            initializeEventListeners() {
+                if (this.dropZone) {
+                    this.dropZone.addEventListener('dragover', (e) => this.handleDragOver(e));
+                    this.dropZone.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+                    this.dropZone.addEventListener('drop', (e) => this.handleDrop(e));
+                    this.dropZone.addEventListener('click', () => this.imageInput.click());
+                }
+
+                if (this.imageInput) {
+                    this.imageInput.addEventListener('change', (e) => this.handleFileSelect(e));
+                }
+
+                // View control listeners
+                Object.entries(this.viewControls).forEach(([view, element]) => {
+                    if (element) {
+                        element.addEventListener('click', () => {
+                            this.currentView = view;
+                            this.updateOutput();
+                        });
+                    }
+                });
+
+                // Slider listeners
+                Object.entries(this.sliders).forEach(([setting, element]) => {
+                    if (element) {
+                        element.addEventListener('input', (e) => {
+                            this.settings[setting] = parseFloat(e.target.value);
+                            this.processImage();
+                        });
+                    }
+                });
+
+                // Download button listeners
+                if (this.downloadButtons.current) {
+                    this.downloadButtons.current.addEventListener('click', () => this.downloadCurrent());
+                }
+                if (this.downloadButtons.full) {
+                    this.downloadButtons.full.addEventListener('click', () => this.downloadFull());
+                }
+            }
+
+            // ... (rest of the AutostereoscopicEngine class methods remain the same)
+        }
+
+        // Firebase configuration and initialization
+        const firebaseConfig = {
+            apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
+            authDomain: "lumenos-749a1.firebaseapp.com",
+            projectId: "lumenos-749a1",
+            storageBucket: "lumenos-749a1.firebasestorage.app",
+            messagingSenderId: "857410556058",
+            appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
+            measurementId: "G-CEZ4PHV9GE"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        firebase.analytics();
+
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentUser = null;
+        let engine = null;
+
+        // Tab switching function
+        function switchTab(tabName) {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.id === `${tabName}-tab`) {
+                    tab.classList.add('active');
+                }
+            });
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize the engine
+            engine = new AutostereoscopicEngine();
+
+            // Set up authentication observer
+            auth.onAuthStateChanged((user) => {
+                currentUser = user;
+                if (user) {
+                    showDashboard();
+                    loadUserData();
+                } else {
+                    showLoginForm();
+                }
+            });
+        });
             
 </script>
 </body>
