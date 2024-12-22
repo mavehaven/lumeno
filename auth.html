@@ -199,11 +199,22 @@
             text-decoration: underline;
         }
 
-        .error-message {
-            color: #ff4d4d;
+        .message {
             text-align: center;
             margin-top: 1rem;
             display: none;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .error-message {
+            color: #ff4d4d;
+            background: rgba(255, 77, 77, 0.1);
+        }
+
+        .success-message {
+            color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
         }
 
         footer {
@@ -271,7 +282,8 @@
                     <input type="password" id="confirm-password" name="confirm-password" required>
                 </div>
 
-                <div id="error-message" class="error-message"></div>
+                <div id="error-message" class="message error-message"></div>
+                <div id="success-message" class="message success-message"></div>
 
                 <button type="submit" class="submit-button">Sign Up</button>
             </form>
@@ -315,10 +327,16 @@
             return null;
         }
 
-        function showError(message) {
-            const errorMessageDiv = document.getElementById("error-message");
-            errorMessageDiv.innerText = message;
-            errorMessageDiv.style.display = message ? 'block' : 'none';
+        function showMessage(message, type = 'error') {
+            // Hide both messages first
+            document.getElementById("error-message").style.display = 'none';
+            document.getElementById("success-message").style.display = 'none';
+            
+            if (message) {
+                const messageDiv = document.getElementById(type + "-message");
+                messageDiv.innerText = message;
+                messageDiv.style.display = 'block';
+            }
         }
 
         async function handleSignup(event) {
@@ -329,15 +347,15 @@
             const password = document.getElementById("password").value;
             const confirmPassword = document.getElementById("confirm-password").value;
 
-            showError('');
+            showMessage('');
 
             if (!name || !email || !password || !confirmPassword) {
-                showError("Please fill out all fields.");
+                showMessage("Please fill out all fields.");
                 return;
             }
 
             if (password !== confirmPassword) {
-                showError("Passwords do not match.");
+                showMessage("Passwords do not match.");
                 return;
             }
 
@@ -370,7 +388,15 @@
                 // Send verification email
                 await sendEmailVerification(user);
                 
-                alert("Account created! Please check your email to verify your account.");
+                showMessage("Account created successfully! Redirecting you...", 'success');
+                
+                // Clear the form
+                document.getElementById('signup-form').reset();
+                
+                // Redirect to index.html after 2 seconds
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
                 // Optional: Redirect to dashboard
                 // window.location.href = '/dashboard.html';
             } catch (error) {
@@ -396,7 +422,7 @@
                     default:
                         errorMessage = error.message || "An unexpected error occurred. Please try again.";
                 }
-                showError(errorMessage);
+                showMessage(errorMessage);
             } finally {
                 // Re-enable the submit button
                 submitButton.disabled = false;
