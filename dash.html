@@ -1249,6 +1249,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+        createRenderJob() {
+    const jobId = Date.now();
+    const job = {
+        id: jobId,
+        status: 'processing',
+        progress: 0,
+        startTime: Date.now(),
+        fileName: this.currentImage ? this.currentImage.src.split('/').pop().split('?')[0] : 'unnamed',
+        settings: { ...this.settings }
+    };
+    
+    state.currentRender = job;
+    state.activeRenders.push(job);
+    
+    // If user is logged in, save to Firebase
+    if (currentUser) {
+        try {
+            const renderRef = db.collection('renders').add({
+                userId: currentUser.uid,
+                ...job,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            job.firestoreId = renderRef.id;
+        } catch (error) {
+            console.error('Error saving render job to Firebase:', error);
+        }
+    }
+    
+    this.updateQueueList();
+}
             
 </script>
 </body>
