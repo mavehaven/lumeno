@@ -3,26 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LumenOS | Rendering Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <title>LumenOS Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-analytics-compat.js"></script>
     <style>
         :root {
+            /* Brand Colors */
             --primary: #4facfe;
             --primary-dark: #00f2fe;
+            --gradient-primary: linear-gradient(45deg, var(--primary-dark), var(--primary));
+            
+            /* Interface Colors */
             --bg-primary: #080810;
             --bg-secondary: rgba(255, 255, 255, 0.05);
-            --text-primary: #fff;
+            --bg-tertiary: rgba(255, 255, 255, 0.02);
+            --text-primary: #ffffff;
             --text-secondary: #a0a0a0;
             --border-color: rgba(255, 255, 255, 0.1);
+            
+            /* Component Colors */
             --nav-bg: rgba(8, 8, 16, 0.95);
             --card-bg: rgba(255, 255, 255, 0.05);
-            --queue-item-bg: rgba(255, 255, 255, 0.1);
+            --hover-bg: rgba(255, 255, 255, 0.1);
+            
+            /* Status Colors */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            
+            /* Spacing */
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            
+            /* Border Radius */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-full: 9999px;
         }
 
         * {
@@ -36,1252 +61,780 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
         }
 
-        /* Navigation */
-        nav {
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-            background: var(--nav-bg);
+        /* Sidebar Styles */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
             backdrop-filter: blur(10px);
-            height: 60px;
+            border-right: 1px solid var(--border-color);
+            height: 100vh;
+            position: fixed;
+            padding: var(--spacing-lg);
             display: flex;
-            align-items: center;
+            flex-direction: column;
         }
 
-        .nav-container {
-            width: 100%;
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 2rem;
+        .sidebar-logo {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md) 0 var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            background: linear-gradient(45deg, var(--primary-dark), var(--primary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .logo-img {
+            height: 40px;
+            width: auto;
+        }
+
+        .nav-section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .nav-section-title {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: var(--spacing-md);
         }
 
         .nav-links {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
+            list-style: none;
         }
 
-        .nav-links a {
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            padding: var(--spacing-sm) var(--spacing-md);
             color: var(--text-primary);
             text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s ease;
+            border-radius: var(--radius-sm);
+            transition: all 0.3s ease;
+            margin-bottom: var(--spacing-xs);
         }
 
-        .nav-links a:hover {
-            color: var(--primary);
+        .nav-link:hover {
+            background: var(--hover-bg);
         }
 
-        /* Main Content */
-        main {
-            padding-top: 80px;
-            max-width: 1400px;
-            margin: 0 auto;
-            padding-left: 2rem;
-            padding-right: 2rem;
+        .nav-link.active {
+            background: var(--gradient-primary);
         }
 
-        /* Tabs */
-        .tabs {
+        .nav-link svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            margin-left: 280px;
+            flex: 1;
+            padding: var(--spacing-xl);
+        }
+
+        .header {
             display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-xl);
+            padding-bottom: var(--spacing-lg);
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1rem;
         }
 
-        .tab {
-            padding: 0.75rem 1.5rem;
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            padding: var(--spacing-sm) var(--spacing-md);
             background: var(--bg-secondary);
-            border: none;
-            border-radius: 8px;
-            color: var(--text-primary);
+            border-radius: var(--radius-full);
             cursor: pointer;
             transition: all 0.3s ease;
+        }
+
+        .user-profile:hover {
+            background: var(--hover-bg);
+        }
+
+        .profile-picture {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
             font-weight: 500;
+            font-size: 0.9rem;
         }
 
-        .tab.active {
-            background: linear-gradient(45deg, var(--primary-dark), var(--primary));
+        .user-role {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
         }
 
-        .tab:hover:not(.active) {
-            background: var(--queue-item-bg);
-        }
-
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* Dashboard Stats */
+        /* Dashboard Grid */
         .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
         }
 
-        .stat-card {
+        .dashboard-card {
             background: var(--card-bg);
-            padding: 1.5rem;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
             border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
         }
 
-        .stat-card h3 {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
         }
 
-        .stat-value {
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .card-value {
             font-size: 2rem;
             font-weight: 700;
-            background: linear-gradient(45deg, var(--primary-dark), var(--primary));
+            background: var(--gradient-primary);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        /* Render Queue */
-        .render-queue {
-            background: var(--card-bg);
-            padding: 2rem;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border-color);
+        .card-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
         }
 
-        .queue-header {
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .action-button {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .action-button:hover {
+            background: var(--hover-bg);
+            transform: translateY(-2px);
+        }
+
+        .action-icon {
+            width: 32px;
+            height: 32px;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .action-title {
+            font-weight: 500;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .action-description {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        /* Recent Activity */
+        .activity-list {
+            list-style: none;
+        }
+
+        .activity-item {
+            display: flex;
+            gap: var(--spacing-md);
+            padding: var(--spacing-md) 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .activity-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-title {
+            font-weight: 500;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .activity-time {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        /* Settings Panel */
+        .settings-section {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .settings-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
+            margin-bottom: var(--spacing-lg);
         }
 
-        .queue-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--text-primary);
+        .settings-group {
+            margin-bottom: var(--spacing-lg);
         }
 
-        .new-render-btn {
-            padding: 0.75rem 1.5rem;
-            background: linear-gradient(45deg, var(--primary-dark), var(--primary));
-            border: none;
-            border-radius: 8px;
+        .settings-label {
+            display: block;
+            margin-bottom: var(--spacing-sm);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .settings-input {
+            width: 100%;
+            padding: var(--spacing-md);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
             color: var(--text-primary);
-            font-weight: 500;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .settings-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .color-scheme {
+            display: flex;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-sm);
+        }
+
+        .color-option {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             transition: transform 0.3s ease;
         }
 
-        .new-render-btn:hover {
-            transform: translateY(-2px);
+        .color-option:hover {
+            transform: scale(1.1);
         }
 
-        .queue-list {
-            display: grid;
-            gap: 1rem;
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 80px;
+                padding: var(--spacing-md);
+            }
+
+            .sidebar-logo span,
+            .nav-section-title,
+            .nav-link span {
+                display: none;
+            }
+
+            .main-content {
+                margin-left: 80px;
+            }
         }
 
-        .queue-item {
-            background: var(--queue-item-bg);
-            padding: 1rem;
-            border-radius: 10px;
-            display: grid;
-            grid-template-columns: 1fr 2fr auto;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        /* Render Interface */
-        .render-interface {
-            background: var(--card-bg);
-            padding: 2rem;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border-color);
-        }
-
-        .upload-area {
-            border: 2px dashed var(--border-color);
-            border-radius: 15px;
-            padding: 3rem 2rem;
-            text-align: center;
-            margin-bottom: 2rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .upload-area:hover {
-            border-color: var(--primary);
-            background: var(--bg-secondary);
-        }
-
-        /* Controls */
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin: 2rem 0;
-        }
-
-        .control-group {
-            background: var(--bg-secondary);
-            padding: 1.5rem;
-            border-radius: 15px;
-            border: 1px solid var(--border-color);
-        }
-
-        .control-group h3 {
-            font-size: 1.1rem;
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-
-        /* Sliders and Buttons */
-        .slider-group {
-            margin: 1rem 0;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            height: 6px;
-            background: var(--bg-secondary);
-            border-radius: 3px;
-            -webkit-appearance: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            background: var(--primary);
-            border-radius: 50%;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
-
-        button {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            margin: 0.5rem 0;
-            border: none;
-            border-radius: 8px;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        button:hover {
-            background: var(--queue-item-bg);
-        }
-
-        .download-button {
-            background: linear-gradient(45deg, var(--primary-dark), var(--primary));
-        }
-
-        .download-button:hover {
-            transform: translateY(-2px);
-        }
-
-        /* Preview Container */
-        .preview-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-top: 2rem;
-        }
-
-        .preview-view {
-            background: var(--bg-secondary);
-            padding: 1.5rem;
-            border-radius: 15px;
-            border: 1px solid var(--border-color);
-        }
-
-        .preview-view h4 {
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-
-        canvas {
-            width: 100%;
-            border-radius: 8px;
-            background: var(--bg-primary);
-        }
-
-        /* Progress Bar */
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: var(--bg-secondary);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(45deg, var(--primary-dark), var(--primary));
-            transition: width 0.3s ease;
-        }
-
-        /* Status Badge */
-        .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 15px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            background: var(--bg-secondary);
-        }
-
-        .status-processing {
-            background: rgba(79, 172, 254, 0.1);
-            color: var(--primary);
-        }
-
-        .status-completed {
-            background: rgba(16, 185, 129, 0.1);
-            color: #10B981;
-        }
-
-        .status-error {
-            background: rgba(239, 68, 68, 0.1);
-            color: #EF4444;
-        }
-
-        /* Responsive Design */
         @media (max-width: 768px) {
-            .nav-container {
-                padding: 0 1rem;
-            }
-
-            main {
-                padding-left: 1rem;
-                padding-right: 1rem;
-            }
-
-            .queue-item {
-                grid-template-columns: 1fr;
-                text-align: center;
-            }
-
-            .controls {
+            .dashboard-grid {
                 grid-template-columns: 1fr;
             }
 
-            .preview-container {
+            .quick-actions {
                 grid-template-columns: 1fr;
+            }
+
+            .user-profile span {
+                display: none;
             }
         }
     </style>
 </head>
-<body>
-    <nav>
-        <div class="nav-container">
-            <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" 
-             width="200" 
-             height="100" 
-             alt="External SVG"
-             class="logo-img">
-            <div class="nav-links">
-                <a href="#" onclick="switchTab('dashboard')">Dashboard</a>
-                <a href="#" onclick="switchTab('renderer')">Renderer</a>
-            </div>
-        </div>
-    </nav>
-
-    <main>
-        <div id="dashboard-tab" class="tab-content active">
-            <div class="dashboard-grid">
-                <div class="stat-card">
-                    <h3>Active Renders</h3>
-                    <div class="stat-value" id="activeRenders">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Completed Today</h3>
-                    <div class="stat-value" id="completedToday">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Average Time</h3>
-                    <div class="stat-value" id="avgTime">0s</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Total Renders</h3>
-                    <div class="stat-value" id="totalRenders">0</div>
-                </div>
-            </div>
-
-            <div class="render-queue">
-                <div class="queue-header">
-                    <h2 class="queue-title">Render Queue</h2>
-                    <button class="new-render-btn" onclick="switchTab('renderer')">New Render</button>
-                </div>
-                <div class="queue-list" id="queueList"></div>
-            </div>
-        </div>
-
-        <div id="renderer-tab" class="tab-content">
-            <div class="render-interface">
-                <div class="upload-area" id="dropZone">
-                    <p>Drop an image here or click to upload</p>
-                    <input type="file" id="imageInput" accept="image/*" style="display: none;">
-                </div>
-
-                <div class="controls">
-                    <div class="control-group">
-                        <h3>View Settings</h3>
-                        <button id="viewLeft">Left View</button>
-                        <button id="viewRight">Right View</button>
-                        <button id="viewCombined">Combined View</button>
-                        <button id="toggleBarrier">Toggle Barrier</button>
-                    </div>
-
-                    <div class="control-group">
-                        <h3>3D Effects</h3>
-                        <div class="slider-group">
-                            <label>3D Separation</label>
-                            <input type="range" id="separation" min="1" max="50" value="15">
-                        </div>
-                        
-                        <div class="slider-group">
-                            <label>Barrier Width</label>
-                            <input type="range" id="barrierWidth" min="1" max="10" value="2">
-                        </div>
-                        <div class="slider-group">
-                            <label>Barrier Opacity</label>
-                            <input type="range" id="barrierOpacity" min="0" max="100" value="50">
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <h3>Image Enhancement</h3>
-                        <div class="slider-group">
-                            <label>Hole Fill</label>
-                            <input type="range" id="holeFill" min="0" max="100" value="50">
-                        </div>
-                        <div class="slider-group">
-                            <label>Brightness</label>
-                            <input type="range" id="brightness" min="-100" max="100" value="0">
-                        </div>
-                        <div class="slider-group">
-                            <label>Contrast</label>
-                            <input type="range" id="contrast" min="-100" max="100" value="0">
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <h3>Download Options</h3>
-                        <button id="downloadCurrent" class="download-button">Download Current View</button>
-                        <button id="downloadFull" class="download-button">Download Full Resolution</button>
-                        <div class="slider-group">
-                            <label>Output Quality</label>
-                            <input type="range" id="outputQuality" min="1" max="100" value="90">
-                        </div>
-                    </div>
-                </div>
-
-                <div id="output"></div>
-                
-                <div class="preview-container">
-                    <div class="preview-view">
-                        <h4>Left View</h4>
-                        <canvas id="leftPreview"></canvas>
-                    </div>
-                    <div class="preview-view">
-                        <h4>Right View</h4>
-                        <canvas id="rightPreview"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <script>
-        // Global state management
-const state = {
-    activeRenders: [],
-    completedRenders: [],
-    currentRender: null
-};
-
-class AutostereoscopicEngine {
-    constructor() {
-        this.initializeElements();
-        this.initializeEventListeners();
-        this.initializeState();
-    }
-
-    initializeState() {
-        this.currentImage = null;
-        this.processedImage = null;
-        this.currentView = 'combined';
-        this.barrierVisible = true;
-        this.settings = {
-            separation: 15,
-            barrierWidth: 2,
-            barrierOpacity: 50,
-            holeFill: 50,
-            brightness: 0,
-            contrast: 0,
-            outputQuality: 90
-        };
-        this.processing = false;
-    }
-
-    initializeElements() {
-        // Initialize main elements
-        this.dropZone = document.getElementById('dropZone');
-        this.imageInput = document.getElementById('imageInput');
-        this.output = document.getElementById('output');
-        this.leftPreview = document.getElementById('leftPreview');
-        this.rightPreview = document.getElementById('rightPreview');
-        
-        // Initialize view controls
-        this.viewControls = {
-            left: document.getElementById('viewLeft'),
-            right: document.getElementById('viewRight'),
-            combined: document.getElementById('viewCombined'),
-            barrier: document.getElementById('toggleBarrier')
-        };
-
-        // Initialize sliders
-        this.sliders = {
-            separation: document.getElementById('separation'),
-            barrierWidth: document.getElementById('barrierWidth'),
-            barrierOpacity: document.getElementById('barrierOpacity'),
-            holeFill: document.getElementById('holeFill'),
-            brightness: document.getElementById('brightness'),
-            contrast: document.getElementById('contrast'),
-            outputQuality: document.getElementById('outputQuality')
-        };
-
-        // Initialize download buttons
-        this.downloadButtons = {
-            current: document.getElementById('downloadCurrent'),
-            full: document.getElementById('downloadFull')
-        };
-    }
-
-    initializeEventListeners() {
-        // Drop zone listeners
-        if (this.dropZone) {
-            this.dropZone.addEventListener('dragover', this.handleDragOver.bind(this));
-            this.dropZone.addEventListener('dragleave', this.handleDragLeave.bind(this));
-            this.dropZone.addEventListener('drop', this.handleDrop.bind(this));
-            this.dropZone.addEventListener('click', () => this.imageInput.click());
-        }
-
-        // File input listener
-        if (this.imageInput) {
-            this.imageInput.addEventListener('change', this.handleFileSelect.bind(this));
-        }
-
-        // View control listeners
-        Object.entries(this.viewControls).forEach(([view, element]) => {
-            if (element) {
-                element.addEventListener('click', () => {
-                    this.currentView = view;
-                    this.updateOutput();
-                });
-            }
-        });
-
-        // Slider listeners
-        Object.entries(this.sliders).forEach(([setting, element]) => {
-            if (element) {
-                element.addEventListener('input', (e) => {
-                    this.settings[setting] = parseFloat(e.target.value);
-                    this.processImage();
-                });
-            }
-        });
-
-        // Download button listeners
-        if (this.downloadButtons.current) {
-            this.downloadButtons.current.addEventListener('click', this.downloadCurrent.bind(this));
-        }
-        if (this.downloadButtons.full) {
-            this.downloadButtons.full.addEventListener('click', this.downloadFull.bind(this));
-        }
-    }
-
-    async processImage() {
-        if (!this.currentImage || this.processing) return;
-        
-        try {
-            this.processing = true;
-            
-            // Step 1: Apply effects
-            const processedCanvas = await this.applyImageEffects();
-            if (!processedCanvas) return;
-            this.updateProgress(25);
-            
-            // Step 2: Generate stereo views
-            const stereoViews = await this.generateStereoViews(processedCanvas);
-            if (!stereoViews) return;
-            this.updateProgress(50);
-            
-            // Step 3: Update previews
-            await this.updatePreviews(stereoViews.leftView, stereoViews.rightView);
-            this.updateProgress(75);
-            
-            // Step 4: Generate combined view
-            this.processedImage = await this.generateCombinedView(
-                stereoViews.leftView, 
-                stereoViews.rightView
-            );
-            
-            this.updateOutput();
-            this.updateProgress(100);
-
-            // Save to Firebase if user is logged in
-            if (currentUser) {
-                await this.saveRenderToFirebase();
-            }
-        } catch (error) {
-            console.error('Error processing image:', error);
-            this.handleError(error);
-        } finally {
-            this.processing = false;
-        }
-    }
-
-    async applyImageEffects() {
-        if (!this.currentImage) return null;
-
-        const canvas = document.createElement('canvas');
-        [canvas.width, canvas.height] = [this.currentImage.width, this.currentImage.height];
-        const ctx = canvas.getContext('2d');
-
-        // Draw original image
-        ctx.drawImage(this.currentImage, 0, 0);
-
-        // Get image data
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-
-        // Calculate contrast factor
-        const brightness = this.settings.brightness;
-        const contrast = this.settings.contrast;
-        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-
-        // Process each pixel
-        for (let i = 0; i < data.length; i += 4) {
-            // Process RGB channels
-            for (let j = 0; j < 3; j++) {
-                let value = data[i + j] + brightness;
-                value = factor * (value - 128) + 128;
-                data[i + j] = Math.max(0, Math.min(255, value));
-            }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        return canvas;
-    }
-
-    async generateStereoViews(sourceCanvas) {
-        if (!sourceCanvas) return null;
-
-        const separation = this.settings.separation;
-        
-        const leftCanvas = document.createElement('canvas');
-        const rightCanvas = document.createElement('canvas');
-        const width = sourceCanvas.width + Math.abs(separation);
-        const height = sourceCanvas.height;
-        
-        [leftCanvas.width, rightCanvas.width] = [width, width];
-        [leftCanvas.height, rightCanvas.height] = [height, height];
-        
-        const leftCtx = leftCanvas.getContext('2d');
-        const rightCtx = rightCanvas.getContext('2d');
-
-        leftCtx.clearRect(0, 0, width, height);
-        rightCtx.clearRect(0, 0, width, height);
-
-        leftCtx.drawImage(sourceCanvas, separation > 0 ? separation : 0, 0);
-        rightCtx.drawImage(sourceCanvas, separation < 0 ? -separation : 0, 0);
-
-        return { leftView: leftCanvas, rightView: rightCanvas };
-    }
-
-    async generateCombinedView(leftView, rightView) {
-        if (!leftView || !rightView) return null;
-
-        const canvas = document.createElement('canvas');
-        [canvas.width, canvas.height] = [leftView.width, leftView.height];
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-        // Draw left view
-        ctx.drawImage(leftView, 0, 0);
-
-        // Add barrier pattern
-        if (this.barrierVisible) {
-            const barrierWidth = Math.max(1, Math.min(10, this.settings.barrierWidth));
-            const opacity = this.settings.barrierOpacity / 100;
-            
-            ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
-            for (let x = 0; x < canvas.width; x += barrierWidth * 2) {
-                ctx.fillRect(x, 0, barrierWidth, canvas.height);
-            }
-        }
-
-        // Interlace views
-        const rightCtx = rightView.getContext('2d');
-        const rightImageData = rightCtx.getImageData(0, 0, rightView.width, rightView.height);
-        const combinedImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        const barrierWidth = Math.max(1, Math.min(10, this.settings.barrierWidth));
-        for (let y = 0; y < canvas.height; y++) {
-            for (let x = 0; x < canvas.width; x++) {
-                if ((x % (barrierWidth * 2)) >= barrierWidth) {
-                    const i = (y * canvas.width + x) * 4;
-                    for (let j = 0; j < 4; j++) {
-                        combinedImageData.data[i + j] = rightImageData.data[i + j];
-                    }
-                }
-            }
-        }
-
-        ctx.putImageData(combinedImageData, 0, 0);
-
-        if (this.settings.holeFill > 0) {
-            await this.applyHoleFill(ctx);
-        }
-
-        return canvas;
-    }
-
-    async applyHoleFill(ctx) {
-        const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-        const data = imageData.data;
-        const holeFillStrength = this.settings.holeFill / 100;
-        const width = ctx.canvas.width;
-        const threshold = 50;
-
-        for (let y = 0; y < ctx.canvas.height; y++) {
-            for (let x = 1; x < width - 1; x++) {
-                const i = (y * width + x) * 4;
-                const leftPixel = i - 4;
-                const rightPixel = i + 4;
-
-                for (let c = 0; c < 3; c++) {
-                    const channelIndex = i + c;
-                    const diff = Math.abs(data[leftPixel + c] - data[rightPixel + c]);
-                    
-                    if (diff > threshold) {
-                        const interpolated = (data[leftPixel + c] + data[rightPixel + c]) / 2;
-                        data[channelIndex] = interpolated * holeFillStrength + 
-                                           data[channelIndex] * (1 - holeFillStrength);
-                    }
-                }
-            }
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-    }
-
-    async updatePreviews(leftView, rightView) {
-        if (!this.leftPreview || !this.rightPreview) return;
-
-        const leftCtx = this.leftPreview.getContext('2d');
-        const rightCtx = this.rightPreview.getContext('2d');
-
-        leftCtx.clearRect(0, 0, this.leftPreview.width, this.leftPreview.height);
-        rightCtx.clearRect(0, 0, this.rightPreview.width, this.rightPreview.height);
-
-        leftCtx.drawImage(leftView, 0, 0, this.leftPreview.width, this.leftPreview.height);
-        rightCtx.drawImage(rightView, 0, 0, this.rightPreview.width, this.rightPreview.height);
-    }
-
-    handleDragOver(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (this.dropZone) {
-            this.dropZone.style.borderColor = 'var(--primary)';
-            this.dropZone.style.background = 'var(--bg-secondary)';
-        }
-    }
-
-    handleDragLeave(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (this.dropZone) {
-            this.dropZone.style.borderColor = '';
-            this.dropZone.style.background = '';
-        }
-    }
-
-    async handleDrop(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (this.dropZone) {
-            this.dropZone.style.borderColor = '';
-            this.dropZone.style.background = '';
-        }
-        
-        const file = e.dataTransfer.files[0];
-        if (file) {
-            await this.loadImage(file);
-        }
-    }
-
-    async handleFileSelect(e) {
-        const file = e.target.files[0];
-        if (file) {
-            await this.loadImage(file);
-        }
-        e.target.value = '';
-    }
-
-    async loadImage(file) {
-        if (!file.type.startsWith('image/')) {
-            alert('Please upload an image file');
-            return;
-        }
-
-        try {
-            const img = await this.createImageFromFile(file);
-            this.currentImage = img;
-            this.createRenderJob();
-            await this.processImage();
-        } catch (error) {
-            console.error('Error loading image:', error);
-            this.handleError(error);
-        }
-    }
-
-    createImageFromFile(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = () => reject(new Error('Failed to load image'));
-                img.src = e.target.result;
-            };
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsDataURL(file);
-        });
-    }
-
-    handleError(error) {
-        console.error('Error:', error);
-        alert(`Error: ${error.message || 'Something went wrong'}`);
-        if (state.currentRender) {
-            state.currentRender.status = 'error';
-            this.updateQueueList();
-        }
-    }
-
-    downloadCurrent() {
-        if (!this.processedImage) return;
-        
-        try {
-            const canvas = this.output.querySelector('canvas');
-            if (!canvas) return;
-
-            const link = document.createElement('a');
-            link.download = `stereoscopic_image_${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png', this.settings.outputQuality / 100);
-            link.click();
-        } catch (error) {
-            console.error('Error downloading image:', error);
-            alert('Error downloading image');
-        }
-    }
-
-    downloadFull() {
-        if (!this.processedImage || !this.currentImage) return;
-        
-        try {
-            const canvas = document.createElement('canvas');
-            [canvas.width, canvas.height] = [this.currentImage.width, this.currentImage.height];
-            const ctx = canvas.getContext('2d');
-            
-            ctx.drawImage(this.processedImage, 0, 0, canvas.width, canvas.height);
-            
-            const link = document.createElement('a');
-            link.download = `stereoscopic_image_full_${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png', this.settings.outputQuality / 100);
-            link.click();
-        } catch (error) {
-            console.error('Error downloading full image:', error);
-            alert('Error downloading image');
-        }
-    }
-
-    updateOutput() {
-        if (!this.output || !this.processedImage) return;
-
-        this.output.innerHTML = '';
-        const canvas = document.createElement('canvas');
-        [canvas.width, canvas.height] = [this.processedImage.width, this.processedImage.height];
-        const ctx = canvas.getContext('2d');
-
-        try {
-            switch (this.currentView) {
-                case 'left':
-                    if (this.leftPreview) {
-                        ctx.drawImage(this.leftPreview, 0, 0);
-                    }
-                    break;
-                case 'right':
-                    if (this.rightPreview) {
-                        ctx.drawImage(this.rightPreview, 0, 0);
-                    }
-                    break;
-                case 'combined':
-                default:
-                    ctx.drawImage(this.processedImage, 0, 0);
-                    break;
-            }
-            this.output.appendChild(canvas);
-        } catch (error) {
-            console.error('Error updating output:', error);
-        }
-    }
-
-    updateProgress(progress) {
-        if (!state.currentRender) return;
-        
-        state.currentRender.progress = Math.min(100, Math.max(0, progress));
-        if (progress >= 100) {
-            state.currentRender.status = 'completed';
-            state.currentRender.endTime = Date.now();
-            state.completedRenders.push(state.currentRender);
-            state.activeRenders = state.activeRenders.filter(r => r.id !== state.currentRender.id);
-
-            // Update Firebase if user is logged in
-            if (currentUser) {
-                updateRenderProgress(state.currentRender.id, progress, 'completed');
-            }
-        }
-        this.updateQueueList();
-    }
-
-    updateQueueList() {
-        const queueList = document.getElementById('queueList');
-        if (!queueList) return;
-
-        queueList.innerHTML = '';
-
-        // Add active renders
-        state.activeRenders.forEach(render => {
-            this.addQueueItem(render);
-        });
-
-        // Add completed renders
-        state.completedRenders.slice(-5).forEach(render => {
-            this.addQueueItem(render);
-        });
-
-        this.updateDashboardStats();
-    }
-
-    updateDashboardStats() {
-        const activeRenders = document.getElementById('activeRenders');
-        const completedToday = document.getElementById('completedToday');
-        const avgTime = document.getElementById('avgTime');
-        const totalRenders = document.getElementById('totalRenders');
-
-        if (activeRenders) activeRenders.textContent = state.activeRenders.length;
-        if (completedToday) completedToday.textContent = state.completedRenders.length;
-        if (totalRenders) totalRenders.textContent = state.activeRenders.length + state.completedRenders.length;
-
-        if (avgTime && state.completedRenders.length > 0) {
-            const avg = state.completedRenders.reduce((acc, render) => {
-                return acc + (render.endTime - render.startTime);
-            }, 0) / state.completedRenders.length;
-            avgTime.textContent = `${Math.round(avg / 1000)}s`;
-        }
-    }
-
-    addQueueItem(render) {
-        const queueList = document.getElementById('queueList');
-        if (!queueList) return;
-
-        const item = document.createElement('div');
-        item.className = 'queue-item';
-        item.setAttribute('data-render-id', render.id);
-        item.innerHTML = `
-            <div>Render #${render.id}</div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: ${render.progress}%"></div>
-            </div>
-            <div class="status-badge status-${render.status}">${render.status}</div>
-        `;
-        queueList.appendChild(item);
-    }
-}
-
-        // Firebase Configuration and Initialization
+<script>
+  // Firebase Configuration and Initialization
 const firebaseConfig = {
     apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
     authDomain: "lumenos-749a1.firebaseapp.com",
     projectId: "lumenos-749a1",
     storageBucket: "lumenos-749a1.firebasestorage.app",
     messagingSenderId: "857410556058",
-    appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
-    measurementId: "G-CEZ4PHV9GE"
+    appId: "1:857410556058:web:bb28ae2a03874f8f27cf23"
 };
 
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-firebase.analytics();
-
-// Global variables
 const auth = firebase.auth();
 const db = firebase.firestore();
-let currentUser = null;
-let engine = null;
+const storage = firebase.storage();
 
-// Auth state observer
-auth.onAuthStateChanged((user) => {
-    currentUser = user;
-    if (user) {
-        showDashboard();
-        loadUserData();
-    } else {
-        showLoginForm();
-    }
+let currentUser = null;
+let userSettings = null;
+
+// Initialize Dashboard
+document.addEventListener('DOMContentLoaded', () => {
+    initializeAuth();
+    initializeDashboard();
 });
 
-// Tab switching function
-function switchTab(tabName) {
-    const tabs = document.querySelectorAll('.tab-content');
-    tabs.forEach(tab => {
-        tab.classList.remove('active');
-        if (tab.id === `${tabName}-tab`) {
-            tab.classList.add('active');
-        }
-    });
-}
-
-// Authentication functions
-async function signIn(email, password) {
-    try {
-        await auth.signInWithEmailAndPassword(email, password);
-    } catch (error) {
-        console.error('Error signing in:', error);
-        alert(error.message);
-    }
-}
-
-async function signUp(email, password) {
-    try {
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        await db.collection('users').doc(userCredential.user.uid).set({
-            email: email,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            preferences: {
-                defaultQuality: 90,
-                autoSave: true
-            }
-        });
-    } catch (error) {
-        console.error('Error signing up:', error);
-        alert(error.message);
-    }
-}
-
-function signOut() {
-    auth.signOut()
-        .then(() => window.location.reload())
-        .catch(error => console.error('Error signing out:', error));
-}
-
-// UI Functions
-function showDashboard() {
-    const mainContent = document.querySelector('main');
-    // Re-enable original dashboard content
-    document.getElementById('dashboard-tab').style.display = 'block';
-    
-    // Add logout button
-    const nav = document.querySelector('.nav-links');
-    if (!nav.querySelector('.logout-btn')) {
-        const logoutBtn = document.createElement('a');
-        logoutBtn.href = '#';
-        logoutBtn.className = 'logout-btn';
-        logoutBtn.textContent = 'Logout';
-        logoutBtn.onclick = signOut;
-        nav.appendChild(logoutBtn);
-    }
-}
-
-function showLoginForm() {
-    const mainContent = document.querySelector('main');
-    mainContent.innerHTML = `
-        <div class="auth-container">
-            <div class="card-bg">
-                <h2>Sign In</h2>
-                <form id="loginForm">
-                    <input type="email" id="email" placeholder="Email" required>
-                    <input type="password" id="password" placeholder="Password" required>
-                    <button type="submit">Sign In</button>
-                </form>
-                <p class="toggle-text">
-                    <a href="#" id="toggleAuth">Need an account? Sign up</a>
-                </p>
-            </div>
-        </div>
-    `;
-
-    // Add form listeners
-    const loginForm = document.getElementById('loginForm');
-    const toggleAuth = document.getElementById('toggleAuth');
-    let isLogin = true;
-
-    toggleAuth.addEventListener('click', (e) => {
-        e.preventDefault();
-        isLogin = !isLogin;
-        const title = document.querySelector('h2');
-        const button = loginForm.querySelector('button');
-        const toggle = document.getElementById('toggleAuth');
-
-        title.textContent = isLogin ? 'Sign In' : 'Sign Up';
-        button.textContent = isLogin ? 'Sign In' : 'Sign Up';
-        toggle.textContent = isLogin ? 'Need an account? Sign up' : 'Already have an account? Sign in';
-    });
-
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-
-        if (isLogin) {
-            await signIn(email, password);
+// Authentication Handling
+function initializeAuth() {
+    auth.onAuthStateChanged(async (user) => {
+        currentUser = user;
+        if (user) {
+            await loadUserData();
+            updateUIWithUserData();
+            loadDashboardStats();
+            loadRecentActivity();
         } else {
-            await signUp(email, password);
+            window.location.href = '/login.html';
         }
     });
 }
 
-        createRenderJob() {
-    const jobId = Date.now();
-    const job = {
-        id: jobId,
-        status: 'processing',
-        progress: 0,
-        startTime: Date.now(),
-        fileName: this.currentImage ? this.currentImage.src.split('/').pop().split('?')[0] : 'unnamed',
-        settings: { ...this.settings }
-    };
-    
-    state.currentRender = job;
-    state.activeRenders.push(job);
-    
-    // If user is logged in, save to Firebase
-    if (currentUser) {
-        try {
-            const renderRef = db.collection('renders').add({
-                userId: currentUser.uid,
-                ...job,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            job.firestoreId = renderRef.id;
-        } catch (error) {
-            console.error('Error saving render job to Firebase:', error);
-        }
-    }
-    
-    this.updateQueueList();
-}
-
-// Data loading functions
 async function loadUserData() {
-    if (!currentUser) return;
-
     try {
-        // Get user's active renders
-        const activeRendersSnapshot = await db.collection('renders')
-            .where('userId', '==', currentUser.uid)
-            .where('status', '==', 'processing')
-            .orderBy('createdAt', 'desc')
-            .get();
-
-        const activeRenders = activeRendersSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-
-        // Get user's completed renders
-        const completedRendersSnapshot = await db.collection('renders')
-            .where('userId', '==', currentUser.uid)
-            .where('status', '==', 'completed')
-            .orderBy('createdAt', 'desc')
-            .limit(5)
-            .get();
-
-        const completedRenders = completedRendersSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-
-        // Update state
-        state.activeRenders = activeRenders;
-        state.completedRenders = completedRenders;
-
-        // Update UI
-        if (engine) {
-            engine.updateQueueList();
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        if (userDoc.exists) {
+            userSettings = userDoc.data();
+        } else {
+            // Create default user settings if none exist
+            userSettings = {
+                displayName: currentUser.email.split('@')[0],
+                role: 'User',
+                theme: 'dark',
+                notifications: true,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            await db.collection('users').doc(currentUser.uid).set(userSettings);
         }
     } catch (error) {
         console.error('Error loading user data:', error);
+        showNotification('Error loading user data', 'error');
     }
 }
 
-// Initialize application
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize the engine
-    engine = new AutostereoscopicEngine();
-    
-    // Initialize tab listeners
-    document.querySelectorAll('[onclick^="switchTab"]').forEach(element => {
-        const tabName = element.getAttribute('onclick').match(/'([^']+)'/)[1];
-        element.addEventListener('click', (e) => {
-            e.preventDefault();
-            switchTab(tabName);
+// Dashboard Initialization
+function initializeDashboard() {
+    initializeEventListeners();
+    initializeTheme();
+}
+
+function initializeEventListeners() {
+    // Add event listeners for dashboard interactions
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            document.querySelector('.nav-link.active')?.classList.remove('active');
+            e.currentTarget.classList.add('active');
         });
     });
-});
-            
+}
+
+// Dashboard Stats
+async function loadDashboardStats() {
+    try {
+        // Load active projects
+        const activeProjects = await db.collection('projects')
+            .where('userId', '==', currentUser.uid)
+            .where('status', '==', 'active')
+            .get();
+
+        document.getElementById('activeProjects').textContent = activeProjects.size;
+
+        // Calculate average processing time
+        const completedProjects = await db.collection('projects')
+            .where('userId', '==', currentUser.uid)
+            .where('status', '==', 'completed')
+            .orderBy('completedAt', 'desc')
+            .limit(10)
+            .get();
+
+        let totalTime = 0;
+        completedProjects.forEach(project => {
+            const data = project.data();
+            totalTime += data.processingTime || 0;
+        });
+        const avgTime = completedProjects.size ? totalTime / completedProjects.size : 0;
+        document.getElementById('processingTime').textContent = formatProcessingTime(avgTime);
+
+        // Calculate storage usage
+        const storageUsed = await calculateStorageUsage();
+        document.getElementById('storageUsed').textContent = formatStorageSize(storageUsed);
+
+    } catch (error) {
+        console.error('Error loading dashboard stats:', error);
+        showNotification('Error loading statistics', 'error');
+    }
+}
+
+// Recent Activity
+async function loadRecentActivity() {
+    try {
+        const activitySnapshot = await db.collection('activity')
+            .where('userId', '==', currentUser.uid)
+            .orderBy('timestamp', 'desc')
+            .limit(5)
+            .get();
+
+        const activityList = document.getElementById('activityList');
+        activityList.innerHTML = '';
+
+        activitySnapshot.forEach(doc => {
+            const activity = doc.data();
+            const activityItem = createActivityItem(activity);
+            activityList.appendChild(activityItem);
+        });
+    } catch (error) {
+        console.error('Error loading activity:', error);
+        showNotification('Error loading activity', 'error');
+    }
+}
+
+// Profile Management
+async function updateProfile(profileData) {
+    try {
+        await db.collection('users').doc(currentUser.uid).update(profileData);
+        userSettings = { ...userSettings, ...profileData };
+        updateUIWithUserData();
+        showNotification('Profile updated successfully', 'success');
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showNotification('Error updating profile', 'error');
+    }
+}
+
+async function uploadProfilePicture(file) {
+    try {
+        const storageRef = storage.ref();
+        const profilePicRef = storageRef.child(`profile-pictures/${currentUser.uid}`);
+        await profilePicRef.put(file);
+        const downloadURL = await profilePicRef.getDownloadURL();
+        await updateProfile({ photoURL: downloadURL });
+    } catch (error) {
+        console.error('Error uploading profile picture:', error);
+        showNotification('Error uploading profile picture', 'error');
+    }
+}
+
+// Settings Management
+function showSettings() {
+    const content = document.querySelector('.main-content');
+    content.innerHTML = `
+        <div class="settings-section">
+            <div class="settings-header">
+                <h2>Settings</h2>
+            </div>
+            <div class="settings-group">
+                <label class="settings-label">Theme</label>
+                <div class="color-scheme">
+                    <div class="color-option" onclick="changeTheme('dark')" style="background: #080810;"></div>
+                    <div class="color-option" onclick="changeTheme('light')" style="background: #ffffff;"></div>
+                    <div class="color-option" onclick="changeTheme('blue')" style="background: #1a1a2e;"></div>
+                </div>
+            </div>
+            <div class="settings-group">
+                <label class="settings-label">Notifications</label>
+                <label class="switch">
+                    <input type="checkbox" id="notificationToggle" ${userSettings.notifications ? 'checked' : ''}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+    `;
+}
+
+// Utility Functions
+function formatProcessingTime(ms) {
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    return `${(ms / 60000).toFixed(1)}m`;
+}
+
+function formatStorageSize(bytes) {
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    while (bytes >= 1024 && i < sizes.length - 1) {
+        bytes /= 1024;
+        i++;
+    }
+    return `${bytes.toFixed(1)}${sizes[i]}`;
+}
+
+function createActivityItem(activity) {
+    const item = document.createElement('li');
+    item.className = 'activity-item';
+    item.innerHTML = `
+        <div class="activity-icon">
+            ${getActivityIcon(activity.type)}
+        </div>
+        <div class="activity-content">
+            <div class="activity-title">${activity.description}</div>
+            <div class="activity-time">${formatTimeAgo(activity.timestamp)}</div>
+        </div>
+    `;
+    return item;
+}
+
+function getActivityIcon(type) {
+    const icons = {
+        render: '<svg>...</svg>',
+        upload: '<svg>...</svg>',
+        settings: '<svg>...</svg>',
+        default: '<svg>...</svg>'
+    };
+    return icons[type] || icons.default;
+}
+
+function formatTimeAgo(timestamp) {
+    const seconds = Math.floor((new Date() - timestamp.toDate()) / 1000);
+    const intervals = {
+        year: 31536000,
+        month: 2592000,
+        week: 604800,
+        day: 86400,
+        hour: 3600,
+        minute: 60,
+        second: 1
+    };
+
+    for (let [unit, secondsInUnit] of Object.entries(intervals)) {
+        const interval = Math.floor(seconds / secondsInUnit);
+        if (interval >= 1) {
+            return `${interval} ${unit}${interval === 1 ? '' : 's'} ago`;
+        }
+    }
+    return 'just now';
+}
+
+function showNotification(message, type = 'info') {
+    // Implementation depends on your preferred notification system
+    console.log(`${type}: ${message}`);
+}
+
+// Theme Management
+function initializeTheme() {
+    const theme = localStorage.getItem('theme') || userSettings?.theme || 'dark';
+    applyTheme(theme);
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+}
+
+// UI Updates
+function updateUIWithUserData() {
+    document.getElementById('userName').textContent = userSettings.displayName;
+    document.getElementById('userRole').textContent = userSettings.role;
+    
+    if (userSettings.photoURL) {
+        document.getElementById('profilePicture').src = userSettings.photoURL;
+    }
+}
+
+// Export functionality for use in other modules
+export {
+    updateProfile,
+    uploadProfilePicture,
+    showSettings,
+    loadDashboardStats,
+    loadRecentActivity
+};
 </script>
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" 
+                 alt="LumenOS Logo"
+                 class="logo-img">
+            <span>LumenOS</span>
+        </div>
+
+        <nav class="nav-section">
+            <h2 class="nav-section-title">Main Menu</h2>
+            <ul class="nav-links">
+                <li><a href="#" class="nav-link active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <span>Dashboard</span>
+                </a></li>
+                <li><a href="are1.html" class="nav-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                    </svg>
+                    <span>A.R.E 1</span>
+                </a></li>
+                <li><a href="are2.html" class="nav-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>A.R.E 2</span>
+                </a></li>
+            </ul>
+        </nav>
+
+        <nav class="nav-section">
+            <h2 class="nav-section-title">Settings</h2>
+            <ul class="nav-links">
+                <li><a href="#" class="nav-link" onclick="showSettings()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 15a3 3 0 100-6 3 3 0 000 6z"></path>
+                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.
+                        </path>
+                    </svg>
+                    <span>Settings</span>
+                </a></li>
+                <li><a href="#" class="nav-link" onclick="showProfile()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <span>Profile</span>
+                </a></li>
+                <li><a href="#" class="nav-link" onclick="signOut()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span>Logout</span>
+                </a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="header">
+            <h1 class="page-title">Dashboard</h1>
+            <div class="user-menu">
+                <div class="user-profile" onclick="toggleUserMenu()">
+                    <img id="profilePicture" src="/api/placeholder/32/32" alt="Profile" class="profile-picture">
+                    <div class="user-info">
+                        <span class="user-name" id="userName">Loading...</span>
+                        <span class="user-role" id="userRole">User</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h3 class="card-title">Active Projects</h3>
+                </div>
+                <div class="card-value" id="activeProjects">0</div>
+                <p class="card-subtitle">Current rendering tasks</p>
+            </div>
+            
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h3 class="card-title">Processing Time</h3>
+                </div>
+                <div class="card-value" id="processingTime">0ms</div>
+                <p class="card-subtitle">Average render time</p>
+            </div>
+            
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <h3 class="card-title">Storage Used</h3>
+                </div>
+                <div class="card-value" id="storageUsed">0GB</div>
+                <p class="card-subtitle">Of 100GB total</p>
+            </div>
+        </div>
+
+        <div class="quick-actions">
+            <button class="action-button" onclick="location.href='are1.html'">
+                <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"></path>
+                </svg>
+                <h3 class="action-title">New A.R.E 1 Project</h3>
+                <p class="action-description">Start a new rendering project</p>
+            </button>
+
+            <button class="action-button" onclick="location.href='are2.html'">
+                <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+                <h3 class="action-title">New A.R.E 2 Project</h3>
+                <p class="action-description">Advanced rendering options</p>
+            </button>
+
+            <button class="action-button" onclick="showTutorial()">
+                <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <h3 class="action-title">Tutorial</h3>
+                <p class="action-description">Learn how to use A.R.E</p>
+            </button>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Activity</h3>
+            </div>
+            <ul class="activity-list" id="activityList">
+                <!-- Activity items will be populated by JavaScript -->
+            </ul>
+        </div>
+    </main>
 </body>
 </html>
