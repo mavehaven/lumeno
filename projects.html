@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LumenOS | Projects & Rendering</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Base styles from dashboard + new additions */
+        :root {
+            --bg-main: #0a0a0a;
+            --bg-card: #141414;
+            --text: #fff;
+            --accent: #4facfe;
+            --accent2: #00f2fe;
+            --border: rgba(255,255,255,0.1);
+            --success: #00cc66;
+            --warning: #ffaa00;
+            --error: #ff4444;
+        }
+
+        /* ... Previous styles ... */
+
+        /* Project Workspace Styles */
+        .workspace {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            height: calc(100vh - 100px);
+        }
+
+        .project-list {
+            background: var(--bg-card);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            overflow-y: auto;
+        }
+
+        .project-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .project-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .project-item.active {
+            background: rgba(79, 172, 254, 0.1);
+        }
+
+        .project-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .project-info {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Render Engine Interface */
+        .render-interface {
+            background: var(--bg-card);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            overflow: hidden;
+        }
+
+        .render-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .render-workspace {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 250px;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .preview-area {
+            background: var(--bg-main);
+            border-radius: 8px;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+        }
+
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            background: rgba(255,255,255,0.03);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .control-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 10px;
+        }
+
+        .slider-control {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .slider-control::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .slider-control::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .render-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .render-settings {
+            display: flex;
+            gap: 10px;
+        }
+
+        .quality-select {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .render-button {
+            background: linear-gradient(45deg, var(--accent), var(--accent2));
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .render-button:hover {
+            transform: translateY(-1px);
+        }
+
+        /* Progress Indicator */
+        .progress-bar {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, var(--accent), var(--accent2));
+            transition: width 0.3s ease;
+        }
+
+        /* File Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            transition: 0.3s;
+        }
+
+        .drop-zone.drag-over {
+            border-color: var(--accent);
+            background: rgba(79, 172, 254, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Reuse nav sidebar from dashboard -->
+    <nav class="sidebar">
+        <!-- ... Same sidebar content ... -->
+    </nav>
+
+    <main class="main-content">
+        <header class="header">
+            <h1>Projects</h1>
+            <button class="button" onclick="createNewProject()">New Project</button>
+        </header>
+
+        <div class="workspace">
+            <!-- Project List -->
+            <div class="project-list" id="projectList">
+                <!-- Projects will be loaded here -->
+            </div>
+
+            <!-- Render Interface -->
+            <div class="render-interface">
+                <div class="render-header">
+                    <h2 id="currentProjectName">Select a Project</h2>
+                    <div class="project-actions">
+                        <button class="button" onclick="saveProject()">Save</button>
+                    </div>
+                </div>
+
+                <div class="render-workspace">
+                    <div class="preview-area" id="previewArea">
+                        <div class="drop-zone" id="dropZone">
+                            <div class="upload-icon">⬆️</div>
+                            <p>Drop 3D model or image here</p>
+                            <p style="font-size: 12px; color: rgba(255,255,255,0.5);">
+                                Supports .obj, .fbx, .gltf, or images
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="controls-panel">
+                        <div class="control-group">
+                            <div class="control-label">3D Separation</div>
+                            <input type="range" class="slider-control" 
+                                   id="separationControl" min="0" max="100" value="50">
+                        </div>
+
+                        <div class="control-group">
+                            <div class="control-label">Depth Intensity</div>
+                            <input type="range" class="slider-control" 
+                                   id="depthControl" min="0" max="100" value="75">
+                        </div>
+
+                        <div class="control-group">
+                            <div class="control-label">Brightness</div>
+                            <input type="range" class="slider-control" 
+                                   id="brightnessControl" min="0" max="100" value="50">
+                        </div>
+
+                        <div class="control-group">
+                            <div class="control-label">Contrast</div>
+                            <input type="range" class="slider-control" 
+                                   id="contrastControl" min="0" max="100" value="50">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="render-footer">
+                    <div class="render-settings">
+                        <select class="quality-select" id="qualitySelect">
+                            <option value="draft">Draft Quality</option>
+                            <option value="standard">Standard Quality</option>
+                            <option value="high">High Quality</option>
+                        </select>
+                        <select class="quality-select" id="outputFormat">
+                            <option value="png">PNG</option>
+                            <option value="jpg">JPG</option>
+                        </select>
+                    </div>
+                    
+                    <button class="render-button" onclick="startRender()">
+                        Start Render
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+
+    <script>
+      // Global state
+let currentProject = null;
+let currentUser = null;
+let renderEngine = null;
+
+// Firebase Configuration
+const firebaseConfig = {
+    apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
+    authDomain: "lumenos-749a1.firebaseapp.com",
+    projectId: "lumenos-749a1",
+    storageBucket: "lumenos-749a1.firebasestorage.app",
+    messagingSenderId: "857410556058",
+    appId: "1:857410556058:web:bb28ae2a03874f8f27cf23"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+// Initialize Application
+document.addEventListener('DOMContentLoaded', () => {
+    initializeAuth();
+    initializeEventListeners();
+    initializeDropZone();
+});
+
+// Authentication Handler
+function initializeAuth() {
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            currentUser = user;
+            await loadUserData();
+            await loadProjects();
+            initializeRenderEngine();
+        } else {
+            window.location.href = '/login.html';
+        }
+    });
+}
+
+// Event Listeners
+function initializeEventListeners() {
+    // Control sliders
+    const controls = ['separation', 'depth', 'brightness', 'contrast'];
+    controls.forEach(control => {
+        const element = document.getElementById(`${control}Control`);
+        if (element) {
+            element.addEventListener('input', (e) => {
+                updateRenderSettings({ [control]: parseInt(e.target.value) });
+            });
+        }
+    });
+
+    // Quality selector
+    const qualitySelect = document.getElementById('qualitySelect');
+    if (qualitySelect) {
+        qualitySelect.addEventListener('change', (e) => {
+            updateRenderSettings({ quality: e.target.value });
+        });
+    }
+
+    // Format selector
+    const formatSelect = document.getElementById('outputFormat');
+    if (formatSelect) {
+        formatSelect.addEventListener('change', (e) => {
+            updateRenderSettings({ format: e.target.value });
+        });
+    }
+
+    // Save button
+    const saveBtn = document.querySelector('.project-actions button');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveProject);
+    }
+
+    // Render button
+    const renderBtn = document.querySelector('.render-button');
+    if (renderBtn) {
+        renderBtn.addEventListener('click', startRender);
+    }
+}
+
+// File Drop Zone
+function initializeDropZone() {
+    const dropZone = document.getElementById('dropZone');
+    if (!dropZone) return;
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        dropZone.classList.add('drag-over');
+    }
+
+    function unhighlight(e) {
+        dropZone.classList.remove('drag-over');
+    }
+
+    dropZone.addEventListener('drop', handleDrop, false);
+}
+
+// File Handling
+async function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+
+    handleFiles(files);
+}
+
+async function handleFiles(files) {
+    if (!currentProject) {
+        alert('Please create or select a project first');
+        return;
+    }
+
+    const file = files[0];
+    if (!isValidFileType(file)) {
+        alert('Invalid file type. Please upload .obj, .fbx, .gltf, or image files.');
+        return;
+    }
+
+    try {
+        showLoading('Uploading file...');
+        const fileUrl = await uploadFile(file);
+        await updateProjectFile(fileUrl, file.name);
+        hideLoading();
+        await loadFileIntoPreview(fileUrl, file.type);
+    } catch (error) {
+        console.error('Error handling file:', error);
+        hideLoading();
+        alert('Error uploading file');
+    }
+}
+
+// File Validation
+function isValidFileType(file) {
+    const validTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'model/gltf-binary',
+        'application/octet-stream'
+    ];
+
+    if (validTypes.includes(file.type)) return true;
+    
+    const validExtensions = ['.obj', '.fbx', '.gltf'];
+    return validExtensions.some(ext => 
+        file.name.toLowerCase().endsWith(ext)
+    );
+}
+
+// Loading State
+function showLoading(message = 'Loading...') {
+    // Implement loading UI
+    console.log(message);
+}
+
+function hideLoading() {
+    // Hide loading UI
+}
+
+// User Data
+async function loadUserData() {
+    try {
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        if (!userDoc.exists) {
+            await createUserProfile();
+        }
+        updateUIWithUserData(userDoc.data());
+    } catch (error) {
+        console.error('Error loading user data:', error);
+    }
+}
+
+async function createUserProfile() {
+    const userData = {
+        email: currentUser.email,
+        displayName: currentUser.displayName || currentUser.email.split('@')[0],
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        plan: 'basic'
+    };
+    
+    await db.collection('users').doc(currentUser.uid).set(userData);
+    return userData;
+}
+
+function updateUIWithUserData(userData) {
+    const nameElement = document.getElementById('userName');
+    const planElement = document.getElementById('userPlan');
+    
+    if (nameElement) nameElement.textContent = userData.displayName;
+    if (planElement) planElement.textContent = `${userData.plan} Plan`;
+}
+
+// Project Management
+async function loadProjects() {
+    try {
+        const projectsRef = db.collection('projects')
+            .where('userId', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc');
+
+        const snapshot = await projectsRef.get();
+        renderProjectList(snapshot.docs);
+    } catch (error) {
+        console.error('Error loading projects:', error);
+        showToast('Error loading projects', 'error');
+    }
+}
+
+function renderProjectList(projects) {
+    const projectList = document.getElementById('projectList');
+    if (!projectList) return;
+
+    projectList.innerHTML = '';
+    projects.forEach(doc => {
+        const project = { id: doc.id, ...doc.data() };
+        const element = createProjectElement(project);
+        projectList.appendChild(element);
+    });
+}
+
+function createProjectElement(project) {
+    const element = document.createElement('div');
+    element.className = 'project-item';
+    if (currentProject?.id === project.id) {
+        element.classList.add('active');
+    }
+
+    element.innerHTML = `
+        <div class="project-name">${project.name}</div>
+        <div class="project-info">
+            <span class="project-status">${project.status}</span>
+            <span class="project-date">${formatDate(project.createdAt)}</span>
+        </div>
+    `;
+
+    element.addEventListener('click', () => loadProject(project.id));
+    return element;
+}
+
+async function createNewProject() {
+    try {
+        const name = await showPromptDialog('New Project', 'Enter project name:');
+        if (!name) return;
+
+        const projectData = {
+            name,
+            userId: currentUser.uid,
+            status: 'draft',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            settings: getDefaultSettings()
+        };
+
+        const docRef = await db.collection('projects').add(projectData);
+        await loadProjects();
+        await loadProject(docRef.id);
+        showToast('Project created successfully', 'success');
+    } catch (error) {
+        console.error('Error creating project:', error);
+        showToast('Error creating project', 'error');
+    }
+}
+
+async function loadProject(projectId) {
+    try {
+        const doc = await db.collection('projects').doc(projectId).get();
+        if (!doc.exists) throw new Error('Project not found');
+
+        currentProject = { id: doc.id, ...doc.data() };
+        updateProjectUI(currentProject);
+        loadProjectFiles(currentProject);
+        
+        // Update URL without page reload
+        history.pushState({ projectId }, '', `/projects.html?id=${projectId}`);
+    } catch (error) {
+        console.error('Error loading project:', error);
+        showToast('Error loading project', 'error');
+    }
+}
+
+// Render Engine
+class RenderEngine {
+    constructor() {
+        this.canvas = document.createElement('canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.settings = getDefaultSettings();
+        this.originalImage = null;
+    }
+
+    async initialize() {
+        this.setupCanvas();
+        this.setupEventListeners();
+    }
+
+    setupCanvas() {
+        const previewArea = document.getElementById('previewArea');
+        if (!previewArea) return;
+
+        this.canvas.width = previewArea.clientWidth;
+        this.canvas.height = previewArea.clientHeight;
+        previewArea.appendChild(this.canvas);
+    }
+
+    setupEventListeners() {
+        window.addEventListener('resize', this.handleResize.bind(this));
+    }
+
+    handleResize() {
+        const previewArea = document.getElementById('previewArea');
+        if (!previewArea) return;
+
+        this.canvas.width = previewArea.clientWidth;
+        this.canvas.height = previewArea.clientHeight;
+        this.render();
+    }
+
+    async loadImage(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = url;
+        });
+    }
+
+    async setImage(url) {
+        try {
+            this.originalImage = await this.loadImage(url);
+            this.render();
+        } catch (error) {
+            console.error('Error loading image:', error);
+            throw error;
+        }
+    }
+
+    updateSettings(newSettings) {
+        this.settings = { ...this.settings, ...newSettings };
+        this.render();
+    }
+
+    render() {
+        if (!this.originalImage) return;
+
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Apply settings
+        this.applyImageProcessing();
+        this.applyStereoscopicEffect();
+    }
+
+    applyImageProcessing() {
+        // Apply brightness, contrast, etc.
+        const { brightness, contrast } = this.settings;
+        this.ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+    }
+
+    applyStereoscopicEffect() {
+        const { separation, depth } = this.settings;
+        
+        // Create left and right views
+        const leftOffset = -separation / 2;
+        const rightOffset = separation / 2;
+
+        // Draw left view
+        this.ctx.globalCompositeOperation = 'source-over';
+        this.drawView(leftOffset, 'rgba(0, 255, 255, 0.5)'); // Cyan
+
+        // Draw right view
+        this.ctx.globalCompositeOperation = 'multiply';
+        this.drawView(rightOffset, 'rgba(255, 0, 0, 0.5)'); // Red
+    }
+
+    drawView(offset, color) {
+        const { width, height } = this.canvas;
+        const scale = Math.min(
+            width / this.originalImage.width,
+            height / this.originalImage.height
+        );
+
+        const scaledWidth = this.originalImage.width * scale;
+        const scaledHeight = this.originalImage.height * scale;
+        const x = (width - scaledWidth) / 2 + offset;
+        const y = (height - scaledHeight) / 2;
+
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(x, y, scaledWidth, scaledHeight);
+        this.ctx.drawImage(this.originalImage, x, y, scaledWidth, scaledHeight);
+    }
+
+    async export(format = 'png', quality = 0.92) {
+        return this.canvas.toDataURL(`image/${format}`, quality);
+    }
+}
+
+// Render Control
+async function startRender() {
+    if (!currentProject) {
+        showToast('Please select a project first', 'warning');
+        return;
+    }
+
+    try {
+        showLoading('Rendering...');
+        
+        // Get current settings
+        const settings = {
+            quality: document.getElementById('qualitySelect').value,
+            format: document.getElementById('outputFormat').value,
+            ...getControlValues()
+        };
+
+        // Start render process
+        const renderResult = await renderEngine.render(settings);
+        
+        // Save render result
+        await saveRenderResult(renderResult);
+        
+        hideLoading();
+        showToast('Render completed successfully', 'success');
+    } catch (error) {
+        console.error('Error during render:', error);
+        hideLoading();
+        showToast('Error during render', 'error');
+    }
+}
+
+// Utility Functions
+function getDefaultSettings() {
+    return {
+        separation: 50,
+        depth: 75,
+        brightness: 50,
+        contrast: 50,
+        quality: 'standard',
+        format: 'png'
+    };
+}
+
+function getControlValues() {
+    const controls = ['separation', 'depth', 'brightness', 'contrast'];
+    return controls.reduce((values, control) => {
+        const element = document.getElementById(`${control}Control`);
+        values[control] = element ? parseInt(element.value) : 50;
+        return values;
+    }, {});
+}
+
+function formatDate(timestamp) {
+    if (!timestamp?.seconds) return '';
+    return new Date(timestamp.seconds * 1000).toLocaleDateString();
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    
+    const container = document.getElementById('toastContainer') || 
+                     createToastContainer();
+    
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+    return container;
+}
+
+async function showPromptDialog(title, message) {
+    // You can replace this with a custom modal
+    return prompt(message);
+}
+
+// Initialize everything when the DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    renderEngine = new RenderEngine();
+    renderEngine.initialize();
+});
+    </script>
