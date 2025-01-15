@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuMAX3D ROI Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .metrics-table th, .metrics-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .metrics-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .download-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .download-btn:hover {
+            background-color: #45a049;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2 class="card-title">LuMAX3D ROI Projection Dashboard</h2>
+            <div class="chart-container">
+                <canvas id="roiChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">Key Metrics</h2>
+            <table class="metrics-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody id="metricsTable">
+                    <!-- Table will be populated by JavaScript -->
+                </tbody>
+            </table>
+            <button class="download-btn" onclick="downloadCSV()">Download Data as CSV</button>
+        </div>
+    </div>
+
+    <script>
+        // Data for projections
+        const metrics = {
+            initialInvestment: 1225000,
+            annualMaintenance: 149000,
+            ticketPremium: 3,
+            baseAttendance: 300000
+        };
+
+        function generateProjections() {
+            const years = 3;
+            const data = [];
+            
+            for (let year = 1; year <= years; year++) {
+                const conservativeRevenue = year * (metrics.baseAttendance * metrics.ticketPremium + 
+                    (metrics.baseAttendance * 0.05 * metrics.ticketPremium));
+                
+                const optimisticRevenue = year * (metrics.baseAttendance * metrics.ticketPremium + 
+                    (metrics.baseAttendance * 0.10 * metrics.ticketPremium));
+                
+                const investment = metrics.initialInvestment + (year * metrics.annualMaintenance);
+                
+                data.push({
+                    year: `Year ${year}`,
+                    conservativeRevenue,
+                    optimisticRevenue,
+                    cumulativeInvestment: investment
+                });
+            }
+            return data;
+        }
+
+        // Initialize chart
+        const projectionData = generateProjections();
+        const ctx = document.getElementById('roiChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: projectionData.map(d => d.year),
+                datasets: [
+                    {
+                        label: 'Conservative Revenue',
+                        data: projectionData.map(d => d.conservativeRevenue),
+                        borderColor: '#2563eb',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Optimistic Revenue',
+                        data: projectionData.map(d => d.optimisticRevenue),
+                        borderColor: '#16a34a',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Cumulative Investment',
+                        data: projectionData.map(d => d.cumulativeInvestment),
+                        borderColor: '#dc2626',
+                        tension: 0.1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: $${(context.raw/1000000).toFixed(2)}M`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + (value/1000000).toFixed(1) + 'M';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Populate metrics table
+        const metricsTable = document.getElementById('metricsTable');
+        const metricsData = [
+            ['Initial Investment', `$${metrics.initialInvestment.toLocaleString()}`],
+            ['Annual Maintenance', `$${metrics.annualMaintenance.toLocaleString()}`],
+            ['Ticket Premium', `$${metrics.ticketPremium.toFixed(2)}`],
+            ['Base Annual Attendance', metrics.baseAttendance.toLocaleString()],
+            ['Break-even Timeline', '2-3 years']
+        ];
+
+        metricsData.forEach(([metric, value]) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${metric}</td>
+                <td>${value}</td>
+            `;
+            metricsTable.appendChild(row);
+        });
+
+        // Download CSV functionality
+        function downloadCSV() {
+            const csvContent = [
+                ['Year', 'Conservative Revenue', 'Optimistic Revenue', 'Cumulative Investment'],
+                ...projectionData.map(d => [
+                    d.year,
+                    d.conservativeRevenue,
+                    d.optimisticRevenue,
+                    d.cumulativeInvestment
+                ])
+            ].map(row => row.join(',')).join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'roi_projections.csv');
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
