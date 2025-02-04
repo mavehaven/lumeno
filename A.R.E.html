@@ -1,668 +1,665 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Autostereoscopic Rendering Engine</title>
-    <style>
-        :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --success: #059669;
-            --success-dark: #047857;
-            --neutral-50: #f8fafc;
-            --neutral-100: #f1f5f9;
-            --neutral-200: #e2e8f0;
-            --neutral-800: #1e293b;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Holographic Frame Animator</title>
+  <style>
+    :root {
+      --primary: #00eaff;
+      --primary-dark: #00b8cc;
+      --accent: #ff00c8;
+      --accent-dark: #cc009e;
+      --bg-dark: #0d0d0d;
+      --bg-glass: rgba(13, 13, 13, 0.6);
+      --neon-glow: 0 0 20px rgba(0, 234, 255, 0.7);
+      --text-glow: 0 0 10px rgba(255, 0, 200, 0.7);
+    }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    /* Global reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: var(--neutral-100);
-            color: var(--neutral-800);
-            line-height: 1.5;
-        }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(ellipse at center, #0d0d0d 0%, #010101 100%);
+      color: #fff;
+      overflow-x: hidden;
+      padding-bottom: 3rem;
+    }
 
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 2rem;
-            background: white;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 2rem;
+      background: var(--bg-glass);
+      border-radius: 1rem;
+      box-shadow: 0 0 30px rgba(0, 234, 255, 0.3);
+      border: 1px solid rgba(0, 234, 255, 0.3);
+      backdrop-filter: blur(8px);
+    }
 
-        .header {
-            display: flex;
-            align-items: center;
-            gap: 2rem;
-            margin-bottom: 2rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--neutral-200);
-        }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(0, 234, 255, 0.2);
+    }
 
-        .logo {
-            height: 120px;
-            width: auto;
-        }
+    .logo {
+      height: 80px;
+      width: auto;
+      filter: drop-shadow(var(--neon-glow));
+    }
 
-        .title {
-            font-size: 1.25rem;
-            font-weight: 800;
-            color: var(--neutral-800);
-            margin: 0;
-        }
+    .title {
+      font-size: 2rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--primary);
+      text-shadow: var(--text-glow);
+    }
 
-        .upload-area {
-            border: 2px dashed var(--neutral-200);
-            border-radius: 0.75rem;
-            padding: 3rem 2rem;
-            text-align: center;
-            margin-bottom: 2rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background: var(--neutral-50);
-        }
+    .upload-area {
+      border: 2px dashed rgba(0, 234, 255, 0.5);
+      border-radius: 1rem;
+      padding: 3rem 2rem;
+      text-align: center;
+      margin-bottom: 2rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: rgba(0, 234, 255, 0.05);
+    }
 
-        .upload-area:hover {
-            border-color: var(--primary);
-            background: white;
-        }
+    .upload-area:hover {
+      border-color: var(--primary);
+      background: rgba(0, 234, 255, 0.1);
+    }
 
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin: 2rem 0;
-        }
+    .status {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: 1rem 2rem;
+      border-radius: 0.5rem;
+      background: rgba(0, 234, 255, 0.8);
+      color: #000;
+      font-weight: 700;
+      opacity: 0;
+      transform: translateY(1rem);
+      transition: all 0.3s ease;
+      box-shadow: 0 0 20px rgba(0, 234, 255, 0.7);
+    }
 
-        .control-group {
-            background: var(--neutral-50);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            border: 1px solid var(--neutral-200);
-        }
+    .status.processing {
+      opacity: 1;
+      transform: translateY(0);
+    }
 
-        .control-group h3 {
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-            color: var(--neutral-800);
-        }
+    /* Controls for Animation & Processing */
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin: 2rem 0;
+    }
 
-        .slider-group {
-            margin: 1rem 0;
-        }
+    .control-group {
+      background: rgba(0, 234, 255, 0.05);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      border: 1px solid rgba(0, 234, 255, 0.2);
+      box-shadow: 0 0 15px rgba(0, 234, 255, 0.1);
+    }
 
-        button {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            margin: 0.5rem 0;
-            border: none;
-            border-radius: 0.5rem;
-            background: var(--primary);
-            color: white;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
+    .control-group h3 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      color: var(--primary);
+      letter-spacing: 1px;
+    }
 
-        button:hover {
-            background: var(--primary-dark);
-        }
+    .slider-group {
+      margin: 1rem 0;
+    }
 
-        button:disabled {
-            background: var(--neutral-200);
-            cursor: not-allowed;
-        }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #fff;
+      text-shadow: 0 0 5px rgba(0, 234, 255, 0.5);
+    }
 
-        .download-button {
-            background: var(--success);
-        }
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      background: rgba(0, 234, 255, 0.2);
+      border-radius: 3px;
+      -webkit-appearance: none;
+    }
 
-        .download-button:hover {
-            background: var(--success-dark);
-        }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--primary);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      box-shadow: 0 0 10px var(--primary);
+    }
 
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: var(--neutral-800);
-        }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: var(--primary-dark);
+    }
 
-        input[type="range"] {
-            width: 100%;
-            height: 6px;
-            background: var(--neutral-200);
-            border-radius: 3px;
-            -webkit-appearance: none;
-        }
+    button {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      margin: 0.5rem 0;
+      border: none;
+      border-radius: 0.5rem;
+      background: var(--primary);
+      color: #000;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: background 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 0 10px var(--primary);
+    }
 
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            background: var(--primary);
-            border-radius: 50%;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
+    button:hover {
+      background: var(--primary-dark);
+      box-shadow: 0 0 15px var(--primary-dark);
+    }
 
-        input[type="range"]::-webkit-slider-thumb:hover {
-            background: var(--primary-dark);
-        }
+    .download-button {
+      background: var(--accent);
+    }
 
-        .preview-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-top: 2rem;
-        }
+    .download-button:hover {
+      background: var(--accent-dark);
+    }
 
-        .preview-view {
-            background: var(--neutral-50);
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            border: 1px solid var(--neutral-200);
-        }
+    /* Timeline for Animation Frames */
+    .timeline {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding: 1rem;
+      margin-top: 2rem;
+      border-top: 1px solid rgba(0, 234, 255, 0.2);
+    }
 
-        .preview-view h4 {
-            margin-bottom: 1rem;
-            font-size: 1.1rem;
-            color: var(--neutral-800);
-        }
+    .frame-thumb {
+      flex: 0 0 auto;
+      width: 120px;
+      height: 90px;
+      border-radius: 0.5rem;
+      border: 2px solid var(--primary);
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
 
-        canvas {
-            max-width: 100%;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-        }
+    .frame-thumb:hover {
+      transform: scale(1.05);
+    }
 
-        #output {
-            position: relative;
-            margin: 2rem 0;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
-
-        .status {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            padding: 1rem 2rem;
-            border-radius: 0.5rem;
-            background: var(--neutral-800);
-            color: white;
-            font-weight: 500;
-            opacity: 0;
-            transform: translateY(1rem);
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
-
-        .status.processing {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    </style>
+    /* Main Output Area */
+    #output {
+      position: relative;
+      margin: 2rem 0;
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(0, 234, 255, 0.3);
+      border: 1px solid rgba(0, 234, 255, 0.3);
+      backdrop-filter: blur(4px);
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" alt="Logo" class="logo">
-            <h1 class="title">Autostereoscopic Rendering Engine</h1>
-        </div>
-        
-        <div class="upload-area" id="dropZone">
-            <p>Drop an image here or click to upload</p>
-            <input type="file" id="imageInput" accept="image/*" style="display: none;">
-        </div>
-
-        <div class="status" id="status">Processing image...</div>
-        
-        <div class="controls">
-            <div class="control-group">
-                <h3>View Settings</h3>
-                <button id="viewLeft">Left View</button>
-                <button id="viewRight">Right View</button>
-                <button id="viewCombined">Combined View</button>
-                <button id="toggleBarrier">Toggle Barrier</button>
-            </div>
-
-            <div class="control-group">
-                <h3>3D Effects</h3>
-                <div class="slider-group">
-                    <label>3D Separation</label>
-                    <input type="range" id="separation" min="1" max="50" value="15">
-                </div>
-                <div class="slider-group">
-                    <label>Barrier Width</label>
-                    <input type="range" id="barrierWidth" min="1" max="10" value="2">
-                </div>
-                <div class="slider-group">
-                    <label>Barrier Opacity</label>
-                    <input type="range" id="barrierOpacity" min="0" max="100" value="50">
-                </div>
-            </div>
-
-            <div class="control-group">
-                <h3>Image Enhancement</h3>
-                <div class="slider-group">
-                    <label>Hole Fill</label>
-                    <input type="range" id="holeFill" min="0" max="100" value="50">
-                </div>
-                <div class="slider-group">
-                    <label>Brightness</label>
-                    <input type="range" id="brightness" min="-100" max="100" value="0">
-                </div>
-                <div class="slider-group">
-                    <label>Contrast</label>
-                    <input type="range" id="contrast" min="-100" max="100" value="0">
-                </div>
-            </div>
-
-            <div class="control-group">
-                <h3>Download Options</h3>
-                <button id="downloadCurrent" class="download-button">Download Current View</button>
-                <button id="downloadFull" class="download-button">Download Full Resolution</button>
-                <div class="slider-group">
-                    <label>Output Quality</label>
-                    <input type="range" id="outputQuality" min="1" max="100" value="90">
-                </div>
-            </div>
-        </div>
-        
-        <div id="output"></div>
-        
-        <div class="preview-container">
-            <div class="preview-view">
-                <h4>Left View</h4>
-                <canvas id="leftPreview"></canvas>
-            </div>
-            <div class="preview-view">
-                <h4>Right View</h4>
-                <canvas id="rightPreview"></canvas>
-            </div>
-        </div>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" alt="Logo" class="logo">
+      <h1 class="title">A.R.E 3.0</h1>
     </div>
-    <script>
-      class AutostereoscopicEngine {
-    constructor() {
+
+    <!-- Upload Area -->
+    <div class="upload-area" id="dropZone">
+      <p>Drop an image here or click to upload</p>
+      <input type="file" id="imageInput" accept="image/*" style="display: none;">
+    </div>
+
+    <!-- Status Message -->
+    <div class="status" id="status">Processing image...</div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <!-- Basic Processing & 3D Effect Controls -->
+      <div class="control-group">
+        <h3>3D Effects</h3>
+        <div class="slider-group">
+          <label>3D Separation</label>
+          <input type="range" id="separation" min="1" max="100" step="0.5" value="15">
+        </div>
+        <div class="slider-group">
+          <label>Barrier Width</label>
+          <input type="range" id="barrierWidth" min="1" max="20" step="0.1" value="2">
+        </div>
+        <div class="slider-group">
+          <label>Barrier Opacity</label>
+          <input type="range" id="barrierOpacity" min="0" max="100" step="1" value="50">
+        </div>
+        <div class="slider-group">
+          <label>Perspective Tilt</label>
+          <input type="range" id="perspectiveTilt" min="0" max="20" step="0.1" value="5">
+        </div>
+      </div>
+
+      <!-- Image Enhancement Controls -->
+      <div class="control-group">
+        <h3>Image Enhancement</h3>
+        <div class="slider-group">
+          <label>Hole Fill</label>
+          <input type="range" id="holeFill" min="0" max="100" step="1" value="50">
+        </div>
+        <div class="slider-group">
+          <label>Brightness</label>
+          <input type="range" id="brightness" min="-100" max="100" step="1" value="0">
+        </div>
+        <div class="slider-group">
+          <label>Contrast</label>
+          <input type="range" id="contrast" min="-100" max="100" step="1" value="0">
+        </div>
+      </div>
+
+      <!-- Animation Controls -->
+      <div class="control-group">
+        <h3>Animation</h3>
+        <button id="addFrame">Capture Frame</button>
+        <button id="playAnimation">Play Animation</button>
+        <button id="clearFrames">Clear Frames</button>
+        <div class="slider-group">
+          <label>Frame Duration (ms)</label>
+          <input type="range" id="frameDuration" min="100" max="2000" step="100" value="500">
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Output (shows current processed view or animation) -->
+    <div id="output"></div>
+
+    <!-- Timeline: Display captured frames -->
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+  <script>
+    /*----------------------------------------------------------------
+      FrameAnimator: Prioritize multi-frame capture and playback.
+      Emotions are irrelevant—here, frames and precise timing define your command.
+    ----------------------------------------------------------------*/
+    class FrameAnimator {
+      constructor() {
         this.initializeElements();
         this.initializeEventListeners();
         this.initializeState();
-    }
+        console.log('FrameAnimator initialized. Prepare to animate with precision.');
+      }
 
-    initializeElements() {
+      initializeElements() {
         // Main elements
         this.dropZone = document.getElementById('dropZone');
         this.imageInput = document.getElementById('imageInput');
         this.output = document.getElementById('output');
         this.status = document.getElementById('status');
+        this.timeline = document.getElementById('timeline');
 
-        // Preview canvases
-        this.leftPreview = document.getElementById('leftPreview');
-        this.rightPreview = document.getElementById('rightPreview');
-        this.leftCtx = this.leftPreview.getContext('2d');
-        this.rightCtx = this.rightPreview.getContext('2d');
+        // Controls for animation
+        this.addFrameBtn = document.getElementById('addFrame');
+        this.playAnimationBtn = document.getElementById('playAnimation');
+        this.clearFramesBtn = document.getElementById('clearFrames');
+        this.frameDurationSlider = document.getElementById('frameDuration');
 
-        // Control buttons
-        this.viewLeftBtn = document.getElementById('viewLeft');
-        this.viewRightBtn = document.getElementById('viewRight');
-        this.viewCombinedBtn = document.getElementById('viewCombined');
-        this.toggleBarrierBtn = document.getElementById('toggleBarrier');
-        this.downloadCurrentBtn = document.getElementById('downloadCurrent');
-        this.downloadFullBtn = document.getElementById('downloadFull');
-
-        // Sliders
+        // Sliders for processing & 3D effect
         this.separationSlider = document.getElementById('separation');
         this.barrierWidthSlider = document.getElementById('barrierWidth');
         this.barrierOpacitySlider = document.getElementById('barrierOpacity');
+        this.perspectiveTiltSlider = document.getElementById('perspectiveTilt');
         this.holeFillSlider = document.getElementById('holeFill');
         this.brightnessSlider = document.getElementById('brightness');
         this.contrastSlider = document.getElementById('contrast');
-        this.outputQualitySlider = document.getElementById('outputQuality');
-    }
+      }
 
-    initializeState() {
-        this.currentImage = null;
-        this.processedImage = null;
-        this.currentView = 'combined';
-        this.barrierVisible = true;
+      initializeState() {
+        this.currentImage = null;    // Original uploaded image
+        this.processedImage = null;  // Processed (autostereoscopic) image
         this.settings = {
-            separation: 15,
-            barrierWidth: 2,
-            barrierOpacity: 50,
-            holeFill: 50,
-            brightness: 0,
-            contrast: 0,
-            outputQuality: 90
+          separation: parseFloat(this.separationSlider.value),
+          barrierWidth: parseFloat(this.barrierWidthSlider.value),
+          barrierOpacity: parseInt(this.barrierOpacitySlider.value),
+          perspectiveTilt: parseFloat(this.perspectiveTiltSlider.value),
+          holeFill: parseInt(this.holeFillSlider.value),
+          brightness: parseInt(this.brightnessSlider.value),
+          contrast: parseInt(this.contrastSlider.value)
         };
-    }
+        this.animationFrames = []; // Array of data URLs for captured frames
+        this.animationInterval = null;
+      }
 
-    initializeEventListeners() {
+      initializeEventListeners() {
         // File upload listeners
         this.dropZone.addEventListener('click', () => this.imageInput.click());
         this.dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.dropZone.style.borderColor = 'var(--primary)';
+          e.preventDefault();
+          e.stopPropagation();
+          this.dropZone.style.borderColor = 'var(--primary)';
         });
         this.dropZone.addEventListener('dragleave', () => {
-            this.dropZone.style.borderColor = 'var(--neutral-200)';
+          this.dropZone.style.borderColor = 'rgba(0, 234, 255, 0.5)';
         });
         this.dropZone.addEventListener('drop', (e) => this.handleDrop(e));
         this.imageInput.addEventListener('change', (e) => this.handleFileSelect(e));
 
-        // View control listeners
-        this.viewLeftBtn.addEventListener('click', () => this.setView('left'));
-        this.viewRightBtn.addEventListener('click', () => this.setView('right'));
-        this.viewCombinedBtn.addEventListener('click', () => this.setView('combined'));
-        this.toggleBarrierBtn.addEventListener('click', () => this.toggleBarrier());
+        // Animation control listeners
+        this.addFrameBtn.addEventListener('click', () => this.addAnimationFrame());
+        this.playAnimationBtn.addEventListener('click', () => this.playAnimation());
+        this.clearFramesBtn.addEventListener('click', () => this.clearAnimationFrames());
 
-        // Download listeners
-        this.downloadCurrentBtn.addEventListener('click', () => this.downloadCurrent());
-        this.downloadFullBtn.addEventListener('click', () => this.downloadFull());
-
-        // Slider listeners
+        // Slider listeners for processing parameters
         this.separationSlider.addEventListener('input', () => {
-            this.settings.separation = parseInt(this.separationSlider.value);
-            this.updateImage();
+          this.settings.separation = parseFloat(this.separationSlider.value);
+          this.updateImage();
         });
         this.barrierWidthSlider.addEventListener('input', () => {
-            this.settings.barrierWidth = parseInt(this.barrierWidthSlider.value);
-            this.updateImage();
+          this.settings.barrierWidth = parseFloat(this.barrierWidthSlider.value);
+          this.updateImage();
         });
         this.barrierOpacitySlider.addEventListener('input', () => {
-            this.settings.barrierOpacity = parseInt(this.barrierOpacitySlider.value);
-            this.updateImage();
+          this.settings.barrierOpacity = parseInt(this.barrierOpacitySlider.value);
+          this.updateImage();
+        });
+        this.perspectiveTiltSlider.addEventListener('input', () => {
+          this.settings.perspectiveTilt = parseFloat(this.perspectiveTiltSlider.value);
+          this.updateImage();
         });
         this.holeFillSlider.addEventListener('input', () => {
-            this.settings.holeFill = parseInt(this.holeFillSlider.value);
-            this.updateImage();
+          this.settings.holeFill = parseInt(this.holeFillSlider.value);
+          this.updateImage();
         });
         this.brightnessSlider.addEventListener('input', () => {
-            this.settings.brightness = parseInt(this.brightnessSlider.value);
-            this.updateImage();
+          this.settings.brightness = parseInt(this.brightnessSlider.value);
+          this.updateImage();
         });
         this.contrastSlider.addEventListener('input', () => {
-            this.settings.contrast = parseInt(this.contrastSlider.value);
-            this.updateImage();
+          this.settings.contrast = parseInt(this.contrastSlider.value);
+          this.updateImage();
         });
-        this.outputQualitySlider.addEventListener('input', () => {
-            this.settings.outputQuality = parseInt(this.outputQualitySlider.value);
-        });
-    }
+      }
 
-    async handleDrop(e) {
+      async handleDrop(e) {
         e.preventDefault();
         e.stopPropagation();
-        this.dropZone.style.borderColor = 'var(--neutral-200)';
-        
+        this.dropZone.style.borderColor = 'rgba(0, 234, 255, 0.5)';
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            await this.loadImage(e.dataTransfer.files[0]);
+          await this.loadImage(e.dataTransfer.files[0]);
         }
-    }
+      }
 
-    async handleFileSelect(e) {
+      async handleFileSelect(e) {
         if (e.target.files && e.target.files[0]) {
-            await this.loadImage(e.target.files[0]);
+          await this.loadImage(e.target.files[0]);
         }
-    }
+      }
 
-    async loadImage(file) {
+      async loadImage(file) {
         if (!file.type.startsWith('image/')) {
-            alert('Please upload an image file');
-            return;
+          alert('Please upload an image file.');
+          return;
         }
-
         this.showStatus('Loading image...');
-        
         try {
-            const reader = new FileReader();
-            const imageLoadPromise = new Promise((resolve) => {
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => resolve(img);
-                    img.src = e.target.result;
-                };
-            });
-
-            reader.readAsDataURL(file);
-            this.currentImage = await imageLoadPromise;
-            await this.processImage();
-            this.hideStatus();
+          const reader = new FileReader();
+          const imageLoadPromise = new Promise((resolve) => {
+            reader.onload = (e) => {
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.src = e.target.result;
+            };
+          });
+          reader.readAsDataURL(file);
+          this.currentImage = await imageLoadPromise;
+          await this.processImage();
+          this.hideStatus();
         } catch (error) {
-            console.error('Error loading image:', error);
-            this.hideStatus();
-            alert('Error loading image');
+          console.error('Error loading image:', error);
+          this.hideStatus();
+          alert('Error loading image.');
         }
-    }
+      }
 
-    async processImage() {
+      async processImage() {
         this.showStatus('Processing image...');
-
         try {
-            // Create offscreen canvas for processing
-            const canvas = document.createElement('canvas');
-            canvas.width = this.currentImage.width;
-            canvas.height = this.currentImage.height;
-            const ctx = canvas.getContext('2d');
+          // Create an offscreen canvas matching the original image dimensions
+          const canvas = document.createElement('canvas');
+          canvas.width = this.currentImage.width;
+          canvas.height = this.currentImage.height;
+          const ctx = canvas.getContext('2d');
 
-            // Draw original image
-            ctx.drawImage(this.currentImage, 0, 0);
+          // Draw the original image
+          ctx.drawImage(this.currentImage, 0, 0);
 
-            // Apply image processing effects
-            this.applyImageEffects(ctx);
+          // Apply image processing (brightness, contrast, etc.)
+          this.applyImageEffects(ctx);
 
-            // Generate stereo views
-            const { leftView, rightView } = this.generateStereoViews(ctx);
+          // Generate stereo views with enhanced 3D transformations
+          const { leftView, rightView } = this.generateStereoViews(ctx);
 
-            // Update preview canvases
-            this.updatePreviews(leftView, rightView);
+          // Combine the views into one processed image (with barrier effect)
+          this.processedImage = this.generateCombinedView(leftView, rightView);
 
-            // Generate combined view with barrier
-            this.processedImage = this.generateCombinedView(leftView, rightView);
+          // Display the processed image in the main output
+          this.updateOutput();
 
-            // Update main output
-            this.updateOutput();
-            
-            this.hideStatus();
+          this.hideStatus();
         } catch (error) {
-            console.error('Error processing image:', error);
-            this.hideStatus();
-            alert('Error processing image');
+          console.error('Error processing image:', error);
+          this.hideStatus();
+          alert('Error processing image.');
         }
-    }
+      }
 
-    applyImageEffects(ctx) {
+      applyImageEffects(ctx) {
         const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
         const data = imageData.data;
-
-        // Apply brightness and contrast
         const brightness = this.settings.brightness;
         const contrast = this.settings.contrast;
         const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-
         for (let i = 0; i < data.length; i += 4) {
-            // Apply brightness
-            data[i] += brightness;
-            data[i + 1] += brightness;
-            data[i + 2] += brightness;
-
-            // Apply contrast
-            data[i] = factor * (data[i] - 128) + 128;
-            data[i + 1] = factor * (data[i + 1] - 128) + 128;
-            data[i + 2] = factor * (data[i + 2] - 128) + 128;
-
-            // Ensure values stay within bounds
-            for (let j = 0; j < 3; j++) {
-                data[i + j] = Math.max(0, Math.min(255, data[i + j]));
-            }
+          data[i] = factor * (data[i] - 128) + 128 + brightness;
+          data[i + 1] = factor * (data[i + 1] - 128) + 128 + brightness;
+          data[i + 2] = factor * (data[i + 2] - 128) + 128 + brightness;
+          for (let j = 0; j < 3; j++) {
+            data[i + j] = Math.max(0, Math.min(255, data[i + j]));
+          }
         }
-
         ctx.putImageData(imageData, 0, 0);
-    }
+      }
 
-    generateStereoViews(ctx) {
+      generateStereoViews(ctx) {
         const separation = this.settings.separation;
-        
-        // Create canvases for left and right views
+        const tilt = this.settings.perspectiveTilt / 100;
+        // Create left and right view canvases matching the original size
         const leftCanvas = document.createElement('canvas');
         const rightCanvas = document.createElement('canvas');
-        [leftCanvas.width, rightCanvas.width] = [ctx.canvas.width, ctx.canvas.width];
-        [leftCanvas.height, rightCanvas.height] = [ctx.canvas.height, ctx.canvas.height];
-        
+        leftCanvas.width = ctx.canvas.width;
+        leftCanvas.height = ctx.canvas.height;
+        rightCanvas.width = ctx.canvas.width;
+        rightCanvas.height = ctx.canvas.height;
         const leftCtx = leftCanvas.getContext('2d');
         const rightCtx = rightCanvas.getContext('2d');
+        // Left view: slight positive shear and left shift
+        leftCtx.setTransform(1, tilt, 0, 1, -separation / 2, 0);
+        leftCtx.drawImage(ctx.canvas, 0, 0);
+        // Right view: slight negative shear and right shift
+        rightCtx.setTransform(1, -tilt, 0, 1, separation / 2, 0);
+        rightCtx.drawImage(ctx.canvas, 0, 0);
+        return { leftView, rightView };
+      }
 
-        // Generate displaced views
-        leftCtx.drawImage(ctx.canvas, -separation/2, 0);
-        rightCtx.drawImage(ctx.canvas, separation/2, 0);
-
-        return {
-            leftView: leftCanvas,
-            rightView: rightCanvas
-        };
-    }
-
-    generateCombinedView(leftView, rightView) {
+      generateCombinedView(leftView, rightView) {
         const canvas = document.createElement('canvas');
         canvas.width = leftView.width;
         canvas.height = leftView.height;
         const ctx = canvas.getContext('2d');
-
-        // Draw left view
+        // Start with the left view
         ctx.drawImage(leftView, 0, 0);
-
-        // Create barrier pattern
-        if (this.barrierVisible) {
-            const barrierWidth = this.settings.barrierWidth;
-            const opacity = this.settings.barrierOpacity / 100;
-            
-            ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
-            for (let x = 0; x < canvas.width; x += barrierWidth * 2) {
-                ctx.fillRect(x, 0, barrierWidth, canvas.height);
-            }
+        // Create barrier pattern with gradient stripes
+        if (this.barrierVisible !== false) { // default true
+          const barrierWidth = this.settings.barrierWidth;
+          const opacity = this.settings.barrierOpacity / 100;
+          for (let x = 0; x < canvas.width; x += barrierWidth * 2) {
+            let gradient = ctx.createLinearGradient(x, 0, x + barrierWidth, 0);
+            gradient.addColorStop(0, 'rgba(0,0,0,0)');
+            gradient.addColorStop(0.5, `rgba(0,0,0,${opacity})`);
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, 0, barrierWidth, canvas.height);
+          }
         }
-
-        // Draw right view with masking
+        // Merge right view pixels in the gaps
         const rightCtx = rightView.getContext('2d');
-        const rightImageData = rightCtx.getImageData(0, 0, rightView.width, rightView.height);
-        const combinedImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
+        const rightData = rightCtx.getImageData(0, 0, rightView.width, rightView.height);
+        const combinedData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         for (let y = 0; y < canvas.height; y++) {
-            for (let x = 0; x < canvas.width; x++) {
-                if ((x % (this.settings.barrierWidth * 2)) >= this.settings.barrierWidth) {
-                    const i = (y * canvas.width + x) * 4;
-                    for (let c = 0; c < 4; c++) {
-                        combinedImageData.data[i + c] = rightImageData.data[i + c];
-                    }
-                }
+          for (let x = 0; x < canvas.width; x++) {
+            if ((x % (this.settings.barrierWidth * 2)) >= this.settings.barrierWidth) {
+              const i = (y * canvas.width + x) * 4;
+              for (let c = 0; c < 4; c++) {
+                combinedData.data[i + c] = rightData.data[i + c];
+              }
             }
+          }
         }
-
-        ctx.putImageData(combinedImageData, 0, 0);
+        ctx.putImageData(combinedData, 0, 0);
         return canvas;
-    }
+      }
 
-    updatePreviews(leftView, rightView) {
-        // Update left preview
-        this.leftPreview.width = leftView.width;
-        this.leftPreview.height = leftView.height;
-        this.leftCtx.drawImage(leftView, 0, 0);
-
-        // Update right preview
-        this.rightPreview.width = rightView.width;
-        this.rightPreview.height = rightView.height;
-        this.rightCtx.drawImage(rightView, 0, 0);
-    }
-
-    updateOutput() {
+      updateOutput() {
+        // Clear the main output and display the processed image
         this.output.innerHTML = '';
+        if (!this.processedImage) return;
         const canvas = document.createElement('canvas');
         canvas.width = this.processedImage.width;
         canvas.height = this.processedImage.height;
         const ctx = canvas.getContext('2d');
-
-        switch (this.currentView) {
-            case 'left':
-                ctx.drawImage(this.leftPreview, 0, 0);
-                break;
-            case 'right':
-                ctx.drawImage(this.rightPreview, 0, 0);
-                break;
-            case 'combined':
-                ctx.drawImage(this.processedImage, 0, 0);
-                break;
-        }
-
+        ctx.drawImage(this.processedImage, 0, 0);
         this.output.appendChild(canvas);
-    }
+      }
 
-    setView(view) {
-        this.currentView = view;
-        this.updateOutput();
-    }
-
-    toggleBarrier() {
-        this.barrierVisible = !this.barrierVisible;
-        if (this.processedImage) {
-            this.processImage();
-        }
-    }
-
-    downloadCurrent() {
-        if (!this.processedImage) return;
-        
-        const canvas = this.output.querySelector('canvas');
-        const link = document.createElement('a');
-        link.download = 'stereoscopic_image.png';
-        link.href = canvas.toDataURL(`image/png`, this.settings.outputQuality / 100);
-        link.click();
-    }
-
-    downloadFull() {
-        if (!this.processedImage) return;
-        
-        const canvas = document.createElement('canvas');
-        canvas.width = this.currentImage.width;
-        canvas.height = this.currentImage.height;
-        const ctx = canvas.getContext('2d');
-        
-        ctx.drawImage(this.processedImage, 0, 0, canvas.width, canvas.height);
-        
-        const link = document.createElement('a');
-        link.download = 'stereoscopic_image_full.png';
-        link.href = canvas.toDataURL(`image/png`, this.settings.outputQuality / 100);
-        link.click();
-    }
-
-    showStatus(message) {
+      showStatus(message) {
         this.status.textContent = message;
         this.status.classList.add('processing');
-    }
+      }
 
-    hideStatus() {
+      hideStatus() {
         this.status.classList.remove('processing');
-    }
+      }
 
-    updateImage() {
+      updateImage() {
         if (this.currentImage) {
-            this.processImage();
+          this.processImage();
         }
-    }
-}
+      }
 
-// Initialize the engine when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.stereoEngine = new AutostereoscopicEngine();
-});
-    </script>
+      // ---- Animation Functions ----
+
+      addAnimationFrame() {
+        if (!this.processedImage) {
+          alert('No processed image to capture. Load and process an image first.');
+          return;
+        }
+        // Capture the current processed image as a data URL
+        const dataURL = this.processedImage.toDataURL('image/png', 0.9);
+        this.animationFrames.push(dataURL);
+        console.log(`Frame added. Total frames: ${this.animationFrames.length}`);
+        this.updateTimeline();
+      }
+
+      clearAnimationFrames() {
+        this.animationFrames = [];
+        this.updateTimeline();
+        console.log('Animation frames cleared.');
+      }
+
+      playAnimation() {
+        if (this.animationFrames.length === 0) {
+          alert('No frames captured. Please add frames first.');
+          return;
+        }
+        let frameIndex = 0;
+        const duration = parseInt(this.frameDurationSlider.value);
+        if (this.animationInterval) {
+          clearInterval(this.animationInterval);
+        }
+        this.animationInterval = setInterval(() => {
+          const img = new Image();
+          img.onload = () => {
+            this.output.innerHTML = '';
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            this.output.appendChild(canvas);
+          };
+          img.src = this.animationFrames[frameIndex];
+          frameIndex = (frameIndex + 1) % this.animationFrames.length;
+        }, duration);
+      }
+
+      updateTimeline() {
+        // Clear the timeline container and add thumbnails for each frame
+        this.timeline.innerHTML = '';
+        this.animationFrames.forEach((frameDataURL, index) => {
+          const thumb = document.createElement('img');
+          thumb.src = frameDataURL;
+          thumb.className = 'frame-thumb';
+          thumb.title = `Frame ${index + 1}`;
+          // Clicking a thumbnail displays that frame in the main output
+          thumb.addEventListener('click', () => {
+            clearInterval(this.animationInterval);
+            const img = new Image();
+            img.onload = () => {
+              this.output.innerHTML = '';
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              this.output.appendChild(canvas);
+            };
+            img.src = frameDataURL;
+          });
+          this.timeline.appendChild(thumb);
+        });
+      }
+    }
+
+    // Initialize the FrameAnimator when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      window.frameAnimator = new FrameAnimator();
+    });
+  </script>
 </body>
 </html>
