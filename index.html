@@ -4,28 +4,33 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LumenOS Autostereoscopic Engine</title>
-  <!-- Tailwind CSS -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN with inline config to use dark mode via class -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          // You can extend your theme here if needed.
+        }
+      }
+    }
+  </script>
+  
   <!-- Firebase (compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <!-- PayPal SDK (replace YOUR_PAYPAL_CLIENT_ID with your actual client id) -->
   <script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=USD"></script>
+  
   <style>
     /* Custom Elite Theme Styles */
     .elite-bg {
       background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
     }
-    /* Dark mode: refined and consistent */
     html.dark .elite-bg {
       background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
-    }
-    html.dark {
-      color-scheme: dark;
-    }
-    
-    .elite-text {
-      /* Using Tailwind’s utility classes (e.g. text-blue-600 dark:text-blue-400) */
     }
     
     .glass {
@@ -34,62 +39,15 @@
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    
     html.dark .glass {
       background: rgba(17, 24, 39, 0.75);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    
-    /* Feature cards in dark mode */
     html.dark .glass:hover {
       background: rgba(17, 24, 39, 0.9);
     }
     
-    /* Technical Overview section dark mode adjustments */
-    html.dark #how-it-works {
-      background-color: #111827;
-    }
-    html.dark .text-gray-700 {
-      color: #d1d5db;
-    }
-    html.dark #how-it-works svg circle {
-      fill-opacity: 0.8;
-    }
-    html.dark #how-it-works svg text {
-      fill: #e5e7eb;
-    }
-    html.dark #how-it-works svg line {
-      stroke: #4b5563;
-    }
-    html.dark .bg-gray-50 {
-      background-color: #1f2937;
-    }
-    html.dark .bg-gray-200 {
-      background-color: #374151;
-    }
-    html.dark tbody tr:not(.bg-gray-50) {
-      background-color: #111827;
-    }
-    html.dark .text-gray-700 ul.list-disc li {
-      color: #d1d5db;
-    }
-    html.dark .bg-white {
-      background-color: #374151;
-    }
-    html.dark .text-gray-800 {
-      color: #f3f4f6;
-    }
-    
-    /* Footer animation */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .footer-animate {
-      animation: fadeUp 1s ease-out forwards;
-    }
-    
-    /* Payment Section: no glass effect so text is clear in both modes */
+    /* Payment Section */
     .payment-section {
       background-color: #ffffff;
       border-radius: 0.5rem;
@@ -102,9 +60,26 @@
       color: #f3f4f6;
       box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
+    
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 1s ease-out forwards;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+      50% { box-shadow: 0 0 25px rgba(59, 130, 246, 1); }
+    }
+    .animate-pulseGlow {
+      animation: pulseGlow 2s infinite;
+    }
   </style>
+  
   <script>
-    // Simple dark mode toggle
+    // Dark mode toggle
     function toggleDarkMode() {
       document.documentElement.classList.toggle('dark');
     }
@@ -127,24 +102,21 @@
     });
   </script>
 </head>
-<body class="elite-bg text-gray-800 dark:text-white transition-colors duration-200 ease-in-out">
+<body class="elite-bg text-gray-900 dark:text-white transition-colors duration-200 ease-in-out">
   <!-- Navigation -->
-  <header class="nav-glass fixed top-0 left-0 w-full z-50 shadow">
+  <header class="nav-glass glass fixed top-0 left-0 w-full z-50 shadow animate-fadeIn">
     <div class="container mx-auto px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center">
-        <!-- Larger logo -->
+      <div class="flex items-center space-x-4">
         <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" alt="Company Logo" class="h-12 w-12 rounded-lg">
       </div>
-      <!-- Desktop Auth Area (visible only on md and above) -->
       <div id="auth-area" class="hidden md:flex items-center space-x-4">
         <button id="signInBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Log In</button>
         <button id="signUpBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Sign Up</button>
       </div>
-      <!-- Desktop Navigation Links -->
       <nav class="hidden md:flex items-center space-x-6">
-        <a href="#features" class="hover:text-blue-400">Features</a>
-        <a href="#pricing" class="hover:text-blue-400">Pricing</a>
-        <a href="#demo" class="hover:text-blue-400">Demo</a>
+        <a href="#features" class="hover:text-blue-400 text-gray-900 dark:text-white">Features</a>
+        <a href="#pricing" class="hover:text-blue-400 text-gray-900 dark:text-white">Pricing</a>
+        <a href="#demo" class="hover:text-blue-400 text-gray-900 dark:text-white">Demo</a>
         <button onclick="toggleDarkMode()" class="p-2 rounded focus:outline-none">
           <svg class="w-6 h-6 text-blue-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path d="M12 3v1M12 20v1M4.22 4.22l.7.7M18.36 18.36l.7.7M3 12h1M20 12h1M4.22 19.78l.7-.7M18.36 5.64l.7-.7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
@@ -152,7 +124,6 @@
           </svg>
         </button>
       </nav>
-      <!-- Mobile Menu Button (visible on small screens) -->
       <div class="md:hidden flex items-center">
         <button onclick="toggleDarkMode()" class="mr-4 p-2 rounded focus:outline-none">
           <svg class="w-6 h-6 text-blue-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,19 +132,17 @@
           </svg>
         </button>
         <button onclick="toggleMobileMenu()" class="p-2 focus:outline-none">
-          <svg class="w-6 h-6 text-gray-800 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-6 h-6 text-gray-900 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
           </svg>
         </button>
       </div>
     </div>
-    <!-- Mobile Menu (visible only on small screens) -->
     <div id="mobile-menu" class="hidden md:hidden">
       <nav class="px-4 pt-4 pb-6 space-y-4">
         <a href="#features" class="block bg-blue-100 text-blue-600 px-4 py-2 rounded hover:bg-blue-200">Features</a>
         <a href="#pricing" class="block bg-blue-100 text-blue-600 px-4 py-2 rounded hover:bg-blue-200">Pricing</a>
         <a href="#demo" class="block bg-blue-100 text-blue-600 px-4 py-2 rounded hover:bg-blue-200">Demo</a>
-        <!-- Auth buttons in mobile menu -->
         <button id="mobileSignInBtn" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Log In</button>
         <button id="mobileSignUpBtn" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Sign Up</button>
       </nav>
@@ -181,12 +150,13 @@
   </header>
   
   <!-- Hero Section -->
-  <section class="pt-32 pb-20 px-4">
-    <div class="container mx-auto text-center">
-      <h1 class="text-5xl md:text-6xl font-bold mb-8">
+  <section class="relative pt-32 pb-20 px-4">
+    <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('https://via.placeholder.com/1200x600?text=Stunning+Background'); filter: brightness(0.6);"></div>
+    <div class="container mx-auto text-center relative z-10 animate-fadeIn">
+      <h1 class="text-5xl md:text-6xl font-bold mb-8 text-gray-900 dark:text-white drop-shadow-lg">
         A Picture Tells a Thousand Words
       </h1>
-      <p class="text-xl md:text-2xl mb-12 max-w-3xl mx-auto">
+      <p class="text-xl md:text-2xl mb-12 max-w-3xl mx-auto text-gray-900 dark:text-white">
         Discover how every image unfolds a narrative. Our revolutionary Autostereoscopic Engine uses advanced parallax and vibrational frequencies to phase between left and right views, creating an immersive 3D experience that transforms storytelling.
       </p>
       <div class="flex flex-col md:flex-row justify-center gap-4">
@@ -200,29 +170,44 @@
     </div>
   </section>
   
-  <!-- Features Section -->
+  <!-- Features Section with Relevant SVG Icons -->
   <section id="features" class="py-20 px-4">
     <div class="container mx-auto">
-      <h2 class="text-4xl font-bold text-center mb-16">Innovative Features</h2>
+      <h2 class="text-4xl font-bold text-center mb-16 text-gray-900 dark:text-white">Innovative Features</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <!-- Feature 1: Immersive Parallax -->
-        <div class="glass rounded-xl p-6 transition transform hover:scale-105">
-          <h3 class="text-2xl font-semibold mb-4">Immersive Parallax</h3>
-          <p class="text-gray-300">
+        <div class="glass rounded-xl p-6 transition transform hover:scale-105 animate-fadeIn">
+          <!-- Layers SVG for Immersive Parallax -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M2 7l10 6 10-6-10-6L2 7z"/>
+            <path d="M2 11l10 6 10-6"/>
+            <path d="M2 15l10 6 10-6"/>
+          </svg>
+          <h3 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Immersive Parallax</h3>
+          <p class="text-gray-900 dark:text-white">
             Our engine leverages vibrational frequencies to phase between left and right views, delivering a dynamic 3D effect that lets your photos narrate their story.
           </p>
         </div>
-        <!-- Feature 2: Cutting-Edge Technology -->
-        <div class="glass rounded-xl p-6 transition transform hover:scale-105">
-          <h3 class="text-2xl font-semibold mb-4">Advanced Processing</h3>
-          <p class="text-gray-300">
+        <!-- Feature 2: Advanced Processing -->
+        <div class="glass rounded-xl p-6 transition transform hover:scale-105 animate-fadeIn delay-150">
+          <!-- Gear SVG for Advanced Processing -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0a1.007 1.007 0 00.95.69h1.458c.969 0 1.371 1.24.588 1.81l-1.18.855a1 1 0 00-.364 1.118l.45 1.745c.293 1.138-.755 2.079-1.89 1.788l-1.625-.6a1 1 0 00-1.175.37l-.92 1.39c-.453.683-1.68.683-2.133 0l-.92-1.39a1 1 0 00-1.175-.37l-1.625.6c-1.135.291-2.183-.65-1.89-1.788l.45-1.745a1 1 0 00-.364-1.118l-1.18-.855c-.783-.57-.38-1.81.588-1.81h1.458a1 1 0 00.95-.69z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <h3 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Advanced Processing</h3>
+          <p class="text-gray-900 dark:text-white">
             Experience state-of-the-art 3D rendering that utilizes parallax shifts and precise phase transitions to create a visually immersive experience.
           </p>
         </div>
-        <!-- Feature 3: Storytelling Through 3D -->
-        <div class="glass rounded-xl p-6 transition transform hover:scale-105">
-          <h3 class="text-2xl font-semibold mb-4">Visual Storytelling</h3>
-          <p class="text-gray-300">
+        <!-- Feature 3: Visual Storytelling -->
+        <div class="glass rounded-xl p-6 transition transform hover:scale-105 animate-fadeIn delay-300">
+          <!-- Clapperboard SVG for Visual Storytelling -->
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M4 3h16l-3 5h2a1 1 0 011 1v1H3V9a1 1 0 011-1h2l-3-5zM3 11v8a1 1 0 001 1h16a1 1 0 001-1v-8H3z"/>
+          </svg>
+          <h3 class="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Visual Storytelling</h3>
+          <p class="text-gray-900 dark:text-white">
             Transform your images into multidimensional narratives that reveal subtle details and emotions with every glance.
           </p>
         </div>
@@ -233,17 +218,16 @@
   <!-- How It Works Section -->
   <section id="how-it-works" class="py-20 px-4 bg-white dark:bg-gray-800">
     <div class="container mx-auto">
-      <h2 class="text-4xl font-bold text-center mb-12">How It Works</h2>
+      <h2 class="text-4xl font-bold text-center mb-12 text-gray-900 dark:text-white">How It Works</h2>
       <div class="mb-12 flex flex-col md:flex-row items-center justify-center gap-8">
         <button onclick="toggleDarkMode()" class="p-2 rounded focus:outline-none" aria-label="Toggle dark mode">
-          <svg class="w-6 h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-6 h-6 text-gray-900 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path class="dark:hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
               d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
             <path class="hidden dark:block" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707"/>
           </svg>
         </button>
-        <!-- Inline SVG Explanation -->
         <div class="w-64 h-64">
           <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
             <circle cx="60" cy="100" r="40" fill="#0070f3" />
@@ -255,8 +239,7 @@
             </text>
           </svg>
         </div>
-        <!-- Technical Breakdown -->
-        <div class="max-w-xl text-left text-gray-700 dark:text-gray-300">
+        <div class="max-w-xl text-left text-gray-900 dark:text-white">
           <h3 class="text-2xl font-semibold mb-4">Technical Overview</h3>
           <p class="mb-4">
             Our engine uses vibrational frequencies to subtly phase between multiple perspectives. This parallax-based technique creates a multidimensional view without the need for special glasses, allowing your images to come alive.
@@ -308,10 +291,10 @@
   <!-- Demo Section -->
   <section id="demo" class="py-20 px-4">
     <div class="container mx-auto">
-      <div class="glass rounded-xl p-8 md:p-12 max-w-4xl mx-auto">
-        <h2 class="text-4xl font-bold text-center mb-8">Experience the Immersive Future</h2>
+      <div class="glass rounded-xl p-8 md:p-12 max-w-4xl mx-auto animate-fadeIn">
+        <h2 class="text-4xl font-bold text-center mb-8 text-gray-900 dark:text-white">Experience the Immersive Future</h2>
         <div class="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden bg-black mb-8">
-          <img src="https://via.placeholder.com/800x450" alt="Demo Video" class="w-full h-full object-cover">
+          <img src="https://via.placeholder.com/800x450?text=Demo+Video" alt="Demo Video" class="w-full h-full object-cover">
         </div>
         <div class="text-center">
           <button class="bg-blue-600 text-white px-8 py-4 rounded-lg font-bold hover:bg-blue-700 transition-all">
@@ -325,13 +308,13 @@
   <!-- Pricing Section -->
   <section id="pricing" class="py-20 px-4">
     <div class="container mx-auto">
-      <h2 class="text-4xl font-bold text-center mb-16">Flexible Pricing</h2>
+      <h2 class="text-4xl font-bold text-center mb-16 text-gray-900 dark:text-white">Flexible Pricing</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <!-- One-Time Purchase -->
-        <div class="glass rounded-xl p-8 transition transform hover:scale-105">
-          <h3 class="text-2xl font-bold mb-4">One-Time Purchase</h3>
+        <div class="glass rounded-xl p-8 transition transform hover:scale-105 animate-fadeIn">
+          <h3 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">One-Time Purchase</h3>
           <div class="text-4xl font-bold mb-6">$8.99</div>
-          <ul class="space-y-4 mb-8">
+          <ul class="space-y-4 mb-8 text-gray-900 dark:text-white">
             <li class="flex items-center">
               <svg class="w-5 h-5 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -350,15 +333,15 @@
           </button>
         </div>
         <!-- Monthly Subscription -->
-        <div class="glass rounded-xl p-8 transition transform hover:scale-105 relative">
+        <div class="glass rounded-xl p-8 transition transform hover:scale-105 relative animate-fadeIn delay-150">
           <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
             <span class="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
               Most Popular
             </span>
           </div>
-          <h3 class="text-2xl font-bold mb-4">Monthly Subscription</h3>
+          <h3 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Monthly Subscription</h3>
           <div class="text-4xl font-bold mb-6">$29.99</div>
-          <ul class="space-y-4 mb-8">
+          <ul class="space-y-4 mb-8 text-gray-900 dark:text-white">
             <li class="flex items-center">
               <svg class="w-5 h-5 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -383,10 +366,10 @@
           </button>
         </div>
         <!-- Yearly Subscription -->
-        <div class="glass rounded-xl p-8 transition transform hover:scale-105">
-          <h3 class="text-2xl font-bold mb-4">Yearly Subscription</h3>
+        <div class="glass rounded-xl p-8 transition transform hover:scale-105 animate-fadeIn delay-300">
+          <h3 class="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Yearly Subscription</h3>
           <div class="text-4xl font-bold mb-6">$349.99</div>
-          <ul class="space-y-4 mb-8">
+          <ul class="space-y-4 mb-8 text-gray-900 dark:text-white">
             <li class="flex items-center">
               <svg class="w-5 h-5 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -414,35 +397,36 @@
     </div>
   </section>
   
-  <!-- Payment Section (clear, solid design) -->
+  <!-- Payment Section -->
   <section id="payment-section" class="py-10 px-4 hidden">
     <div class="container mx-auto text-center payment-section">
-      <h2 class="text-3xl font-bold mb-4">Complete Your Payment</h2>
+      <h2 class="text-3xl font-bold mb-4 text-gray-900 dark:text-white">Complete Your Payment</h2>
       <div id="paypal-button-container"></div>
     </div>
   </section>
   
-  <!-- Footer with Transition Animation -->
+  <!-- Footer -->
   <footer id="page-footer" class="glass mt-20 py-6">
     <div class="container mx-auto px-6 text-center">
-      <p class="text-sm transition-all">&copy; 2025 LumenOS. All rights reserved.</p>
+      <p class="text-sm transition-all text-gray-900 dark:text-white">&copy; 2025 LumenOS. All rights reserved.</p>
     </div>
   </footer>
   
   <!-- Firebase and Authentication Integration -->
   <script>
-    // Initialize Firebase (replace with your own config)
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-      appId: "YOUR_APP_ID"
+    const config = {
+      firebase: {
+        apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
+        authDomain: "lumenos-749a1.firebaseapp.com",
+        projectId: "lumenos-749a1",
+        storageBucket: "lumenos-749a1.firebasestorage.app",
+        messagingSenderId: "857410556058",
+        appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
+        measurementId: "G-CEZ4PHV9GE"
+      }
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-  
     auth.onAuthStateChanged((user) => {
       const authArea = document.getElementById('auth-area');
       if (user) {
@@ -452,8 +436,8 @@
         `;
       } else {
         authArea.innerHTML = `
-          <a href="#" id="signInLink" class="hover:text-blue-600">Log In</a>
-          <a href="#" id="signUpLink" class="hover:text-blue-600">Sign Up</a>
+          <a href="#" id="signInLink" class="hover:text-blue-600 text-gray-900 dark:text-white">Log In</a>
+          <a href="#" id="signUpLink" class="hover:text-blue-600 text-gray-900 dark:text-white">Sign Up</a>
         `;
         document.getElementById('signInLink').addEventListener('click', signInUser);
         document.getElementById('signUpLink').addEventListener('click', signUpUser);
@@ -482,7 +466,7 @@
         this.animationPhase = 0;
         this.frames = [];
         this.isProcessing = false;
-        this.isPaid = false; // Payment flag
+        this.isPaid = false;
       }
       setupDOM() {
         this.dropZone = document.getElementById('dropZone');
