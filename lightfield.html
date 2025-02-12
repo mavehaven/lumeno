@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Light Field Display Simulator</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        #container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1200px;
+        }
+        #controls, #results {
+            width: 300px;
+            background-color: #2c2c2c;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+        }
+        #controls.collapsed, #results.collapsed {
+            max-height: 0;
+            opacity: 0;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="range"], input[type="number"], select {
+            width: 100%;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #4a4a4a;
+            background-color: #3a3a3a;
+            color: #fff;
+        }
+        #canvasContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 2px solid #4a4a4a;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #results p {
+            margin: 10px 0;
+        }
+        .result-value {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        #toggleControls {
+            margin-bottom: 10px;
+            background-color: #ff8c00;
+        }
+        #companyLogo {
+            max-width: 200px;
+            margin-bottom: 20px;
+        }
+        #viewOptions {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <img id="companyLogo" src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" alt="Company Logo">
+    <h1>Advanced Light Field Display Simulator</h1>
+    <button id="toggleControls">Minimize Controls</button>
+    <div id="container">
+        <div id="controls">
+            <div class="control-group">
+                <label for="displayTypeSelect">Display Type:</label>
+                <select id="displayTypeSelect">
+                    <option value="pinlight">Pinlight Display</option>
+                    <option value="multilayer">Multilayer LCD</option>
+                    <option value="integral">Integral Imaging</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="resolutionInput">Resolution:</label>
+                <input type="number" id="resolutionInput" min="1" max="4096" value="1920">
+                <span>x</span>
+                <input type="number" id="resolutionInputY" min="1" max="4096" value="1080">
+            </div>
+            <div class="control-group">
+                <label for="pixelPitchInput">Pixel Pitch (mm):</label>
+                <input type="range" id="pixelPitchInput" min="0.01" max="1" step="0.01" value="0.1">
+                <span id="pixelPitchValue">0.1</span>
+            </div>
+            <div class="control-group">
+                <label for="viewingAngleInput">Viewing Angle (degrees):</label>
+                <input type="range" id="viewingAngleInput" min="1" max="180" value="45">
+                <span id="viewingAngleValue">45</span>
+            </div>
+            <div class="control-group">
+                <label for="layersInput">Number of Layers:</label>
+                <input type="range" id="layersInput" min="1" max="10" value="3">
+                <span id="layersValue">3</span>
+            </div>
+            <div class="control-group">
+                <label for="depthInput">Depth (mm):</label>
+                <input type="range" id="depthInput" min="1" max="1000" value="100">
+                <span id="depthValue">100</span>
+            </div>
+            <button id="simulateBtn">Run Simulation</button>
+        </div>
+        <div id="canvasContainer">
+            <canvas id="lightFieldCanvas" width="800" height="600"></canvas>
+            <div>
+                <button id="rotateLeftBtn">Rotate Left</button>
+                <button id="rotateRightBtn">Rotate Right</button>
+                <button id="resetViewBtn">Reset View</button>
+            </div>
+            <div id="viewOptions">
+                <label><input type="checkbox" id="showLightRays"> Show Light Rays</label>
+                <label><input type="checkbox" id="showSteradians"> Show Steradians</label>
+            </div>
+        </div>
+        <div id="results">
+            <h2>Simulation Results</h2>
+            <p>Effective Resolution: <span id="effectiveResolutionOutput" class="result-value">N/A</span></p>
+            <p>Angular Resolution: <span id="angularResolutionOutput" class="result-value">N/A</span></p>
+            <p>Depth Range: <span id="depthRangeOutput" class="result-value">N/A</span></p>
+            <p>Number of View Zones: <span id="viewZonesOutput" class="result-value">N/A</span></p>
+            <p>Crosstalk: <span id="crosstalkOutput" class="result-value">N/A</span></p>
+            <p>Steradians: <span id="steradiansOutput" class="result-value">N/A</span></p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const canvas = document.getElementById('lightFieldCanvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        
+        let lightFieldMesh;
+        let currentAngle = 0;
+        let lightRays = [];
+        let steradiansMesh;
+
+        function initScene() {
+            camera.position.z = 5;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+        }
+
+        function createLightFieldMesh(displayType, layers, depth) {
+            if (lightFieldMesh) {
+                scene.remove(lightFieldMesh);
+            }
+
+            const geometry = new THREE.BoxGeometry(4, 3, depth / 100);
+            const material = new THREE.MeshPhongMaterial({ color: 0x444444, transparent: true, opacity: 0.8 });
+            lightFieldMesh = new THREE.Mesh(geometry, material);
+
+            for (let i = 0; i < layers; i++) {
+                const layerGeometry = new THREE.PlaneGeometry(4 - i * 0.1, 3 - i * 0.1);
+                const layerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 });
+                const layer = new THREE.Mesh(layerGeometry, layerMaterial);
+                layer.position.z = (i / (layers - 1) - 0.5) * depth / 100;
+                lightFieldMesh.add(layer);
+            }
+
+            scene.add(lightFieldMesh);
+        }
+
+        function createLightRays(viewingAngle) {
+            // Remove existing light rays
+            lightRays.forEach(ray => scene.remove(ray));
+            lightRays = [];
+
+            const rayCount = 10;
+            const rayLength = 4;
+            const rayGeometry = new THREE.BufferGeometry();
+            const rayMaterial = new THREE.LineBasicMaterial({ color: 0xffff00 });
+
+            for (let i = 0; i < rayCount; i++) {
+                const angle = (Math.random() - 0.5) * viewingAngle * Math.PI / 180;
+                const startPoint = new THREE.Vector3(0, 0, 0);
+                const endPoint = new THREE.Vector3(Math.sin(angle) * rayLength, 0, -Math.cos(angle) * rayLength);
+                
+                rayGeometry.setFromPoints([startPoint, endPoint]);
+                const ray = new THREE.Line(rayGeometry, rayMaterial);
+                lightRays.push(ray);
+                scene.add(ray);
+            }
+        }
+
+        function createSteradiansMesh(viewingAngle) {
+            if (steradiansMesh) {
+                scene.remove(steradiansMesh);
+            }
+
+            const radius = 2;
+            const segments = 32;
+            const phiStart = 0;
+            const phiLength = viewingAngle * Math.PI / 180;
+
+            const geometry = new THREE.SphereGeometry(radius, segments, segments, phiStart, phiLength, 0, Math.PI / 2);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.3 });
+            steradiansMesh = new THREE.Mesh(geometry, material);
+            steradiansMesh.position.z = -radius;
+            scene.add(steradiansMesh);
+        }
+
+        function updateSimulation() {
+            const displayType = document.getElementById('displayTypeSelect').value;
+            const resolutionX = parseInt(document.getElementById('resolutionInput').value);
+            const resolutionY = parseInt(document.getElementById('resolutionInputY').value);
+            const pixelPitch = parseFloat(document.getElementById('pixelPitchInput').value);
+            const viewingAngle = parseFloat(document.getElementById('viewingAngleInput').value);
+            const layers = parseInt(document.getElementById('layersInput').value);
+            const depth = parseFloat(document.getElementById('depthInput').value);
+
+            createLightFieldMesh(displayType, layers, depth);
+            createLightRays(viewingAngle);
+            createSteradiansMesh(viewingAngle);
+
+            const effectiveResolution = resolutionX * resolutionY;
+            const angularResolution = viewingAngle / layers;
+            const depthRange = (depth / 10).toFixed(2) + " m";
+            const viewZones = layers;
+            const crosstalk = Math.max(0, 100 - (layers * 5));
+            const steradians = 2 * Math.PI * (1 - Math.cos(viewingAngle * (Math.PI / 180)));
+
+            document.getElementById('effectiveResolutionOutput').textContent = effectiveResolution;
+            document.getElementById('angularResolutionOutput').textContent = angularResolution.toFixed(2) + ' degrees';
+            document.getElementById('depthRangeOutput').textContent = depthRange;
+            document.getElementById('viewZonesOutput').textContent = viewZones;
+            document.getElementById('crosstalkOutput').textContent = crosstalk.toFixed(2) + ' %';
+            document.getElementById('steradiansOutput').textContent = steradians.toFixed(2);
+
+            updateVisibility();
+        }
+
+        function updateVisibility() {
+            const showLightRays = document.getElementById('showLightRays').checked;
+            const showSteradians = document.getElementById('showSteradians').checked;
+
+            lightRays.forEach(ray => ray.visible = showLightRays);
+            if (steradiansMesh) {
+                steradiansMesh.visible = showSteradians;
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            lightFieldMesh.rotation.y = currentAngle;
+            renderer.render(scene, camera);
+        }
+
+        document.getElementById('simulateBtn').addEventListener('click', updateSimulation);
+        document.getElementById('rotateLeftBtn').addEventListener('click', () => { currentAngle -= 0.1; });
+        document.getElementById('rotateRightBtn').addEventListener('click', () => { currentAngle += 0.1; });
+        document.getElementById('resetViewBtn').addEventListener('click', () => { currentAngle = 0; });
+
+        document.getElementById('pixelPitchInput').addEventListener('input', (e) => {
+            document.getElementById('pixelPitchValue').textContent = e.target.value;
+        });
+        document.getElementById('viewingAngleInput').addEventListener('input', (e) => {
+            document.getElementById('viewingAngleValue').textContent = e.target.value;
+        });
+        document.getElementById('layersInput').addEventListener('input', (e) => {
+            document.getElementById('layersValue').textContent = e.target.value;
+        });
+        document.getElementById('depthInput').addEventListener('input', (e) => {
+            document.getElementById('depthValue').textContent = e.target.value;
+        });
+
+        document.getElementById('showLightRays').addEventListener('change', updateVisibility);
+        document.getElementById('showSteradians').addEventListener('change', updateVisibility);
+
+        let controlsVisible = true;
+        document.getElementById('toggleControls').addEventListener('click', () => {
+            controlsVisible = !controlsVisible;
+            const controls = document.getElementById('controls');
+            const results = document.getElementById('results');
+            controls.classList.toggle('collapsed', !controlsVisible);
+            results.classList.toggle('collapsed', !controlsVisible);
+            document.getElementById('toggleControls').textContent = controlsVisible ? 'Minimize Controls' : 'Expand Controls';
+        });
+        initScene();
+        createLightFieldMesh('pinlight', 3, 100);
+        animate();
+
+        // Initial simulation
+        updateSimulation();
+
+        // Resize handling
+        window.addEventListener('resize', () => {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        });
+
+        // Trigger initial resize
+        window.dispatchEvent(new Event('resize'));
+    </script>
+</body>
+</html>
