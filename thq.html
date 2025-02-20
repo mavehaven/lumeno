@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="HQ Rides - Built For Comfort. Experience a design that says 'take it or leave it' with no-nonsense pricing and control." />
+  <title>HQ Rides - Built For Comfort</title>
+  <!-- Tailwind CSS for a modern, aggressive look -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- jQuery if needed -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <!-- Google Maps API loaded asynchronously -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></script>
+  <style>
+    /* Custom styles for the dynamic schedule panel */
+    .schedule-container {
+      background-color: rgba(0, 0, 0, 0.85);
+      border: 1px solid #e3342f;
+      border-radius: 0.5rem;
+    }
+    .schedule-item:hover {
+      background-color: #e3342f;
+      cursor: pointer;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #1f2937;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #e3342f;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 to-red-900 text-white min-h-screen">
+  <!-- Header Navigation -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-gray-800 bg-opacity-90 shadow-lg">
+    <nav class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1739393953687x697385340650827000/H.Q.png" alt="HQ Rides Logo" class="h-8" />
+        <span class="text-2xl font-bold tracking-wider">HQ Rides</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <button type="button" class="px-4 py-2 rounded-full bg-gray-700 hover:bg-gray-600 transition focus:outline-none" aria-label="Login">Login</button>
+        <!-- Mobile auth invoked on sign up -->
+        <button type="button" onclick="openAuthModal()" class="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 transition focus:outline-none" aria-label="Sign Up">Sign Up</button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Main Map & Booking Panel -->
+  <main class="pt-20">
+    <div class="relative h-screen">
+      <div id="map" class="absolute inset-0"></div>
+      <!-- Booking Panel -->
+      <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-80 backdrop-blur-sm p-6 rounded-t-3xl shadow-2xl transform transition duration-500 ease-in-out">
+        <div class="container mx-auto max-w-md">
+          <h2 class="text-3xl font-bold mb-6 text-center tracking-wide">Built For Comfort</h2>
+          <div class="space-y-4">
+            <!-- Pickup Location -->
+            <div class="relative">
+              <input type="text" id="pickupLocation" placeholder="Your Location" class="w-full px-4 py-3 bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 border border-gray-700" autocomplete="off" />
+              <button type="button" onclick="getCurrentLocation()" class="absolute right-2 top-2 bg-red-600 p-2 rounded-full text-white focus:outline-none" aria-label="Get current location">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            <!-- Dropoff Location -->
+            <input type="text" id="dropoffLocation" placeholder="Where to?" class="w-full px-4 py-3 bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 border border-gray-700" autocomplete="off" />
+            <!-- Vehicle Options -->
+            <div class="grid grid-cols-3 gap-4 mt-6">
+              <button type="button" onclick="selectRide('comfort')" class="bg-gray-800 p-4 rounded-xl hover:bg-red-700 transition shadow-md focus:outline-none" aria-label="Comfort Ride">
+                <div class="text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                    <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7h-3v7h3V7z" />
+                  </svg>
+                  <span class="text-sm font-medium">Comfort</span>
+                </div>
+              </button>
+              <button type="button" onclick="selectRide('luxury')" class="bg-gray-800 p-4 rounded-xl hover:bg-red-700 transition shadow-md focus:outline-none" aria-label="Luxury Ride">
+                <div class="text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5 5a3 3 0 015-2.236A3 3 0 0114.83 6H16a2 2 0 110 4h-5V9a1 1 0 10-2 0v1H4a2 2 0 110-4h1.17C5.06 5.687 5 5.35 5 5zm4 1V5a1 1 0 10-1 1h1zm3 0a1 1 0 10-1-1v1h1z" clip-rule="evenodd" />
+                    <path d="M9 11H3v5a2 2 0 002 2h4v-7zM11 18h4a2 2 0 002-2v-5h-6v7z" />
+                  </svg>
+                  <span class="text-sm font-medium">Luxury</span>
+                </div>
+              </button>
+              <button type="button" onclick="selectRide('group')" class="bg-gray-800 p-4 rounded-xl hover:bg-red-700 transition shadow-md focus:outline-none" aria-label="Group Ride">
+                <div class="text-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                  </svg>
+                  <span class="text-sm font-medium">Group</span>
+                </div>
+              </button>
+            </div>
+            <!-- Dynamic Scheduling Panel (hidden until a ride option is selected) -->
+            <div id="scheduleOption" class="mt-4 hidden">
+              <label for="scheduleSearch" class="block text-gray-300 mb-2">Schedule Ride:</label>
+              <input type="text" id="scheduleSearch" onkeyup="filterScheduleOptions()" placeholder="Search schedule..." class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600" />
+              <div id="scheduleList" class="mt-2 max-h-40 overflow-y-auto custom-scrollbar schedule-container p-2 rounded-lg">
+                <!-- Dynamic schedule options will be rendered here -->
+              </div>
+            </div>
+            <!-- Find Rides Button with loader -->
+            <button type="button" onclick="findNearbyDrivers()" class="w-full bg-red-600 text-white py-4 rounded-xl font-bold hover:bg-red-700 transition mt-6 shadow-lg focus:outline-none" aria-label="Find Nearby Rides">
+              Find Nearby Rides
+            </button>
+            <div id="loader" class="loader hidden"></div>
+          </div>
+          <!-- Safety Features -->
+          <div class="mt-6 flex justify-center space-x-4 text-gray-400 text-sm">
+            <div class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              Verified Drivers
+            </div>
+            <div class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clip-rule="evenodd" />
+              </svg>
+              24/7 Support
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 bg-opacity-90 text-gray-400 py-4 mt-8 text-center">
+    <p class="text-sm">&copy; 2025 HQ Rides. All rights reserved.</p>
+  </footer>
+
+  <!-- Mobile Auth Modal (remains on page for seamless verification) -->
+  <div id="authModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80 hidden">
+    <div class="bg-gray-900 p-6 rounded-lg shadow-lg max-w-md w-full">
+      <h2 class="text-2xl font-bold mb-4 text-white">Mobile Authentication</h2>
+      <div id="phoneSection">
+        <label for="phoneNumber" class="block text-gray-300">Enter your phone number:</label>
+        <input type="text" id="phoneNumber" class="w-full border border-gray-700 p-2 rounded-lg mt-2 bg-gray-800 text-white" placeholder="+1234567890" />
+        <button type="button" onclick="sendOTP()" class="mt-4 w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700">Send OTP</button>
+      </div>
+      <div id="otpSection" class="hidden">
+        <label for="otp" class="block text-gray-300">Enter OTP:</label>
+        <input type="text" id="otp" class="w-full border border-gray-700 p-2 rounded-lg mt-2 bg-gray-800 text-white" placeholder="Enter OTP" />
+        <button type="button" onclick="verifyOTP()" class="mt-4 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">Verify OTP</button>
+      </div>
+      <!-- Recaptcha container for Firebase verification (invisible) -->
+      <div id="recaptcha-container"></div>
+      <button type="button" onclick="document.getElementById('authModal').classList.add('hidden')" class="mt-4 w-full bg-gray-700 text-white py-2 rounded-lg hover:bg-gray-600">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Map & Booking Script -->
+  <script>
+    (function () {
+      let map, marker, autocompletePickup, autocompleteDropoff;
+      let selectedRide = null;
+      // Simulated backend schedule options (editable on back end)
+      const scheduleData = {
+        comfort: [
+          { time: "Now", rate: "R180" },
+          { time: "In 30 minutes", rate: "R162" },
+          { time: "In 1 hour", rate: "R144" }
+        ],
+        luxury: [
+          { time: "Now", rate: "R360" },
+          { time: "In 30 minutes", rate: "R324" },
+          { time: "In 1 hour", rate: "R288" }
+        ],
+        group: [
+          { time: "Now", rate: "R90" },
+          { time: "In 30 minutes", rate: "R72" },
+          { time: "In 1 hour", rate: "R54" }
+        ]
+      };
+
+      window.initMap = function () {
+        const defaultLocation = { lat: 40.7128, lng: -74.0060 };
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: defaultLocation,
+          zoom: 13,
+          styles: [
+            { featureType: "all", elementType: "geometry", stylers: [{ color: "#1f2937" }] },
+            { featureType: "road", elementType: "geometry", stylers: [{ color: "#111827" }] }
+          ]
+        });
+
+        // Initialize autocomplete for input fields
+        autocompletePickup = new google.maps.places.Autocomplete(
+          document.getElementById("pickupLocation"),
+          { types: ["geocode"] }
+        );
+        autocompleteDropoff = new google.maps.places.Autocomplete(
+          document.getElementById("dropoffLocation"),
+          { types: ["geocode"] }
+        );
+
+        autocompletePickup.addListener("place_changed", () => {
+          const place = autocompletePickup.getPlace();
+          if (place.geometry) updateMap(place.geometry.location);
+        });
+      };
+
+      // Get current location via browser GPS
+      window.getCurrentLocation = function () {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+              updateMap(pos);
+              reverseGeocode(pos);
+            },
+            () => {
+              alert("Error: The Geolocation service failed.");
+            }
+          );
+        } else {
+          alert("Error: Your browser doesn't support geolocation.");
+        }
+      };
+
+      // Update the map's marker to a new location
+      function updateMap(location) {
+        map.setCenter(location);
+        if (marker) marker.setMap(null);
+        marker = new google.maps.Marker({
+          position: location,
+          map: map,
+          animation: google.maps.Animation.DROP,
+        });
+      }
+
+      // Reverse geocode coordinates for updating the pickup input field
+      function reverseGeocode(location) {
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ location: location }, (results, status) => {
+          if (status === "OK" && results[0]) {
+            document.getElementById("pickupLocation").value = results[0].formatted_address;
+          }
+        });
+      }
+
+      // Simulate finding nearby drivers with a visible loader
+      window.findNearbyDrivers = function () {
+        document.getElementById("loader").classList.remove("hidden");
+        setTimeout(() => {
+          document.getElementById("loader").classList.add("hidden");
+          alert("Found 3 drivers nearby! The closest one is 3 minutes away.");
+        }, 1500);
+      };
+
+      // Ride selection: load schedule data and render dynamic schedule panel
+      window.selectRide = function (rideType) {
+        selectedRide = rideType;
+        renderScheduleOptions(rideType);
+        document.getElementById("scheduleOption").classList.remove("hidden");
+      };
+
+      // Render schedule options from backend data into the dynamic panel
+      function renderScheduleOptions(rideType) {
+        const scheduleList = document.getElementById("scheduleList");
+        scheduleList.innerHTML = "";
+        scheduleData[rideType].forEach((option, index) => {
+          const item = document.createElement("button");
+          item.className = "w-full text-left px-4 py-2 rounded-lg mb-2 schedule-item transition";
+          item.dataset.time = option.time;
+          item.innerHTML = `<span class="font-bold">${option.time}</span> - <span>${option.rate}</span>`;
+          item.onclick = function () {
+            alert("You selected: " + option.time + " at " + option.rate);
+            // You can store the selection or perform further actions here.
+          };
+          scheduleList.appendChild(item);
+        });
+      }
+
+      // Filter schedule options as user types in the search input
+      window.filterScheduleOptions = function () {
+        const filter = document.getElementById("scheduleSearch").value.toLowerCase();
+        const items = document.querySelectorAll("#scheduleList .schedule-item");
+        items.forEach((item) => {
+          const text = item.textContent.toLowerCase();
+          item.style.display = text.includes(filter) ? "block" : "none";
+        });
+      };
+
+      window.addEventListener("load", initMap);
+    })();
+  </script>
+
+  <!-- Firebase Mobile Auth Verification Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-analytics.js";
+    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+    // Firebase configuration (credentials for the powerful remain uncompromised)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBDO9A8UaqSPm3TnUfClvIxXe8lHa7vFYs",
+      authDomain: "thq-rides.firebaseapp.com",
+      projectId: "thq-rides",
+      storageBucket: "thq-rides.firebasestorage.app",
+      messagingSenderId: "811939878208",
+      appId: "1:811939878208:web:7767d9519a3f95d8ba16a5",
+      measurementId: "G-1P6307KCLB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const auth = getAuth(app);
+
+    // Invisible reCAPTCHA for secure authentication
+    window.recaptchaVerifier = new RecaptchaVerifier("recaptcha-container", {
+      size: "invisible",
+      callback: (response) => {
+        // reCAPTCHA solved; continue with authentication.
+      }
+    }, auth);
+
+    let confirmationResult;
+
+    // Sends an OTP to the provided phone number.
+    window.sendOTP = function () {
+      const phoneNumber = document.getElementById("phoneNumber").value;
+      if (!phoneNumber) {
+        alert("Enter a valid phone number.");
+        return;
+      }
+      signInWithPhoneNumber(auth, phoneNumber, window.recaptchaVerifier)
+        .then((result) => {
+          confirmationResult = result;
+          alert("OTP sent to " + phoneNumber);
+          document.getElementById("otpSection").classList.remove("hidden");
+          document.getElementById("phoneSection").classList.add("hidden");
+        })
+        .catch((error) => {
+          console.error("Error during signInWithPhoneNumber", error);
+          alert("Error sending OTP: " + error.message);
+        });
+    };
+
+    // Verifies the OTP entered by the user.
+    window.verifyOTP = function () {
+      const code = document.getElementById("otp").value;
+      if (!code) {
+        alert("Enter the OTP.");
+        return;
+      }
+      confirmationResult.confirm(code)
+        .then((result) => {
+          alert("Phone number verified successfully!");
+          document.getElementById("authModal").classList.add("hidden");
+        })
+        .catch((error) => {
+          console.error("OTP verification error", error);
+          alert("Invalid OTP, please try again.");
+        });
+    };
+
+    // Opens the mobile auth modal.
+    window.openAuthModal = function () {
+      document.getElementById("authModal").classList.remove("hidden");
+      document.getElementById("phoneSection").classList.remove("hidden");
+      document.getElementById("otpSection").classList.add("hidden");
+    };
+  </script>
+  <!-- Invisible recaptcha container -->
+  <div id="recaptcha-container"></div>
+</body>
+</html>
