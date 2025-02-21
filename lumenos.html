@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Enhanced Light Field Demo with Video Processing, Theme Toggle & JSON Export</title>
+  <style>
+    body {
+      background: #111;
+      color: #eee;
+      font-family: monospace;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    /* Light mode overrides */
+    body.light-mode {
+      background: #eee;
+      color: #111;
+    }
+    body.light-mode #controls .control-group {
+      background: #f5f5f5;
+      border: 1px solid #ccc;
+    }
+    body.light-mode canvas {
+      background: #ddd;
+    }
+    /* Container to center the canvas */
+    #canvasContainer {
+      margin: 20px auto;
+      display: inline-block;
+      background: #222;
+      border: 1px solid #444;
+    }
+    canvas {
+      display: block;
+      cursor: crosshair;
+    }
+    #controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin: 20px auto;
+      max-width: 1000px;
+      text-align: left;
+    }
+    .control-group {
+      background: #222;
+      padding: 10px;
+      border: 1px solid #444;
+      border-radius: 5px;
+      position: relative;
+    }
+    .control-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .control-group input[type="range"],
+    .control-group input[type="file"],
+    .control-group button {
+      margin-top: 5px;
+      background: #333;
+      border: none;
+      color: #eee;
+      padding: 8px;
+      cursor: pointer;
+      width: 100%;
+    }
+    /* Tooltip container */
+    .tooltip {
+      display: inline-block;
+      margin-left: 5px;
+      position: relative;
+      cursor: help;
+      color: #ccc;
+      border: 1px solid #ccc;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      text-align: center;
+      line-height: 14px;
+      font-size: 12px;
+    }
+    /* Tooltip text */
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 220px;
+      background-color: #333;
+      color: #fff;
+      text-align: left;
+      border-radius: 5px;
+      padding: 8px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -110px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+    #shiftMonitor {
+      margin-top: 15px;
+      font-size: 0.9em;
+      color: #ccc;
+    }
+    #theory {
+      margin: 30px auto;
+      max-width: 800px;
+      text-align: left;
+      background: #222;
+      padding: 20px;
+      border: 1px solid #444;
+      border-radius: 5px;
+    }
+    #theory h2 {
+      margin-top: 0;
+    }
+    /* Progress display for video processing */
+    #videoProgress {
+      margin: 10px auto;
+      max-width: 1000px;
+      color: #ccc;
+      font-size: 0.9em;
+    }
+  </style>
+  <!-- Include gif.js library from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+  <!-- Include MathJax for LaTeX rendering -->
+  <script type="text/javascript" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+  <h1>Enhanced Light Field Demo with Video Processing, Theme Toggle & JSON Export</h1>
+  <p>
+    Set Sweet Spot 1 and enjoy a 3D-like parallax effect with precise depth control.
+    Toggle between mouse-controlled and auto-rotating view angles, switch themes, export settings as JSON,
+    oscillate between multiple images, and now process a video into a composite image!
+  </p>
+  <div id="controls">
+    <!-- Multiple Image Upload Group -->
+    <div class="control-group">
+      <label for="upload">
+        Upload Images 
+        <span class="tooltip">?
+          <span class="tooltiptext">Select one or more images from your computer to use in the demo.</span>
+        </span>
+      </label>
+      <input type="file" id="upload" accept="image/*" multiple>
+    </div>
+    <!-- Video Upload and Processing -->
+    <div class="control-group">
+      <label for="uploadVideo">
+        Upload Video 
+        <span class="tooltip">?
+          <span class="tooltiptext">Select a video from your computer to process and create a composite image.</span>
+        </span>
+      </label>
+      <input type="file" id="uploadVideo" accept="video/*">
+    </div>
+    <div class="control-group">
+      <label for="processVideoButton">
+        Process Video to Composite Image 
+        <span class="tooltip">?
+          <span class="tooltiptext">Extract frames from the uploaded video and average them into a single image.</span>
+        </span>
+      </label>
+      <button id="processVideoButton">Process Video</button>
+      <div id="videoProgress">Loading: 0%</div>
+    </div>
+    <!-- Other controls remain unchanged -->
+    <div class="control-group">
+      <label for="toggleAnimation">
+        Animation 
+        <span class="tooltip">?
+          <span class="tooltiptext">Toggle the animation on or off.</span>
+        </span>
+      </label>
+      <button id="toggleAnimation">Start Animation</button>
+    </div>
+    <div class="control-group">
+      <label for="setSweetSpot">
+        Set Sweet Spot 1 
+        <span class="tooltip">?
+          <span class="tooltiptext">Click to set the fixed reference point on the image.</span>
+        </span>
+      </label>
+      <button id="setSweetSpot">Set Sweet Spot 1</button>
+    </div>
+    <div class="control-group">
+      <label for="amplitudeSlider">
+        Amplitude (Max Shift) 
+        <span class="tooltip">?
+          <span class="tooltiptext">Controls the maximum pixel displacement applied to each image layer.</span>
+        </span>
+        : <span id="amplitudeValue">25</span>
+      </label>
+      <input type="range" id="amplitudeSlider" min="0" max="100" value="25">
+    </div>
+    <div class="control-group">
+      <label for="frequencySlider">
+        Animation Speed 
+        <span class="tooltip">?
+          <span class="tooltiptext">Sets how fast the oscillating shift runs (up to 0.05).</span>
+        </span>
+        : <span id="frequencyValue">0.002</span>
+      </label>
+      <input type="range" id="frequencySlider" min="0.001" max="0.05" step="0.001" value="0.002">
+    </div>
+    <div class="control-group">
+      <label for="depthRangeSlider">
+        Depth Range Multiplier 
+        <span class="tooltip">?
+          <span class="tooltiptext">Scales the overall depth effect amplitude.</span>
+        </span>
+        : <span id="depthRangeValue">1</span>
+      </label>
+      <input type="range" id="depthRangeSlider" min="0.5" max="2" step="0.1" value="1">
+    </div>
+    <div class="control-group">
+      <label for="depthConeSlider">
+        Depth Cone (Steradians) 
+        <span class="tooltip">?
+          <span class="tooltiptext">Design the angular spread of the depth effect (in steradians).</span>
+        </span>
+        : <span id="depthConeValue">1</span>
+      </label>
+      <input type="range" id="depthConeSlider" min="0.1" max="12.57" step="0.1" value="1">
+    </div>
+    <div class="control-group">
+      <label for="angularResSlider">
+        Angular Resolution (Samples) 
+        <span class="tooltip">?
+          <span class="tooltiptext">Determines the number of image layers blended together.</span>
+        </span>
+        : <span id="angularResValue">10</span>
+      </label>
+      <input type="range" id="angularResSlider" min="2" max="20" value="10">
+    </div>
+    <div class="control-group">
+      <label for="spatialResSlider">
+        Spatial Resolution (Shift Multiplier) 
+        <span class="tooltip">?
+          <span class="tooltiptext">Scales the shift amount for fine control over the parallax effect.</span>
+        </span>
+        : <span id="spatialResValue">1</span>
+      </label>
+      <input type="range" id="spatialResSlider" min="0.5" max="2" step="0.1" value="1">
+    </div>
+    <div class="control-group">
+      <label for="parallaxSlider">
+        Parallax Strength 
+        <span class="tooltip">?
+          <span class="tooltiptext">Adjusts the intensity of the 3D-like parallax effect.</span>
+        </span>
+        : <span id="parallaxValue">0.5</span>
+      </label>
+      <input type="range" id="parallaxSlider" min="0" max="1" step="0.05" value="0.5">
+    </div>
+    <div class="control-group">
+      <label for="toggleAutoAngle">
+        View Angle Mode 
+        <span class="tooltip">?
+          <span class="tooltiptext">Switch between mouse-controlled and auto-rotating view angles.</span>
+        </span>
+      </label>
+      <button id="toggleAutoAngle">Use Auto Angle</button>
+    </div>
+    <div class="control-group">
+      <label for="autoAngleSpeed">
+        Auto Angle Speed 
+        <span class="tooltip">?
+          <span class="tooltiptext">Sets the rotation speed for the auto view angle mode.</span>
+        </span>
+        : <span id="autoAngleSpeedValue">0.001</span>
+      </label>
+      <input type="range" id="autoAngleSpeed" min="0.0005" max="0.01" step="0.0005" value="0.001">
+    </div>
+    <!-- New Control: Toggle Theme -->
+    <div class="control-group">
+      <label for="toggleTheme">
+        Toggle Theme 
+        <span class="tooltip">?
+          <span class="tooltiptext">Switch between Dark Mode and Light Mode.</span>
+        </span>
+      </label>
+      <button id="toggleTheme">Toggle Theme</button>
+    </div>
+    <!-- New Control: JSON Export -->
+    <div class="control-group">
+      <label for="exportJson">
+        Export Settings as JSON 
+        <span class="tooltip">?
+          <span class="tooltiptext">Export the current configuration as a JSON file.</span>
+        </span>
+      </label>
+      <button id="exportJson">Export JSON</button>
+    </div>
+    <div class="control-group">
+      <label for="downloadGif">
+        Download Animation as GIF 
+        <span class="tooltip">?
+          <span class="tooltiptext">Generate and download a GIF of the current animation.</span>
+        </span>
+      </label>
+      <button id="downloadGif">Download GIF</button>
+    </div>
+    <!-- New Control: Image Switch Interval -->
+    <div class="control-group">
+      <label for="switchIntervalSlider">
+        Image Switch Interval (ms) 
+        <span class="tooltip">?
+          <span class="tooltiptext">Sets how long each image is shown before switching.</span>
+        </span>
+        : <span id="switchIntervalValue">2000</span>
+      </label>
+      <input type="range" id="switchIntervalSlider" min="500" max="5000" step="100" value="2000">
+    </div>
+  </div>
+  
+  <div id="canvasContainer">
+    <canvas id="canvas"></canvas>
+  </div>
+  <div id="shiftMonitor">Mapping: N/A</div>
+  
+  <!-- Theory Section with LaTeX rendering via MathJax -->
+  <div id="theory">
+    <h2>Theory &amp; Mathematical Explanation</h2>
+    <p>
+      The light field effect is achieved by computing the depth angle between a fixed reference point (the "Sweet Spot") and the current mouse position (or an auto-rotating angle). An oscillating shift is applied to multiple overlaid samples of the image, creating a dynamic parallax effect.
+    </p>
+    <p>
+      The oscillating amplitude is computed as:
+    </p>
+    <p>
+      $$ \alpha(t) = A \sin(\omega t) $$
+    </p>
+    <p>
+      The shift applied for each sample is given by:
+    </p>
+    <p>
+      $$ S(\theta) = \alpha(t) \cdot \Delta \cdot \cos(\theta - \theta_0) $$
+    </p>
+    <p>
+      where:
+      <ul>
+        <li>\(A\) is the maximum amplitude (set by the Amplitude slider),</li>
+        <li>\(\omega\) is the angular frequency (controlled by the Animation Speed slider),</li>
+        <li>\(\Delta\) is the product of the Spatial Resolution and the Depth Cone multiplier,</li>
+        <li>\(\theta\) represents the sample’s angular position, and</li>
+        <li>\(\theta_0\) is the computed depth angle between the Sweet Spot and the mouse (or auto angle).</li>
+      </ul>
+    </p>
+  </div>
+
+  <script>
+    // Get canvas and control elements.
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const uploadInput = document.getElementById("upload");
+    const uploadVideoInput = document.getElementById("uploadVideo");
+    const processVideoButton = document.getElementById("processVideoButton");
+    const toggleButton = document.getElementById("toggleAnimation");
+    const setSweetSpotButton = document.getElementById("setSweetSpot");
+    const downloadGifButton = document.getElementById("downloadGif");
+    const shiftMonitor = document.getElementById("shiftMonitor");
+    
+    // New buttons for theme toggle and JSON export.
+    const toggleThemeButton = document.getElementById("toggleTheme");
+    const exportJsonButton = document.getElementById("exportJson");
+    
+    // Sliders and their display spans.
+    const amplitudeSlider = document.getElementById("amplitudeSlider");
+    const frequencySlider = document.getElementById("frequencySlider");
+    const depthRangeSlider = document.getElementById("depthRangeSlider");
+    const depthConeSlider = document.getElementById("depthConeSlider");
+    const angularResSlider = document.getElementById("angularResSlider");
+    const spatialResSlider = document.getElementById("spatialResSlider");
+    const parallaxSlider = document.getElementById("parallaxSlider");
+    const autoAngleSpeedSlider = document.getElementById("autoAngleSpeed");
+    const switchIntervalSlider = document.getElementById("switchIntervalSlider");
+    
+    const amplitudeValue = document.getElementById("amplitudeValue");
+    const frequencyValue = document.getElementById("frequencyValue");
+    const depthRangeValue = document.getElementById("depthRangeValue");
+    const depthConeValue = document.getElementById("depthConeValue");
+    const angularResValue = document.getElementById("angularResValue");
+    const spatialResValue = document.getElementById("spatialResValue");
+    const parallaxValue = document.getElementById("parallaxValue");
+    const autoAngleSpeedValue = document.getElementById("autoAngleSpeedValue");
+    const switchIntervalValue = document.getElementById("switchIntervalValue");
+    
+    // New control button for view angle.
+    const toggleAutoAngleButton = document.getElementById("toggleAutoAngle");
+    
+    // Default parameter values.
+    let amplitude = parseFloat(amplitudeSlider.value);
+    let animationSpeed = parseFloat(frequencySlider.value);
+    let depthRange = parseFloat(depthRangeSlider.value);
+    let depthCone = parseFloat(depthConeSlider.value);
+    let angularResolution = parseInt(angularResSlider.value);
+    let spatialResolution = parseFloat(spatialResSlider.value);
+    let parallaxStrength = parseFloat(parallaxSlider.value);
+    let autoAngleSpeed = parseFloat(autoAngleSpeedSlider.value);
+    let switchInterval = parseInt(switchIntervalSlider.value);
+    
+    // Mode flags.
+    let autoAngle = false;  // false: mouse-controlled; true: auto-rotating.
+    let animationActive = false;
+    let animationStartTime = null;
+    
+    // Image handling.
+    let images = [];           // Array to store multiple images.
+    let currentImageIndex = 0; // Index of the currently displayed image.
+    
+    // Video file storage.
+    let videoFile = null;
+    
+    // Sweet Spot 1 is the fixed reference point (initially centered).
+    let sweetSpot1 = { x: canvas.width / 2, y: canvas.height / 2 };
+    let setSweetSpotMode = false;
+    
+    // Mouse position for tracking.
+    let mousePos = { x: canvas.width / 2, y: canvas.height / 2 };
+    
+    // Update parameter values on slider input.
+    amplitudeSlider.addEventListener("input", () => { 
+      amplitude = parseFloat(amplitudeSlider.value); 
+      amplitudeValue.textContent = amplitude; 
+    });
+    frequencySlider.addEventListener("input", () => { 
+      animationSpeed = parseFloat(frequencySlider.value); 
+      frequencyValue.textContent = animationSpeed; 
+    });
+    depthRangeSlider.addEventListener("input", () => { 
+      depthRange = parseFloat(depthRangeSlider.value); 
+      depthRangeValue.textContent = depthRange; 
+    });
+    depthConeSlider.addEventListener("input", () => { 
+      depthCone = parseFloat(depthConeSlider.value); 
+      depthConeValue.textContent = depthCone; 
+    });
+    angularResSlider.addEventListener("input", () => { 
+      angularResolution = parseInt(angularResSlider.value); 
+      angularResValue.textContent = angularResolution; 
+    });
+    spatialResSlider.addEventListener("input", () => { 
+      spatialResolution = parseFloat(spatialResSlider.value); 
+      spatialResValue.textContent = spatialResolution; 
+    });
+    parallaxSlider.addEventListener("input", () => { 
+      parallaxStrength = parseFloat(parallaxSlider.value); 
+      parallaxValue.textContent = parallaxStrength; 
+    });
+    autoAngleSpeedSlider.addEventListener("input", () => { 
+      autoAngleSpeed = parseFloat(autoAngleSpeedSlider.value); 
+      autoAngleSpeedValue.textContent = autoAngleSpeed;
+    });
+    switchIntervalSlider.addEventListener("input", () => {
+      switchInterval = parseInt(switchIntervalSlider.value);
+      switchIntervalValue.textContent = switchInterval;
+    });
+    
+    // Toggle Auto Angle mode.
+    toggleAutoAngleButton.addEventListener("click", () => {
+      autoAngle = !autoAngle;
+      toggleAutoAngleButton.textContent = autoAngle ? "Use Mouse Angle" : "Use Auto Angle";
+    });
+    
+    // Toggle Theme (Light/Dark Mode).
+    toggleThemeButton.addEventListener("click", () => {
+      document.body.classList.toggle("light-mode");
+    });
+    
+    // Export current settings as JSON.
+    exportJsonButton.addEventListener("click", () => {
+      const settings = {
+        amplitude: amplitude,
+        animationSpeed: animationSpeed,
+        depthRange: depthRange,
+        depthCone: depthCone,
+        angularResolution: angularResolution,
+        spatialResolution: spatialResolution,
+        parallaxStrength: parallaxStrength,
+        autoAngleSpeed: autoAngleSpeed,
+        switchInterval: switchInterval,
+        autoAngle: autoAngle
+      };
+      const jsonStr = JSON.stringify(settings, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "light_field_settings.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+    
+    // When in set mode, clicking on the canvas updates Sweet Spot 1.
+    canvas.addEventListener("click", (event) => {
+      if (setSweetSpotMode) {
+        const rect = canvas.getBoundingClientRect();
+        sweetSpot1.x = event.clientX - rect.left;
+        sweetSpot1.y = event.clientY - rect.top;
+        setSweetSpotMode = false;
+        setSweetSpotButton.textContent = "Set Sweet Spot 1";
+      }
+    });
+    
+    // Toggle setting mode for Sweet Spot 1.
+    setSweetSpotButton.addEventListener("click", () => {
+      setSweetSpotMode = !setSweetSpotMode;
+      setSweetSpotButton.textContent = setSweetSpotMode ? "Click on Canvas to Set" : "Set Sweet Spot 1";
+    });
+    
+    // Update mouse position.
+    canvas.addEventListener("mousemove", (event) => {
+      const rect = canvas.getBoundingClientRect();
+      mousePos.x = event.clientX - rect.left;
+      mousePos.y = event.clientY - rect.top;
+    });
+    
+    /**
+     * Update canvas size to match the given image's dimensions.
+     * Assumes all images have the same dimensions.
+     */
+    function updateCanvasSize(img) {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      mousePos = { x: img.width / 2, y: img.height / 2 };
+      sweetSpot1 = { x: img.width / 2, y: img.height / 2 };
+    }
+    
+    /**
+     * Render a frame of the light field effect.
+     * Uses auto or mouse-based depth angle.
+     * The depthCone multiplier applies steradian control.
+     */
+    function renderFrame(alpha, depthAngleOverride) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let depthAngle;
+      if (autoAngle && typeof depthAngleOverride !== "undefined") {
+        depthAngle = depthAngleOverride;
+      } else {
+        depthAngle = Math.atan2(mousePos.y - sweetSpot1.y, mousePos.x - sweetSpot1.x);
+      }
+      let centerShiftX = 0;
+      let centerShiftY = 0;
+      for (let i = 0; i < angularResolution; i++) {
+        let offsetFactor = ((i / (angularResolution - 1)) - 0.5) * 2;
+        let shiftX = alpha * offsetFactor * spatialResolution * depthCone * Math.cos(depthAngle);
+        let shiftY = alpha * offsetFactor * spatialResolution * depthCone * Math.sin(depthAngle);
+        ctx.globalAlpha = 1 / angularResolution;
+        ctx.drawImage(images[currentImageIndex], shiftX, shiftY, canvas.width, canvas.height);
+        if (Math.abs(offsetFactor) < 0.01) {
+          centerShiftX = shiftX;
+          centerShiftY = shiftY;
+        }
+      }
+      ctx.globalAlpha = 1.0;
+      shiftMonitor.textContent = `Sweet Spot: (${sweetSpot1.x.toFixed(2)}, ${sweetSpot1.y.toFixed(2)}) | Mouse: (${mousePos.x.toFixed(2)}, ${mousePos.y.toFixed(2)}) | Depth Angle: ${depthAngle.toFixed(2)} rad | Center Shift: (${centerShiftX.toFixed(2)}, ${centerShiftY.toFixed(2)}) | Alpha: ${alpha.toFixed(2)}`;
+    }
+    
+    /**
+     * Animation loop:
+     * - Computes elapsed time.
+     * - Calculates oscillating alpha.
+     * - Switches images based on the switch interval.
+     */
+    function animate(timestamp) {
+      if (!animationStartTime) animationStartTime = timestamp;
+      const elapsed = timestamp - animationStartTime;
+      const alpha = amplitude * depthRange * Math.sin(elapsed * animationSpeed * 2 * Math.PI);
+      // If multiple images are loaded, oscillate between them.
+      if (images.length > 0) {
+        currentImageIndex = Math.floor(elapsed / switchInterval) % images.length;
+      }
+      if (autoAngle) {
+        const autoDepthAngle = (elapsed * autoAngleSpeed) % (2 * Math.PI);
+        renderFrame(alpha, autoDepthAngle);
+      } else {
+        renderFrame(alpha);
+      }
+      if (animationActive) requestAnimationFrame(animate);
+    }
+    
+    // Toggle animation.
+    toggleButton.addEventListener("click", () => {
+      animationActive = !animationActive;
+      toggleButton.textContent = animationActive ? "Stop Animation" : "Start Animation";
+      if (animationActive) {
+        animationStartTime = null;
+        requestAnimationFrame(animate);
+      }
+    });
+    
+    // Load images from file upload.
+    uploadInput.addEventListener("change", (event) => {
+      const files = event.target.files;
+      if (files.length > 0) {
+        images = []; // Reset images array.
+        let loadedCount = 0;
+        Array.from(files).forEach(file => {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+              loadedCount++;
+              images.push(img);
+              if (loadedCount === 1) {
+                updateCanvasSize(img);
+                renderFrame(0);
+              }
+            };
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+    });
+    
+    // Handle video upload.
+    uploadVideoInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        videoFile = file;
+        console.log("Video file loaded:", file.name);
+      }
+    });
+    
+    // Process the uploaded video to create a composite image.
+    processVideoButton.addEventListener("click", () => {
+      if (!videoFile) {
+        alert("Please upload a video first.");
+        return;
+      }
+      processVideoFile(videoFile);
+    });
+    
+    /**
+     * Process a video file:
+     * Extract frames at a fixed rate, average them, and create a composite image.
+     */
+    function processVideoFile(file) {
+      const video = document.createElement("video");
+      video.src = URL.createObjectURL(file);
+      video.crossOrigin = "anonymous";
+      video.muted = true;
+      video.playsInline = true;
+      
+      video.addEventListener("loadedmetadata", () => {
+        console.log("Video metadata loaded:", video.videoWidth, video.videoHeight, "Duration:", video.duration);
+        // Wait for video to be ready to play.
+        video.addEventListener("canplay", () => {
+          console.log("Video can play. Starting frame extraction.");
+          const duration = video.duration;
+          const fps = 5; // Extract 5 frames per second.
+          const totalFrames = Math.floor(duration * fps);
+          const frameInterval = 1 / fps;
+          const offCanvas = document.createElement("canvas");
+          offCanvas.width = video.videoWidth;
+          offCanvas.height = video.videoHeight;
+          const offCtx = offCanvas.getContext("2d");
+          let currentFrame = 0;
+          let compositeData = null;
+          
+          function processFrame() {
+            console.log("Processing frame", currentFrame + 1, "of", totalFrames);
+            offCtx.drawImage(video, 0, 0, offCanvas.width, offCanvas.height);
+            const frameData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
+            if (!compositeData) {
+              compositeData = new Float32Array(frameData.data.length);
+              for (let i = 0; i < frameData.data.length; i++) {
+                compositeData[i] = frameData.data[i];
+              }
+            } else {
+              for (let i = 0; i < frameData.data.length; i++) {
+                compositeData[i] += frameData.data[i];
+              }
+            }
+            currentFrame++;
+            videoProgress.textContent = `Loading: ${Math.floor((currentFrame / totalFrames) * 100)}%`;
+            if (currentFrame < totalFrames) {
+              video.currentTime = currentFrame * frameInterval;
+            } else {
+              // Average the composite data.
+              const averagedData = new Uint8ClampedArray(compositeData.length);
+              for (let i = 0; i < compositeData.length; i++) {
+                averagedData[i] = compositeData[i] / totalFrames;
+              }
+              const compositeImageData = new ImageData(averagedData, offCanvas.width, offCanvas.height);
+              const compositeCanvas = document.createElement("canvas");
+              compositeCanvas.width = offCanvas.width;
+              compositeCanvas.height = offCanvas.height;
+              const compositeCtx = compositeCanvas.getContext("2d");
+              compositeCtx.putImageData(compositeImageData, 0, 0);
+              const compositeImg = new Image();
+              compositeImg.onload = function() {
+                images.push(compositeImg);
+                updateCanvasSize(compositeImg);
+                renderFrame(0);
+                videoProgress.textContent = "Video processing complete!";
+                alert("Video processing complete. Composite image added.");
+              };
+              compositeImg.src = compositeCanvas.toDataURL();
+              console.log("Finished processing video frames.");
+              video.removeEventListener("seeked", processFrame);
+            }
+          }
+          video.addEventListener("seeked", processFrame);
+          // Start processing by setting currentTime to 0.
+          video.currentTime = 0;
+        }, { once: true });
+      });
+    }
+    
+    // Default placeholder image if no upload.
+    const defaultImage = new Image();
+    defaultImage.onload = function() {
+      images = [defaultImage];
+      updateCanvasSize(defaultImage);
+      renderFrame(0);
+    };
+    defaultImage.src = "https://via.placeholder.com/800x600";
+    
+    // GIF download functionality.
+    downloadGifButton.addEventListener("click", () => {
+      const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        width: canvas.width,
+        height: canvas.height
+      });
+      const captureDuration = 2000; // milliseconds
+      const captureFrameInterval = 100; // milliseconds
+      const totalFrames = Math.floor(captureDuration / captureFrameInterval);
+      let frameCount = 0;
+      const captureInterval = setInterval(() => {
+        gif.addFrame(canvas, {copy: true, delay: captureFrameInterval});
+        frameCount++;
+        if (frameCount >= totalFrames) {
+          clearInterval(captureInterval);
+          gif.on('finished', function(blob) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'light_field_animation.gif';
+            a.click();
+          });
+          gif.render();
+        }
+      }, captureFrameInterval);
+    });
+  </script>
+</body>
+</html>
