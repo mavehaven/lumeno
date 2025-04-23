@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LumenOS MediScan QR</title>
+  <title>Medical Info QR</title>
   <!-- Updated dependencies with specific versions -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -18,7 +18,7 @@
       background: #f9f9f9;
       color: #333;
     }
-    h1 { text-align: center; color: #2c3e50; margin-bottom: 30px; }
+    h1 { text-align: center; color: #2c3e50; margin-bottom: 23px; }
 
     /* Tabs */
     .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
@@ -178,10 +178,24 @@
       color: #721c24;
       border: 1px solid #f5c6cb;
     }
+    
+    /* Checkbox styles */
+    .checkbox-group {
+      margin: 5px 0;
+    }
+    .checkbox-group label {
+      display: flex;
+      align-items: center;
+      font-weight: normal;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+      margin-right: 8px;
+    }
   </style>
 </head>
 <body>
-  <h1>LumenOS MediScan QR Generator</h1>
+  <h1>LumenOS MediScan QR</h1>
 
   <div class="tabs">
     <button class="tab active" onclick="openTab('formTab')">Enter Information</button>
@@ -214,6 +228,22 @@
         <label for="address" class="required">Address</label>
         <input id="address" type="text" required>
       </div>
+      
+      <!-- NEW: Patient ID field -->
+      <div class="form-group">
+        <label for="patientId" class="required">Medical Record Number / Patient ID</label>
+        <input id="patientId" type="text" required>
+      </div>
+      
+      <!-- NEW: Physical attributes -->
+      <div class="form-group">
+        <label for="height">Height (cm)</label>
+        <input id="height" type="number" min="0" max="300">
+      </div>
+      <div class="form-group">
+        <label for="weight">Weight (kg)</label>
+        <input id="weight" type="number" min="0" max="500">
+      </div>
 
       <div class="form-section"><h3>Contact Information</h3></div>
 
@@ -232,6 +262,48 @@
       <div class="form-group">
         <label for="emergencyPhone" class="required">Emergency Contact Phone</label>
         <input id="emergencyPhone" type="tel" required>
+      </div>
+      
+      <!-- NEW: Language preferences -->
+      <div class="form-group">
+        <label for="language">Preferred Language</label>
+        <select id="language">
+          <option value="">Select</option>
+          <option>English</option>
+          <option>Spanish</option>
+          <option>French</option>
+          <option>Mandarin</option>
+          <option>Arabic</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="specialNeeds">Special Needs / Communication Requirements</label>
+        <textarea id="specialNeeds" placeholder="e.g., hearing impaired, requires interpreter"></textarea>
+      </div>
+
+      <div class="form-section"><h3>Insurance Information</h3></div>
+      
+      <!-- NEW: Insurance fields -->
+      <div class="form-group">
+        <label for="insuranceProvider" class="required">Insurance Provider</label>
+        <input id="insuranceProvider" type="text" required>
+      </div>
+      <div class="form-group">
+        <label for="insuranceNumber" class="required">Policy Number</label>
+        <input id="insuranceNumber" type="text" required>
+      </div>
+      <div class="form-group">
+        <label for="insuranceGroup">Group Number</label>
+        <input id="insuranceGroup" type="text">
+      </div>
+      <div class="form-group">
+        <label for="primaryPhysician">Primary Care Physician</label>
+        <input id="primaryPhysician" type="text">
+      </div>
+      <div class="form-group">
+        <label for="physicianContact">Physician Contact</label>
+        <input id="physicianContact" type="tel">
       </div>
 
       <div class="form-section"><h3>Medical Information</h3></div>
@@ -255,6 +327,46 @@
       <div class="form-group">
         <label for="medicalConditions">Existing Conditions</label>
         <textarea id="medicalConditions" placeholder="None"></textarea>
+      </div>
+      
+      <!-- NEW: Medical history fields -->
+      <div class="form-group">
+        <label for="surgicalHistory">Previous Surgeries</label>
+        <textarea id="surgicalHistory" placeholder="None"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="vaccinations">Vaccination Status</label>
+        <textarea id="vaccinations" placeholder="e.g., COVID-19 (mm/yyyy), Flu (mm/yyyy)"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="lastCheckup">Date of Last Medical Checkup</label>
+        <input id="lastCheckup" type="date">
+      </div>
+      
+      <!-- NEW: Advanced directives section -->
+      <div class="form-section"><h3>Advanced Medical Directives</h3></div>
+      
+      <div class="form-group checkbox-group">
+        <label>
+          <input type="checkbox" id="organDonor">
+          Registered Organ Donor
+        </label>
+      </div>
+      <div class="form-group checkbox-group">
+        <label>
+          <input type="checkbox" id="dnrStatus">
+          DNR (Do Not Resuscitate) Status
+        </label>
+      </div>
+      <div class="form-group checkbox-group">
+        <label>
+          <input type="checkbox" id="advanceDirective">
+          Has Advance Directive
+        </label>
+      </div>
+      <div class="form-group">
+        <label for="religiousPrefs">Religious Preferences Affecting Care</label>
+        <textarea id="religiousPrefs" placeholder="None"></textarea>
       </div>
 
       <div class="form-section"><h3>Admission Details</h3></div>
@@ -379,18 +491,46 @@
       const minimize = document.getElementById('minimizeData').checked;
       
       formData = {
+        // Personal info
         fullName: document.getElementById('fullName').value.trim(),
         dob: document.getElementById('dob').value,
         gender: document.getElementById('gender').value || (minimize ? null : 'Not specified'),
         address: document.getElementById('address').value.trim(),
+        patientId: document.getElementById('patientId').value.trim(),
+        height: document.getElementById('height').value || (minimize ? null : ''),
+        weight: document.getElementById('weight').value || (minimize ? null : ''),
+        
+        // Contact info
         phone: document.getElementById('phone').value.trim(),
         email: document.getElementById('email').value.trim() || (minimize ? null : 'Not provided'),
         emergencyContact: document.getElementById('emergencyContact').value.trim(),
         emergencyPhone: document.getElementById('emergencyPhone').value.trim(),
+        language: document.getElementById('language').value || (minimize ? null : ''),
+        specialNeeds: document.getElementById('specialNeeds').value.trim() || (minimize ? null : ''),
+        
+        // Insurance info
+        insuranceProvider: document.getElementById('insuranceProvider').value.trim(),
+        insuranceNumber: document.getElementById('insuranceNumber').value.trim(),
+        insuranceGroup: document.getElementById('insuranceGroup').value.trim() || (minimize ? null : ''),
+        primaryPhysician: document.getElementById('primaryPhysician').value.trim() || (minimize ? null : ''),
+        physicianContact: document.getElementById('physicianContact').value.trim() || (minimize ? null : ''),
+        
+        // Medical info
         bloodType: document.getElementById('bloodType').value || (minimize ? null : 'Not specified'),
         allergies: document.getElementById('allergies').value.trim() || (minimize ? null : 'None'),
         medications: document.getElementById('medications').value.trim() || (minimize ? null : 'None'),
         conditions: document.getElementById('medicalConditions').value.trim() || (minimize ? null : 'None'),
+        surgicalHistory: document.getElementById('surgicalHistory').value.trim() || (minimize ? null : ''),
+        vaccinations: document.getElementById('vaccinations').value.trim() || (minimize ? null : ''),
+        lastCheckup: document.getElementById('lastCheckup').value || (minimize ? null : ''),
+        
+        // Advanced directives
+        organDonor: document.getElementById('organDonor').checked,
+        dnrStatus: document.getElementById('dnrStatus').checked,
+        advanceDirective: document.getElementById('advanceDirective').checked,
+        religiousPrefs: document.getElementById('religiousPrefs').value.trim() || (minimize ? null : ''),
+        
+        // Admission details
         reasonForVisit: document.getElementById('reasonForVisit').value.trim(),
         painLevel: document.getElementById('painLevel').value,
         timestamp: new Date().toISOString()
@@ -411,23 +551,46 @@
       if (currentFormat === 'json') {
         return JSON.stringify({
           patient: {
+            id: formData.patientId,
             name: formData.fullName,
             dob: formData.dob,
             gender: formData.gender,
             address: formData.address,
+            physical: {
+              height: formData.height,
+              weight: formData.weight
+            },
             contact: {
               phone: formData.phone,
               email: formData.email,
+              language: formData.language,
+              specialNeeds: formData.specialNeeds,
               emergency: {
                 name: formData.emergencyContact,
                 phone: formData.emergencyPhone
               }
             },
+            insurance: {
+              provider: formData.insuranceProvider,
+              policyNumber: formData.insuranceNumber,
+              groupNumber: formData.insuranceGroup,
+              primaryPhysician: formData.primaryPhysician,
+              physicianContact: formData.physicianContact
+            },
             medical: {
               bloodType: formData.bloodType,
               allergies: formData.allergies,
               medications: formData.medications,
-              conditions: formData.conditions
+              conditions: formData.conditions,
+              surgicalHistory: formData.surgicalHistory,
+              vaccinations: formData.vaccinations,
+              lastCheckup: formData.lastCheckup
+            },
+            directives: {
+              organDonor: formData.organDonor,
+              dnrStatus: formData.dnrStatus,
+              advanceDirective: formData.advanceDirective,
+              religiousPrefs: formData.religiousPrefs
             },
             admission: {
               reason: formData.reasonForVisit,
@@ -440,32 +603,64 @@
         });
       } else {
         // XML format
-        return `<?xml version="1.0" encoding="UTF-8"?>
+        let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <PatientRecord>
+  <Id>${escapeXml(formData.patientId)}</Id>
   <Name>${escapeXml(formData.fullName)}</Name>
   <DOB>${formData.dob}</DOB>
   ${formData.gender ? `<Gender>${escapeXml(formData.gender)}</Gender>` : ''}
   <Address>${escapeXml(formData.address)}</Address>
+  
+  ${formData.height || formData.weight ? `<Physical>
+    ${formData.height ? `<Height>${escapeXml(formData.height)}</Height>` : ''}
+    ${formData.weight ? `<Weight>${escapeXml(formData.weight)}</Weight>` : ''}
+  </Physical>` : ''}
+  
   <Contact>${formData.phone}</Contact>
   ${formData.email ? `<Email>${escapeXml(formData.email)}</Email>` : ''}
+  ${formData.language ? `<Language>${escapeXml(formData.language)}</Language>` : ''}
+  ${formData.specialNeeds ? `<SpecialNeeds>${escapeXml(formData.specialNeeds)}</SpecialNeeds>` : ''}
+  
   <EmergencyContact>
     <Name>${escapeXml(formData.emergencyContact)}</Name>
     <Phone>${formData.emergencyPhone}</Phone>
   </EmergencyContact>
+  
+  <Insurance>
+    <Provider>${escapeXml(formData.insuranceProvider)}</Provider>
+    <PolicyNumber>${escapeXml(formData.insuranceNumber)}</PolicyNumber>
+    ${formData.insuranceGroup ? `<GroupNumber>${escapeXml(formData.insuranceGroup)}</GroupNumber>` : ''}
+    ${formData.primaryPhysician ? `<PrimaryPhysician>${escapeXml(formData.primaryPhysician)}</PrimaryPhysician>` : ''}
+    ${formData.physicianContact ? `<PhysicianContact>${escapeXml(formData.physicianContact)}</PhysicianContact>` : ''}
+  </Insurance>
+  
   <Medical>
     ${formData.bloodType ? `<BloodType>${escapeXml(formData.bloodType)}</BloodType>` : ''}
     ${formData.allergies ? `<Allergies>${escapeXml(formData.allergies)}</Allergies>` : ''}
     ${formData.medications ? `<Medications>${escapeXml(formData.medications)}</Medications>` : ''}
     ${formData.conditions ? `<Conditions>${escapeXml(formData.conditions)}</Conditions>` : ''}
+    ${formData.surgicalHistory ? `<SurgicalHistory>${escapeXml(formData.surgicalHistory)}</SurgicalHistory>` : ''}
+    ${formData.vaccinations ? `<Vaccinations>${escapeXml(formData.vaccinations)}</Vaccinations>` : ''}
+    ${formData.lastCheckup ? `<LastCheckup>${formData.lastCheckup}</LastCheckup>` : ''}
   </Medical>
+  
+  <Directives>
+    <OrganDonor>${formData.organDonor}</OrganDonor>
+    <DNRStatus>${formData.dnrStatus}</DNRStatus>
+    <AdvanceDirective>${formData.advanceDirective}</AdvanceDirective>
+    ${formData.religiousPrefs ? `<ReligiousPreferences>${escapeXml(formData.religiousPrefs)}</ReligiousPreferences>` : ''}
+  </Directives>
+  
   <Admission>
     <Reason>${escapeXml(formData.reasonForVisit)}</Reason>
     <PainLevel>${formData.painLevel}</PainLevel>
   </Admission>
+  
   <Meta>
     <GeneratedAt>${formData.timestamp}</GeneratedAt>
   </Meta>
 </PatientRecord>`;
+        return xml;
       }
     }
     
@@ -542,90 +737,141 @@
     }
     
     // Regenerate QR code
-    function regenerateQR() {
-      generateQRCode();
+function regenerateQR() {
+  qrData = formatData();
+  document.getElementById('qrData').value = qrData;
+  
+  const container = document.getElementById('qrcode');
+  container.innerHTML = '';
+  
+  const size = parseInt(document.getElementById('qrSize').value);
+  
+  // Create new QR code
+  qrCodeInstance = new QRCode(container, {
+    text: qrData,
+    width: size,
+    height: size,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.M
+  });
+  
+  showStatus('success', 'QR code regenerated!');
+}
+
+// Copy QR data to clipboard
+function copyQRData() {
+  const dataField = document.getElementById('qrData');
+  dataField.select();
+  document.execCommand('copy');
+  showStatus('success', 'Data copied to clipboard!');
+}
+
+// Download data as file
+function downloadDataFile() {
+  const fileExtension = currentFormat === 'json' ? 'json' : 'xml';
+  const mimeType = currentFormat === 'json' ? 'application/json' : 'application/xml';
+  const fileName = `medical-data-${formData.patientId}.${fileExtension}`;
+  
+  const blob = new Blob([qrData], { type: mimeType });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName;
+  link.click();
+  
+  showStatus('success', `Data file downloaded as ${fileName}`);
+}
+
+// Download QR code as PNG
+function downloadQRImage() {
+  if (!qrCodeInstance) {
+    showStatus('error', 'No QR code generated yet.');
+    return;
+  }
+  
+  try {
+    // Get the canvas from the QR code
+    const canvas = document.querySelector('#qrcode canvas');
+    if (!canvas) {
+      showStatus('error', 'Could not find QR code canvas.');
+      return;
     }
     
-    // Copy QR data to clipboard
-    function copyQRData() {
-      navigator.clipboard.writeText(qrData)
-        .then(() => {
-          showStatus('success', 'Data copied to clipboard!');
-        })
-        .catch(err => {
-          showStatus('error', 'Failed to copy: ' + err);
-        });
-    }
+    const link = document.createElement('a');
+    link.download = `medical-qr-${formData.patientId}.png`;
+    link.href = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
+    link.click();
     
-    // Download data file (XML or JSON)
-    function downloadDataFile() {
-      const extension = currentFormat === 'json' ? 'json' : 'xml';
-      const mimeType = currentFormat === 'json' ? 'application/json' : 'application/xml';
-      const blob = new Blob([qrData], {type: mimeType});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `patient_data.${extension}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
+    showStatus('success', 'QR code image downloaded!');
+  } catch (error) {
+    console.error("Download error:", error);
+    showStatus('error', 'Error downloading QR image: ' + error.message);
+  }
+}
+
+// Save as PDF
+function saveAsPDF() {
+  // Clone QR for PDF section
+  const qrImg = document.querySelector('#qrcode img');
+  const pdfQR = document.getElementById('pdf-qrcode');
+  pdfQR.innerHTML = '';
+  
+  if (!qrImg) {
+    showStatus('error', 'QR code not generated yet.');
+    return;
+  }
+  
+  // Set up PDF content
+  const imgClone = qrImg.cloneNode(true);
+  pdfQR.appendChild(imgClone);
+  
+  document.getElementById('pdf-data').textContent = 
+    `Patient: ${formData.fullName}
+ID: ${formData.patientId}
+DOB: ${formData.dob}
+Emergency Contact: ${formData.emergencyContact} (${formData.emergencyPhone})
+Generated: ${new Date().toLocaleString()}`;
+  
+  // Use html2canvas to capture the PDF content
+  const { jsPDF } = window.jspdf;
+  
+  html2canvas(document.getElementById('pdf-content')).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
     
-    // Download QR code as image
-    function downloadQRImage() {
-      const canvas = document.querySelector('#qrcode canvas');
-      if (!canvas) {
-        showStatus('error', 'No QR code to download');
-        return;
-      }
-      
-      try {
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = 'medical_qr_code.png';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        showStatus('success', 'QR image downloaded');
-      } catch (error) {
-        showStatus('error', 'Error downloading QR: ' + error.message);
-      }
-    }
+    // Calculate ratio to fit on page
+    const ratio = Math.min(pageWidth / canvasWidth, pageHeight / canvasHeight) * 0.9;
+    const imgWidth = canvasWidth * ratio;
+    const imgHeight = canvasHeight * ratio;
     
-    // Save as PDF
-    async function saveAsPDF() {
-      try {
-        // Prepare PDF content
-        document.getElementById('pdf-qrcode').innerHTML = document.getElementById('qrcode').innerHTML;
-        document.getElementById('pdf-data').innerText = qrData;
-        const section = document.getElementById('print-section');
-        section.style.display = 'block';
-        
-        // Generate PDF
-        const canvas = await html2canvas(section);
-        const imgData = canvas.toDataURL('image/png');
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF();
-        const width = pdf.internal.pageSize.getWidth();
-        const height = (canvas.height * width) / canvas.width;
-        
-        pdf.addImage(imgData, 'PNG', 0, 0, width, height);
-        pdf.save('Medical_Info_QR.pdf');
-        
-        // Hide print section
-        section.style.display = 'none';
-        showStatus('success', 'PDF saved successfully');
-      } catch (error) {
-        showStatus('error', 'Error saving PDF: ' + error.message);
-        document.getElementById('print-section').style.display = 'none';
-      }
-    }
+    // Center on page
+    const x = (pageWidth - imgWidth) / 2;
+    const y = (pageHeight - imgHeight) / 2;
     
-    // Return to edit form
-    function backToForm() {
-      openTab('formTab');
-    }
-  </script>
-</body>
-</html>
+    pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+    pdf.save(`medical-qr-${formData.patientId}.pdf`);
+    
+    showStatus('success', 'PDF saved successfully!');
+  }).catch(error => {
+    console.error("PDF error:", error);
+    showStatus('error', 'Error generating PDF: ' + error.message);
+  });
+}
+
+// Go back to form
+function backToForm() {
+  openTab('formTab');
+}
+
+// Add event listener for the pain slider
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('painLevel').addEventListener('input', function() {
+    document.getElementById('painLevelOutput').textContent = this.value;
+  });
+});
+
+</script>
