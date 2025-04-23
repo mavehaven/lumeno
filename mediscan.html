@@ -4,10 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LumenOS MediScan QR</title>
-  <!-- Updated dependencies with specific versions -->
+  <!-- Dependencies with specific versions -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- Added for barcode support -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
 
   <style>
     body {
@@ -79,15 +81,22 @@
     }
     button:hover { background: #2980b9; }
 
-    /* QR Display */
-    .qr-container { text-align: center; }
-    #qrcode {
+    /* Code Display */
+    .code-container { text-align: center; }
+    #qrcode, #barcode-container {
       margin: 20px auto;
       padding: 16px;
       background: #fff;
       border: 4px solid #000; /* strong quiet zone */
       display: inline-block;
       border-radius: 8px;
+      max-width: 100%;
+    }
+    #barcode-container {
+      padding: 10px 10px 20px 10px;
+    }
+    #barcode-container svg {
+      max-width: 100%;
     }
     textarea#qrData {
       width: 100%;
@@ -96,7 +105,7 @@
       font-family: monospace;
       font-size: 12px;
     }
-    .qr-buttons { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .code-buttons { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
     
     /* Format options */
     .format-options {
@@ -125,6 +134,7 @@
       margin-top: 15px;
       align-items: center;
       justify-content: center;
+      flex-wrap: wrap;
     }
     .data-display label {
       display: flex;
@@ -137,27 +147,48 @@
       margin-right: 5px;
     }
     
-    /* QR code size control */
-    .qr-size-control {
+    /* Code size control */
+    .code-size-control {
       display: flex;
       justify-content: center;
       align-items: center;
       margin: 15px 0;
     }
-    .qr-size-control input {
+    .code-size-control input {
       width: 200px;
       margin: 0 10px;
     }
-    .qr-size-control span {
+    .code-size-control span {
       min-width: 40px;
       text-align: center;
+    }
+
+    /* Code type selection */
+    .code-type-selection {
+      display: flex;
+      justify-content: center;
+      margin: 15px 0;
+    }
+    .code-type-btn {
+      background: #f1f1f1;
+      color: #333;
+      border: 1px solid #ddd;
+      padding: 8px 15px;
+      margin: 0 5px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .code-type-btn.active {
+      background: #3498db;
+      color: white;
+      border-color: #2980b9;
     }
 
     /* Hidden area for PDF */
     #print-section { display: none; }
     @media (max-width: 650px) {
       form { grid-template-columns: 1fr; }
-      .qr-buttons { flex-direction: column; }
+      .code-buttons { flex-direction: column; }
     }
     
     /* Status indicator */
@@ -178,6 +209,11 @@
       color: #721c24;
       border: 1px solid #f5c6cb;
     }
+    .status-warning {
+      background-color: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+    }
     
     /* Checkbox styles */
     .checkbox-group {
@@ -192,6 +228,28 @@
       width: auto;
       margin-right: 8px;
     }
+
+    /* Data field selection */
+    .data-field-selection {
+      grid-column: 1 / -1;
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background: #f5f5f5;
+    }
+    .data-field-selection h4 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    .field-checkboxes {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 5px;
+    }
+    .toggle-btn {
+      background: #34495e;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -199,7 +257,7 @@
 
   <div class="tabs">
     <button class="tab active" onclick="openTab('formTab')">Enter Information</button>
-    <button class="tab" onclick="openTab('qrTab')" id="qrTabBtn" disabled>View QR Code</button>
+    <button class="tab" onclick="openTab('codeTab')" id="codeTabBtn" disabled>View Codes</button>
   </div>
 
   <!-- FORM TAB -->
@@ -229,13 +287,11 @@
         <input id="address" type="text" required>
       </div>
       
-      <!-- NEW: Patient ID field -->
       <div class="form-group">
         <label for="patientId" class="required">Medical Record Number / Patient ID</label>
         <input id="patientId" type="text" required>
       </div>
       
-      <!-- NEW: Physical attributes -->
       <div class="form-group">
         <label for="height">Height (cm)</label>
         <input id="height" type="number" min="0" max="300">
@@ -264,7 +320,6 @@
         <input id="emergencyPhone" type="tel" required>
       </div>
       
-      <!-- NEW: Language preferences -->
       <div class="form-group">
         <label for="language">Preferred Language</label>
         <select id="language">
@@ -284,7 +339,6 @@
 
       <div class="form-section"><h3>Insurance Information</h3></div>
       
-      <!-- NEW: Insurance fields -->
       <div class="form-group">
         <label for="insuranceProvider" class="required">Insurance Provider</label>
         <input id="insuranceProvider" type="text" required>
@@ -329,7 +383,6 @@
         <textarea id="medicalConditions" placeholder="None"></textarea>
       </div>
       
-      <!-- NEW: Medical history fields -->
       <div class="form-group">
         <label for="surgicalHistory">Previous Surgeries</label>
         <textarea id="surgicalHistory" placeholder="None"></textarea>
@@ -343,7 +396,6 @@
         <input id="lastCheckup" type="date">
       </div>
       
-      <!-- NEW: Advanced directives section -->
       <div class="form-section"><h3>Advanced Medical Directives</h3></div>
       
       <div class="form-group checkbox-group">
@@ -381,46 +433,72 @@
         <output for="painLevel" id="painLevelOutput">0</output>
       </div>
 
+      <!-- NEW: Data field selection -->
+      <div class="data-field-selection">
+        <button type="button" class="toggle-btn" onclick="toggleAllFields()">Toggle All Fields</button>
+        <h4>Select Data Fields for Code Generation</h4>
+        <div class="field-checkboxes" id="fieldSelection">
+          <!-- Will be populated by JavaScript -->
+        </div>
+      </div>
+
       <div class="format-options">
         <span>Data Format:</span>
         <button type="button" class="format-btn active" data-format="json" onclick="setFormat('json')">JSON (Compact)</button>
         <button type="button" class="format-btn" data-format="xml" onclick="setFormat('xml')">XML</button>
+        <button type="button" class="format-btn" data-format="simple" onclick="setFormat('simple')">Simple Text</button>
       </div>
 
       <div class="data-display">
         <label>
           <input type="checkbox" id="minimizeData" checked>
-          Minimize non-essential data for better QR readability
+          Minimize non-essential data for better code readability
         </label>
       </div>
 
       <div class="buttons">
-        <button type="button" onclick="validateAndGenerateQR()">Generate QR Code</button>
+        <button type="button" onclick="validateAndGenerateCode()">Generate Code</button>
       </div>
     </form>
   </div>
 
-  <!-- QR TAB -->
-  <div id="qrTab" class="tab-content">
-    <div class="qr-container">
-      <h2>Your QR Code</h2>
+  <!-- CODE TAB -->
+  <div id="codeTab" class="tab-content">
+    <div class="code-container">
+      <h2>Your Medical Codes</h2>
       
-      <div class="qr-size-control">
+      <div class="code-type-selection">
+        <button type="button" class="code-type-btn active" data-type="qr" onclick="switchCodeType('qr')">QR Code</button>
+        <button type="button" class="code-type-btn" data-type="barcode" onclick="switchCodeType('barcode')">Barcode</button>
+      </div>
+      
+      <div class="code-size-control">
         <span>Size:</span>
-        <input type="range" id="qrSize" min="150" max="400" value="250" oninput="updateQRSize()">
-        <span id="qrSizeValue">250px</span>
+        <input type="range" id="codeSize" min="150" max="400" value="250" oninput="updateCodeSize()">
+        <span id="codeSizeValue">250px</span>
       </div>
       
       <div id="qrcode"></div>
+      <div id="barcode-container" style="display:none;">
+        <svg id="barcode"></svg>
+      </div>
+      
       <div id="statusIndicator"></div>
+      
+      <div class="data-display">
+        <label>
+          <input type="checkbox" id="showRawData" checked onchange="toggleRawData()">
+          Show Raw Data
+        </label>
+      </div>
       
       <textarea id="qrData" readonly></textarea>
       
-      <div class="qr-buttons">
-        <button onclick="regenerateQR()">Regenerate QR</button>
-        <button onclick="copyQRData()">Copy Data</button>
+      <div class="code-buttons">
+        <button onclick="regenerateCode()">Regenerate Code</button>
+        <button onclick="copyData()">Copy Data</button>
         <button onclick="downloadDataFile()">Download Data</button>
-        <button onclick="downloadQRImage()">Download QR (PNG)</button>
+        <button onclick="downloadCodeImage()">Download Image</button>
         <button onclick="saveAsPDF()">Save as PDF</button>
         <button onclick="backToForm()">Edit Info</button>
       </div>
@@ -430,8 +508,8 @@
   <!-- Hidden print area -->
   <div id="print-section">
     <div id="pdf-content">
-      <h3>Medical Info QR</h3>
-      <div id="pdf-qrcode"></div>
+      <h3>Medical Info Code</h3>
+      <div id="pdf-code"></div>
       <pre id="pdf-data" style="font-family:monospace;"></pre>
     </div>
   </div>
@@ -440,13 +518,85 @@
     // Global variables
     let formData = {};
     let qrData = "";
-    let currentFormat = "json"; // Default format (more compact)
+    let currentFormat = "json"; // Default format
+    let currentCodeType = "qr"; // Default code type
     let qrCodeInstance = null;
+    let allFieldsChecked = true;
     
-    // Initialize pain level output
-    document.getElementById('painLevel').addEventListener('input', function() {
-      document.getElementById('painLevelOutput').textContent = this.value;
+    // Field definitions for selection checkboxes
+    const formFields = [
+      { id: "fullName", label: "Full Name", category: "personal", required: true },
+      { id: "dob", label: "Date of Birth", category: "personal", required: true },
+      { id: "gender", label: "Gender", category: "personal", required: false },
+      { id: "address", label: "Address", category: "personal", required: true },
+      { id: "patientId", label: "Patient ID", category: "personal", required: true },
+      { id: "height", label: "Height", category: "personal", required: false },
+      { id: "weight", label: "Weight", category: "personal", required: false },
+      { id: "phone", label: "Phone", category: "contact", required: true },
+      { id: "email", label: "Email", category: "contact", required: false },
+      { id: "emergencyContact", label: "Emergency Contact", category: "contact", required: true },
+      { id: "emergencyPhone", label: "Emergency Phone", category: "contact", required: true },
+      { id: "language", label: "Language", category: "contact", required: false },
+      { id: "specialNeeds", label: "Special Needs", category: "contact", required: false },
+      { id: "insuranceProvider", label: "Insurance Provider", category: "insurance", required: true },
+      { id: "insuranceNumber", label: "Policy Number", category: "insurance", required: true },
+      { id: "insuranceGroup", label: "Group Number", category: "insurance", required: false },
+      { id: "primaryPhysician", label: "Primary Physician", category: "insurance", required: false },
+      { id: "physicianContact", label: "Physician Contact", category: "insurance", required: false },
+      { id: "bloodType", label: "Blood Type", category: "medical", required: false },
+      { id: "allergies", label: "Allergies", category: "medical", required: false },
+      { id: "medications", label: "Medications", category: "medical", required: false },
+      { id: "medicalConditions", label: "Medical Conditions", category: "medical", required: false },
+      { id: "surgicalHistory", label: "Surgical History", category: "medical", required: false },
+      { id: "vaccinations", label: "Vaccinations", category: "medical", required: false },
+      { id: "lastCheckup", label: "Last Checkup", category: "medical", required: false },
+      { id: "organDonor", label: "Organ Donor", category: "directives", required: false },
+      { id: "dnrStatus", label: "DNR Status", category: "directives", required: false },
+      { id: "advanceDirective", label: "Advance Directive", category: "directives", required: false },
+      { id: "religiousPrefs", label: "Religious Preferences", category: "directives", required: false },
+      { id: "reasonForVisit", label: "Reason for Visit", category: "admission", required: true },
+      { id: "painLevel", label: "Pain Level", category: "admission", required: false }
+    ];
+    
+    // Initialize pain level output and field selection
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('painLevel').addEventListener('input', function() {
+        document.getElementById('painLevelOutput').textContent = this.value;
+      });
+      
+      // Initialize field selection checkboxes
+      initFieldSelection();
     });
+    
+    // Initialize field selection checkboxes
+    function initFieldSelection() {
+      const container = document.getElementById('fieldSelection');
+      
+      formFields.forEach(field => {
+        const checkbox = document.createElement('div');
+        checkbox.className = 'checkbox-group';
+        
+        checkbox.innerHTML = `
+          <label>
+            <input type="checkbox" id="select_${field.id}" ${field.required ? 'checked disabled' : 'checked'}>
+            ${field.label} ${field.required ? '*' : ''}
+          </label>
+        `;
+        
+        container.appendChild(checkbox);
+      });
+    }
+    
+    // Toggle all non-required fields
+    function toggleAllFields() {
+      allFieldsChecked = !allFieldsChecked;
+      
+      formFields.forEach(field => {
+        if (!field.required) {
+          document.getElementById(`select_${field.id}`).checked = allFieldsChecked;
+        }
+      });
+    }
     
     // Set data format
     function setFormat(format) {
@@ -456,16 +606,43 @@
       });
     }
     
+    // Switch between QR and barcode display
+    function switchCodeType(type) {
+      currentCodeType = type;
+      document.querySelectorAll('.code-type-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+      });
+      
+      if (type === 'qr') {
+        document.getElementById('qrcode').style.display = 'block';
+        document.getElementById('barcode-container').style.display = 'none';
+      } else {
+        document.getElementById('qrcode').style.display = 'none';
+        document.getElementById('barcode-container').style.display = 'block';
+      }
+      
+      // Regenerate code if data exists
+      if (qrData) {
+        regenerateCode();
+      }
+    }
+    
+    // Toggle raw data display
+    function toggleRawData() {
+      const showData = document.getElementById('showRawData').checked;
+      document.getElementById('qrData').style.display = showData ? 'block' : 'none';
+    }
+    
     // Tab navigation
     function openTab(tabId) {
-      if (tabId === 'qrTab' && document.getElementById('qrTabBtn').disabled) return;
+      if (tabId === 'codeTab' && document.getElementById('codeTabBtn').disabled) return;
       document.querySelectorAll('.tab, .tab-content').forEach(el => el.classList.remove('active'));
       document.querySelector(`.tab[onclick*="${tabId}"]`).classList.add('active');
       document.getElementById(tabId).classList.add('active');
     }
 
-    // Validate form and generate QR
-    function validateAndGenerateQR() {
+    // Validate form and generate code
+    function validateAndGenerateCode() {
       const form = document.getElementById('medicalForm');
       const required = form.querySelectorAll('[required]');
       
@@ -481,60 +658,43 @@
       
       if (!valid) return;
       
-      generateQRCode();
-      document.getElementById('qrTabBtn').disabled = false;
-      openTab('qrTab');
+      generateCode();
+      document.getElementById('codeTabBtn').disabled = false;
+      openTab('codeTab');
     }
 
-    // Collect form data
+    // Collect form data based on selected fields
     function collectFormData() {
       const minimize = document.getElementById('minimizeData').checked;
+      formData = {};
       
-      formData = {
-        // Personal info
-        fullName: document.getElementById('fullName').value.trim(),
-        dob: document.getElementById('dob').value,
-        gender: document.getElementById('gender').value || (minimize ? null : 'Not specified'),
-        address: document.getElementById('address').value.trim(),
-        patientId: document.getElementById('patientId').value.trim(),
-        height: document.getElementById('height').value || (minimize ? null : ''),
-        weight: document.getElementById('weight').value || (minimize ? null : ''),
+      formFields.forEach(field => {
+        const selectCheckbox = document.getElementById(`select_${field.id}`);
         
-        // Contact info
-        phone: document.getElementById('phone').value.trim(),
-        email: document.getElementById('email').value.trim() || (minimize ? null : 'Not provided'),
-        emergencyContact: document.getElementById('emergencyContact').value.trim(),
-        emergencyPhone: document.getElementById('emergencyPhone').value.trim(),
-        language: document.getElementById('language').value || (minimize ? null : ''),
-        specialNeeds: document.getElementById('specialNeeds').value.trim() || (minimize ? null : ''),
+        // Skip unselected fields unless they're required
+        if (!selectCheckbox.checked && !field.required) {
+          return;
+        }
         
-        // Insurance info
-        insuranceProvider: document.getElementById('insuranceProvider').value.trim(),
-        insuranceNumber: document.getElementById('insuranceNumber').value.trim(),
-        insuranceGroup: document.getElementById('insuranceGroup').value.trim() || (minimize ? null : ''),
-        primaryPhysician: document.getElementById('primaryPhysician').value.trim() || (minimize ? null : ''),
-        physicianContact: document.getElementById('physicianContact').value.trim() || (minimize ? null : ''),
+        // Get value based on input type
+        let value;
+        const input = document.getElementById(field.id);
         
-        // Medical info
-        bloodType: document.getElementById('bloodType').value || (minimize ? null : 'Not specified'),
-        allergies: document.getElementById('allergies').value.trim() || (minimize ? null : 'None'),
-        medications: document.getElementById('medications').value.trim() || (minimize ? null : 'None'),
-        conditions: document.getElementById('medicalConditions').value.trim() || (minimize ? null : 'None'),
-        surgicalHistory: document.getElementById('surgicalHistory').value.trim() || (minimize ? null : ''),
-        vaccinations: document.getElementById('vaccinations').value.trim() || (minimize ? null : ''),
-        lastCheckup: document.getElementById('lastCheckup').value || (minimize ? null : ''),
+        if (input.type === 'checkbox') {
+          value = input.checked;
+        } else {
+          value = input.value.trim();
+          // Apply minimization if enabled
+          if (minimize && !value && !field.required) {
+            return; // Skip empty non-required fields when minimizing
+          }
+        }
         
-        // Advanced directives
-        organDonor: document.getElementById('organDonor').checked,
-        dnrStatus: document.getElementById('dnrStatus').checked,
-        advanceDirective: document.getElementById('advanceDirective').checked,
-        religiousPrefs: document.getElementById('religiousPrefs').value.trim() || (minimize ? null : ''),
-        
-        // Admission details
-        reasonForVisit: document.getElementById('reasonForVisit').value.trim(),
-        painLevel: document.getElementById('painLevel').value,
-        timestamp: new Date().toISOString()
-      };
+        formData[field.id] = value || (minimize ? null : '');
+      });
+      
+      // Add timestamp
+      formData.timestamp = new Date().toISOString();
       
       // Remove null values for minimized data
       if (minimize) {
@@ -581,7 +741,7 @@
               bloodType: formData.bloodType,
               allergies: formData.allergies,
               medications: formData.medications,
-              conditions: formData.conditions,
+              conditions: formData.medicalConditions,
               surgicalHistory: formData.surgicalHistory,
               vaccinations: formData.vaccinations,
               lastCheckup: formData.lastCheckup
@@ -601,7 +761,7 @@
             }
           }
         });
-      } else {
+      } else if (currentFormat === 'xml') {
         // XML format
         let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <PatientRecord>
@@ -610,22 +770,20 @@
   <DOB>${formData.dob}</DOB>
   ${formData.gender ? `<Gender>${escapeXml(formData.gender)}</Gender>` : ''}
   <Address>${escapeXml(formData.address)}</Address>
-  
-  ${formData.height || formData.weight ? `<Physical>
-    ${formData.height ? `<Height>${escapeXml(formData.height)}</Height>` : ''}
-    ${formData.weight ? `<Weight>${escapeXml(formData.weight)}</Weight>` : ''}
-  </Physical>` : ''}
-  
-  <Contact>${formData.phone}</Contact>
-  ${formData.email ? `<Email>${escapeXml(formData.email)}</Email>` : ''}
-  ${formData.language ? `<Language>${escapeXml(formData.language)}</Language>` : ''}
-  ${formData.specialNeeds ? `<SpecialNeeds>${escapeXml(formData.specialNeeds)}</SpecialNeeds>` : ''}
-  
-  <EmergencyContact>
-    <Name>${escapeXml(formData.emergencyContact)}</Name>
-    <Phone>${formData.emergencyPhone}</Phone>
-  </EmergencyContact>
-  
+  <Physical>
+    ${formData.height ? `<Height>${formData.height}</Height>` : ''}
+    ${formData.weight ? `<Weight>${formData.weight}</Weight>` : ''}
+  </Physical>
+  <Contact>
+    <Phone>${escapeXml(formData.phone)}</Phone>
+    ${formData.email ? `<Email>${escapeXml(formData.email)}</Email>` : ''}
+    ${formData.language ? `<Language>${escapeXml(formData.language)}</Language>` : ''}
+    ${formData.specialNeeds ? `<SpecialNeeds>${escapeXml(formData.specialNeeds)}</SpecialNeeds>` : ''}
+    <Emergency>
+      <Name>${escapeXml(formData.emergencyContact)}</Name>
+      <Phone>${escapeXml(formData.emergencyPhone)}</Phone>
+    </Emergency>
+  </Contact>
   <Insurance>
     <Provider>${escapeXml(formData.insuranceProvider)}</Provider>
     <PolicyNumber>${escapeXml(formData.insuranceNumber)}</PolicyNumber>
@@ -633,38 +791,52 @@
     ${formData.primaryPhysician ? `<PrimaryPhysician>${escapeXml(formData.primaryPhysician)}</PrimaryPhysician>` : ''}
     ${formData.physicianContact ? `<PhysicianContact>${escapeXml(formData.physicianContact)}</PhysicianContact>` : ''}
   </Insurance>
-  
   <Medical>
     ${formData.bloodType ? `<BloodType>${escapeXml(formData.bloodType)}</BloodType>` : ''}
     ${formData.allergies ? `<Allergies>${escapeXml(formData.allergies)}</Allergies>` : ''}
     ${formData.medications ? `<Medications>${escapeXml(formData.medications)}</Medications>` : ''}
-    ${formData.conditions ? `<Conditions>${escapeXml(formData.conditions)}</Conditions>` : ''}
+    ${formData.medicalConditions ? `<Conditions>${escapeXml(formData.medicalConditions)}</Conditions>` : ''}
     ${formData.surgicalHistory ? `<SurgicalHistory>${escapeXml(formData.surgicalHistory)}</SurgicalHistory>` : ''}
     ${formData.vaccinations ? `<Vaccinations>${escapeXml(formData.vaccinations)}</Vaccinations>` : ''}
     ${formData.lastCheckup ? `<LastCheckup>${formData.lastCheckup}</LastCheckup>` : ''}
   </Medical>
-  
   <Directives>
-    <OrganDonor>${formData.organDonor}</OrganDonor>
-    <DNRStatus>${formData.dnrStatus}</DNRStatus>
-    <AdvanceDirective>${formData.advanceDirective}</AdvanceDirective>
+    ${formData.organDonor !== undefined ? `<OrganDonor>${formData.organDonor}</OrganDonor>` : ''}
+    ${formData.dnrStatus !== undefined ? `<DNRStatus>${formData.dnrStatus}</DNRStatus>` : ''}
+    ${formData.advanceDirective !== undefined ? `<AdvanceDirective>${formData.advanceDirective}</AdvanceDirective>` : ''}
     ${formData.religiousPrefs ? `<ReligiousPreferences>${escapeXml(formData.religiousPrefs)}</ReligiousPreferences>` : ''}
   </Directives>
-  
   <Admission>
     <Reason>${escapeXml(formData.reasonForVisit)}</Reason>
-    <PainLevel>${formData.painLevel}</PainLevel>
+    ${formData.painLevel !== undefined ? `<PainLevel>${formData.painLevel}</PainLevel>` : ''}
   </Admission>
-  
   <Meta>
     <GeneratedAt>${formData.timestamp}</GeneratedAt>
   </Meta>
 </PatientRecord>`;
         return xml;
+      } else if (currentFormat === 'simple') {
+        // Simple text format for barcode compatibility
+        let lines = [
+          `ID: ${formData.patientId}`,
+          `Name: ${formData.fullName}`,
+          `DOB: ${formData.dob}`,
+          `Phone: ${formData.phone}`,
+          `Emergency: ${formData.emergencyContact} (${formData.emergencyPhone})`,
+          `Insurance: ${formData.insuranceProvider} #${formData.insuranceNumber}`,
+          `Reason: ${formData.reasonForVisit}`
+        ];
+        
+        // Add optional fields if present
+        if (formData.bloodType) lines.push(`Blood: ${formData.bloodType}`);
+        if (formData.allergies) lines.push(`Allergies: ${formData.allergies}`);
+        if (formData.medications) lines.push(`Meds: ${formData.medications}`);
+        
+        return lines.join('\n');
       }
     }
-    
-    // Escape XML special characters
+
+    // Helper function to escape XML special characters
     function escapeXml(unsafe) {
       if (!unsafe) return '';
       return unsafe
@@ -675,203 +847,203 @@
         .replace(/'/g, "&apos;");
     }
 
-    // Generate QR Code
-    function generateQRCode() {
+    // Generate code based on collected data and selected type
+    function generateCode() {
       qrData = formatData();
       document.getElementById('qrData').value = qrData;
       
-      const container = document.getElementById('qrcode');
-      container.innerHTML = '';
+      // Clear previous code instances
+      document.getElementById('qrcode').innerHTML = '';
+      document.getElementById('barcode-container').innerHTML = '<svg id="barcode"></svg>';
       
-      try {
-        // Get QR code size
-        const size = parseInt(document.getElementById('qrSize').value);
-        
-        // Create new QR code
-        qrCodeInstance = new QRCode(container, {
+      const codeSize = document.getElementById('codeSize').value;
+      
+      if (currentCodeType === 'qr') {
+        // QR Code generation
+        qrCodeInstance = new QRCode(document.getElementById('qrcode'), {
           text: qrData,
-          width: size,
-          height: size,
+          width: codeSize,
+          height: codeSize,
           colorDark: "#000000",
           colorLight: "#ffffff",
-          correctLevel: QRCode.CorrectLevel.M // Changed to M for better balance of size/error correction
+          correctLevel: QRCode.CorrectLevel.H
         });
         
-        // Show success indicator
-        showStatus('success', 'QR code generated successfully!');
-        
-        // Test data size
-        if (qrData.length > 1000) {
-          showStatus('error', 'Warning: Large data size may affect QR code readability.');
+        updateStatusIndicator('success', 'QR Code generated successfully!');
+      } else {
+        // Barcode generation
+        try {
+          // Use simplified data for barcode if not already simple
+          let barcodeText = currentFormat === 'simple' ? qrData : formData.fullName + " | " + formData.patientId;
+          
+          if (barcodeText.length > 80) {
+            barcodeText = formData.patientId + "-" + formData.fullName.substring(0, 20);
+            updateStatusIndicator('warning', 'Data was truncated for barcode compatibility');
+          }
+          
+          JsBarcode("#barcode", barcodeText, {
+            format: "CODE128",
+            lineColor: "#000",
+            width: 2,
+            height: 80,
+            displayValue: true,
+            fontSize: 16,
+            margin: 10
+          });
+          
+          // Resize the SVG to match desired width
+          const svgElement = document.getElementById('barcode');
+          svgElement.setAttribute('width', codeSize);
+          
+          updateStatusIndicator('success', 'Barcode generated successfully!');
+        } catch (e) {
+          updateStatusIndicator('error', 'Error: ' + e.message);
+          console.error("Barcode error:", e);
         }
-      } catch (error) {
-        console.error("QR generation error:", error);
-        showStatus('error', 'Error generating QR code: ' + error.message);
       }
     }
-    
-    // Show status message
-    function showStatus(type, message) {
-      const indicator = document.getElementById('statusIndicator');
-      indicator.className = 'status-indicator status-' + type;
-      indicator.textContent = message;
+
+    // Update code size based on slider
+    function updateCodeSize() {
+      const size = document.getElementById('codeSize').value;
+      document.getElementById('codeSizeValue').textContent = size + 'px';
       
-      // Auto-hide success messages after 5 seconds
-      if (type === 'success') {
-        setTimeout(() => {
-          indicator.textContent = '';
-          indicator.className = 'status-indicator';
-        }, 5000);
-      }
-    }
-    
-    // Update QR size
-    function updateQRSize() {
-      const size = document.getElementById('qrSize').value;
-      document.getElementById('qrSizeValue').textContent = `${size}px`;
-      
-      // Regenerate QR with new size
       if (qrData) {
-        regenerateQR();
+        regenerateCode();
       }
     }
-    
-    // Regenerate QR code
-function regenerateQR() {
-  qrData = formatData();
-  document.getElementById('qrData').value = qrData;
-  
-  const container = document.getElementById('qrcode');
-  container.innerHTML = '';
-  
-  const size = parseInt(document.getElementById('qrSize').value);
-  
-  // Create new QR code
-  qrCodeInstance = new QRCode(container, {
-    text: qrData,
-    width: size,
-    height: size,
-    colorDark: "#000000",
-    colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.M
-  });
-  
-  showStatus('success', 'QR code regenerated!');
-}
 
-// Copy QR data to clipboard
-function copyQRData() {
-  const dataField = document.getElementById('qrData');
-  dataField.select();
-  document.execCommand('copy');
-  showStatus('success', 'Data copied to clipboard!');
-}
+    // Regenerate code with current data
+    function regenerateCode() {
+      if (qrData) {
+        generateCode();
+      }
+    }
 
-// Download data as file
-function downloadDataFile() {
-  const fileExtension = currentFormat === 'json' ? 'json' : 'xml';
-  const mimeType = currentFormat === 'json' ? 'application/json' : 'application/xml';
-  const fileName = `medical-data-${formData.patientId}.${fileExtension}`;
-  
-  const blob = new Blob([qrData], { type: mimeType });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = fileName;
-  link.click();
-  
-  showStatus('success', `Data file downloaded as ${fileName}`);
-}
+    // Status indicator display
+    function updateStatusIndicator(type, message) {
+      const indicator = document.getElementById('statusIndicator');
+      indicator.textContent = message;
+      indicator.className = 'status-indicator status-' + type;
+    }
 
-// Download QR code as PNG
-function downloadQRImage() {
-  if (!qrCodeInstance) {
-    showStatus('error', 'No QR code generated yet.');
-    return;
-  }
-  
-  try {
-    // Get the canvas from the QR code
-    const canvas = document.querySelector('#qrcode canvas');
-    if (!canvas) {
-      showStatus('error', 'Could not find QR code canvas.');
-      return;
+    // Copy data to clipboard
+    function copyData() {
+      const textField = document.getElementById('qrData');
+      textField.select();
+      document.execCommand('copy');
+      updateStatusIndicator('success', 'Data copied to clipboard!');
+    }
+
+    // Download data as text file
+    function downloadDataFile() {
+      const dataStr = qrData;
+      const dataBlob = new Blob([dataStr], {type: 'text/plain'});
+      const url = URL.createObjectURL(dataBlob);
+      
+      const extension = currentFormat === 'json' ? '.json' : 
+                      currentFormat === 'xml' ? '.xml' : '.txt';
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'medical_data_' + formData.patientId + extension;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // Download code as image
+    function downloadCodeImage() {
+      let canvas, filename;
+      
+      if (currentCodeType === 'qr') {
+        canvas = document.querySelector('#qrcode canvas');
+        filename = 'qrcode_' + formData.patientId + '.png';
+      } else {
+        // For barcode, we need to create canvas from SVG
+        const svg = document.getElementById('barcode');
+        const serializer = new XMLSerializer();
+        const svgStr = serializer.serializeToString(svg);
+        
+        const img = new Image();
+        img.src = 'data:image/svg+xml;base64,' + btoa(svgStr);
+        
+        canvas = document.createElement('canvas');
+        canvas.width = svg.width.baseVal.value;
+        canvas.height = svg.height.baseVal.value;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Wait for image to load before proceeding
+        img.onload = function() {
+          ctx.drawImage(img, 0, 0);
+          triggerDownload(canvas, 'barcode_' + formData.patientId + '.png');
+        };
+        
+        return;
+      }
+      
+      if (canvas) {
+        triggerDownload(canvas, filename);
+      }
+    }
+
+    // Helper function to trigger download from canvas
+    function triggerDownload(canvas, filename) {
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // Save as PDF
+    function saveAsPDF() {
+      const { jsPDF } = window.jspdf;
+      
+      // Clone the code area for PDF generation
+      let codeElement;
+      if (currentCodeType === 'qr') {
+        codeElement = document.querySelector('#qrcode').cloneNode(true);
+      } else {
+        codeElement = document.querySelector('#barcode-container').cloneNode(true);
+      }
+      
+      document.getElementById('pdf-code').innerHTML = '';
+      document.getElementById('pdf-code').appendChild(codeElement);
+      document.getElementById('pdf-data').textContent = qrData;
+      
+      // Create PDF
+      const pdfContent = document.getElementById('pdf-content');
+      
+      html2canvas(pdfContent).then(canvas => {
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = pageWidth - 20;
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+        
+        pdf.addImage(imgData, 'JPEG', 10, 10, imgWidth, imgHeight);
+        
+        // Add patient info
+        pdf.setFontSize(10);
+        pdf.text(`Patient: ${formData.fullName}`, 10, imgHeight + 20);
+        pdf.text(`ID: ${formData.patientId}`, 10, imgHeight + 25);
+        pdf.text(`DOB: ${formData.dob}`, 10, imgHeight + 30);
+        pdf.text(`Generated: ${new Date().toLocaleString()}`, 10, imgHeight + 35);
+        
+        pdf.save(`medical_code_${formData.patientId}.pdf`);
+      });
+    }
+
+    // Go back to form
+    function backToForm() {
+      openTab('formTab');
     }
     
-    const link = document.createElement('a');
-    link.download = `medical-qr-${formData.patientId}.png`;
-    link.href = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
-    link.click();
-    
-    showStatus('success', 'QR code image downloaded!');
-  } catch (error) {
-    console.error("Download error:", error);
-    showStatus('error', 'Error downloading QR image: ' + error.message);
-  }
-}
-
-// Save as PDF
-function saveAsPDF() {
-  // Clone QR for PDF section
-  const qrImg = document.querySelector('#qrcode img');
-  const pdfQR = document.getElementById('pdf-qrcode');
-  pdfQR.innerHTML = '';
-  
-  if (!qrImg) {
-    showStatus('error', 'QR code not generated yet.');
-    return;
-  }
-  
-  // Set up PDF content
-  const imgClone = qrImg.cloneNode(true);
-  pdfQR.appendChild(imgClone);
-  
-  document.getElementById('pdf-data').textContent = 
-    `Patient: ${formData.fullName}
-ID: ${formData.patientId}
-DOB: ${formData.dob}
-Emergency Contact: ${formData.emergencyContact} (${formData.emergencyPhone})
-Generated: ${new Date().toLocaleString()}`;
-  
-  // Use html2canvas to capture the PDF content
-  const { jsPDF } = window.jspdf;
-  
-  html2canvas(document.getElementById('pdf-content')).then(canvas => {
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-    
-    // Calculate ratio to fit on page
-    const ratio = Math.min(pageWidth / canvasWidth, pageHeight / canvasHeight) * 0.9;
-    const imgWidth = canvasWidth * ratio;
-    const imgHeight = canvasHeight * ratio;
-    
-    // Center on page
-    const x = (pageWidth - imgWidth) / 2;
-    const y = (pageHeight - imgHeight) / 2;
-    
-    pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
-    pdf.save(`medical-qr-${formData.patientId}.pdf`);
-    
-    showStatus('success', 'PDF saved successfully!');
-  }).catch(error => {
-    console.error("PDF error:", error);
-    showStatus('error', 'Error generating PDF: ' + error.message);
-  });
-}
-
-// Go back to form
-function backToForm() {
-  openTab('formTab');
-}
-
-// Add event listener for the pain slider
-document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('painLevel').addEventListener('input', function() {
-    document.getElementById('painLevelOutput').textContent = this.value;
-  });
-});
-
-</script>
+    </script>
