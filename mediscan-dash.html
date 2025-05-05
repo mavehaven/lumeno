@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Dashboard</title>
+    <!-- Firebase SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-storage-compat.js"></script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for dashboard visualizations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- File Saver for exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+
+<body class="bg-gray-100 font-sans">
+    <!-- Auth Container -->
+    <div id="auth-container" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-50">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+            <h2 class="text-2xl font-bold mb-6 text-center text-blue-800">Medical Dashboard Login</h2>
+            <div id="login-form">
+                <div class="mb-4">
+                    <label for="email" class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+                    <input type="email" id="email" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Enter your email">
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+                    <input type="password" id="password" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Enter your password">
+                </div>
+                <div class="flex items-center justify-between">
+                    <button id="login-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        Sign In
+                    </button>
+                    <button id="register-btn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        Register
+                    </button>
+                </div>
+            </div>
+            <div id="auth-message" class="mt-4 text-center text-red-500"></div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard (Hidden by default) -->
+    <div id="dashboard-container" class="hidden">
+        <!-- Header -->
+        <header class="bg-blue-500 text-white shadow-md">
+  <div class="container mx-auto px-6 py-3 flex items-center">
+    <!-- Logo on the far left -->
+    <div class="flex-shrink-0">
+      <a href="#home">
+        <img
+          src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg"
+          alt="LumenOS Logo"
+          class="h-12 w-auto"
+        />
+      </a>
+    </div>
+
+    <!-- Push this group to the right -->
+    <div class="ml-auto flex items-center">
+      <span id="user-email" class="mr-4"></span>
+      <button
+        id="logout-btn"
+        class="bg-green-700 hover:bg-red-700 text-white font-bold py-1 px-3 rounded focus:outline-none focus:shadow-outline"
+      >
+        Logout
+      </button>
+    </div>
+  </div>
+</header>
+
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-6 py-8">
+            <div class="flex flex-col md:flex-row gap-6 mb-8">
+                <!-- Sidebar Navigation -->
+                <div class="w-full md:w-1/4 bg-white p-6 rounded shadow-md">
+                    <h2 class="text-xl font-bold mb-4 text-blue-800">Navigation</h2>
+                    <ul class="space-y-2">
+                        <li><button class="nav-item w-full text-left py-2 px-4 rounded hover:bg-blue-100 focus:outline-none" data-target="patients-section">Patients</button></li>
+                        <li><button class="nav-item w-full text-left py-2 px-4 rounded hover:bg-blue-100 focus:outline-none" data-target="import-export-section">Import / Export</button></li>
+                        <li><button class="nav-item w-full text-left py-2 px-4 rounded hover:bg-blue-100 focus:outline-none" data-target="data-visualization-section">Data Visualization</button></li>
+                        <li><button class="nav-item w-full text-left py-2 px-4 rounded hover:bg-blue-100 focus:outline-none" data-target="settings-section">Settings</button></li>
+                    </ul>
+                </div>
+
+                <!-- Content Area -->
+                <div class="w-full md:w-3/4">
+                    <!-- Patients Section -->
+                    <section id="patients-section" class="dashboard-section bg-white p-6 rounded shadow-md">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-xl font-bold text-blue-800">Patient Management</h2>
+                            <button id="add-patient-btn" class="bg-blue-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                Add New Patient
+                            </button>
+                        </div>
+                        
+                        <!-- Search Bar -->
+                        <div class="mb-6">
+                            <input type="text" id="patient-search" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" placeholder="Search patients...">
+                        </div>
+
+                        <!-- Patients Table -->
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full bg-white border">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="py-2 px-4 border-b text-left">Patient ID</th>
+                                        <th class="py-2 px-4 border-b text-left">Name</th>
+                                        <th class="py-2 px-4 border-b text-left">Date of Birth</th>
+                                        <th class="py-2 px-4 border-b text-left">Phone</th>
+                                        <th class="py-2 px-4 border-b text-left">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="patients-table-body">
+                                    <!-- Patient data will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <!-- Import/Export Section -->
+                    <section id="import-export-section" class="dashboard-section bg-white p-6 rounded shadow-md hidden">
+                        <h2 class="text-xl font-bold mb-6 text-blue-800">Data Import / Export</h2>
+                        
+                        <!-- Import Section -->
+                        <div class="mb-8">
+                            <h3 class="text-lg font-semibold mb-4">Import Patient Data</h3>
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                <input type="file" id="import-file" accept=".json,.xml" class="hidden">
+                                <label for="import-file" class="cursor-pointer bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline inline-block mb-4">
+                                    Select File
+                                </label>
+                                <p class="text-sm text-gray-500">Supported formats: JSON, XML</p>
+                                <p id="import-file-name" class="mt-2 text-sm"></p>
+                            </div>
+                            <button id="import-btn" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                Import Data
+                            </button>
+                            <div id="import-status" class="mt-2 text-sm"></div>
+                        </div>
+
+                        <!-- Export Section -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Export Patient Data</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <button id="export-json-btn" class="bg-green-700 hover:bg-green-400 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                    Export as JSON
+                                </button>
+                                <button id="export-xml-btn" class="bg-green-700 hover:bg-green-400 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                    Export as XML
+                                </button>
+                                <button id="export-hl7-btn" class="bg-green-700 hover:bg-green-400 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                    Export as HL7
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Data Visualization Section -->
+                    <section id="data-visualization-section" class="dashboard-section bg-white p-6 rounded shadow-md hidden">
+                        <h2 class="text-xl font-bold mb-6 text-blue-800">Data Visualization</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h3 class="text-lg font-semibold mb-2">Patient Demographics</h3>
+                                <canvas id="demographics-chart" class="w-full h-64"></canvas>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold mb-2">Common Medical Conditions</h3>
+                                <canvas id="conditions-chart" class="w-full h-64"></canvas>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Settings Section -->
+                    <section id="settings-section" class="dashboard-section bg-white p-6 rounded shadow-md hidden">
+                        <h2 class="text-xl font-bold mb-6 text-blue-800">Settings</h2>
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold mb-4">User Settings</h3>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 text-sm font-bold mb-2">Email Notifications</label>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="email-notifications" class="mr-2">
+                                    <label for="email-notifications">Enable email notifications</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">System Settings</h3>
+                            <div class="mb-4">
+                                <label class="block text-gray-700 text-sm font-bold mb-2">Default Export Format</label>
+                                <select id="default-export-format" class="shadow border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline w-full md:w-1/2">
+                                    <option value="json">JSON</option>
+                                    <option value="xml">XML</option>
+                                    <option value="hl7">HL7</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Patient Form Modal -->
+    <div id="patient-modal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-50 hidden">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="modal-title" class="text-2xl font-bold text-blue-800">Add New Patient</h2>
+                <button id="close-modal-btn" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="patient-form">
+                <input type="hidden" id="edit-patient-id">
+                
+                <!-- Form tabs -->
+                <div class="mb-6">
+                    <div class="flex border-b">
+                        <button type="button" class="form-tab py-2 px-4 border-blue-500 text-blue-500 border-b-2" data-category="personal">Personal</button>
+                        <button type="button" class="form-tab py-2 px-4" data-category="contact">Contact</button>
+                        <button type="button" class="form-tab py-2 px-4" data-category="insurance">Insurance</button>
+                        <button type="button" class="form-tab py-2 px-4" data-category="medical">Medical</button>
+                        <button type="button" class="form-tab py-2 px-4" data-category="directives">Directives</button>
+                        <button type="button" class="form-tab py-2 px-4" data-category="admission">Admission</button>
+                    </div>
+                </div>
+
+                <!-- Form fields will be dynamically loaded here -->
+                <div id="form-fields" class="space-y-4">
+                    <!-- Fields will be inserted here -->
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button type="button" id="cancel-form-btn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                        Save Patient
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alert-modal" class="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-75 z-50 hidden">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+            <h2 class="text-xl font-bold mb-4 text-blue-800">Alert</h2>
+            <p id="alert-message" class="mb-6"></p>
+            <div class="flex justify-end">
+                <button id="alert-ok-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript for the application -->
+    <script>
+        // Form fields definition
+        const formFields = [
+            { id: "fullName", label: "Full Name", category: "personal", required: true },
+            { id: "dob", label: "Date of Birth", category: "personal", required: true },
+            { id: "gender", label: "Gender", category: "personal", required: false },
+            { id: "address", label: "Address", category: "personal", required: true },
+            { id: "patientId", label: "Patient ID", category: "personal", required: true },
+            { id: "height", label: "Height", category: "personal", required: false },
+            { id: "weight", label: "Weight", category: "personal", required: false },
+            { id: "phone", label: "Phone", category: "contact", required: true },
+            { id: "email", label: "Email", category: "contact", required: false },
+            { id: "emergencyContact", label: "Emergency Contact", category: "contact", required: true },
+            { id: "emergencyPhone", label: "Emergency Phone", category: "contact", required: true },
+            { id: "language", label: "Language", category: "contact", required: false },
+            { id: "specialNeeds", label: "Special Needs", category: "contact", required: false },
+            { id: "insuranceProvider", label: "Insurance Provider", category: "insurance", required: true },
+            { id: "insuranceNumber", label: "Policy Number", category: "insurance", required: true },
+            { id: "insuranceGroup", label: "Group Number", category: "insurance", required: false },
+            { id: "primaryPhysician", label: "Primary Physician", category: "insurance", required: false },
+            { id: "physicianContact", label: "Physician Contact", category: "insurance", required: false },
+            { id: "bloodType", label: "Blood Type", category: "medical", required: false },
+            { id: "allergies", label: "Allergies", category: "medical", required: false },
+            { id: "medications", label: "Medications", category: "medical", required: false },
+            { id: "medicalConditions", label: "Medical Conditions", category: "medical", required: false },
+            { id: "surgicalHistory", label: "Surgical History", category: "medical", required: false },
+            { id: "vaccinations", label: "Vaccinations", category: "medical", required: false },
+            { id: "lastCheckup", label: "Last Checkup", category: "medical", required: false },
+            { id: "organDonor", label: "Organ Donor", category: "directives", required: false },
+            { id: "dnrStatus", label: "DNR Status", category: "directives", required: false },
+            { id: "advanceDirective", label: "Advance Directive", category: "directives", required: false },
+            { id: "religiousPrefs", label: "Religious Preferences", category: "directives", required: false },
+            { id: "reasonForVisit", label: "Reason for Visit", category: "admission", required: true },
+            { id: "painLevel", label: "Pain Level", category: "admission", required: false }
+        ];
+
+        // Initialize Firebase (Replace with your Firebase config)
+        const firebaseConfig = {
+      apiKey: "AIzaSyC7rmhpa1z9xdXBQVABJsUfihojEhIvz5o",
+      authDomain: "lumenos-749a1.firebaseapp.com",
+      projectId: "lumenos-749a1",
+      storageBucket: "lumenos-749a1.firebasestorage.app",
+      messagingSenderId: "857410556058",
+      appId: "1:857410556058:web:bb28ae2a03874f8f27cf23",
+      measurementId: "G-CEZ4PHV9GE"
+    };
+        
+        // Initialize Firebase (Demo Mode)
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        
+        // Demo data
+        let patients = [];
+        let currentUser = null;
+
+        // DOM Elements
+        const authContainer = document.getElementById('auth-container');
+        const dashboardContainer = document.getElementById('dashboard-container');
+        const loginForm = document.getElementById('login-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginBtn = document.getElementById('login-btn');
+        const registerBtn = document.getElementById('register-btn');
+        const userEmail = document.getElementById('user-email');
+        const logoutBtn = document.getElementById('logout-btn');
+        const authMessage = document.getElementById('auth-message');
+        const patientSearch = document.getElementById('patient-search');
+        const patientsTableBody = document.getElementById('patients-table-body');
+        const addPatientBtn = document.getElementById('add-patient-btn');
+        const patientModal = document.getElementById('patient-modal');
+        const patientForm = document.getElementById('patient-form');
+        const formFieldsContainer = document.getElementById('form-fields');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const cancelFormBtn = document.getElementById('cancel-form-btn');
+        const alertModal = document.getElementById('alert-modal');
+        const alertMessage = document.getElementById('alert-message');
+        const alertOkBtn = document.getElementById('alert-ok-btn');
+        const navItems = document.querySelectorAll('.nav-item');
+        const dashboardSections = document.querySelectorAll('.dashboard-section');
+        const formTabs = document.querySelectorAll('.form-tab');
+        const importBtn = document.getElementById('import-btn');
+        const importFile = document.getElementById('import-file');
+        const importFileName = document.getElementById('import-file-name');
+        const importStatus = document.getElementById('import-status');
+        const exportJsonBtn = document.getElementById('export-json-btn');
+        const exportXmlBtn = document.getElementById('export-xml-btn');
+        const exportHl7Btn = document.getElementById('export-hl7-btn');
+
+        // Event Listeners
+        window.addEventListener('DOMContentLoaded', initApp);
+        loginBtn.addEventListener('click', login);
+        registerBtn.addEventListener('click', register);
+        logoutBtn.addEventListener('click', logout);
+        addPatientBtn.addEventListener('click', showAddPatientModal);
+        closeModalBtn.addEventListener('click', closeModal);
+        cancelFormBtn.addEventListener('click', closeModal);
+        patientForm.addEventListener('submit', savePatient);
+        alertOkBtn.addEventListener('click', closeAlertModal);
+        patientSearch.addEventListener('input', filterPatients);
+        importFile.addEventListener('change', handleFileSelect);
+        importBtn.addEventListener('click', importData);
+        exportJsonBtn.addEventListener('click', () => exportData('json'));
+        exportXmlBtn.addEventListener('click', () => exportData('xml'));
+        exportHl7Btn.addEventListener('click', () => exportData('hl7'));
+
+        // Navigation event listeners
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const targetSection = item.dataset.target;
+                dashboardSections.forEach(section => {
+                    section.classList.add('hidden');
+                });
+                document.getElementById(targetSection).classList.remove('hidden');
+                
+                // Update active tab
+                navItems.forEach(nav => nav.classList.remove('bg-blue-100'));
+                item.classList.add('bg-blue-100');
+            });
+        });
+
+        // Form tab event listeners
+        formTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const category = tab.dataset.category;
+                formTabs.forEach(t => {
+                    t.classList.remove('border-blue-500', 'text-blue-500', 'border-b-2');
+                });
+                tab.classList.add('border-blue-500', 'text-blue-500', 'border-b-2');
+                renderFormFields(category);
+            });
+        });
+
+        // Initialize Application
+        function initApp() {
+            // For demo purposes, we'll use local storage instead of Firebase
+            // In a real app, you would authenticate with Firebase here
+            const storedUser = localStorage.getItem('currentUser');
+            if (storedUser) {
+                currentUser = JSON.parse(storedUser);
+                showDashboard();
+                loadPatients();
+                initCharts();
+            }
+        }
+
+        // Authentication Functions
+        function login() {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            if (!email || !password) {
+                showAuthMessage('Email and password are required');
+                return;
+            }
+
+            // For demo purposes
+            currentUser = { email };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            showDashboard();
+            loadPatients();
+            initCharts();
+
+            // In a real app, authenticate with Firebase
+            /* 
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    currentUser = userCredential.user;
+                    showDashboard();
+                    loadPatients();
+                    initCharts();
+                })
+                .catch((error) => {
+                    showAuthMessage(error.message);
+                });
+            */
+        }
+
+        function register() {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+
+            if (!email || !password) {
+                showAuthMessage('Email and password are required');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAuthMessage('Password should be at least 6 characters');
+                return;
+            }
+
+            // For demo purposes
+            currentUser = { email };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            showDashboard();
+            loadPatients();
+            initCharts();
+
+            // In a real app, register with Firebase
+            /*
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    currentUser = userCredential.user;
+                    showDashboard();
+                    loadPatients();
+                    initCharts();
+                })
+                .catch((error) => {
+                    showAuthMessage(error.message);
+                });
+            */
+        }
+
+        function logout() {
+            // For demo purposes
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            authContainer.classList.remove('hidden');
+            dashboardContainer.classList.add('hidden');
+
+            // In a real app, sign out from Firebase
+            /*
+            auth.signOut()
+                .then(() => {
+                    currentUser = null;
+                    authContainer.classList.remove('hidden');
+                    dashboardContainer.classList.add('hidden');
+                })
+                .catch((error) => {
+                    console.error('Sign out error:', error);
+                });
+            */
+        }
+
+        function showAuthMessage(message) {
+            authMessage.textContent = message;
+        }
+
+        function showDashboard() {
+            authContainer.classList.add('hidden');
+            dashboardContainer.classList.remove('hidden');
+            userEmail.textContent = currentUser.email;
+        }
+
+        // Patient Management Functions
+        function loadPatients() {
+            // For demo purposes, use local storage
+            const storedPatients = localStorage.getItem('patients');
+            if (storedPatients) {
+                patients = JSON.parse(storedPatients);
+            } else {
+                // Add some demo data
+                patients = [
+                    {
+                        patientId: "PT001",
+                        fullName: "John Doe",
+                        dob: "1985-06-15",
+                        gender: "Male",
+                        address: "123 Main St, Anytown, USA",
+                        height: "180 cm",
+                        weight: "75 kg",
+                        phone: "555-123-4567",
+                        email: "john.doe@example.com",
+                        emergencyContact: "Jane Doe",
+                        emergencyPhone: "555-987-6543",
+                        insuranceProvider: "Health Plus",
+                        insuranceNumber: "HP12345678",
+                        bloodType: "O+",
+                        allergies: "Penicillin",
+                        reasonForVisit: "Annual checkup"
+                    },
+                    {
+                        patientId: "PT002",
+                        fullName: "Sarah Smith",
+                        dob: "1990-10-22",
+                        gender: "Female",
+                        address: "456 Oak Ave, Somewhere, USA",
+                        phone: "555-234-5678",
+                        email: "sarah.smith@example.com",
+                        emergencyContact: "Mike Smith",
+                        emergencyPhone: "555-876-5432",
+                        insuranceProvider: "MediCare Plus",
+                        insuranceNumber: "MP87654321",
+                        bloodType: "A-",
+                        reasonForVisit: "Persistent headaches"
+                    }
+                ];
+                localStorage.setItem('patients', JSON.stringify(patients));
+            }
+            renderPatients();
+        }
+
+        function renderPatients() {
+            patientsTableBody.innerHTML = '';
+            
+            patients.forEach(patient => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="py-2 px-4 border-b">${patient.patientId}</td>
+                    <td class="py-2 px-4 border-b">${patient.fullName}</td>
+                    <td class="py-2 px-4 border-b">${patient.dob}</td>
+                    <td class="py-2 px-4 border-b">${patient.phone}</td>
+                    <td class="py-2 px-4 border-b">
+                        <button class="edit-btn text-blue-500 hover:text-blue-700 mr-2" data-id="${patient.patientId}">Edit</button>
+                        <button class="view-btn text-green-500 hover:text-green-700 mr-2" data-id="${patient.patientId}">View</button>
+                        <button class="delete-btn text-red-500 hover:text-red-700" data-id="${patient.patientId}">Delete</button>
+                    </td>
+                `;
+                patientsTableBody.appendChild(row);
+            });
+
+            // Add event listeners to buttons
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const patientId = btn.dataset.id;
+                    editPatient(patientId);
+                });
+            });
+
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const patientId = btn.dataset.id;
+                    viewPatient(patientId);
+                });
+            });
+
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const patientId = btn.dataset.id;
+                    deletePatient(patientId);
+                });
+            });
+        }
+
+        function filterPatients() {
+            const query = patientSearch.value.toLowerCase();
+            const filteredPatients = patients.filter(patient => 
+                patient.fullName.toLowerCase().includes(query) || 
+                patient.patientId.toLowerCase().includes(query) ||
+                (patient.email && patient.email.toLowerCase().includes(query))
+            );
+            
+            patientsTableBody.innerHTML = '';
+            
+            filteredPatients.forEach(patient => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="py-2 px-4 border-b">${patient.patientId}</td>
+                    <td class="py-2 px-4 border-b">${patient.fullName}</td>
+                    <td class="py-2 px-4 border-b">${patient.dob}</td>
+                    <td class="py-2 px-4 border-b">${patient.phone}</td>
+                    <td class="py-2 px-4 border-b">
+                        <button class="edit-btn text-blue-500 hover:text-blue-700 mr-2" data-id="${patient.patientId}">Edit</button>
+                        <button class="view-btn text-green-500 hover:text-green-700 mr-2" data-id="${patient.patientId}">View</button>
+                        <button class="delete-btn text-red-500 hover:text-red-700" data-id="${patient.patientId}">Delete</button>
+                    </td>
+                `;
+                patientsTableBody.appendChild(row);
+            });
+
+            // Reattach event listeners
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', () => editPatient(btn.dataset.id));
+            });
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', () => viewPatient(btn.dataset.id));
+            });
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => deletePatient(btn.dataset.id));
+            });
+        }
+
+        function showAddPatientModal() {
+            document.getElementById('modal-title').textContent = 'Add New Patient';
+            document.getElementById('edit-patient-id').value = '';
+            patientForm.reset();
+            
+            // Show the first category by default
+            formTabs.forEach(tab => {
+                tab.classList.remove('border-blue-500', 'text-blue-500', 'border-b-2');
+            });
+            formTabs[0].classList.add('border-blue-500', 'text-blue-500', 'border-b-2');
+            renderFormFields('personal');
+            
+            patientModal.classList.remove('hidden');
+        }
+
+        function editPatient(patientId) {
+            const patient = patients.find(p => p.patientId === patientId);
+            if (!patient) return;
+            
+            document.getElementById('modal-title').textContent = 'Edit Patient';
+            document.getElementById('edit-patient-id').value = patientId;
+            
+            // Reset form first
+            patientForm.reset();
+            
+            // Fill in the form with patient data
+            formFields.forEach(field => {
+                const input = document.querySelector(`[name="${field.id}"]`);
+                if (input && patient[field.id]) {
+                    input.value = patient[field.id];
+                }
+            });
+            
+            // Show the first category by default
+            formTabs.forEach(tab => {
+                tab.classList.remove('border-blue-500', 'text-blue-500', 'border-b-2');
+            });
+            formTabs[0].classList.add('border-blue-500', 'text-blue-500', 'border-b-2');
+            renderFormFields('personal');
+            
+            patientModal.classList.remove('hidden');
+        }
+
+        function viewPatient(patientId) {
+            const patient = patients.find(p => p.patientId === patientId);
+            if (!patient) return;
+            
+            // Create a formatted display of patient information
+            let message = `<strong>Patient ID:</strong> ${patient.patientId}<br>`;
+            message += `<strong>Name:</strong> ${patient.fullName}<br>`;
+            message += `<strong>Date of Birth:</strong> ${patient.dob}<br>`;
+            message += `<strong>Address:</strong> ${patient.address}<br>`;
+            message += `<strong>Phone:</strong> ${patient.phone}<br>`;
+            
+            // Add other fields if they exist
+            formFields.forEach(field => {
+                if (field.id !== 'patientId' && field.id !== 'fullName' && 
+                    field.id !== 'dob' && field.id !== 'address' && field.id !== 'phone' && 
+                    patient[field.id]) {
+                    message += `<strong>${field.label}:</strong> ${patient[field.id]}<br>`;
+                }
+            });
+            
+            alertMessage.innerHTML = message;
+            alertModal.classList.remove('hidden');
+        }
+
+        function deletePatient(patientId) {
+            if (confirm(`Are you sure you want to delete patient ${patientId}?`)) {
+                patients = patients.filter(p => p.patientId !== patientId);
+                localStorage.setItem('patients', JSON.stringify(patients));
+                renderPatients();
+                showAlert('Patient deleted successfully');
+            }
+        }
+
+        function renderFormFields(category) {
+            formFieldsContainer.innerHTML = '';
+            
+            const categoryFields = formFields.filter(field => field.category === category);
+            
+            categoryFields.forEach(field => {
+                const fieldDiv = document.createElement('div');
+                fieldDiv.className = 'mb-4';
+                
+                // Create label
+                const label = document.createElement('label');
+                label.htmlFor = field.id;
+                label.className = 'block text-gray-700 text-sm font-bold mb-2';
+                label.textContent = field.label + (field.required ? ' *' : '');
+                
+                // Create input element based on field type
+                let input;
+                if (field.id === 'gender') {
+                    // Dropdown for gender
+                    input = document.createElement('select');
+                    const options = ['', 'Male', 'Female', 'Non-binary', 'Prefer not to say'];
+                    options.forEach(option => {
+                        const optElement = document.createElement('option');
+                        optElement.value = option;
+                        optElement.textContent = option || 'Select gender';
+                        input.appendChild(optElement);
+                    });
+                } else if (field.id === 'dob' || field.id === 'lastCheckup') {
+                    // Date input
+                    input = document.createElement('input');
+                    input.type = 'date';
+                } else if (field.id === 'address' || field.id === 'allergies' || 
+                          field.id === 'medications' || field.id === 'medicalConditions' || 
+                          field.id === 'surgicalHistory' || field.id === 'vaccinations' ||
+                          field.id === 'reasonForVisit') {
+                    // Textarea for longer text
+                    input = document.createElement('textarea');
+                    input.rows = 3;
+                } else if (field.id === 'painLevel') {
+                    // Range input for pain level
+                    input = document.createElement('input');
+                    input.type = 'range';
+                    input.min = 0;
+                    input.max = 10;
+                    input.step = 1;
+                } else if (field.id === 'organDonor' || field.id === 'dnrStatus') {
+                    // Checkbox for yes/no fields
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'flex items-center';
+                    
+                    input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.className = 'mr-2';
+                    
+                    const checkboxLabel = document.createElement('span');
+                    checkboxLabel.textContent = 'Yes';
+                    
+                    wrapper.appendChild(input);
+                    wrapper.appendChild(checkboxLabel);
+                    fieldDiv.appendChild(label);
+                    fieldDiv.appendChild(wrapper);
+                    formFieldsContainer.appendChild(fieldDiv);
+                    
+                    input.name = field.id;
+                    input.required = field.required;
+                    
+                    // Skip the rest of the loop for checkbox type
+                    return;
+                } else {
+                    // Default to text input
+                    input = document.createElement('input');
+                    input.type = 'text';
+                }
+                
+                // Common input attributes
+                input.id = field.id;
+                input.name = field.id;
+                input.className = 'shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline';
+                input.required = field.required;
+                
+                // Append elements to the container
+                fieldDiv.appendChild(label);
+                fieldDiv.appendChild(input);
+                formFieldsContainer.appendChild(fieldDiv);
+            });
+        }
+
+        function savePatient(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const formData = new FormData(patientForm);
+            const patientData = {};
+            
+            for (const [key, value] of formData.entries()) {
+                patientData[key] = value;
+            }
+            
+            // Handle checkboxes separately
+            formFields.forEach(field => {
+                if (field.id === 'organDonor' || field.id === 'dnrStatus') {
+                    const checkbox = document.querySelector(`[name="${field.id}"]`);
+                    patientData[field.id] = checkbox.checked ? 'Yes' : 'No';
+                }
+            });
+            
+            // Validate required fields
+            const requiredFields = formFields.filter(field => field.required);
+            const missingFields = requiredFields.filter(field => !patientData[field.id]);
+            
+            if (missingFields.length > 0) {
+                const fieldNames = missingFields.map(field => field.label).join(', ');
+                showAlert(`Please fill in the required fields: ${fieldNames}`);
+                return;
+            }
+            
+            const editId = document.getElementById('edit-patient-id').value;
+            
+            if (editId) {
+                // Update existing patient
+                const index = patients.findIndex(p => p.patientId === editId);
+                if (index !== -1) {
+                    patients[index] = patientData;
+                }
+            } else {
+                // Check if patient ID already exists
+                if (patients.some(p => p.patientId === patientData.patientId)) {
+                    showAlert('Patient ID already exists. Please use a different ID.');
+                    return;
+                }
+                
+                // Add new patient
+                patients.push(patientData);
+            }
+            
+            // Save to localStorage (in a real app, would save to Firebase)
+            localStorage.setItem('patients', JSON.stringify(patients));
+            
+            // Update UI
+            renderPatients();
+            closeModal();
+            showAlert(editId ? 'Patient updated successfully' : 'Patient added successfully');
+        }
+
+        function closeModal() {
+            patientModal.classList.add('hidden');
+        }
+
+        function showAlert(message) {
+            alertMessage.textContent = message;
+            alertModal.classList.remove('hidden');
+        }
+
+        function closeAlertModal() {
+            alertModal.classList.add('hidden');
+        }
+
+        // Import/Export Functions
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                importFileName.textContent = file.name;
+            }
+        }
+
+        function importData() {
+            const file = importFile.files[0];
+            if (!file) {
+                showAlert('Please select a file to import');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const fileContent = e.target.result;
+                    let importedData;
+                    
+                    if (file.name.endsWith('.json')) {
+                        importedData = JSON.parse(fileContent);
+                    } else if (file.name.endsWith('.xml')) {
+                        importedData = parseXml(fileContent);
+                    } else {
+                        throw new Error('Unsupported file format');
+                    }
+                    
+                    if (Array.isArray(importedData)) {
+                        // Validate imported data
+                        const requiredFields = formFields.filter(field => field.required);
+                        const validPatients = importedData.filter(patient => {
+                            return requiredFields.every(field => patient[field.id]);
+                        });
+                        
+                        // Add new patients
+                        let newCount = 0;
+                        validPatients.forEach(patient => {
+                            if (!patients.some(p => p.patientId === patient.patientId)) {
+                                patients.push(patient);
+                                newCount++;
+                            }
+                        });
+                        
+                        localStorage.setItem('patients', JSON.stringify(patients));
+                        renderPatients();
+                        
+                        showAlert(`Import successful. Added ${newCount} new patients.`);
+                    } else {
+                        throw new Error('Invalid data format. Expected an array of patients.');
+                    }
+                } catch (error) {
+                    showAlert(`Import failed: ${error.message}`);
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function parseXml(xmlString) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+            
+            const patientNodes = xmlDoc.getElementsByTagName('patient');
+            const patients = [];
+            
+            for (let i = 0; i < patientNodes.length; i++) {
+                const patientNode = patientNodes[i];
+                const patient = {};
+                
+                for (const field of formFields) {
+                    const fieldNode = patientNode.getElementsByTagName(field.id)[0];
+                    if (fieldNode) {
+                        patient[field.id] = fieldNode.textContent;
+                    }
+                }
+                
+                patients.push(patient);
+            }
+            
+            return patients;
+        }
+
+        function exportData(format) {
+            if (patients.length === 0) {
+                showAlert('No patients to export');
+                return;
+            }
+            
+            let content, fileName, mimeType;
+            
+            if (format === 'json') {
+                content = JSON.stringify(patients, null, 2);
+                fileName = 'patients.json';
+                mimeType = 'application/json';
+            } else if (format === 'xml') {
+                content = generateXml(patients);
+                fileName = 'patients.xml';
+                mimeType = 'application/xml';
+            } else if (format === 'hl7') {
+                content = generateHL7(patients);
+                fileName = 'patients.hl7';
+                mimeType = 'text/plain';
+            } else {
+                showAlert('Unsupported export format');
+                return;
+            }
+            
+            // Create a Blob and download it
+            const blob = new Blob([content], { type: mimeType });
+            saveAs(blob, fileName);
+        }
+
+        function generateXml(patients) {
+            let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            xml += '<patients>\n';
+            
+            patients.forEach(patient => {
+                xml += '  <patient>\n';
+                
+                for (const field of formFields) {
+                    if (patient[field.id]) {
+                        xml += `    <${field.id}>${escapeXml(patient[field.id])}</${field.id}>\n`;
+                    }
+                }
+                
+                xml += '  </patient>\n';
+            });
+            
+            xml += '</patients>';
+            return xml;
+        }
+
+        function escapeXml(unsafe) {
+            return unsafe
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+
+        function generateHL7(patients) {
+            // Simple HL7 v2.x format (not fully compliant but demonstrates the concept)
+            let hl7 = '';
+            
+            patients.forEach((patient, index) => {
+                // Message Header (MSH) segment
+                const timestamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+                hl7 += `MSH|^~\\&|MEDICAL_DASHBOARD|CLINIC|RECEIVER|DESTINATION|${timestamp}||ADT^A01|${index + 1}|P|2.3\r`;
+                
+                // Patient Identification (PID) segment
+                hl7 += `PID|1||${patient.patientId}||${patient.fullName || ''}^||${patient.dob || ''}|${patient.gender || ''}|||${patient.address || ''}|${patient.phone || ''}|${patient.emergencyPhone || ''}||||||||||||||||||\r`;
+                
+                // Patient Visit (PV1) segment
+                hl7 += `PV1|1|O|||||${patient.primaryPhysician || ''}|||||||||||||||||||||||||||||||||||${patient.reasonForVisit || ''}\r`;
+                
+                // Additional segments for other data could be added here
+                hl7 += `\r`;
+            });
+            
+            return hl7;
+        }
+
+        // Charts and Visualization
+        function initCharts() {
+            // Example demographic data
+            const demographicData = {
+                labels: ['0-18', '19-35', '36-50', '51-65', '65+'],
+                datasets: [{
+                    label: 'Patients by Age Group',
+                    data: [5, 12, 19, 8, 5],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(255, 206, 86, 0.2)',
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(153, 102, 255, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+
+            const conditionsData = {
+                labels: ['Hypertension', 'Diabetes', 'Asthma', 'Arthritis', 'Heart Disease'],
+                datasets: [{
+                    label: 'Common Conditions',
+                    data: [25, 18, 12, 8, 5],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(255, 206, 86, 0.2)',
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(153, 102, 255, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+
+            // Demographics Chart
+            const demographicsCtx = document.getElementById('demographics-chart');
+            if (demographicsCtx) {
+                new Chart(demographicsCtx, {
+                    type: 'pie',
+                    data: demographicData,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Conditions Chart
+            const conditionsCtx = document.getElementById('conditions-chart');
+            if (conditionsCtx) {
+                new Chart(conditionsCtx, {
+                    type: 'bar',
+                    data: conditionsData,
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        </script>
