@@ -684,188 +684,370 @@ copyright p {
 
     <script>
         // Create floating particles for background effect
-        function createParticles() {
-            const particleCount = 30;
-            const exhibition = document.querySelector('.exhibition');
-            
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.classList.add('floating-particle');
-                
-                // Random size
-                const size = Math.random() * 5 + 2;
-                particle.style.width = `${size}px`;
-                particle.style.height = `${size}px`;
-                
-                // Random position
-                particle.style.left = `${Math.random() * 100}%`;
-                particle.style.top = `${Math.random() * 100}%`;
-                
-                // Random opacity
-                particle.style.opacity = Math.random() * 0.3;
-                
-                // Animation
-                const duration = Math.random() * 50 + 30;
-                particle.style.animation = `float ${duration}s linear infinite`;
-                particle.style.animationDelay = `${Math.random() * 10}s`;
-                
-                exhibition.appendChild(particle);
-            }
-        }
+function createParticles() {
+    const particleCount = 30;
+    const exhibition = document.querySelector('.exhibition');
+    
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.classList.add('floating-particle');
+        
+        // Random size
+        const size = Math.random() * 5 + 2;
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        
+        // Random position
+        particle.style.left = `${Math.random() * 100}%`;
+        particle.style.top = `${Math.random() * 100}%`;
+        
+        // Random opacity
+        particle.style.opacity = Math.random() * 0.3;
+        
+        // Animation
+        const duration = Math.random() * 50 + 30;
+        particle.style.animation = `float ${duration}s linear infinite`;
+        particle.style.animationDelay = `${Math.random() * 10}s`;
+        
+        exhibition.appendChild(particle);
+    }
+}
 
-        // Handle scroll animations and parallax
-        function handleScroll() {
-            const sections = document.querySelectorAll('.exhibit-section');
-            const windowHeight = window.innerHeight;
-            const scrollY = window.scrollY;
-            
-            // Process each exhibit section
-            sections.forEach(section => {
-                const stickyContainer = section.querySelector('.sticky-container');
-                const rect = section.getBoundingClientRect();
-                const parallaxBg = section.querySelector('.parallax-bg');
-                const speed = parseFloat(parallaxBg.getAttribute('data-speed'));
-                
-                // Calculate if section is in view
-                const sectionTop = rect.top + scrollY;
-                const sectionBottom = sectionTop + rect.height;
-                const inView = (scrollY >= sectionTop - windowHeight / 2) && 
-                               (scrollY < sectionBottom - windowHeight / 2);
-                
-                // Toggle active class based on visibility
-                if (inView) {
-                    stickyContainer.classList.add('active');
-                } else {
-                    stickyContainer.classList.remove('active');
-                }
-                
-                // Parallax effect
-                if (parallaxBg) {
-                    const yOffset = (scrollY - sectionTop) * speed;
-                    parallaxBg.style.transform = `translateY(${yOffset}px)`;
-                }
-            });
-        }
-
-        // Smooth scrolling for navigation
-        function setupSmoothScroll() {
-            const navLinks = document.querySelectorAll('.nav-links a');
-            
-            navLinks.forEach(link => {
-                const href = link.getAttribute('href');
-                // Only apply smooth scroll to internal links
-                if (href && href.startsWith('#')) {
-                    link.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        
-                        const targetId = this.getAttribute('href');
-                        const targetElement = document.querySelector(targetId);
-                        
-                        if (targetElement) {
-                            window.scrollTo({
-                                top: targetElement.offsetTop,
-                                behavior: 'smooth'
-                            });
-                            
-                            // Close mobile menu if open
-                            if (document.querySelector('.nav-links.active')) {
-                                toggleMobileMenu();
-                            }
-                        }
-                    });
-                }
-            });
+// Add spotlight overlay to each section
+function addSpotlightEffects() {
+    const sections = document.querySelectorAll('.exhibit-section');
+    
+    sections.forEach((section, index) => {
+        // Create spotlight overlay
+        const spotlight = document.createElement('div');
+        spotlight.classList.add('spotlight-overlay');
+        spotlight.setAttribute('data-section-id', index);
+        
+        // Add multiple light sources for more dynamic effect
+        for (let i = 0; i < 3; i++) {
+            const lightSource = document.createElement('div');
+            lightSource.classList.add('light-source');
+            lightSource.style.left = `${30 + (i * 20)}%`;
+            lightSource.style.top = `${40 + (Math.random() * 20)}%`;
+            lightSource.style.opacity = 0.7 - (i * 0.2);
+            spotlight.appendChild(lightSource);
         }
         
-        // Mobile menu toggle
-        function setupMobileMenu() {
-            const menuToggle = document.getElementById('menu-toggle');
-            const navLinks = document.getElementById('nav-links');
-            const menuIcon = document.querySelector('.menu-icon');
-            const closeIcon = document.querySelector('.close-icon');
-            const dropdowns = document.querySelectorAll('.dropdown');
+        section.appendChild(spotlight);
+    });
+}
+
+// Enhanced scroll handler with spotlight effect
+function handleScroll() {
+    const sections = document.querySelectorAll('.exhibit-section');
+    const windowHeight = window.innerHeight;
+    const scrollY = window.scrollY;
+    const viewportCenter = window.innerHeight / 2;
+    
+    // Process each exhibit section
+    sections.forEach((section, index) => {
+        const stickyContainer = section.querySelector('.sticky-container');
+        const rect = section.getBoundingClientRect();
+        const parallaxBg = section.querySelector('.parallax-bg');
+        const spotlight = section.querySelector('.spotlight-overlay');
+        const lightSources = section.querySelectorAll('.light-source');
+        const speed = parallaxBg ? parseFloat(parallaxBg.getAttribute('data-speed')) : 0.2;
+        
+        // Calculate if section is in view
+        const sectionTop = rect.top + scrollY;
+        const sectionBottom = sectionTop + rect.height;
+        const inView = (scrollY >= sectionTop - windowHeight / 2) && 
+                       (scrollY < sectionBottom - windowHeight / 2);
+        
+        // Toggle active class based on visibility
+        if (inView) {
+            stickyContainer.classList.add('active');
             
-            if (menuToggle) {
-                menuToggle.addEventListener('click', toggleMobileMenu);
+            // Calculate progress through the section (0 to 1)
+            const progress = (scrollY - sectionTop + windowHeight / 2) / (rect.height);
+            const clampedProgress = Math.max(0, Math.min(1, progress));
+            
+            // Apply entrance animations to content
+            animateSectionContent(section, clampedProgress);
+            
+            // Update spotlight positions
+            if (spotlight) {
+                // Calculate the vertical position within the section (normalized 0-1)
+                const verticalPosition = (rect.top * -1) / (rect.height - windowHeight);
+                const clampedVertical = Math.max(0, Math.min(1, verticalPosition));
+                
+                // Move spotlights based on scroll position
+                lightSources.forEach((light, i) => {
+                    const offsetX = Math.sin(clampedVertical * Math.PI * 2 + i) * 10;
+                    const offsetY = Math.cos(clampedVertical * Math.PI * 2 + i) * 10;
+                    
+                    light.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                    
+                    // Adjust intensity based on scroll position
+                    const baseOpacity = 0.7 - (i * 0.2);
+                    light.style.opacity = baseOpacity * (0.5 + Math.sin(clampedVertical * Math.PI) * 0.5);
+                });
+                
+                // Increase spotlight visibility when in view
+                spotlight.style.opacity = 0.8;
             }
-            
-            // Setup dropdown toggles for mobile
-            dropdowns.forEach(dropdown => {
-                const link = dropdown.querySelector('a');
-                if (window.innerWidth <= 768) {
-                    link.addEventListener('click', function(e) {
-                        if (window.innerWidth <= 768) {
-                            e.preventDefault();
-                            dropdown.classList.toggle('active');
-                        }
-                    });
-                }
-            });
+        } else {
+            stickyContainer.classList.remove('active');
+            if (spotlight) {
+                spotlight.style.opacity = 0;
+            }
         }
         
-        function toggleMobileMenu() {
-            const navLinks = document.getElementById('nav-links');
-            const menuIcon = document.querySelector('.menu-icon');
-            const closeIcon = document.querySelector('.close-icon');
-            
-            navLinks.classList.toggle('active');
-            
-            if (navLinks.classList.contains('active')) {
-                menuIcon.style.display = 'none';
-                closeIcon.style.display = 'block';
-            } else {
-                menuIcon.style.display = 'block';
-                closeIcon.style.display = 'none';
+        // Enhanced parallax effect
+        if (parallaxBg) {
+            const yOffset = (scrollY - sectionTop) * speed;
+            // Add some horizontal movement for more dynamism
+            const xOffset = Math.sin((scrollY - sectionTop) * 0.002) * 15;
+            parallaxBg.style.transform = `translateY(${yOffset}px) translateX(${xOffset}px)`;
+        }
+        
+        // Add spotlight tracking to mouse position when section is in view
+        if (inView && spotlight) {
+            document.addEventListener('mousemove', trackMouseForSpotlight);
+        } else {
+            document.removeEventListener('mousemove', trackMouseForSpotlight);
+        }
+    });
+}
+
+// Animate content elements based on scroll progress
+function animateSectionContent(section, progress) {
+    const contentElements = section.querySelectorAll('.exhibit-content > *');
+    const delay = 0.1; // delay between elements
+    
+    contentElements.forEach((element, index) => {
+        // Start animating each element at different scroll positions
+        const elementProgress = Math.max(0, Math.min(1, (progress - (index * delay)) * 2));
+        
+        if (elementProgress > 0) {
+            // Fade in and slide up
+            element.style.opacity = elementProgress;
+            element.style.transform = `translateY(${20 - (elementProgress * 20)}px)`;
+        } else {
+            element.style.opacity = 0;
+            element.style.transform = 'translateY(20px)';
+        }
+    });
+}
+
+// Track mouse position for spotlight effect
+function trackMouseForSpotlight(e) {
+    const sections = document.querySelectorAll('.exhibit-section');
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+    
+    sections.forEach(section => {
+        const rect = section.getBoundingClientRect();
+        if (rect.top < window.innerHeight && rect.bottom > 0) {
+            const spotlight = section.querySelector('.spotlight-overlay');
+            if (spotlight) {
+                const lightSources = spotlight.querySelectorAll('.light-source');
+                
+                // Calculate position relative to the section
+                const relativeX = (mouseX - rect.left) / rect.width;
+                const relativeY = (mouseY - rect.top) / rect.height;
+                
+                // Only apply when mouse is over or near the section
+                if (relativeX >= -0.5 && relativeX <= 1.5 && relativeY >= -0.5 && relativeY <= 1.5) {
+                    lightSources.forEach((light, index) => {
+                        // Each light source follows the mouse with different delays
+                        const followStrength = 0.3 - (index * 0.1);
+                        const currentLeft = parseFloat(light.style.left) || 50;
+                        const currentTop = parseFloat(light.style.top) || 50;
+                        
+                        const targetLeft = relativeX * 100;
+                        const targetTop = relativeY * 100;
+                        
+                        // Smooth movement
+                        const newLeft = currentLeft + (targetLeft - currentLeft) * followStrength;
+                        const newTop = currentTop + (targetTop - currentTop) * followStrength;
+                        
+                        light.style.left = `${Math.max(10, Math.min(90, newLeft))}%`;
+                        light.style.top = `${Math.max(10, Math.min(90, newTop))}%`;
+                    });
+                }
             }
         }
+    });
+}
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            createParticles();
-            setupSmoothScroll();
-            setupMobileMenu();
-            
-            // Initial check
-            handleScroll();
-            
-            // Scroll event listener
-            window.addEventListener('scroll', handleScroll);
-            
-            // Resize listener for mobile menu adjustments
-            window.addEventListener('resize', function() {
-                if (window.innerWidth > 768) {
-                    const navLinks = document.getElementById('nav-links');
-                    if (navLinks.classList.contains('active')) {
-                        navLinks.classList.remove('active');
-                        document.querySelector('.menu-icon').style.display = 'block';
-                        document.querySelector('.close-icon').style.display = 'none';
+// Smooth scrolling for navigation
+function setupSmoothScroll() {
+    const navLinks = document.querySelectorAll('.nav-links a');
+    
+    navLinks.forEach(link => {
+        const href = link.getAttribute('href');
+        // Only apply smooth scroll to internal links
+        if (href && href.startsWith('#')) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                
+                if (targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop,
+                        behavior: 'smooth'
+                    });
+                    
+                    // Close mobile menu if open
+                    if (document.querySelector('.nav-links.active')) {
+                        toggleMobileMenu();
                     }
                 }
             });
-        });
+        }
+    });
+}
 
-        // Add CSS animation for floating particles
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes float {
-                0% {
-                    transform: translateY(0) translateX(0);
+// Mobile menu toggle
+function setupMobileMenu() {
+    const menuToggle = document.getElementById('menu-toggle');
+    const navLinks = document.getElementById('nav-links');
+    const menuIcon = document.querySelector('.menu-icon');
+    const closeIcon = document.querySelector('.close-icon');
+    const dropdowns = document.querySelectorAll('.dropdown');
+    
+    if (menuToggle) {
+        menuToggle.addEventListener('click', toggleMobileMenu);
+    }
+    
+    // Setup dropdown toggles for mobile
+    dropdowns.forEach(dropdown => {
+        const link = dropdown.querySelector('a');
+        if (window.innerWidth <= 768) {
+            link.addEventListener('click', function(e) {
+                if (window.innerWidth <= 768) {
+                    e.preventDefault();
+                    dropdown.classList.toggle('active');
                 }
-                25% {
-                    transform: translateY(-30px) translateX(15px);
-                }
-                50% {
-                    transform: translateY(-15px) translateX(30px);
-                }
-                75% {
-                    transform: translateY(15px) translateX(15px);
-                }
-                100% {
-                    transform: translateY(0) translateX(0);
-                }
+            });
+        }
+    });
+}
+
+function toggleMobileMenu() {
+    const navLinks = document.getElementById('nav-links');
+    const menuIcon = document.querySelector('.menu-icon');
+    const closeIcon = document.querySelector('.close-icon');
+    
+    navLinks.classList.toggle('active');
+    
+    if (navLinks.classList.contains('active')) {
+        menuIcon.style.display = 'none';
+        closeIcon.style.display = 'block';
+    } else {
+        menuIcon.style.display = 'block';
+        closeIcon.style.display = 'none';
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    createParticles();
+    addSpotlightEffects();
+    setupSmoothScroll();
+    setupMobileMenu();
+    
+    // Initial check
+    handleScroll();
+    
+    // Scroll event listener
+    window.addEventListener('scroll', handleScroll);
+    
+    // Resize listener for mobile menu adjustments
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            const navLinks = document.getElementById('nav-links');
+            if (navLinks.classList.contains('active')) {
+                navLinks.classList.remove('active');
+                document.querySelector('.menu-icon').style.display = 'block';
+                document.querySelector('.close-icon').style.display = 'none';
             }
-        `;
-        document.head.appendChild(style);
+        }
+    });
+});
+
+// Add CSS animations and styles for spotlight effects
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes float {
+        0% {
+            transform: translateY(0) translateX(0);
+        }
+        25% {
+            transform: translateY(-30px) translateX(15px);
+        }
+        50% {
+            transform: translateY(-15px) translateX(30px);
+        }
+        75% {
+            transform: translateY(15px) translateX(15px);
+        }
+        100% {
+            transform: translateY(0) translateX(0);
+        }
+    }
+    
+    /* Spotlight effect styles */
+    .spotlight-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+        z-index: 1;
+    }
+    
+    .light-source {
+        position: absolute;
+        width: 250px;
+        height: 250px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 70%);
+        mix-blend-mode: overlay;
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        transition: transform 0.3s ease-out;
+    }
+    
+    /* Enhanced exhibit content animations */
+    .exhibit-content > * {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    
+    /* Make sticky sections have depth */
+    .sticky-container {
+        transition: transform 0.5s ease;
+    }
+    
+    .sticky-container.active {
+        transform: scale(1);
+        filter: brightness(1);
+    }
+    
+    .sticky-container:not(.active) {
+        transform: scale(0.95);
+        filter: brightness(0.7);
+    }
+    
+    /* Enhanced parallax background */
+    .parallax-bg {
+        transition: transform 0.1s ease-out;
+    }
+`;
+document.head.appendChild(style);
     </script>
 </body>
 </html>
