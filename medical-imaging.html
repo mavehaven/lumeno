@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DICOM Light Field Viewer</title>
+  <style>
+    body {
+      background: #111;
+      color: #eee;
+      font-family: sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    /* Light mode overrides */
+    body.light-mode {
+      background: #eee;
+      color: #111;
+    }
+    body.light-mode #controls .control-group {
+      background: #f5f5f5;
+      border: 1px solid #ccc;
+    }
+    body.light-mode canvas {
+      background: #ddd;
+    }
+    /* Container to center the canvas */
+    #canvasContainer {
+      margin: 20px auto;
+      display: inline-block;
+      background: #222;
+      border: 1px solid #444;
+      position: relative;
+    }
+    canvas {
+      display: block;
+      cursor: crosshair;
+    }
+    #controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin: 20px auto;
+      max-width: 1000px;
+      text-align: left;
+    }
+    .control-group {
+      background: #222;
+      padding: 10px;
+      border: 1px solid #444;
+      border-radius: 5px;
+      position: relative;
+    }
+    .control-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .control-group input[type="range"],
+    .control-group input[type="file"],
+    .control-group button {
+      margin-top: 5px;
+      background: #333;
+      border: none;
+      color: #eee;
+      padding: 8px;
+      cursor: pointer;
+      width: 100%;
+      border-radius: 4px;
+    }
+    /* Tooltip container */
+    .tooltip {
+      display: inline-block;
+      margin-left: 5px;
+      position: relative;
+      cursor: help;
+      color: #ccc;
+      border: 1px solid #ccc;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      text-align: center;
+      line-height: 14px;
+      font-size: 12px;
+    }
+    /* Tooltip text */
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 220px;
+      background-color: #333;
+      color: #fff;
+      text-align: left;
+      border-radius: 5px;
+      padding: 8px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -110px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+    #shiftMonitor {
+      margin-top: 15px;
+      font-size: 0.9em;
+      color: #ccc;
+    }
+    
+    /* Measurement tools styles */
+    #measurementTools {
+      margin: 10px auto;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      max-width: 600px;
+    }
+    
+    #measurementTools button {
+      background: #333;
+      border: none;
+      color: #eee;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+    #measurementTools button.active {
+      background: #5a5;
+    }
+    
+    body.light-mode #measurementTools button {
+      background: #ddd;
+      color: #333;
+    }
+    
+    body.light-mode #measurementTools button.active {
+      background: #5c5;
+    }
+    
+    #measurementValue {
+      padding: 8px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+      margin: 10px auto;
+      display: inline-block;
+    }
+    
+    /* Series navigation */
+    #seriesNav {
+      margin: 10px auto;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+    
+    #seriesNav button {
+      background: #333;
+      border: none;
+      color: #eee;
+      padding: 8px 15px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    
+    #currentImageIndex {
+      font-size: 16px;
+      padding: 8px;
+      line-height: 1;
+    }
+    
+    /* Measurement lines */
+    .measurement-line {
+      position: absolute;
+      pointer-events: none;
+      z-index: 100;
+    }
+    
+    /* Status message */
+    #statusMessage {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 5px;
+      transition: opacity 0.5s;
+      opacity: 0;
+    }
+    
+    #statusMessage.visible {
+      opacity: 1;
+    }
+  </style>
+  <!-- Include Cornerstone libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cornerstone-core/2.3.0/cornerstone.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cornerstone-math/0.1.9/cornerstoneMath.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cornerstone-wado-image-loader/4.1.3/cornerstoneWADOImageLoader.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dicom-parser/1.8.12/dicomParser.min.js"></script>
+</head>
+<body>
+  <h1>DICOM Light Field Viewer</h1>
+  <p>
+    Upload DICOM images and view them with enhanced depth perception using light field technology.
+    Adjust window/level, make measurements, and use annotations to better understand your medical images.
+  </p>
+  
+  <div id="controls">
+    <!-- DICOM Upload Group -->
+    <div class="control-group">
+      <label for="uploadDicom">
+        Upload DICOM Files 
+        <span class="tooltip">?
+          <span class="tooltiptext">Select one or more DICOM medical images to view with enhanced depth perception.</span>
+        </span>
+      </label>
+      <input type="file" id="uploadDicom" accept=".dcm" multiple>
+    </div>
+    
+    <!-- Animation Controls -->
+    <div class="control-group">
+      <label for="toggleAnimation">
+        Animation 
+        <span class="tooltip">?
+          <span class="tooltiptext">Toggle the depth perception animation on or off.</span>
+        </span>
+      </label>
+      <button id="toggleAnimation">Start Animation</button>
+    </div>
+    
+    <div class="control-group">
+      <label for="setSweetSpot">
+        Set Reference Point 
+        <span class="tooltip">?
+          <span class="tooltiptext">Click to set the fixed reference point on the image for the depth effect.</span>
+        </span>
+      </label>
+      <button id="setSweetSpot">Set Reference Point</button>
+    </div>
+    
+    <!-- Window/Level Controls -->
+    <div class="control-group">
+      <label for="windowWidthSlider">
+        Window Width 
+        <span class="tooltip">?
+          <span class="tooltiptext">Adjusts the contrast of the DICOM image.</span>
+        </span>
+        : <span id="windowWidthValue">400</span>
+      </label>
+      <input type="range" id="windowWidthSlider" min="1" max="4000" value="400">
+    </div>
+    
+    <div class="control-group">
+      <label for="windowCenterSlider">
+        Window Center (Level) 
+        <span class="tooltip">?
+          <span class="tooltiptext">Adjusts the brightness of the DICOM image.</span>
+        </span>
+        : <span id="windowCenterValue">40</span>
+      </label>
+      <input type="range" id="windowCenterSlider" min="-1000" max="1000" value="40">
+    </div>
+    
+    <!-- Depth Effect Controls -->
+    <div class="control-group">
+      <label for="amplitudeSlider">
+        Depth Effect Strength 
+        <span class="tooltip">?
+          <span class="tooltiptext">Controls the maximum pixel displacement for depth effect.</span>
+        </span>
+        : <span id="amplitudeValue">25</span>
+      </label>
+      <input type="range" id="amplitudeSlider" min="0" max="100" value="25">
+    </div>
+    
+    <div class="control-group">
+      <label for="depthRangeSlider">
+        Depth Range 
+        <span class="tooltip">?
+          <span class="tooltiptext">Scales the overall depth effect amplitude.</span>
+        </span>
+        : <span id="depthRangeValue">1</span>
+      </label>
+      <input type="range" id="depthRangeSlider" min="0.5" max="2" step="0.1" value="1">
+    </div>
+    
+    <div class="control-group">
+      <label for="angularResSlider">
+        Depth Layers 
+        <span class="tooltip">?
+          <span class="tooltiptext">Determines the number of image layers blended for depth effect.</span>
+        </span>
+        : <span id="angularResValue">10</span>
+      </label>
+      <input type="range" id="angularResSlider" min="2" max="20" value="10">
+    </div>
+    
+    <!-- Toggle Controls -->
+    <div class="control-group">
+      <label for="toggleAutoAngle">
+        View Mode 
+        <span class="tooltip">?
+          <span class="tooltiptext">Switch between mouse-controlled and auto-rotating view angles.</span>
+        </span>
+      </label>
+      <button id="toggleAutoAngle">Use Auto Angle</button>
+    </div>
+    
+    <div class="control-group">
+      <label for="toggleAnnotations">
+        DICOM Annotations 
+        <span class="tooltip">?
+          <span class="tooltiptext">Show or hide DICOM metadata annotations.</span>
+        </span>
+      </label>
+      <button id="toggleAnnotations">Show Annotations</button>
+    </div>
+    
+    <div class="control-group">
+      <label for="toggleTheme">
+        Toggle Theme 
+        <span class="tooltip">?
+          <span class="tooltiptext">Switch between Dark Mode and Light Mode.</span>
+        </span>
+      </label>
+      <button id="toggleTheme">Toggle Theme</button>
+    </div>
+  </div>
+  
+  <!-- Series Navigation -->
+  <div id="seriesNav">
+    <button id="prevImage">❮ Previous</button>
+    <div id="currentImageIndex">0/0</div>
+    <button id="nextImage">Next ❯</button>
+  </div>
+  
+  <!-- Measurement Tools -->
+  <div id="measurementTools">
+    <button id="distanceTool">Distance Measurement</button>
+    <button id="angleTool">Angle Measurement</button>
+    <button id="areaTool">Area Measurement</button>
+    <button id="resetMeasurements">Reset Measurements</button>
+  </div>
+  <div id="measurementValue">No active measurements</div>
+  
+  <!-- Canvas Container -->
+  <div id="canvasContainer">
+    <canvas id="canvas"></canvas>
+  </div>
+  <div id="shiftMonitor">Mapping: N/A</div>
+  
+  <!-- Status Message -->
+  <div id="statusMessage"></div>
+
+  <script>
+    // Get canvas and control elements
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const canvasContainer = document.getElementById("canvasContainer");
+    const dicomInput = document.getElementById("uploadDicom");
+    const toggleButton = document.getElementById("toggleAnimation");
+    const setSweetSpotButton = document.getElementById("setSweetSpot");
+    const shiftMonitor = document.getElementById("shiftMonitor");
+    const windowWidthSlider = document.getElementById("windowWidthSlider");
+    const windowCenterSlider = document.getElementById("windowCenterSlider");
+    const windowWidthValue = document.getElementById("windowWidthValue");
+    const windowCenterValue = document.getElementById("windowCenterValue");
+    const toggleAnnotationsButton = document.getElementById("toggleAnnotations");
+    const toggleThemeButton = document.getElementById("toggleTheme");
+    const toggleAutoAngleButton = document.getElementById("toggleAutoAngle");
+    const prevImageButton = document.getElementById("prevImage");
+    const nextImageButton = document.getElementById("nextImage");
+    const currentImageIndexDisplay = document.getElementById("currentImageIndex");
+    const distanceToolButton = document.getElementById("distanceTool");
+    const angleToolButton = document.getElementById("angleTool");
+    const areaToolButton = document.getElementById("areaTool");
+    const resetMeasurementsButton = document.getElementById("resetMeasurements");
+    const measurementValueDisplay = document.getElementById("measurementValue");
+    const statusMessage = document.getElementById("statusMessage");
+    
+    // Sliders and their display spans.
+    const amplitudeSlider = document.getElementById("amplitudeSlider");
+    const depthRangeSlider = document.getElementById("depthRangeSlider");
+    const angularResSlider = document.getElementById("angularResSlider");
+    
+    const amplitudeValue = document.getElementById("amplitudeValue");
+    const depthRangeValue = document.getElementById("depthRangeValue");
+    const angularResValue = document.getElementById("angularResValue");
+    
+    // Default parameter values.
+    let amplitude = parseFloat(amplitudeSlider.value);
+    let depthRange = parseFloat(depthRangeSlider.value);
+    let angularResolution = parseInt(angularResSlider.value);
+    
+    // Mode flags.
+    let autoAngle = false;  // false: mouse-controlled; true: auto-rotating.
+    let animationActive = false;
+    let animationStartTime = null;
+    let showAnnotations = false;
+    
+    // Image handling.
+    let dicomImages = [];
+    let currentImageIndex = 0;
+    
+    // Reference point (formerly Sweet Spot).
+    let referencePoint = { x: canvas.width / 2, y: canvas.height / 2 };
+    let setReferencePointMode = false;
+    
+    // Mouse position for tracking.
+    let mousePos = { x: canvas.width / 2, y: canvas.height / 2 };
+    
+    // DICOM-specific variables
+    let dicomSeries = [];
+    let dicomMetadata = [];
+    
+    // Measurement variables
+    let activeMeasurementTool = null;
+    let measurementStartPoint = null;
+    let currentMeasurements = [];
+    
+    // Update parameter values on slider input.
+    amplitudeSlider.addEventListener("input", () => { 
+      amplitude = parseFloat(amplitudeSlider.value); 
+      amplitudeValue.textContent = amplitude; 
+    });
+    depthRangeSlider.addEventListener("input", () => { 
+      depthRange = parseFloat(depthRangeSlider.value); 
+      depthRangeValue.textContent = depthRange; 
+    });
+    angularResSlider.addEventListener("input", () => { 
+      angularResolution = parseInt(angularResSlider.value); 
+      angularResValue.textContent = angularResolution; 
+    });
+    
+    // Window/level adjustments
+    windowWidthSlider.addEventListener("input", () => {
+      const width = parseInt(windowWidthSlider.value);
+      windowWidthValue.textContent = width;
+      if (dicomSeries.length > 0 && currentImageIndex < dicomSeries.length) {
+        updateWindowLevel(width, parseInt(windowCenterSlider.value));
+      }
+    });
+    
+    windowCenterSlider.addEventListener("input", () => {
+      const center = parseInt(windowCenterSlider.value);
+      windowCenterValue.textContent = center;
+      if (dicomSeries.length > 0 && currentImageIndex < dicomSeries.length) {
+        updateWindowLevel(parseInt(windowWidthSlider.value), center);
+      }
+    });
+    
+    // Toggle buttons
+    toggleAutoAngleButton.addEventListener("click", () => {
+      autoAngle = !autoAngle;
+      toggleAutoAngleButton.textContent = autoAngle ? "Use Mouse Angle" : "Use Auto Angle";
+    });
+    
+    toggleThemeButton.addEventListener("click", () => {
+      document.body.classList.toggle("light-mode");
+    });
+    
+    toggleAnnotationsButton.addEventListener("click", () => {
+      showAnnotations = !showAnnotations;
+      toggleAnnotationsButton.textContent = showAnnotations ? "Hide Annotations" : "Show Annotations";
+      renderFrame(0);
+    });
+    
+    // Toggle animation.
+    toggleButton.addEventListener("click", () => {
+      animationActive = !animationActive;
+      toggleButton.textContent = animationActive ? "Stop Animation" : "Start Animation";
+      if (animationActive) {
+        animationStartTime = null;
+        requestAnimationFrame(animate);
+      }
+    });
+    
+    // Set reference point mode
+    setSweetSpotButton.addEventListener("click", () => {
+      setReferencePointMode = !setReferencePointMode;
+      setSweetSpotButton.textContent = setReferencePointMode ? "Click on Image to Set" : "Set Reference Point";
+      
+      if (setReferencePointMode) {
+        showStatusMessage("Click on the image to set the reference point for depth effect");
+      } else {
+        hideStatusMessage();
+      }
+    });
+    
+    // Measurement tool buttons
+    distanceToolButton.addEventListener("click", () => {
+      activeMeasurementTool = activeMeasurementTool === 'distance' ? null : 'distance';
+      updateActiveMeasurementButton();
+      if (activeMeasurementTool) {
+        showStatusMessage("Click and drag to measure distance");
+      } else {
+        hideStatusMessage();
+      }
+    });
+    
+    angleToolButton.addEventListener("click", () => {
+      activeMeasurementTool = activeMeasurementTool === 'angle' ? null : 'angle';
+      updateActiveMeasurementButton();
+      if (activeMeasurementTool) {
+        showStatusMessage("Click three points to measure an angle");
+      } else {
+        hideStatusMessage();
+      }
+    });
+    
+    areaToolButton.addEventListener("click", () => {
+      activeMeasurementTool = activeMeasurementTool === 'area' ? null : 'area';
+      updateActiveMeasurementButton();
+      if (activeMeasurementTool) {
+        showStatusMessage("Click to add points, double-click to complete the area");
+      } else {
+        hideStatusMessage();
+      }
+    });
+    
+    resetMeasurementsButton.addEventListener("click", () => {
+      currentMeasurements = [];
+      measurementValueDisplay.textContent = "No active measurements";
+      renderFrame(0);
+      showStatusMessage("All measurements cleared", 2000);
+    });
+    
+    function updateActiveMeasurementButton() {
+      // Remove active class from all buttons
+      distanceToolButton.classList.remove('active');
+      angleToolButton.classList.remove('active');
+      areaToolButton.classList.remove('active');
+      
+      // Add active class to the selected tool button
+      if (activeMeasurementTool === 'distance') {
+        distanceToolButton.classList.add('active');
+      } else if (activeMeasurementTool === 'angle') {
+        angleToolButton.classList.add('active');
+      } else if (activeMeasurementTool === 'area') {
+        areaToolButton.classList.add('active');
+      }
+    }
+    
+    // Status message functions
+    function showStatusMessage(message, duration = 5000) {
+      statusMessage.textContent = message;
+      statusMessage.classList.add('visible');
+      
+      if (duration > 0) {
+        setTimeout(() => {
+          hideStatusMessage();
+        }, duration);
+      }
+    }
+    
+    function hideStatusMessage() {
+      statusMessage.classList.remove('visible');
+    }
+    
+    // Series navigation
+    prevImageButton.addEventListener("click", () => {
+      if (dicomSeries.length > 0) {
+        currentImageIndex = (currentImageIndex - 1 + dicomSeries.length) % dicomSeries.length;
+        updateCurrentImageDisplay();
+        renderFrame(0);
+      }
+    });
+    
+    nextImageButton.addEventListener("click", () => {
+      if (dicomSeries.length > 0) {
+        currentImageIndex = (currentImageIndex + 1) % dicomSeries.length;
+        updateCurrentImageDisplay();
+        renderFrame(0);
+      }
+    });
+    
+    function updateCurrentImageDisplay() {
+      if (dicomSeries.length > 0) {
+        currentImageIndexDisplay.textContent = `${currentImageIndex + 1}/${dicomSeries.length}`;
+      } else {
+        currentImageIndexDisplay.textContent = "0/0";
+      }
+    }
+    
+    // When in set reference point mode, clicking on the canvas updates the reference point.
+    canvas.addEventListener("click", (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      
+      if (setReferencePointMode) {
+        referencePoint.x = x;
+        referencePoint.y = y;
+        setReferencePointMode = false;
+        setSweetSpotButton.textContent = "Set Reference Point";
+        hideStatusMessage();
+        renderFrame(0);
+        showStatusMessage("Reference point set", 2000);
+      }
+    });
+    
+    // Update mouse position.
+    canvas.addEventListener("mousemove", (event) => {
+      const rect = canvas.getBoundingClientRect();
+      mousePos.x = event.clientX - rect.left;
+      mousePos.y = event.clientY - rect.top;
+    });
+    
+    // Measurement mouse events
+    canvas.addEventListener('mousedown', (e) => {
+      if (activeMeasurementTool) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        if (activeMeasurementTool === 'distance') {
+          measurementStartPoint = { x, y };
+        } else if (activeMeasurementTool === 'angle') {
+          // For angle tool, we need three points
+          if (!measurementStartPoint) {
+            measurementStartPoint = { points: [{ x, y }] };
+          } else if (measurementStartPoint.points.length === 1) {
+            measurementStartPoint.points.push({ x, y });
+          } else if (measurementStartPoint.points.length === 2) {
+            measurementStartPoint.points.push({ x, y });
+            // Calculate angle
+            calculateAngleMeasurement();
+            measurementStartPoint = null;
+          }
+          renderFrame(0);
+        } else if (activeMeasurementTool === 'area') {
+          if (!measurementStartPoint) {
+            measurementStartPoint = { points: [{ x, y }] };
+          } else {
+            measurementStartPoint.points.push({ x, y });
+          }
+          renderFrame(0);
+        }
+      }
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (activeMeasurementTool && measurementStartPoint) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Only update preview for distance tool during drag
+        if (activeMeasurementTool === 'distance') {
+          renderFrame(0);
+          
+          // Draw preview line
+          ctx.beginPath();
+          ctx.moveTo(measurementStartPoint.x, measurementStartPoint.y);
+          ctx.lineTo(x, y);
+          ctx.strokeStyle = 'yellow';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // Show preview measurement
+          const dx = x - measurementStartPoint.x;
+          const dy = y - measurementStartPoint.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          measurementValueDisplay.textContent = `Distance: ${distance.toFixed(2)} pixels`;
+        }
+      }
+    });
+    
+    canvas.addEventListener('mouseup', (e) => {
+      if (activeMeasurementTool === 'distance' && measurementStartPoint) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const dx = x - measurementStartPoint.x;
+        const dy = y - measurementStartPoint.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Add to measurements
+        currentMeasurements.push({
+          type: 'distance',
+          start: { x: measurementStartPoint.x, y: measurementStartPoint.y },
+          end: { x, y },
+          value: distance
+        });
+        
+        measurementValueDisplay.textContent = `Distance: ${distance.toFixed(2)} pixels`;
+        measurementStartPoint = null;
+        renderFrame(0);
+      }
+    });
+    
+    canvas.addEventListener('dblclick', (e) => {
+      if (activeMeasurementTool === 'area' && measurementStartPoint && measurementStartPoint.points.length >= 3) {
+        // Complete the area
+        const points = measurementStartPoint.points;
+        const area = calculatePolygonArea(points);
+        
+        currentMeasurements.push({
+          type: 'area',
+          points: [...points],
+          value: area
+        });
+        
+        measurementValueDisplay.textContent = `Area: ${area.toFixed(2)} square pixels`;
+        measurementStartPoint = null;
+        renderFrame(0);
+      }
+    });
+    
+    function calculateAngleMeasurement() {
+      if (measurementStartPoint && measurementStartPoint.points.length === 3) {
+        const p1 = measurementStartPoint.points[0];
+        const p2 = measurementStartPoint.points[1];
+        const p3 = measurementStartPoint.points[2];
+        
+        // Calculate vectors
+        const v1 = {
+          x: p1.x - p2.x,
+          y: p1.y - p2.y
+        };
+        
+        const v2 = {
+          x: p3.x - p2.x,
+          y: p3.y - p2.y
+        };
+        
+        // Calculate angle in radians
+        const dot = v1.x * v2.x + v1.y * v2.y;
+        const v1mag = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+        const v2mag = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+        
+        // Avoid division by zero
+        if (v1mag === 0 || v2mag === 0) {
+          return;
+        }
+        
+        const cos = dot / (v1mag * v2mag);
+        // Handle floating point errors
+        const saferCos = Math.min(Math.max(cos, -1), 1);
+        const angle = Math.acos(saferCos) * (180 / Math.PI);
+        
+        currentMeasurements.push({
+          type: 'angle',
+          points: [
+            { x: p1.x, y: p1.y },
+            { x: p2.x, y: p2.y },
+            { x: p3.x, y: p3.y }
+          ],
+          value: angle
+        });
+        
+        measurementValueDisplay.textContent = `Angle: ${angle.toFixed(2)} degrees`;
+      }
+    }
+    
+    function calculatePolygonArea(points) {
+      let area = 0;
+      const n = points.length;
+      
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        area += points[i].x * points[j].y;
+        area -= points[j].x * points[i].y;
+      }
+      
+      return Math.abs(area / 2);
+    }
+    
+    /**
+     * Update canvas size to match the given image's dimensions.
+     */
+    function updateCanvasSize(img) {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      mousePos = { x: img.width / 2, y: img.height / 2 };
+      referencePoint = { x: img.width / 2, y: img.height / 2 };
+    }
+    
+    /**
+     * Draw all measurements on the canvas
+     */
+    function drawMeasurements() {
+      // Draw all saved measurements
+      for (const measurement of currentMeasurements) {
+        if (measurement.type === 'distance') {
+          // Draw line
+          ctx.beginPath();
+          ctx.moveTo(measurement.start.x, measurement.start.y);
+          ctx.lineTo(measurement.end.x, measurement.end.y);
+          ctx.strokeStyle = 'yellow';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // Draw text
+          const midX = (measurement.start.x + measurement.end.x) / 2;
+          const midY = (measurement.start.y + measurement.end.y) / 2;
+          ctx.fillStyle = 'yellow';
+          ctx.font = '14px sans-serif';
+          ctx.fillText(`${measurement.value.toFixed(1)}px`, midX + 5, midY - 5);
+        }
+        else if (measurement.type === 'angle') {
+          // Draw angle lines
+          ctx.beginPath();
+          ctx.moveTo(measurement.points[0].x, measurement.points[0].y);
+          ctx.lineTo(measurement.points[1].x, measurement.points[1].y);
+          ctx.lineTo(measurement.points[2].x, measurement.points[2].y);
+          ctx.strokeStyle = 'cyan';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // Draw angle value
+          const midX = measurement.points[1].x;
+          const midY = measurement.points[1].y;
+          ctx.fillStyle = 'cyan';
+          ctx.font = '14px sans-serif';
+          ctx.fillText(`${measurement.value.toFixed(1)}°`, midX + 10, midY + 10);
+        }
+        else if (measurement.type === 'area') {
+          // Draw polygon
+          ctx.beginPath();
+          ctx.moveTo(measurement.points[0].x, measurement.points[0].y);
+          for (let i = 1; i < measurement.points.length; i++) {
+            ctx.lineTo(measurement.points[i].x, measurement.points[i].y);
+          }
+          ctx.closePath();
+          ctx.strokeStyle = 'lime';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // Semi-transparent fill
+          ctx.fillStyle = 'rgba(0, 255, 0, 0.2)';
+          ctx.fill();
+          
+          // Draw area value
+          const centroid = calculateCentroid(measurement.points);
+          ctx.fillStyle = 'lime';
+          ctx.font = '14px sans-serif';
+          ctx.fillText(`${measurement.value.toFixed(1)} px²`, centroid.x, centroid.y);
+        }
+      }
+      
+      // Draw in-progress measurements
+      if (measurementStartPoint) {
+        if (activeMeasurementTool === 'angle' && measurementStartPoint.points) {
+          // Draw angle in progress
+          ctx.beginPath();
+          ctx.moveTo(measurementStartPoint.points[0].x, measurementStartPoint.points[0].y);
+          
+          if (measurementStartPoint.points.length > 1) {
+            ctx.lineTo(measurementStartPoint.points[1].x, measurementStartPoint.points[1].y);
+            
+            if (measurementStartPoint.points.length > 2) {
+              ctx.lineTo(measurementStartPoint.points[2].x, measurementStartPoint.points[2].y);
+            }
+          }
+          
+          ctx.strokeStyle = 'cyan';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+        else if (activeMeasurementTool === 'area' && measurementStartPoint.points) {
+          // Draw area in progress
+          ctx.beginPath();
+          ctx.moveTo(measurementStartPoint.points[0].x, measurementStartPoint.points[0].y);
+          
+          for (let i = 1; i < measurementStartPoint.points.length; i++) {
+            ctx.lineTo(measurementStartPoint.points[i].x, measurementStartPoint.points[i].y);
+          }
+          
+          ctx.strokeStyle = 'lime';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+    }
+    
+    function calculateCentroid(points) {
+      let sumX = 0;
+      let sumY = 0;
+      
+      for (const point of points) {
+        sumX += point.x;
+        sumY += point.y;
+      }
+      
+      return {
+        x: sumX / points.length,
+        y: sumY / points.length
+      };
+    }
+    
+    /**
+     * Handle file uploads.
+     */
+    dicomInput.addEventListener("change", async (event) => {
+      if (event.target.files.length === 0) {
+        return;
+      }
+      
+      // Reset our series
+      dicomSeries = [];
+      dicomMetadata = [];
+      currentImageIndex = 0;
+      
+      // Cornerstone WADO Image Loader configuration
+      cornerstoneWADOImageLoader.external.cornerstone = cornerstone;
+      cornerstoneWADOImageLoader.external.dicomParser = dicomParser;
+      
+      // Load each DICOM file
+      for (let i = 0; i < event.target.files.length; i++) {
+        const file = event.target.files[i];
+        try {
+          const imageId = await loadDicomFile(file);
+          
+          const image = await cornerstone.loadImage(imageId);
+          dicomSeries.push(image);
+          
+          // Extract metadata
+          const meta = image.data.elements;
+          dicomMetadata.push(meta);
+          
+          showStatusMessage(`Loaded ${i+1}/${event.target.files.length} DICOM images`, 2000);
+        } catch (error) {
+          console.error("Error loading DICOM image:", error);
+          showStatusMessage(`Error loading DICOM image: ${error.message}`, 5000);
+        }
+      }
+      
+      if (dicomSeries.length > 0) {
+        // Set default window/level values based on first image
+        const image = dicomSeries[0];
+        windowWidthSlider.value = image.windowWidth || 400;
+        windowCenterSlider.value = image.windowCenter || 40;
+        windowWidthValue.textContent = windowWidthSlider.value;
+        windowCenterValue.textContent = windowCenterSlider.value;
+        
+        // Update canvas size based on first image
+        updateCanvasSize(image);
+        
+        // Update display count
+        updateCurrentImageDisplay();
+        
+        // Render the first frame
+        renderFrame(0);
+        
+        showStatusMessage(`Successfully loaded ${dicomSeries.length} DICOM images`, 3000);
+      }
+    });
+    
+    /**
+     * Load a DICOM file using cornerstone.
+     */
+    async function loadDicomFile(file) {
+      return new Promise((resolve, reject) => {
+        const fileReader = new FileReader();
+        fileReader.onload = (e) => {
+          const arrayBuffer = e.target.result;
+          const byteArray = new Uint8Array(arrayBuffer);
+          
+          try {
+            // Parse DICOM data
+            const dataSet = dicomParser.parseDicom(byteArray);
+            
+            // Create a Blob URL for cornerstone
+            const blob = new Blob([byteArray], { type: 'application/dicom' });
+            const imageId = cornerstoneWADOImageLoader.wadouri.fileManager.add(blob);
+            
+            resolve(imageId);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        
+        fileReader.onerror = reject;
+        fileReader.readAsArrayBuffer(file);
+      });
+    }
+    
+    /**
+     * Update window/level settings.
+     */
+    function updateWindowLevel(width, center) {
+      if (dicomSeries.length === 0) return;
+      
+      const image = dicomSeries[currentImageIndex];
+      image.windowWidth = width;
+      image.windowCenter = center;
+      
+      renderFrame(0);
+    }
+    
+    /**
+     * Draw DICOM annotations on the canvas.
+     */
+    function drawDicomAnnotations() {
+      if (dicomSeries.length === 0 || !showAnnotations) return;
+      
+      const meta = dicomMetadata[currentImageIndex];
+      if (!meta) return;
+      
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(10, 10, 300, 210);
+      
+      ctx.fillStyle = "white";
+      ctx.font = "12px monospace";
+      ctx.textAlign = "left";
+      
+      let y = 30;
+      
+      // Helper function to extract and display a DICOM tag
+      function displayTag(label, tagName, offset = 0) {
+        const tagValue = meta[tagName] ? meta[tagName].value : "N/A";
+        ctx.fillText(`${label}: ${tagValue}`, 20 + offset, y);
+        y += 16;
+      }
+      
+      // Common DICOM tags to display
+      ctx.fillText("DICOM Information:", 20, y);
+      y += 20;
+      
+      displayTag("Patient Name", "x00100010");
+      displayTag("Patient ID", "x00100020");
+      displayTag("Study Date", "x00080020");
+      displayTag("Study Time", "x00080030");
+      displayTag("Modality", "x00080060");
+      displayTag("Image #", "x00200013");
+      displayTag("Series #", "x00200011");
+      displayTag("Slice Thickness", "x00180050");
+      displayTag("Pixel Spacing", "x00280030");
+      
+      // Display window/level
+      y += 10;
+      ctx.fillText(`Window: ${windowWidthSlider.value}, Level: ${windowCenterSlider.value}`, 20, y);
+    }
+    
+    /**
+     * Main animation loop.
+     */
+    function animate(timestamp) {
+      if (!animationActive) return;
+      
+      if (!animationStartTime) {
+        animationStartTime = timestamp;
+      }
+      
+      const elapsed = timestamp - animationStartTime;
+      renderFrame(elapsed);
+      
+      requestAnimationFrame(animate);
+    }
+    
+    /**
+     * Calculate shifts for light field effect.
+     * @returns {Object} The x and y shift values.
+     */
+    function calculateShift(elapsed) {
+      let shiftX = 0;
+      let shiftY = 0;
+      
+      if (autoAngle) {
+        // Automatic circular motion
+        const angle = (elapsed / 3000) * Math.PI * 2;
+        shiftX = Math.cos(angle) * amplitude * depthRange;
+        shiftY = Math.sin(angle) * amplitude * depthRange;
+      } else {
+        // Mouse-controlled shift
+        const dx = mousePos.x - referencePoint.x;
+        const dy = mousePos.y - referencePoint.y;
+        
+        // Normalize the mouse distance to create more natural parallax effect
+        const normalizationFactor = Math.min(1, Math.sqrt(dx * dx + dy * dy) / 200);
+        const normalizedDx = dx * normalizationFactor;
+        const normalizedDy = dy * normalizationFactor;
+        
+        shiftX = -normalizedDx * amplitude / 100 * depthRange;
+        shiftY = -normalizedDy * amplitude / 100 * depthRange;
+      }
+      
+      // Update shift display
+      shiftMonitor.textContent = `Mapping: ΔX=${shiftX.toFixed(2)}, ΔY=${shiftY.toFixed(2)}`;
+      
+      return { shiftX, shiftY };
+    }
+    
+    /**
+     * Render a single frame.
+     * @param {number} elapsed - Time elapsed since animation start.
+     */
+    function renderFrame(elapsed) {
+      if (dicomSeries.length === 0 || currentImageIndex >= dicomSeries.length) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#333";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.font = "16px sans-serif";
+        ctx.fillText("No DICOM image loaded. Please upload a DICOM file.", canvas.width / 2, canvas.height / 2);
+        return;
+      }
+      
+      const image = dicomSeries[currentImageIndex];
+      
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Get shift values
+      const { shiftX, shiftY } = calculateShift(elapsed);
+      
+      // Draw the DICOM image with cornerstone
+      const viewport = cornerstone.getDefaultViewport(canvas, image);
+      
+      // Apply window/level settings
+      viewport.voi.windowWidth = parseInt(windowWidthSlider.value);
+      viewport.voi.windowCenter = parseInt(windowCenterSlider.value);
+      
+      // Apply light field effect by creating layered images with slight offset
+      for (let i = 0; i < angularResolution; i++) {
+        const layer = i / (angularResolution - 1);
+        const layerShiftX = shiftX * layer;
+        const layerShiftY = shiftY * layer;
+        
+        // Apply translation to viewport
+        viewport.translation.x = layerShiftX;
+        viewport.translation.y = layerShiftY;
+        
+        // Set alpha based on layer
+        ctx.globalAlpha = 1 / angularResolution;
+        
+        // Draw the image with cornerstone
+        cornerstone.displayImage(canvas, image, viewport);
+      }
+      
+      // Reset alpha
+      ctx.globalAlpha = 1;
+      
+      // Draw reference point
+      ctx.beginPath();
+      ctx.arc(referencePoint.x, referencePoint.y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+      ctx.fill();
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      // Draw annotations
+      if (showAnnotations) {
+        drawDicomAnnotations();
+      }
+      
+      // Draw measurements
+      drawMeasurements();
+    }
+    
+    // Initial setup
+    function init() {
+      // Set canvas size
+      canvas.width = 512;
+      canvas.height = 512;
+      
+      // Initialize cornerstone
+      cornerstone.enable(canvas);
+      
+      // Draw placeholder
+      ctx.fillStyle = "#333";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#fff";
+      ctx.textAlign = "center";
+      ctx.font = "16px sans-serif";
+      ctx.fillText("No DICOM image loaded. Please upload a DICOM file.", canvas.width / 2, canvas.height / 2);
+      
+      // Update display
+      updateCurrentImageDisplay();
+    }
+    
+    // Start
+    init();
+  </script>
+</body>
+</html>
