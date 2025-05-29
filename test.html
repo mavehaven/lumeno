@@ -497,429 +497,676 @@
   </script>
 
   <script>
-    // MobileStereoscopicEngine Class Definition (with fixed PayPal logic)
-    class MobileStereoscopicEngine {
-      constructor() {
-        this.setupDOM();
-        this.setupEventListeners();
-        this.isMobileMode = false;
-        this.isAnimating = false;
-        this.animationPhase = 0;
-        this.frames = [];
-        this.isProcessing = false;
-        this.isPaid = false;  // Payment/subscription flag
-        this.paymentType = null; // 'one_time', 'monthly_subscription', 'yearly_subscription'
-        this.paymentId = null;
-        
-        // Check for existing payment status in localStorage (for demo purposes)
-        this.checkExistingPayment();
-        
-        // Set global reference for PayPal callbacks
-        globalEngine = this;
-      }
-
-      setupDOM() {
-        this.dropZone = document.getElementById('dropZone');
-        this.imageInput = document.getElementById('imageInput');
-        this.outputCanvas = document.getElementById('outputCanvas');
-        this.leftPreview = document.getElementById('leftPreview');
-        this.rightPreview = document.getElementById('rightPreview');
-        this.ctx = this.outputCanvas.getContext('2d');
-        this.modeIndicator = document.getElementById('modeIndicator');
-        this.paymentStatus = document.getElementById('paymentStatus');
-        this.progressPanel = document.getElementById('progressPanel');
-        this.progressBar = document.getElementById('progressBar');
-        this.progressText = document.getElementById('progressText');
-        this.statusMessage = document.getElementById('statusMessage');
-        this.exportButton = document.getElementById('exportGif');
-        this.paywallModal = document.getElementById('paywallModal');
-        this.closeModal = document.getElementById('closeModal');
-        this.oneTimePaymentForm = document.getElementById('oneTimePaymentForm');
-      }
-
-      checkExistingPayment() {
-        // In a real application, you would check with your backend server
-        // For demo purposes, we'll use localStorage
-        try {
-          const paymentData = JSON.parse(localStorage.getItem('stereoscopic_payment') || '{}');
-          if (paymentData.isPaid && paymentData.expiresAt > Date.now()) {
-            this.isPaid = true;
-            this.paymentType = paymentData.type;
-            this.paymentId = paymentData.id;
-            this.updatePaymentUI();
-          }
-        } catch (e) {
-          console.log('No existing payment found');
-        }
-      }
-
-      handlePaymentSuccess(type, paymentId) {
-        this.isPaid = true;
-        this.paymentType = type;
-        this.paymentId = paymentId;
-        
-        // Store payment info (in real app, this would be server-side verification)
-        const expiresAt = type.includes('subscription') ? 
-          Date.now() + (type === 'yearly_subscription' ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000) :
-          Date.now() + (24 * 60 * 60 * 1000); // One-time lasts 24 hours for demo
-          
-        localStorage.setItem('stereoscopic_payment', JSON.stringify({
-          isPaid: true,
-          type: type,
-          id: paymentId,
-          timestamp: Date.now(),
-          expiresAt: expiresAt
-        }));
-        
-        this.updatePaymentUI();
-        this.hidePaywallModal();
-        this.showStatus(`Payment successful! You now have ${type.replace('_', ' ')} access.`, 'success');
-        
-        // Auto-trigger GIF export if that's what they were trying to do
-        if (this.sourceImage) {
-          setTimeout(() => {
-            this.exportAsGif();
-          }, 1000);
-        }
-      }
-
-      updatePaymentUI() {
-        if (this.isPaid) {
-          this.paymentStatus.style.display = 'inline-block';
-          this.paymentStatus.textContent = `✓ ${this.paymentType?.replace('_', ' ') || 'Paid Access'}`;
-        } else {
-          this.paymentStatus.style.display = 'none';
-        }
-      }
-
-      showStatus(message, type = 'success') {
-        this.statusMessage.textContent = message;
-        this.statusMessage.className = `status-message ${type}`;
-        this.statusMessage.style.display = 'block';
-        setTimeout(() => {
-          this.statusMessage.style.display = 'none';
-        }, 3000);
-      }
-
-      setupEventListeners() {
-        this.dropZone.addEventListener('click', () => this.imageInput.click());
-        this.dropZone.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          this.dropZone.classList.add('drag-over');
-        });
-        this.dropZone.addEventListener('dragleave', () => {
-          this.dropZone.classList.remove('drag-over');
-        });
-        this.dropZone.addEventListener('drop', (e) => {
-          e.preventDefault();
-          this.dropZone.classList.remove('drag-over');
-          const file = e.dataTransfer.files[0];
-          if (file && file.type.startsWith('image/')) {
-            this.loadImage(file);
-          } else {
-            this.showStatus('Please upload an image file', 'error');
-          }
-        });
-        this.imageInput.addEventListener('change', (e) => {
-          const file = e.target.files[0];
-          if (file) this.loadImage(file);
-        });
-
-        document.getElementById('toggleMode').addEventListener('click', () => {
-          this.isMobileMode = !this.isMobileMode;
-          this.modeIndicator.textContent = this.isMobileMode ? 'Mobile Mode' : 'Desktop Mode';
-          if (this.sourceImage) this.updateView();
-        });
-
-        document.getElementById('startAnim').addEventListener('click', () => this.startAnimation());
-        document.getElementById('stopAnim').addEventListener('click', () => this.stopAnimation());
-        
-        // Fixed export: check payment status first
-        this.exportButton.addEventListener('click', () => {
-          if (!this.isPaid) {
-            this.showPaywallModal();
-          } else {
-            this.exportAsGif();
-          }
-        });
-
-        // Test payment button (for development)
-        document.getElementById('testPayment').addEventListener('click', () => {
-          this.handlePaymentSuccess('test_payment', 'TEST_' + Date.now());
-        });
-
-        // Handle successful one-time payment form submission
-        this.oneTimePaymentForm.addEventListener('submit', (e) => {
-          // In a real application, you'd handle the payment callback from PayPal
-          // For demo purposes, we'll simulate success after a short delay
-          setTimeout(() => {
-            this.handlePaymentSuccess('one_time_purchase', 'DEMO_' + Date.now());
-          }, 2000);
-        });
-
-        ['separation', 'animSpeed', 'motionRange', 'tiltAngle', 'barrierWidth', 'barrierOpacity', 'depthIntensity']
-          .forEach(id => {
-            document.getElementById(id).addEventListener('input', () => {
-              if (this.sourceImage) this.updateView();
-            });
-          });
-          
-        this.closeModal.addEventListener('click', () => {
-          this.hidePaywallModal();
-        });
-
-        // Close modal when clicking outside
-        window.addEventListener('click', (e) => {
-          if (e.target === this.paywallModal) {
-            this.hidePaywallModal();
-          }
-        });
-      }
-
-      loadImage(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          this.sourceImage = new Image();
-          this.sourceImage.onload = () => {
-            this.setupCanvases();
-            this.updateView();
-            this.dropZone.classList.add('has-image');
-            this.showStatus('Image loaded successfully');
-            this.exportButton.disabled = false;
-          };
-          this.sourceImage.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-      }
-
-      setupCanvases() {
-        const maxWidth = 800;
-        const scale = Math.min(1, maxWidth / this.sourceImage.width);
-        this.outputCanvas.width = this.sourceImage.width * scale;
-        this.outputCanvas.height = this.sourceImage.height * scale;
-        [this.leftPreview, this.rightPreview].forEach(canvas => {
-          canvas.width = this.outputCanvas.width / 4;
-          canvas.height = this.outputCanvas.height / 4;
-        });
-      }
-
-      createView(offset, phase = null) {
-        const canvas = document.createElement('canvas');
-        canvas.width = this.outputCanvas.width;
-        canvas.height = this.outputCanvas.height;
-        const ctx = canvas.getContext('2d');
-        
-        // Explicitly convert input values to numbers
-        const baseOffset = parseFloat(document.getElementById('separation').value) || 0;
-        const depthIntensity = (parseFloat(document.getElementById('depthIntensity').value) || 0) / 100;
-        const motionRange = (parseFloat(document.getElementById('motionRange').value) || 0) / 100;
-        
-        let dynamicOffset = offset * baseOffset / 25;
-        if (phase !== null) {
-          dynamicOffset *= (1 + Math.sin(phase) * motionRange);
-        }
+class MobileStereoscopicEngine {
+  constructor() {
+    this.setupDOM();
+    this.setupEventListeners();
+    this.isMobileMode = false;
+    this.isAnimating = false;
+    this.animationPhase = 0;
+    this.frames = [];
+    this.isProcessing = false;
+    this.isPaid = false;
+    this.paymentType = null;
+    this.paymentId = null;
+    this.gifLibraryLoaded = false;
     
-        ctx.save();
-        
-        const scaleVal = 1 + Math.abs(dynamicOffset) / 1000;
-        ctx.scale(scaleVal, scaleVal);
-        ctx.translate(-this.outputCanvas.width * (scaleVal - 1) / 2, -this.outputCanvas.height * (scaleVal - 1) / 2);
-        
-        ctx.translate(dynamicOffset, 0);
-        ctx.translate(0, Math.abs(dynamicOffset) * 0.1 * depthIntensity);
-        
-        const tiltAngleDegrees = parseFloat(document.getElementById('tiltAngle').value) || 0;
-        const tiltAngle = tiltAngleDegrees * Math.PI / 180;
-        ctx.transform(1, 0, Math.tan(tiltAngle * offset) * 0.5, 1, 0, 0);
-        
-        ctx.drawImage(this.sourceImage, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
+    // Check for existing payment status
+    this.checkExistingPayment();
     
-        return canvas;
+    // Load GIF.js library
+    this.loadGifLibrary();
+    
+    // Set global reference for PayPal callbacks
+    window.globalEngine = this;
+  }
+
+  // Load GIF.js library dynamically
+  async loadGifLibrary() {
+    try {
+      // Check if GIF is already loaded
+      if (typeof window.GIF !== 'undefined') {
+        this.gifLibraryLoaded = true;
+        return;
       }
 
-      createBarrierStrips() {
-        const canvas = document.createElement('canvas');
-        canvas.width = this.outputCanvas.width;
-        canvas.height = this.outputCanvas.height;
-        const ctx = canvas.getContext('2d');
-        // Ensure barrierWidth is at least 1 to prevent infinite loop
-        const barrierWidth = Math.max(parseInt(document.getElementById('barrierWidth').value) || 1, 1);
-        const opacity = (parseFloat(document.getElementById('barrierOpacity').value) || 0) / 100;
-        ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
-        for (let x = 0; x < canvas.width; x += barrierWidth * 2) {
-          ctx.fillRect(x, 0, barrierWidth, canvas.height);
-        }
-        return canvas;
-      }
-
-      updateView() {
-        if (!this.sourceImage) return;
-        const leftView = this.createView(-1, this.animationPhase);
-        const rightView = this.createView(1, this.animationPhase);
-        // Clear and draw previews
-        this.leftPreview.getContext('2d').clearRect(0, 0, this.leftPreview.width, this.leftPreview.height);
-        this.rightPreview.getContext('2d').clearRect(0, 0, this.rightPreview.width, this.rightPreview.height);
-        this.leftPreview.getContext('2d').drawImage(leftView, 0, 0, this.leftPreview.width, this.leftPreview.height);
-        this.rightPreview.getContext('2d').drawImage(rightView, 0, 0, this.rightPreview.width, this.rightPreview.height);
-        
-        this.ctx.clearRect(0, 0, this.outputCanvas.width, this.outputCanvas.height);
-        if (this.isMobileMode) {
-          const phase = (1 + Math.sin(this.animationPhase)) / 2;
-          this.ctx.globalAlpha = 1 - phase;
-          this.ctx.drawImage(leftView, 0, 0);
-          this.ctx.globalAlpha = phase;
-          this.ctx.drawImage(rightView, 0, 0);
-          this.ctx.globalAlpha = 1;
-        } else {
-          const barrierWidth = Math.max(parseInt(document.getElementById('barrierWidth').value) || 1, 1);
-          for (let x = 0; x < this.outputCanvas.width; x += barrierWidth * 2) {
-            this.ctx.drawImage(leftView, 
-              x, 0, barrierWidth, this.outputCanvas.height,
-              x, 0, barrierWidth, this.outputCanvas.height);
-            if (x + barrierWidth < this.outputCanvas.width) {
-              this.ctx.drawImage(rightView,
-                x + barrierWidth, 0, barrierWidth, this.outputCanvas.height,
-                x + barrierWidth, 0, barrierWidth, this.outputCanvas.height);
-            }
-          }
-          const barrier = this.createBarrierStrips();
-          this.ctx.drawImage(barrier, 0, 0);
-          // 3D Hole Filling: blend a slightly blurred copy over the composite.
-          let offscreen = document.createElement('canvas');
-          offscreen.width = this.outputCanvas.width;
-          offscreen.height = this.outputCanvas.height;
-          let offCtx = offscreen.getContext('2d');
-          offCtx.drawImage(this.outputCanvas, 0, 0);
-          this.ctx.save();
-          this.ctx.filter = "blur(2px)";
-          this.ctx.globalAlpha = 0.5;
-          this.ctx.drawImage(offscreen, 0, 0);
-          this.ctx.restore();
-        }
-      }
-
-      startAnimation() {
-        if (this.isAnimating) return;
-        this.isAnimating = true;
-        document.getElementById('startAnim').classList.add('active');
-        document.getElementById('stopAnim').classList.remove('active');
-        this.animate();
-      }
-
-      stopAnimation() {
-        this.isAnimating = false;
-        document.getElementById('startAnim').classList.remove('active');
-        document.getElementById('stopAnim').classList.add('active');
-        if (this.animationFrame) {
-          cancelAnimationFrame(this.animationFrame);
-        }
-      }
-
-      animate() {
-        if (!this.isAnimating) return;
-        const speed = parseFloat(document.getElementById('animSpeed').value) || 1;
-        this.animationPhase += speed;
-        this.updateView();
-        this.animationFrame = requestAnimationFrame(() => this.animate());
-      }
-
-      showPaywallModal() {
-        this.paywallModal.style.display = "block";
-      }
+      // Create script element for GIF.js
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js';
       
-      hidePaywallModal() {
-        this.paywallModal.style.display = "none";
+      // Wait for script to load
+      await new Promise((resolve, reject) => {
+        script.onload = () => {
+          this.gifLibraryLoaded = true;
+          console.log('GIF.js library loaded successfully');
+          resolve();
+        };
+        script.onerror = () => {
+          console.error('Failed to load GIF.js library');
+          reject(new Error('Failed to load GIF.js library'));
+        };
+        document.head.appendChild(script);
+      });
+    } catch (error) {
+      console.error('Error loading GIF library:', error);
+      this.gifLibraryLoaded = false;
+    }
+  }
+
+  setupDOM() {
+    this.dropZone = document.getElementById('dropZone');
+    this.imageInput = document.getElementById('imageInput');
+    this.outputCanvas = document.getElementById('outputCanvas');
+    this.leftPreview = document.getElementById('leftPreview');
+    this.rightPreview = document.getElementById('rightPreview');
+    this.ctx = this.outputCanvas.getContext('2d');
+    this.modeIndicator = document.getElementById('modeIndicator');
+    this.paymentStatus = document.getElementById('paymentStatus');
+    this.progressPanel = document.getElementById('progressPanel');
+    this.progressBar = document.getElementById('progressBar');
+    this.progressText = document.getElementById('progressText');
+    this.statusMessage = document.getElementById('statusMessage');
+    this.exportButton = document.getElementById('exportGif');
+    this.paywallModal = document.getElementById('paywallModal');
+    this.closeModal = document.getElementById('closeModal');
+    this.oneTimePaymentForm = document.getElementById('oneTimePaymentForm');
+  }
+
+  checkExistingPayment() {
+    try {
+      // Check both sessionStorage (temporary) and localStorage (persistent)
+      const sessionPaid = sessionStorage.getItem('autostereoscopic_paid') === 'true';
+      const sessionType = sessionStorage.getItem('payment_type');
+      const sessionId = sessionStorage.getItem('transaction_id');
+      
+      const localPayment = JSON.parse(localStorage.getItem('stereoscopic_payment') || '{}');
+      const localValid = localPayment.isPaid && localPayment.expiresAt > Date.now();
+      
+      if (sessionPaid || localValid) {
+        this.isPaid = true;
+        this.paymentType = sessionType || localPayment.type;
+        this.paymentId = sessionId || localPayment.id;
+        this.updatePaymentUI();
       }
+    } catch (e) {
+      console.log('No existing payment found');
+    }
+  }
 
-      async exportAsGif() {
-        if (!this.sourceImage || this.isProcessing) return;
-        this.isProcessing = true;
-        this.exportButton.disabled = true;
-        this.progressPanel.style.display = 'block';
-        this.progressBar.style.width = '0%';
-        this.progressText.textContent = 'Preparing GIF...';
+  updatePaymentUI() {
+    if (this.isPaid && this.paymentStatus) {
+      this.paymentStatus.style.display = 'inline-block';
+      this.paymentStatus.textContent = `✓ ${this.getPaymentDisplayName()}`;
+    } else if (this.paymentStatus) {
+      this.paymentStatus.style.display = 'none';
+    }
+  }
 
-        try {
-          const frameCount = 30;
-          const gif = new GIF({
-            workers: 2,
-            quality: 10,
-            width: Math.min(this.outputCanvas.width, 800),
-            height: Math.min(this.outputCanvas.height, 800),
-            workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
-          });
-          const wasAnimating = this.isAnimating;
-          this.stopAnimation();
-          
-          for (let i = 0; i < frameCount; i++) {
-            const phase = (i / frameCount) * Math.PI * 2;
-            this.animationPhase = phase;
-            this.updateView();
-            gif.addFrame(this.outputCanvas, { delay: 50, copy: true });
-            this.progressText.textContent = `Generating frame ${i + 1}/${frameCount}`;
-            this.progressBar.style.width = `${(i / frameCount) * 30}%`;
-            await new Promise(resolve => setTimeout(resolve, 10));
-          }
+  getPaymentDisplayName() {
+    if (!this.paymentType) return 'Paid Access';
+    return this.paymentType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
 
-          this.progressText.textContent = 'Creating GIF...';
-          for (let i = 0; i < frameCount; i++) {
-            this.progressBar.style.width = `${30 + (i / frameCount) * 30}%`;
-            await new Promise(resolve => setTimeout(resolve, 10));
-          }
-          
-          gif.on('progress', p => {
-            this.progressBar.style.width = `${60 + (p * 40)}%`;
-            this.progressText.textContent = `Encoding GIF: ${Math.round(p * 100)}%`;
-          });
+  showStatus(message, type = 'success') {
+    if (this.statusMessage) {
+      this.statusMessage.textContent = message;
+      this.statusMessage.className = `status-message ${type}`;
+      this.statusMessage.style.display = 'block';
+      setTimeout(() => {
+        this.statusMessage.style.display = 'none';
+      }, 3000);
+    }
+  }
 
-          await new Promise((resolve, reject) => {
-            gif.on('finished', blob => {
-              try {
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'stereoscopic.gif';
-                document.body.appendChild(link);
-                link.click();
-                setTimeout(() => {
-                  document.body.removeChild(link);
-                  URL.revokeObjectURL(link.href);
-                  resolve();
-                }, 100);
-              } catch (error) {
-                reject(error);
-              }
-            });
-            gif.on('error', error => reject(error));
-            this.progressText.textContent = 'Rendering GIF...';
-            gif.render();
-          });
+  // Unified paywall display method
+  showPaywall() {
+    if (this.isPaid) {
+      this.exportGif();
+      return;
+    }
+    
+    if (this.paywallModal) {
+      this.paywallModal.style.display = 'block';
+    }
+  }
 
-          this.progressPanel.style.display = 'none';
-          this.exportButton.disabled = false;
-          this.isProcessing = false;
-          this.showStatus('GIF exported successfully!');
-          if (wasAnimating) this.startAnimation();
-        } catch (error) {
-          console.error('Error generating GIF:', error);
-          this.progressPanel.style.display = 'none';
-          this.exportButton.disabled = false;
-          this.isProcessing = false;
-          this.showStatus('Error generating GIF. Please try again.', 'error');
-          console.error('Detailed error:', {
-            message: error.message,
-            stack: error.stack,
-            hasSourceImage: !!this.sourceImage,
-            canvasWidth: this.outputCanvas.width,
-            canvasHeight: this.outputCanvas.height
+  // Unified paywall hiding method
+  hidePaywall() {
+    if (this.paywallModal) {
+      this.paywallModal.style.display = 'none';
+    }
+  }
+
+  // Unified payment success handler
+  handlePaymentSuccess(type, transactionId) {
+    this.isPaid = true;
+    this.paymentType = type;
+    this.paymentId = transactionId;
+    
+    // Store in both session (immediate) and local storage (persistent with expiration)
+    sessionStorage.setItem('autostereoscopic_paid', 'true');
+    sessionStorage.setItem('payment_type', type);
+    sessionStorage.setItem('transaction_id', transactionId);
+    
+    // Determine expiration based on payment type
+    let expirationTime;
+    switch (type) {
+      case 'yearly_subscription':
+        expirationTime = Date.now() + (365 * 24 * 60 * 60 * 1000);
+        break;
+      case 'monthly_subscription':
+        expirationTime = Date.now() + (30 * 24 * 60 * 60 * 1000);
+        break;
+      case 'one_time_purchase':
+      case 'test_payment':
+      default:
+        expirationTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours for demo
+        break;
+    }
+    
+    localStorage.setItem('stereoscopic_payment', JSON.stringify({
+      isPaid: true,
+      type: type,
+      id: transactionId,
+      timestamp: Date.now(),
+      expiresAt: expirationTime
+    }));
+    
+    this.updatePaymentUI();
+    this.hidePaywall();
+    this.showStatus(`Payment successful! You can now export GIFs.`, 'success');
+    
+    // Auto-trigger GIF export if user was trying to export
+    if (this.sourceImage && !this.isProcessing) {
+      setTimeout(() => {
+        this.exportGif();
+      }, 1000);
+    }
+  }
+
+  // Test payment method for development
+  testPayment() {
+    this.handlePaymentSuccess('test_payment', 'TEST_' + Date.now());
+  }
+
+  setupEventListeners() {
+    // Image upload handlers
+    if (this.dropZone) {
+      this.dropZone.addEventListener('click', () => this.imageInput?.click());
+      this.dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        this.dropZone.classList.add('drag-over');
+      });
+      this.dropZone.addEventListener('dragleave', () => {
+        this.dropZone.classList.remove('drag-over');
+      });
+      this.dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        this.dropZone.classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) {
+          this.loadImage(file);
+        } else {
+          this.showStatus('Please upload an image file', 'error');
+        }
+      });
+    }
+
+    if (this.imageInput) {
+      this.imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) this.loadImage(file);
+      });
+    }
+
+    // Mode and animation controls
+    const toggleMode = document.getElementById('toggleMode');
+    if (toggleMode) {
+      toggleMode.addEventListener('click', () => {
+        this.isMobileMode = !this.isMobileMode;
+        if (this.modeIndicator) {
+          this.modeIndicator.textContent = this.isMobileMode ? 'Mobile Mode' : 'Desktop Mode';
+        }
+        if (this.sourceImage) this.updateView();
+      });
+    }
+
+    const startAnim = document.getElementById('startAnim');
+    if (startAnim) {
+      startAnim.addEventListener('click', () => this.startAnimation());
+    }
+
+    const stopAnim = document.getElementById('stopAnim');
+    if (stopAnim) {
+      stopAnim.addEventListener('click', () => this.stopAnimation());
+    }
+    
+    // Export button - uses unified paywall method
+    if (this.exportButton) {
+      this.exportButton.addEventListener('click', () => {
+        this.showPaywall();
+      });
+    }
+
+    // Payment-related event listeners
+    const testPaymentBtn = document.getElementById('testPayment');
+    if (testPaymentBtn) {
+      testPaymentBtn.addEventListener('click', () => {
+        this.testPayment();
+      });
+    }
+
+    if (this.oneTimePaymentForm) {
+      this.oneTimePaymentForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        // Simulate payment processing
+        this.showStatus('Processing payment...', 'info');
+        setTimeout(() => {
+          this.handlePaymentSuccess('one_time_purchase', 'DEMO_' + Date.now());
+        }, 2000);
+      });
+    }
+
+    // Modal close handlers
+    if (this.closeModal) {
+      this.closeModal.addEventListener('click', () => {
+        this.hidePaywall();
+      });
+    }
+
+    window.addEventListener('click', (e) => {
+      if (e.target === this.paywallModal) {
+        this.hidePaywall();
+      }
+    });
+
+    // Parameter controls
+    ['separation', 'animSpeed', 'motionRange', 'tiltAngle', 'barrierWidth', 'barrierOpacity', 'depthIntensity']
+      .forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.addEventListener('input', () => {
+            if (this.sourceImage) this.updateView();
           });
         }
+      });
+  }
+
+  loadImage(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this.sourceImage = new Image();
+      this.sourceImage.onload = () => {
+        this.setupCanvases();
+        this.updateView();
+        if (this.dropZone) {
+          this.dropZone.classList.add('has-image');
+        }
+        this.showStatus('Image loaded successfully');
+        if (this.exportButton) {
+          this.exportButton.disabled = false;
+        }
+      };
+      this.sourceImage.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  setupCanvases() {
+    const maxWidth = 800;
+    const scale = Math.min(1, maxWidth / this.sourceImage.width);
+    this.outputCanvas.width = this.sourceImage.width * scale;
+    this.outputCanvas.height = this.sourceImage.height * scale;
+    [this.leftPreview, this.rightPreview].forEach(canvas => {
+      if (canvas) {
+        canvas.width = this.outputCanvas.width / 4;
+        canvas.height = this.outputCanvas.height / 4;
+      }
+    });
+  }
+
+  getParameterValue(id, defaultValue) {
+    const element = document.getElementById(id);
+    return element ? parseFloat(element.value) || defaultValue : defaultValue;
+  }
+
+  createView(offset, phase = null) {
+    const canvas = document.createElement('canvas');
+    canvas.width = this.outputCanvas.width;
+    canvas.height = this.outputCanvas.height;
+    const ctx = canvas.getContext('2d');
+    
+    const baseOffset = this.getParameterValue('separation', 0);
+    const depthIntensity = this.getParameterValue('depthIntensity', 0) / 100;
+    const motionRange = this.getParameterValue('motionRange', 0) / 100;
+    
+    let dynamicOffset = offset * baseOffset / 25;
+    if (phase !== null) {
+      dynamicOffset *= (1 + Math.sin(phase) * motionRange);
+    }
+
+    ctx.save();
+    
+    const scaleVal = 1 + Math.abs(dynamicOffset) / 1000;
+    ctx.scale(scaleVal, scaleVal);
+    ctx.translate(-this.outputCanvas.width * (scaleVal - 1) / 2, -this.outputCanvas.height * (scaleVal - 1) / 2);
+    
+    ctx.translate(dynamicOffset, 0);
+    ctx.translate(0, Math.abs(dynamicOffset) * 0.1 * depthIntensity);
+    
+    const tiltAngleDegrees = this.getParameterValue('tiltAngle', 0);
+    const tiltAngle = tiltAngleDegrees * Math.PI / 180;
+    ctx.transform(1, 0, Math.tan(tiltAngle * offset) * 0.5, 1, 0, 0);
+    
+    ctx.drawImage(this.sourceImage, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
+
+    return canvas;
+  }
+
+  createBarrierStrips() {
+    const canvas = document.createElement('canvas');
+    canvas.width = this.outputCanvas.width;
+    canvas.height = this.outputCanvas.height;
+    const ctx = canvas.getContext('2d');
+    const barrierWidth = Math.max(this.getParameterValue('barrierWidth', 1), 1);
+    const opacity = this.getParameterValue('barrierOpacity', 0) / 100;
+    ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
+    for (let x = 0; x < canvas.width; x += barrierWidth * 2) {
+      ctx.fillRect(x, 0, barrierWidth, canvas.height);
+    }
+    return canvas;
+  }
+
+  updateView() {
+    if (!this.sourceImage) return;
+    const leftView = this.createView(-1, this.animationPhase);
+    const rightView = this.createView(1, this.animationPhase);
+    
+    // Clear and draw previews
+    if (this.leftPreview) {
+      const leftCtx = this.leftPreview.getContext('2d');
+      leftCtx.clearRect(0, 0, this.leftPreview.width, this.leftPreview.height);
+      leftCtx.drawImage(leftView, 0, 0, this.leftPreview.width, this.leftPreview.height);
+    }
+    
+    if (this.rightPreview) {
+      const rightCtx = this.rightPreview.getContext('2d');
+      rightCtx.clearRect(0, 0, this.rightPreview.width, this.rightPreview.height);
+      rightCtx.drawImage(rightView, 0, 0, this.rightPreview.width, this.rightPreview.height);
+    }
+    
+    this.ctx.clearRect(0, 0, this.outputCanvas.width, this.outputCanvas.height);
+    if (this.isMobileMode) {
+      const phase = (1 + Math.sin(this.animationPhase)) / 2;
+      this.ctx.globalAlpha = 1 - phase;
+      this.ctx.drawImage(leftView, 0, 0);
+      this.ctx.globalAlpha = phase;
+      this.ctx.drawImage(rightView, 0, 0);
+      this.ctx.globalAlpha = 1;
+    } else {
+      const barrierWidth = Math.max(this.getParameterValue('barrierWidth', 1), 1);
+      for (let x = 0; x < this.outputCanvas.width; x += barrierWidth * 2) {
+        this.ctx.drawImage(leftView, 
+          x, 0, barrierWidth, this.outputCanvas.height,
+          x, 0, barrierWidth, this.outputCanvas.height);
+        if (x + barrierWidth < this.outputCanvas.width) {
+          this.ctx.drawImage(rightView,
+            x + barrierWidth, 0, barrierWidth, this.outputCanvas.height,
+            x + barrierWidth, 0, barrierWidth, this.outputCanvas.height);
+        }
+      }
+      const barrier = this.createBarrierStrips();
+      this.ctx.drawImage(barrier, 0, 0);
+      
+      // 3D Hole Filling
+      let offscreen = document.createElement('canvas');
+      offscreen.width = this.outputCanvas.width;
+      offscreen.height = this.outputCanvas.height;
+      let offCtx = offscreen.getContext('2d');
+      offCtx.drawImage(this.outputCanvas, 0, 0);
+      this.ctx.save();
+      this.ctx.filter = "blur(2px)";
+      this.ctx.globalAlpha = 0.5;
+      this.ctx.drawImage(offscreen, 0, 0);
+      this.ctx.restore();
+    }
+  }
+
+  startAnimation() {
+    if (this.isAnimating) return;
+    this.isAnimating = true;
+    const startBtn = document.getElementById('startAnim');
+    const stopBtn = document.getElementById('stopAnim');
+    if (startBtn) startBtn.classList.add('active');
+    if (stopBtn) stopBtn.classList.remove('active');
+    this.animate();
+  }
+
+  stopAnimation() {
+    this.isAnimating = false;
+    const startBtn = document.getElementById('startAnim');
+    const stopBtn = document.getElementById('stopAnim');
+    if (startBtn) startBtn.classList.remove('active');
+    if (stopBtn) stopBtn.classList.add('active');
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame);
+    }
+  }
+
+  animate() {
+    if (!this.isAnimating) return;
+    const speed = this.getParameterValue('animSpeed', 1);
+    this.animationPhase += speed * 0.1; // Slower animation
+    this.updateView();
+    this.animationFrame = requestAnimationFrame(() => this.animate());
+  }
+
+  // Fixed GIF export with better error handling and library checking
+  async exportGif() {
+    if (!this.sourceImage || this.isProcessing) return;
+    
+    console.log('Starting GIF export...');
+    
+    // Check if library is loaded
+    if (!this.gifLibraryLoaded) {
+      this.showStatus('Loading GIF library...', 'info');
+      try {
+        await this.loadGifLibrary();
+      } catch (error) {
+        this.showStatus('Failed to load GIF library. Please refresh the page.', 'error');
+        return;
       }
     }
 
-    window.addEventListener('load', () => {
-      const engine = new MobileStereoscopicEngine();
-    });
+    // Double-check that GIF is available
+    if (typeof window.GIF === 'undefined') {
+      this.showStatus('GIF library not available. Please refresh the page.', 'error');
+      return;
+    }
+    
+    this.isProcessing = true;
+    if (this.exportButton) this.exportButton.disabled = true;
+    if (this.progressPanel) this.progressPanel.style.display = 'block';
+    if (this.progressBar) this.progressBar.style.width = '0%';
+    if (this.progressText) this.progressText.textContent = 'Preparing GIF...';
+
+    try {
+      const frameCount = 16; // Reduced frame count
+      const maxDimension = 400; // Smaller max dimension for better performance
+      
+      // Calculate scaled dimensions
+      const scale = Math.min(1, maxDimension / Math.max(this.outputCanvas.width, this.outputCanvas.height));
+      const gifWidth = Math.floor(this.outputCanvas.width * scale);
+      const gifHeight = Math.floor(this.outputCanvas.height * scale);
+      
+      console.log(`Creating GIF: ${gifWidth}x${gifHeight}, ${frameCount} frames`);
+      
+      // Create GIF with conservative settings
+      const gif = new window.GIF({
+        workers: 1,
+        quality: 20, // Lower quality for better performance
+        width: gifWidth,
+        height: gifHeight,
+        workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js',
+        debug: false
+      });
+
+      const wasAnimating = this.isAnimating;
+      this.stopAnimation();
+      
+      // Create a temporary canvas for scaled frames
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = gifWidth;
+      tempCanvas.height = gifHeight;
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      // Generate frames with progress updates
+      for (let i = 0; i < frameCount; i++) {
+        try {
+          const phase = (i / frameCount) * Math.PI * 2;
+          this.animationPhase = phase;
+          this.updateView();
+          
+          // Scale down the frame
+          tempCtx.clearRect(0, 0, gifWidth, gifHeight);
+          tempCtx.drawImage(this.outputCanvas, 0, 0, gifWidth, gifHeight);
+          
+          // Add frame to GIF with longer delay for smoother animation
+          gif.addFrame(tempCanvas, { 
+            delay: 150,
+            copy: true 
+          });
+          
+          if (this.progressText) {
+            this.progressText.textContent = `Generating frame ${i + 1}/${frameCount}`;
+          }
+          if (this.progressBar) {
+            this.progressBar.style.width = `${(i / frameCount) * 50}%`;
+          }
+          
+          // Allow UI to update
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (frameError) {
+          console.error(`Error generating frame ${i}:`, frameError);
+          throw new Error(`Failed to generate frame ${i + 1}`);
+        }
+      }
+
+      if (this.progressText) this.progressText.textContent = 'Encoding GIF...';
+      if (this.progressBar) this.progressBar.style.width = '50%';
+      
+      // Set up progress tracking
+      gif.on('progress', (progress) => {
+        const progressPercent = 50 + (progress * 50);
+        if (this.progressBar) this.progressBar.style.width = `${progressPercent}%`;
+        if (this.progressText) {
+          this.progressText.textContent = `Encoding GIF: ${Math.round(progress * 100)}%`;
+        }
+        console.log(`GIF encoding progress: ${Math.round(progress * 100)}%`);
+      });
+
+      // Render the GIF with proper error handling
+      const blob = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('GIF rendering timeout - try reducing image size'));
+        }, 45000); // 45 second timeout
+
+        gif.on('finished', (blob) => {
+          clearTimeout(timeout);
+          console.log('GIF rendering finished, blob size:', blob.size);
+          resolve(blob);
+        });
+
+        gif.on('abort', () => {
+          clearTimeout(timeout);
+          reject(new Error('GIF rendering was aborted'));
+        });
+
+        gif.render();
+      });
+
+      // Download the GIF
+      console.log('Downloading GIF...');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `stereoscopic_${Date.now()}.gif`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+        URL.revokeObjectURL(link.href);
+      }, 100);
+
+      if (this.progressPanel) this.progressPanel.style.display = 'none';
+      if (this.exportButton) this.exportButton.disabled = false;
+      this.isProcessing = false;
+      this.showStatus('GIF exported successfully!');
+      
+      if (wasAnimating) this.startAnimation();
+      
+    } catch (error) {
+      console.error('Error generating GIF:', error);
+      
+      // More specific error messages
+      let errorMessage = 'Error generating GIF: ';
+      if (error.message.includes('timeout')) {
+        errorMessage += 'Processing took too long. Try a smaller image.';
+      } else if (error.message.includes('memory') || error.message.includes('Memory')) {
+        errorMessage += 'Out of memory. Try a smaller image.';
+      } else {
+        errorMessage += error.message || 'Unknown error occurred.';
+      }
+      
+      if (this.progressPanel) this.progressPanel.style.display = 'none';
+      if (this.exportButton) this.exportButton.disabled = false;
+      this.isProcessing = false;
+      this.showStatus(errorMessage, 'error');
+      
+      // Offer alternative export as static image
+      this.offerStaticExport();
+    }
+  }
+
+  // Fallback method to export as static PNG
+  offerStaticExport() {
+    if (confirm('GIF export failed. Would you like to export as a static PNG image instead?')) {
+      try {
+        this.outputCanvas.toBlob((blob) => {
+          if (!blob) {
+            this.showStatus('Failed to create image blob', 'error');
+            return;
+          }
+          
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `stereoscopic_static_${Date.now()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            if (document.body.contains(link)) {
+              document.body.removeChild(link);
+            }
+            URL.revokeObjectURL(link.href);
+          }, 100);
+          this.showStatus('Static image exported successfully!');
+        }, 'image/png');
+      } catch (error) {
+        console.error('Error exporting static image:', error);
+        this.showStatus('Failed to export static image as well.', 'error');
+      }
+    }
+  }
+}
+
+// Initialize when page loads
+window.addEventListener('load', () => {
+  new MobileStereoscopicEngine();
+});
   </script>
 </body>
 </html>
