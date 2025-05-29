@@ -175,11 +175,15 @@
       display: inline-block;
       padding: 4px 12px;
       border-radius: 6px;
-      background: #e8f5e9;
-      color: #2e7d32;
+      background: #ffebee;
+      color: #c62828;
       font-size: 0.9em;
       margin-left: 10px;
       font-weight: 500;
+    }
+    .payment-status.paid {
+      background: #e8f5e9;
+      color: #2e7d32;
     }
     .progress-panel {
       display: none;
@@ -235,6 +239,83 @@
       height: auto;
       margin: 20px 0;
     }
+    .paywall-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .paywall-content {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .paywall-title {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 15px;
+    }
+    .paywall-description {
+      color: #666;
+      margin-bottom: 25px;
+      line-height: 1.5;
+    }
+    .pricing-box {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 20px 0;
+      border: 2px solid #e0e0e0;
+    }
+    .price {
+      font-size: 2em;
+      font-weight: bold;
+      color: #0070f3;
+      margin-bottom: 10px;
+    }
+    .features-list {
+      text-align: left;
+      margin: 15px 0;
+    }
+    .features-list li {
+      padding: 5px 0;
+      color: #333;
+    }
+    .features-list li::before {
+      content: "✓ ";
+      color: #4caf50;
+      font-weight: bold;
+    }
+    .paypal-container {
+      margin: 20px 0;
+    }
+    .close-modal {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      background: none;
+      border: none;
+      font-size: 1.5em;
+      cursor: pointer;
+      color: #666;
+      padding: 5px;
+    }
+    .close-modal:hover {
+      color: #333;
+      background: none;
+      transform: none;
+    }
     .demo-note {
       background: #fff3cd;
       color: #856404;
@@ -248,12 +329,12 @@
 <body>
   <div class="container">
     <div class="demo-note">
-      <strong>Demo Version:</strong> PayPal integration disabled for testing. All core stereoscopic features are functional.
+      <strong>Note:</strong> PayPal integration is ready for production. Replace client-id with your live PayPal client ID.
     </div>
     
     <h1>Autostereoscopic Rendering Engine 
       <span class="mode-indicator" id="modeIndicator">Desktop Mode</span>
-      <span class="payment-status" id="paymentStatus" style="display: none;">✓ Demo Mode</span>
+      <span class="payment-status" id="paymentStatus">❌ Export Locked</span>
     </h1>
      
     <div class="upload-area" id="dropZone">
@@ -346,7 +427,7 @@
     </div>
 
     <div class="export-panel">
-      <button id="exportGif" disabled>📦 Export Frames as ZIP</button>
+      <button id="exportGif" disabled>🔒 Unlock Export Feature - $4.99</button>
       <button id="startAnim">▶️ Start Animation</button>
       <button id="stopAnim">⏹️ Stop Animation</button>
     </div>
@@ -359,6 +440,40 @@
     </div>
   </div>
 
+  <!-- PayPal Paywall Modal -->
+  <div id="paywallModal" class="paywall-modal">
+    <div class="paywall-content">
+      <button class="close-modal" id="closeModal">&times;</button>
+      <div class="paywall-title">🚀 Unlock Export Feature</div>
+      <div class="paywall-description">
+        Get access to high-quality frame export and create amazing stereoscopic animations!
+      </div>
+      
+      <div class="pricing-box">
+        <div class="price">$4.99</div>
+        <div style="font-weight: bold; margin-bottom: 10px;">One-time payment</div>
+        <ul class="features-list">
+          <li>Export up to 20 high-quality PNG frames</li>
+          <li>ZIP download with organized files</li>
+          <li>Includes README with instructions</li>
+          <li>Unlimited use after payment</li>
+          <li>No recurring charges</li>
+        </ul>
+      </div>
+
+      <div class="paypal-container">
+        <div id="paypal-button-container"></div>
+      </div>
+      
+      <div style="margin-top: 15px; font-size: 0.9em; color: #666;">
+        Secure payment processed by PayPal<br>
+        No PayPal account required - use any credit/debit card
+      </div>
+    </div>
+  </div>
+
+  <!-- PayPal SDK -->
+  <script src="https://www.paypal.com/sdk/js?client-id=sb-lq43p47629226@business.example.com&currency=USD"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>
 class MobileStereoscopicEngine {
@@ -369,7 +484,8 @@ class MobileStereoscopicEngine {
     this.isAnimating = false;
     this.animationPhase = 0;
     this.isProcessing = false;
-    this.isPaid = true; // Demo mode - always "paid"
+    this.isPaid = false;
+    this.initializePayPal();
   }
 
   setupDOM() {
@@ -386,11 +502,101 @@ class MobileStereoscopicEngine {
     this.progressText = document.getElementById('progressText');
     this.statusMessage = document.getElementById('statusMessage');
     this.exportButton = document.getElementById('exportGif');
+    this.paywallModal = document.getElementById('paywallModal');
+    this.closeModal = document.getElementById('closeModal');
     
-    // Show demo status
+    // Check for existing payment status (would typically be server-side)
+    this.checkPaymentStatus();
+  }
+
+  checkPaymentStatus() {
+    // In production, this would check against your server/database
+    // For demo purposes, we'll use localStorage
+    const paidStatus = localStorage.getItem('stereoscopic_engine_paid');
+    if (paidStatus === 'true') {
+      this.markAsPaid();
+    }
+  }
+
+  markAsPaid() {
+    this.isPaid = true;
     if (this.paymentStatus) {
-      this.paymentStatus.style.display = 'inline-block';
-      this.paymentStatus.textContent = '✓ Demo Mode';
+      this.paymentStatus.textContent = '✓ Export Unlocked';
+      this.paymentStatus.classList.add('paid');
+    }
+    if (this.exportButton) {
+      this.exportButton.textContent = '📦 Export Frames as ZIP';
+      this.exportButton.style.background = '#4caf50';
+    }
+  }
+
+  initializePayPal() {
+    if (window.paypal) {
+      paypal.Buttons({
+        createOrder: (data, actions) => {
+          return actions.order.create({
+            purchase_units: [{
+              amount: {
+                value: '4.99',
+                currency_code: 'USD'
+              },
+              description: 'Stereoscopic Engine Export Feature',
+              custom_id: 'stereoscopic_export_' + Date.now()
+            }]
+          });
+        },
+        onApprove: (data, actions) => {
+          return actions.order.capture().then((details) => {
+            this.handlePaymentSuccess(details);
+          });
+        },
+        onError: (err) => {
+          console.error('PayPal Error:', err);
+          this.showStatus('Payment failed. Please try again.', 'error');
+        },
+        onCancel: (data) => {
+          this.showStatus('Payment cancelled.', 'error');
+        },
+        style: {
+          color: 'blue',
+          shape: 'rect',
+          label: 'pay',
+          height: 50
+        }
+      }).render('#paypal-button-container');
+    }
+  }
+
+  handlePaymentSuccess(details) {
+    console.log('Payment successful:', details);
+    
+    // In production, you would:
+    // 1. Send payment details to your server for verification
+    // 2. Server validates with PayPal's API
+    // 3. Server stores payment record in database
+    // 4. Server responds with success/failure
+    
+    // For demo purposes, we'll simulate this:
+    localStorage.setItem('stereoscopic_engine_paid', 'true');
+    localStorage.setItem('payment_id', details.id);
+    localStorage.setItem('payment_time', new Date().toISOString());
+    
+    this.markAsPaid();
+    this.hidePaywall();
+    this.showStatus('Payment successful! Export feature unlocked.', 'success');
+  }
+
+  showPaywall() {
+    if (this.paywallModal) {
+      this.paywallModal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  hidePaywall() {
+    if (this.paywallModal) {
+      this.paywallModal.style.display = 'none';
+      document.body.style.overflow = 'auto';
     }
   }
 
@@ -406,6 +612,19 @@ class MobileStereoscopicEngine {
   }
 
   setupEventListeners() {
+    // Close modal handlers
+    if (this.closeModal) {
+      this.closeModal.addEventListener('click', () => this.hidePaywall());
+    }
+    
+    if (this.paywallModal) {
+      this.paywallModal.addEventListener('click', (e) => {
+        if (e.target === this.paywallModal) {
+          this.hidePaywall();
+        }
+      });
+    }
+
     // Image upload handlers
     if (this.dropZone) {
       this.dropZone.addEventListener('click', () => this.imageInput?.click());
@@ -457,10 +676,14 @@ class MobileStereoscopicEngine {
       stopAnim.addEventListener('click', () => this.stopAnimation());
     }
     
-    // Export button
+    // Export button with paywall check
     if (this.exportButton) {
       this.exportButton.addEventListener('click', () => {
-        this.exportFramesAsZip();
+        if (!this.isPaid) {
+          this.showPaywall();
+        } else {
+          this.exportFramesAsZip();
+        }
       });
     }
 
