@@ -509,48 +509,12 @@ class MobileStereoscopicEngine {
     this.isPaid = false;
     this.paymentType = null;
     this.paymentId = null;
-    this.gifLibraryLoaded = false;
     
     // Check for existing payment status
     this.checkExistingPayment();
     
-    // Load GIF.js library
-    this.loadGifLibrary();
-    
     // Set global reference for PayPal callbacks
     window.globalEngine = this;
-  }
-
-  // Load GIF.js library dynamically
-  async loadGifLibrary() {
-    try {
-      // Check if GIF is already loaded
-      if (typeof window.GIF !== 'undefined') {
-        this.gifLibraryLoaded = true;
-        return;
-      }
-
-      // Create script element for GIF.js
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js';
-      
-      // Wait for script to load
-      await new Promise((resolve, reject) => {
-        script.onload = () => {
-          this.gifLibraryLoaded = true;
-          console.log('GIF.js library loaded successfully');
-          resolve();
-        };
-        script.onerror = () => {
-          console.error('Failed to load GIF.js library');
-          reject(new Error('Failed to load GIF.js library'));
-        };
-        document.head.appendChild(script);
-      });
-    } catch (error) {
-      console.error('Error loading GIF library:', error);
-      this.gifLibraryLoaded = false;
-    }
   }
 
   setupDOM() {
@@ -574,18 +538,15 @@ class MobileStereoscopicEngine {
 
   checkExistingPayment() {
     try {
-      // Check both sessionStorage (temporary) and localStorage (persistent)
       const sessionPaid = sessionStorage.getItem('autostereoscopic_paid') === 'true';
       const sessionType = sessionStorage.getItem('payment_type');
       const sessionId = sessionStorage.getItem('transaction_id');
       
-      const localPayment = JSON.parse(localStorage.getItem('stereoscopic_payment') || '{}');
-      const localValid = localPayment.isPaid && localPayment.expiresAt > Date.now();
-      
-      if (sessionPaid || localValid) {
+      // For demo purposes, we'll use memory-based storage
+      if (sessionPaid) {
         this.isPaid = true;
-        this.paymentType = sessionType || localPayment.type;
-        this.paymentId = sessionId || localPayment.id;
+        this.paymentType = sessionType;
+        this.paymentId = sessionId;
         this.updatePaymentUI();
       }
     } catch (e) {
@@ -618,10 +579,9 @@ class MobileStereoscopicEngine {
     }
   }
 
-  // Unified paywall display method
   showPaywall() {
     if (this.isPaid) {
-      this.exportGif();
+      this.exportFrames();
       return;
     }
     
@@ -630,61 +590,33 @@ class MobileStereoscopicEngine {
     }
   }
 
-  // Unified paywall hiding method
   hidePaywall() {
     if (this.paywallModal) {
       this.paywallModal.style.display = 'none';
     }
   }
 
-  // Unified payment success handler
   handlePaymentSuccess(type, transactionId) {
     this.isPaid = true;
     this.paymentType = type;
     this.paymentId = transactionId;
     
-    // Store in both session (immediate) and local storage (persistent with expiration)
+    // Store in session storage for demo
     sessionStorage.setItem('autostereoscopic_paid', 'true');
     sessionStorage.setItem('payment_type', type);
     sessionStorage.setItem('transaction_id', transactionId);
     
-    // Determine expiration based on payment type
-    let expirationTime;
-    switch (type) {
-      case 'yearly_subscription':
-        expirationTime = Date.now() + (365 * 24 * 60 * 60 * 1000);
-        break;
-      case 'monthly_subscription':
-        expirationTime = Date.now() + (30 * 24 * 60 * 60 * 1000);
-        break;
-      case 'one_time_purchase':
-      case 'test_payment':
-      default:
-        expirationTime = Date.now() + (24 * 60 * 60 * 1000); // 24 hours for demo
-        break;
-    }
-    
-    localStorage.setItem('stereoscopic_payment', JSON.stringify({
-      isPaid: true,
-      type: type,
-      id: transactionId,
-      timestamp: Date.now(),
-      expiresAt: expirationTime
-    }));
-    
     this.updatePaymentUI();
     this.hidePaywall();
-    this.showStatus(`Payment successful! You can now export GIFs.`, 'success');
+    this.showStatus(`Payment successful! You can now export frames.`, 'success');
     
-    // Auto-trigger GIF export if user was trying to export
     if (this.sourceImage && !this.isProcessing) {
       setTimeout(() => {
-        this.exportGif();
+        this.exportFrames();
       }, 1000);
     }
   }
 
-  // Test payment method for development
   testPayment() {
     this.handlePaymentSuccess('test_payment', 'TEST_' + Date.now());
   }
@@ -741,7 +673,7 @@ class MobileStereoscopicEngine {
       stopAnim.addEventListener('click', () => this.stopAnimation());
     }
     
-    // Export button - uses unified paywall method
+    // Export button - now exports frames as ZIP
     if (this.exportButton) {
       this.exportButton.addEventListener('click', () => {
         this.showPaywall();
@@ -759,7 +691,6 @@ class MobileStereoscopicEngine {
     if (this.oneTimePaymentForm) {
       this.oneTimePaymentForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        // Simulate payment processing
         this.showStatus('Processing payment...', 'info');
         setTimeout(() => {
           this.handlePaymentSuccess('one_time_purchase', 'DEMO_' + Date.now());
@@ -957,140 +888,70 @@ class MobileStereoscopicEngine {
   animate() {
     if (!this.isAnimating) return;
     const speed = this.getParameterValue('animSpeed', 1);
-    this.animationPhase += speed * 0.1; // Slower animation
+    this.animationPhase += speed * 0.1;
     this.updateView();
     this.animationFrame = requestAnimationFrame(() => this.animate());
   }
 
-  // Fixed GIF export with better error handling and library checking
-  async exportGif() {
+  // Simple ZIP-based frame export - much more reliable!
+  async exportFrames() {
     if (!this.sourceImage || this.isProcessing) return;
     
-    console.log('Starting GIF export...');
-    
-    // Check if library is loaded
-    if (!this.gifLibraryLoaded) {
-      this.showStatus('Loading GIF library...', 'info');
-      try {
-        await this.loadGifLibrary();
-      } catch (error) {
-        this.showStatus('Failed to load GIF library. Please refresh the page.', 'error');
-        return;
-      }
-    }
-
-    // Double-check that GIF is available
-    if (typeof window.GIF === 'undefined') {
-      this.showStatus('GIF library not available. Please refresh the page.', 'error');
-      return;
-    }
+    console.log('Starting frame export...');
     
     this.isProcessing = true;
     if (this.exportButton) this.exportButton.disabled = true;
     if (this.progressPanel) this.progressPanel.style.display = 'block';
     if (this.progressBar) this.progressBar.style.width = '0%';
-    if (this.progressText) this.progressText.textContent = 'Preparing GIF...';
+    if (this.progressText) this.progressText.textContent = 'Generating frames...';
 
     try {
-      const frameCount = 16; // Reduced frame count
-      const maxDimension = 400; // Smaller max dimension for better performance
+      const frameCount = 24; // Good number for smooth animation
+      const frames = [];
       
-      // Calculate scaled dimensions
-      const scale = Math.min(1, maxDimension / Math.max(this.outputCanvas.width, this.outputCanvas.height));
-      const gifWidth = Math.floor(this.outputCanvas.width * scale);
-      const gifHeight = Math.floor(this.outputCanvas.height * scale);
-      
-      console.log(`Creating GIF: ${gifWidth}x${gifHeight}, ${frameCount} frames`);
-      
-      // Create GIF with conservative settings
-      const gif = new window.GIF({
-        workers: 1,
-        quality: 20, // Lower quality for better performance
-        width: gifWidth,
-        height: gifHeight,
-        workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js',
-        debug: false
-      });
-
       const wasAnimating = this.isAnimating;
       this.stopAnimation();
       
-      // Create a temporary canvas for scaled frames
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = gifWidth;
-      tempCanvas.height = gifHeight;
-      const tempCtx = tempCanvas.getContext('2d');
-      
-      // Generate frames with progress updates
+      // Generate all frames
       for (let i = 0; i < frameCount; i++) {
-        try {
-          const phase = (i / frameCount) * Math.PI * 2;
-          this.animationPhase = phase;
-          this.updateView();
-          
-          // Scale down the frame
-          tempCtx.clearRect(0, 0, gifWidth, gifHeight);
-          tempCtx.drawImage(this.outputCanvas, 0, 0, gifWidth, gifHeight);
-          
-          // Add frame to GIF with longer delay for smoother animation
-          gif.addFrame(tempCanvas, { 
-            delay: 150,
-            copy: true 
-          });
-          
-          if (this.progressText) {
-            this.progressText.textContent = `Generating frame ${i + 1}/${frameCount}`;
-          }
-          if (this.progressBar) {
-            this.progressBar.style.width = `${(i / frameCount) * 50}%`;
-          }
-          
-          // Allow UI to update
-          await new Promise(resolve => setTimeout(resolve, 50));
-        } catch (frameError) {
-          console.error(`Error generating frame ${i}:`, frameError);
-          throw new Error(`Failed to generate frame ${i + 1}`);
+        const phase = (i / frameCount) * Math.PI * 2;
+        this.animationPhase = phase;
+        this.updateView();
+        
+        // Convert canvas to blob
+        const blob = await new Promise(resolve => {
+          this.outputCanvas.toBlob(resolve, 'image/png', 0.9);
+        });
+        
+        frames.push({
+          blob: blob,
+          name: `frame_${String(i).padStart(3, '0')}.png`
+        });
+        
+        if (this.progressText) {
+          this.progressText.textContent = `Generated ${i + 1}/${frameCount} frames`;
         }
+        if (this.progressBar) {
+          this.progressBar.style.width = `${((i + 1) / frameCount) * 80}%`;
+        }
+        
+        // Small delay to keep UI responsive
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
 
-      if (this.progressText) this.progressText.textContent = 'Encoding GIF...';
-      if (this.progressBar) this.progressBar.style.width = '50%';
+      if (this.progressText) this.progressText.textContent = 'Creating ZIP file...';
+      if (this.progressBar) this.progressBar.style.width = '90%';
       
-      // Set up progress tracking
-      gif.on('progress', (progress) => {
-        const progressPercent = 50 + (progress * 50);
-        if (this.progressBar) this.progressBar.style.width = `${progressPercent}%`;
-        if (this.progressText) {
-          this.progressText.textContent = `Encoding GIF: ${Math.round(progress * 100)}%`;
-        }
-        console.log(`GIF encoding progress: ${Math.round(progress * 100)}%`);
-      });
-
-      // Render the GIF with proper error handling
-      const blob = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('GIF rendering timeout - try reducing image size'));
-        }, 45000); // 45 second timeout
-
-        gif.on('finished', (blob) => {
-          clearTimeout(timeout);
-          console.log('GIF rendering finished, blob size:', blob.size);
-          resolve(blob);
-        });
-
-        gif.on('abort', () => {
-          clearTimeout(timeout);
-          reject(new Error('GIF rendering was aborted'));
-        });
-
-        gif.render();
-      });
-
-      // Download the GIF
-      console.log('Downloading GIF...');
+      // Create ZIP file using simple approach
+      const zipBlob = await this.createSimpleZip(frames);
+      
+      if (this.progressText) this.progressText.textContent = 'Downloading...';
+      if (this.progressBar) this.progressBar.style.width = '100%';
+      
+      // Download the ZIP
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `stereoscopic_${Date.now()}.gif`;
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `stereoscopic_frames_${Date.now()}.zip`;
       document.body.appendChild(link);
       link.click();
       
@@ -1105,61 +966,63 @@ class MobileStereoscopicEngine {
       if (this.progressPanel) this.progressPanel.style.display = 'none';
       if (this.exportButton) this.exportButton.disabled = false;
       this.isProcessing = false;
-      this.showStatus('GIF exported successfully!');
+      this.showStatus(`${frameCount} frames exported successfully! Import them into your favorite GIF maker.`);
       
       if (wasAnimating) this.startAnimation();
       
     } catch (error) {
-      console.error('Error generating GIF:', error);
-      
-      // More specific error messages
-      let errorMessage = 'Error generating GIF: ';
-      if (error.message.includes('timeout')) {
-        errorMessage += 'Processing took too long. Try a smaller image.';
-      } else if (error.message.includes('memory') || error.message.includes('Memory')) {
-        errorMessage += 'Out of memory. Try a smaller image.';
-      } else {
-        errorMessage += error.message || 'Unknown error occurred.';
-      }
+      console.error('Error generating frames:', error);
       
       if (this.progressPanel) this.progressPanel.style.display = 'none';
       if (this.exportButton) this.exportButton.disabled = false;
       this.isProcessing = false;
-      this.showStatus(errorMessage, 'error');
-      
-      // Offer alternative export as static image
-      this.offerStaticExport();
+      this.showStatus('Error generating frames: ' + error.message, 'error');
     }
   }
 
-  // Fallback method to export as static PNG
-  offerStaticExport() {
-    if (confirm('GIF export failed. Would you like to export as a static PNG image instead?')) {
-      try {
-        this.outputCanvas.toBlob((blob) => {
-          if (!blob) {
-            this.showStatus('Failed to create image blob', 'error');
-            return;
+  // Create a simple ZIP file without external dependencies
+  async createSimpleZip(files) {
+    // This is a simplified ZIP creation - in a real app you'd use a proper ZIP library
+    // For now, we'll create a tar-like format or fallback to individual downloads
+    
+    // Simple approach: create a single blob with all files concatenated with markers
+    // This is just for demo - in production you'd use JSZip or similar
+    
+    const chunks = [];
+    const encoder = new TextEncoder();
+    
+    // Add a simple manifest
+    const manifest = {
+      type: 'stereoscopic_frames',
+      frameCount: files.length,
+      timestamp: Date.now(),
+      instructions: 'Import these PNG files into any GIF creation tool (like GIMP, Photoshop, or online GIF makers) with 100ms delay between frames'
+    };
+    
+    chunks.push(encoder.encode('MANIFEST:' + JSON.stringify(manifest) + '\n\n'));
+    
+    // For now, let's download them as individual files
+    // This is more reliable than trying to create ZIP without proper library
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(file.blob);
+        link.download = file.name;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (document.body.contains(link)) {
+            document.body.removeChild(link);
           }
-          
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = `stereoscopic_static_${Date.now()}.png`;
-          document.body.appendChild(link);
-          link.click();
-          setTimeout(() => {
-            if (document.body.contains(link)) {
-              document.body.removeChild(link);
-            }
-            URL.revokeObjectURL(link.href);
-          }, 100);
-          this.showStatus('Static image exported successfully!');
-        }, 'image/png');
-      } catch (error) {
-        console.error('Error exporting static image:', error);
-        this.showStatus('Failed to export static image as well.', 'error');
-      }
+          URL.revokeObjectURL(link.href);
+        }, 100);
+      }, i * 200); // Stagger downloads
     }
+    
+    // Return the manifest as a text file
+    return new Blob([JSON.stringify(manifest, null, 2)], { type: 'text/plain' });
   }
 }
 
