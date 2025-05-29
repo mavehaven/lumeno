@@ -346,9 +346,9 @@
     </div>
 
     <div class="export-panel">
-      <button id="exportGif" disabled>Export Frames (Demo)</button>
-      <button id="startAnim">Start Animation</button>
-      <button id="stopAnim">Stop Animation</button>
+      <button id="exportGif" disabled>📦 Export Frames as ZIP</button>
+      <button id="startAnim">▶️ Start Animation</button>
+      <button id="stopAnim">⏹️ Stop Animation</button>
     </div>
 
     <div class="progress-panel" id="progressPanel">
@@ -359,6 +359,7 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script>
 class MobileStereoscopicEngine {
   constructor() {
@@ -400,7 +401,7 @@ class MobileStereoscopicEngine {
       this.statusMessage.style.display = 'block';
       setTimeout(() => {
         this.statusMessage.style.display = 'none';
-      }, 3000);
+      }, 5000);
     }
   }
 
@@ -459,7 +460,7 @@ class MobileStereoscopicEngine {
     // Export button
     if (this.exportButton) {
       this.exportButton.addEventListener('click', () => {
-        this.exportFrames();
+        this.exportFramesAsZip();
       });
     }
 
@@ -645,72 +646,129 @@ class MobileStereoscopicEngine {
     this.animationFrame = requestAnimationFrame(() => this.animate());
   }
 
-  async exportFrames() {
+  async exportFramesAsZip() {
     if (!this.sourceImage || this.isProcessing) return;
     
     this.isProcessing = true;
     if (this.exportButton) this.exportButton.disabled = true;
     if (this.progressPanel) this.progressPanel.style.display = 'block';
     if (this.progressBar) this.progressBar.style.width = '0%';
-    if (this.progressText) this.progressText.textContent = 'Generating frames...';
+    if (this.progressText) this.progressText.textContent = 'Initializing ZIP creation...';
 
     try {
-      const frameCount = 12; // Reduced for demo
+      const frameCount = 20; // More frames for smoother animation
+      const zip = new JSZip();
       
       const wasAnimating = this.isAnimating;
       this.stopAnimation();
       
-      // Generate and download frames
+      if (this.progressText) {
+        this.progressText.textContent = 'Generating stereoscopic frames...';
+      }
+      
+      // Generate all frames and add to ZIP
       for (let i = 0; i < frameCount; i++) {
         const phase = (i / frameCount) * Math.PI * 2;
         this.animationPhase = phase;
         this.updateView();
         
-        // Convert canvas to blob and download
+        // Convert canvas to blob
         const blob = await new Promise(resolve => {
           this.outputCanvas.toBlob(resolve, 'image/png', 0.9);
         });
         
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `stereoscopic_frame_${String(i).padStart(3, '0')}.png`;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        
-        // Cleanup
-        setTimeout(() => {
-          if (document.body.contains(link)) {
-            document.body.removeChild(link);
-          }
-          URL.revokeObjectURL(link.href);
-        }, 100);
+        // Add to ZIP with padded filename
+        const filename = `stereoscopic_frame_${String(i + 1).padStart(3, '0')}.png`;
+        zip.file(filename, blob);
         
         if (this.progressText) {
-          this.progressText.textContent = `Downloaded ${i + 1}/${frameCount} frames`;
+          this.progressText.textContent = `Generated ${i + 1}/${frameCount} frames`;
         }
         if (this.progressBar) {
-          this.progressBar.style.width = `${((i + 1) / frameCount) * 100}%`;
+          this.progressBar.style.width = `${((i + 1) / frameCount) * 80}%`; // 80% for generation
         }
         
-        // Delay between downloads
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Small delay to prevent blocking
+        if (i % 5 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
       }
+
+      if (this.progressText) {
+        this.progressText.textContent = 'Creating ZIP file...';
+      }
+      if (this.progressBar) {
+        this.progressBar.style.width = '90%';
+      }
+
+      // Add README file with instructions
+      const readmeContent = `Stereoscopic Animation Frames
+=============================
+
+This ZIP contains ${frameCount} PNG frames for creating an autostereoscopic animation.
+
+Settings used:
+- Mode: ${this.isMobileMode ? 'Mobile' : 'Desktop'}
+- Perspective Separation: ${this.getParameterValue('separation', 30)}
+- Barrier Width: ${this.getParameterValue('barrierWidth', 4)}
+- Motion Range: ${this.getParameterValue('motionRange', 70)}
+- Depth Intensity: ${this.getParameterValue('depthIntensity', 50)}
+
+To create an animated GIF:
+1. Import all frames into your favorite GIF creation software
+2. Set frame delay to 50-100ms for smooth animation
+3. Enable looping for continuous playback
+
+Generated by Mobile Autostereoscopic Engine
+`;
+      
+      zip.file('README.txt', readmeContent);
+      
+      // Generate ZIP file
+      const zipBlob = await zip.generateAsync({ 
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+      });
+
+      if (this.progressText) {
+        this.progressText.textContent = 'Downloading ZIP file...';
+      }
+      if (this.progressBar) {
+        this.progressBar.style.width = '100%';
+      }
+
+      // Create download link
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      link.download = `stereoscopic_frames_${timestamp}.zip`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+        URL.revokeObjectURL(link.href);
+      }, 100);
 
       if (this.progressPanel) this.progressPanel.style.display = 'none';
       if (this.exportButton) this.exportButton.disabled = false;
       this.isProcessing = false;
-      this.showStatus(`${frameCount} frames downloaded! Import them into your favorite GIF maker.`);
+      this.showStatus(`ZIP file with ${frameCount} frames downloaded successfully! Check your downloads folder.`);
       
       if (wasAnimating) this.startAnimation();
       
     } catch (error) {
-      console.error('Error generating frames:', error);
+      console.error('Error creating ZIP:', error);
       
       if (this.progressPanel) this.progressPanel.style.display = 'none';
       if (this.exportButton) this.exportButton.disabled = false;
       this.isProcessing = false;
-      this.showStatus('Error generating frames: ' + error.message, 'error');
+      this.showStatus('Error creating ZIP file: ' + error.message, 'error');
     }
   }
 }
