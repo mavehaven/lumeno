@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Autostereoscopic Parallax Barrier Renderer</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .logo {
+            height: 140px;
+            width: auto;
+        }
+        .main-display {
+            position: relative;
+            margin: 20px 0;
+            text-align: center;
+        }
+        #outputCanvas {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            background: #000;
+        }
+        #barrierCanvas {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+        .controls {
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        .control-group {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .control-group h3 {
+            margin-top: 0;
+        }
+        button {
+            background: #0070f3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            margin: 5px 0;
+        }
+        button:hover {
+            background: #0051b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .slider-container {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input[type="range"], select {
+            width: 100%;
+        }
+        select {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .view-selector {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        .view-selector button {
+            flex: 1;
+            padding: 6px 8px;
+            font-size: 12px;
+        }
+        .video-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .video-controls button {
+            width: auto;
+            padding: 5px 10px;
+            margin: 0;
+        }
+        .progress-container {
+            flex: 1;
+            margin: 0 10px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #0070f3;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.1s;
+        }
+        .time-display {
+            font-family: monospace;
+            font-size: 14px;
+            color: #666;
+        }
+        .preview-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .preview-view {
+            flex: 1;
+            text-align: center;
+        }
+        .preview-view canvas {
+            max-width: 100%;
+            border: 1px solid #ddd;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .status.processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status.ready {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .hidden {
+            display: none;
+        }
+        .download-options {
+            background: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .download-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .download-row label {
+            margin: 0;
+            min-width: 120px;
+        }
+        .download-row select {
+            margin: 0;
+        }
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .export-buttons button {
+            flex: 1;
+        }
+        .export-mp4 {
+            background: #28a745;
+        }
+        .export-mp4:hover {
+            background: #218838;
+        }
+        .export-zip {
+            background: #fd7e14;
+        }
+        .export-zip:hover {
+            background: #e86c0a;
+        }
+        .progress-export {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-export-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007bff, #28a745);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" alt="Logo" class="logo">
+        <h1>Video Autostereoscopic Rendering Engine (VARE)</h1>
+        
+        <div class="upload-area" id="dropZone">
+            <p>Drop an MP4 video here or click to upload</p>
+            <input type="file" id="fileInput" accept="video/mp4,video/webm,video/ogg" style="display: none;">
+        </div>
+
+        <div id="status" class="status hidden"></div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <h3>Video Controls</h3>
+                <div class="video-controls">
+                    <button id="playPauseBtn" disabled>▶️</button>
+                    <button id="stopBtn" disabled>⏹️</button>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                    </div>
+                    <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
+                </div>
+                <div class="slider-container">
+                    <label for="frameRate">Playback Speed</label>
+                    <input type="range" id="frameRate" min="0.25" max="2" step="0.25" value="1">
+                    <span id="frameRateValue">1x</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>View Controls</h3>
+                <div class="view-selector">
+                    <button id="viewLeft">Left</button>
+                    <button id="viewRight">Right</button>
+                    <button id="viewCombined" class="active">Combined</button>
+                </div>
+                <button id="toggleBarrier" disabled>Toggle Barrier</button>
+                <button id="exportFrame" disabled>Export Current Frame</button>
+            </div>
+            
+            <div class="control-group">
+                <h3>3D Effect Adjustments</h3>
+                <div class="slider-container">
+                    <label for="separation">View Separation: <span id="separationValue">15</span>px</label>
+                    <input type="range" id="separation" min="1" max="100" value="15">
+                </div>
+                <div class="slider-container">
+                    <label for="barrierWidth">Barrier Width: <span id="barrierWidthValue">2</span>px</label>
+                    <input type="range" id="barrierWidth" min="1" max="20" value="2">
+                </div>
+                <div class="slider-container">
+                    <label for="depth">3D Depth: <span id="depthValue">1.0</span></label>
+                    <input type="range" id="depth" min="0.1" max="3" step="0.1" value="1">
+                </div>
+            </div>
+
+            <div class="control-group download-options">
+                <h3>Export Options</h3>
+                <div class="download-row">
+                    <label for="exportResolution">Resolution:</label>
+                    <select id="exportResolution">
+                        <option value="original">Original Quality</option>
+                        <option value="1080p">1080p (1920×1080)</option>
+                        <option value="1440p">1440p (2560×1440)</option>
+                        <option value="4k">4K (3840×2160)</option>
+                    </select>
+                </div>
+                <div class="download-row">
+                    <label for="exportView">View Type:</label>
+                    <select id="exportView">
+                        <option value="combined">Combined (3D)</option>
+                        <option value="left">Left Eye Only</option>
+                        <option value="right">Right Eye Only</option>
+                        <option value="side-by-side">Side-by-Side</option>
+                    </select>
+                </div>
+                <div class="download-row">
+                    <label for="frameRange">Frame Range:</label>
+                    <select id="frameRange">
+                        <option value="all">Entire Video</option>
+                        <option value="current">Current Second</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+                <div id="customRange" class="hidden">
+                    <div class="download-row">
+                        <label>Start (sec):</label>
+                        <input type="number" id="startTime" min="0" step="0.1" value="0">
+                    </div>
+                    <div class="download-row">
+                        <label>End (sec):</label>
+                        <input type="number" id="endTime" min="0" step="0.1" value="10">
+                    </div>
+                </div>
+                <div class="export-buttons">
+                    <button id="exportMP4" class="export-mp4" disabled>Export as MP4</button>
+                    <button id="exportZip" class="export-zip" disabled>Export as ZIP</button>
+                </div>
+                <div id="exportProgress" class="progress-export hidden">
+                    <div id="exportProgressFill" class="progress-export-fill">0%</div>
+                </div>
+                <div id="exportStatus" class="hidden"></div>
+            </div>
+        </div>
+
+        <div class="main-display">
+            <canvas id="outputCanvas" width="800" height="450"></canvas>
+            <canvas id="barrierCanvas" class="hidden"></canvas>
+        </div>
+
+        <div class="preview-container">
+            <div class="preview-view">
+                <h4>Left Eye View</h4>
+                <canvas id="leftPreview" width="200" height="150"></canvas>
+            </div>
+            <div class="preview-view">
+                <h4>Right Eye View</h4>
+                <canvas id="rightPreview" width="200" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+      class VideoAutostereoscopicRenderer {
+    constructor() {
+        this.setupDOM();
+        this.setupEventListeners();
+        this.initializeSettings();
+        this.setupCanvas();
+    }
+
+    setupDOM() {
+        this.dropZone = document.getElementById('dropZone');
+        this.fileInput = document.getElementById('fileInput');
+        this.status = document.getElementById('status');
+        this.outputCanvas = document.getElementById('outputCanvas');
+        this.barrierCanvas = document.getElementById('barrierCanvas');
+        this.leftPreview = document.getElementById('leftPreview');
+        this.rightPreview = document.getElementById('rightPreview');
+        
+        // Video controls
+        this.playPauseBtn = document.getElementById('playPauseBtn');
+        this.stopBtn = document.getElementById('stopBtn');
+        this.progressBar = document.getElementById('progressBar');
+        this.progressFill = document.getElementById('progressFill');
+        this.timeDisplay = document.getElementById('timeDisplay');
+        this.frameRateSlider = document.getElementById('frameRate');
+        this.frameRateValue = document.getElementById('frameRateValue');
+        
+        // 3D controls
+        this.separationSlider = document.getElementById('separation');
+        this.separationValue = document.getElementById('separationValue');
+        this.barrierWidthSlider = document.getElementById('barrierWidth');
+        this.barrierWidthValue = document.getElementById('barrierWidthValue');
+        this.depthSlider = document.getElementById('depth');
+        this.depthValue = document.getElementById('depthValue');
+        this.toggleBarrierBtn = document.getElementById('toggleBarrier');
+        this.exportFrameBtn = document.getElementById('exportFrame');
+        
+        // View controls
+        this.viewButtons = {
+            left: document.getElementById('viewLeft'),
+            right: document.getElementById('viewRight'),
+            combined: document.getElementById('viewCombined')
+        };
+
+        // Export controls
+        this.exportResolution = document.getElementById('exportResolution');
+        this.exportView = document.getElementById('exportView');
+        this.frameRange = document.getElementById('frameRange');
+        this.customRange = document.getElementById('customRange');
+        this.startTime = document.getElementById('startTime');
+        this.endTime = document.getElementById('endTime');
+        this.exportMP4Btn = document.getElementById('exportMP4');
+        this.exportZipBtn = document.getElementById('exportZip');
+        this.exportProgress = document.getElementById('exportProgress');
+        this.exportProgressFill = document.getElementById('exportProgressFill');
+        this.exportStatus = document.getElementById('exportStatus');
+    }
+
+    initializeSettings() {
+        this.video = null;
+        this.isPlaying = false;
+        this.currentView = 'combined';
+        this.barrierVisible = true;
+        this.separation = 15;
+        this.barrierWidth = 2;
+        this.depth = 1.0;
+        this.playbackRate = 1.0;
+        this.animationFrame = null;
+        this.isExporting = false;
+    }
+
+    setupCanvas() {
+        this.ctx = this.outputCanvas.getContext('2d');
+        this.barrierCtx = this.barrierCanvas.getContext('2d');
+        this.leftCtx = this.leftPreview.getContext('2d');
+        this.rightCtx = this.rightPreview.getContext('2d');
+        
+        // Create hidden canvases for processing
+        this.leftCanvas = document.createElement('canvas');
+        this.rightCanvas = document.createElement('canvas');
+        this.leftCanvasCtx = this.leftCanvas.getContext('2d');
+        this.rightCanvasCtx = this.rightCanvas.getContext('2d');
+    }
+
+    setupEventListeners() {
+        // File upload
+        this.dropZone.addEventListener('click', () => this.fileInput.click());
+        this.dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.dropZone.style.background = '#f0f0f0';
+        });
+        this.dropZone.addEventListener('dragleave', () => {
+            this.dropZone.style.background = 'none';
+        });
+        this.dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.dropZone.style.background = 'none';
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('video/')) {
+                this.handleVideo(file);
+            }
+        });
+        this.fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) this.handleVideo(file);
+        });
+
+        // Video controls
+        this.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
+        this.stopBtn.addEventListener('click', () => this.stopVideo());
+        this.progressBar.addEventListener('click', (e) => this.seekVideo(e));
+        
+        this.frameRateSlider.addEventListener('input', () => {
+            this.playbackRate = parseFloat(this.frameRateSlider.value);
+            this.frameRateValue.textContent = this.playbackRate + 'x';
+            if (this.video) this.video.playbackRate = this.playbackRate;
+        });
+
+        // 3D controls
+        this.separationSlider.addEventListener('input', () => {
+            this.separation = parseInt(this.separationSlider.value);
+            this.separationValue.textContent = this.separation;
+            if (this.video && !this.isPlaying) {
+                this.renderCurrentFrame();
+            }
+        });
+
+        this.barrierWidthSlider.addEventListener('input', () => {
+            this.barrierWidth = parseInt(this.barrierWidthSlider.value);
+            this.barrierWidthValue.textContent = this.barrierWidth;
+            if (this.video && !this.isPlaying) {
+                this.renderCurrentFrame();
+            }
+        });
+
+        this.depthSlider.addEventListener('input', () => {
+            this.depth = parseFloat(this.depthSlider.value);
+            this.depthValue.textContent = this.depth.toFixed(1);
+            if (this.video && !this.isPlaying) {
+                this.renderCurrentFrame();
+            }
+        });
+
+        this.toggleBarrierBtn.addEventListener('click', () => this.toggleBarrier());
+        this.exportFrameBtn.addEventListener('click', () => this.exportCurrentFrame());
+
+        // View controls
+        Object.entries(this.viewButtons).forEach(([view, button]) => {
+            button.addEventListener('click', () => this.setView(view));
+        });
+
+        // Export controls
+        this.frameRange.addEventListener('change', () => {
+            this.customRange.classList.toggle('hidden', this.frameRange.value !== 'custom');
+        });
+
+        this.exportMP4Btn.addEventListener('click', () => this.exportAsMP4());
+        this.exportZipBtn.addEventListener('click', () => this.exportAsZip());
+    }
+
+    showStatus(message, type = 'processing') {
+        this.status.textContent = message;
+        this.status.className = `status ${type}`;
+        this.status.classList.remove('hidden');
+    }
+
+    hideStatus() {
+        this.status.classList.add('hidden');
+    }
+
+    handleVideo(file) {
+        this.showStatus('Loading video...', 'processing');
+        
+        if (this.video) {
+            this.video.pause();
+            this.video = null;
+        }
+
+        this.video = document.createElement('video');
+        this.video.crossOrigin = 'anonymous';
+        this.video.muted = true;
+        this.video.playbackRate = this.playbackRate;
+
+        this.video.addEventListener('loadedmetadata', () => {
+            this.setupVideoCanvas();
+            this.enableControls();
+            this.updateTimeInputs();
+            this.showStatus('Video loaded successfully!', 'ready');
+            setTimeout(() => this.hideStatus(), 2000);
+        });
+
+        this.video.addEventListener('timeupdate', () => this.updateProgress());
+        this.video.addEventListener('ended', () => this.onVideoEnded());
+        this.video.addEventListener('play', () => this.startRendering());
+        this.video.addEventListener('pause', () => this.stopRendering());
+
+        const url = URL.createObjectURL(file);
+        this.video.src = url;
+    }
+
+    setupVideoCanvas() {
+        const { videoWidth, videoHeight } = this.video;
+        
+        // Set main canvas size
+        const maxWidth = 800;
+        const aspectRatio = videoWidth / videoHeight;
+        const canvasWidth = Math.min(maxWidth, videoWidth);
+        const canvasHeight = canvasWidth / aspectRatio;
+        
+        this.outputCanvas.width = canvasWidth;
+        this.outputCanvas.height = canvasHeight;
+        this.barrierCanvas.width = canvasWidth;
+        this.barrierCanvas.height = canvasHeight;
+        
+        // Set processing canvas sizes
+        this.leftCanvas.width = this.rightCanvas.width = canvasWidth;
+        this.leftCanvas.height = this.rightCanvas.height = canvasHeight;
+        
+        this.renderCurrentFrame();
+    }
+
+    updateTimeInputs() {
+        if (this.video) {
+            this.endTime.max = this.video.duration;
+            this.endTime.value = Math.min(10, this.video.duration);
+            this.startTime.max = this.video.duration;
+        }
+    }
+
+    enableControls() {
+        this.playPauseBtn.disabled = false;
+        this.stopBtn.disabled = false;
+        this.toggleBarrierBtn.disabled = false;
+        this.exportFrameBtn.disabled = false;
+        this.exportMP4Btn.disabled = false;
+        this.exportZipBtn.disabled = false;
+    }
+
+    togglePlayPause() {
+        if (!this.video) return;
+
+        if (this.isPlaying) {
+            this.video.pause();
+            this.playPauseBtn.textContent = '▶️';
+            this.isPlaying = false;
+        } else {
+            this.video.play();
+            this.playPauseBtn.textContent = '⏸️';
+            this.isPlaying = true;
+        }
+    }
+
+    stopVideo() {
+        if (!this.video) return;
+
+        this.video.pause();
+        this.video.currentTime = 0;
+        this.playPauseBtn.textContent = '▶️';
+        this.isPlaying = false;
+        this.renderCurrentFrame();
+    }
+
+    seekVideo(e) {
+        if (!this.video) return;
+
+        const rect = this.progressBar.getBoundingClientRect();
+        const progress = (e.clientX - rect.left) / rect.width;
+        this.video.currentTime = progress * this.video.duration;
+        this.renderCurrentFrame();
+    }
+
+    updateProgress() {
+        if (!this.video) return;
+
+        const progress = (this.video.currentTime / this.video.duration) * 100;
+        this.progressFill.style.width = progress + '%';
+
+        const currentMin = Math.floor(this.video.currentTime / 60);
+        const currentSec = Math.floor(this.video.currentTime % 60);
+        const totalMin = Math.floor(this.video.duration / 60);
+        const totalSec = Math.floor(this.video.duration % 60);
+
+        this.timeDisplay.textContent = 
+            `${String(currentMin).padStart(2, '0')}:${String(currentSec).padStart(2, '0')} / ` +
+            `${String(totalMin).padStart(2, '0')}:${String(totalSec).padStart(2, '0')}`;
+    }
+
+    onVideoEnded() {
+        this.isPlaying = false;
+        this.playPauseBtn.textContent = '▶️';
+        this.stopRendering();
+    }
+
+    startRendering() {
+        this.stopRendering(); // Stop any existing animation
+        this.renderLoop();
+    }
+
+    stopRendering() {
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+            this.animationFrame = null;
+        }
+    }
+
+    renderLoop() {
+        if (this.video && !this.video.paused) {
+            this.renderCurrentFrame();
+            this.animationFrame = requestAnimationFrame(() => this.renderLoop());
+        }
+    }
+
+    renderCurrentFrame() {
+        if (!this.video) return;
+
+        const { width, height } = this.outputCanvas;
+        const separationOffset = this.separation * this.depth;
+
+        // Clear canvases
+        this.ctx.fillStyle = '#000';
+        this.ctx.fillRect(0, 0, width, height);
+        this.leftCanvasCtx.fillStyle = '#000';
+        this.leftCanvasCtx.fillRect(0, 0, width, height);
+        this.rightCanvasCtx.fillStyle = '#000';
+        this.rightCanvasCtx.fillRect(0, 0, width, height);
+
+        // Render left and right eye views
+        this.leftCanvasCtx.drawImage(this.video, -separationOffset, 0, width, height);
+        this.rightCanvasCtx.drawImage(this.video, separationOffset, 0, width, height);
+
+        // Render based on current view
+        this.renderView();
+
+        // Update preview canvases
+        this.updatePreviews();
+
+        // Update barrier if visible
+        if (this.barrierVisible && this.currentView === 'combined') {
+            this.renderBarrier();
+        }
+    }
+
+    renderView() {
+        const { width, height } = this.outputCanvas;
+
+        switch (this.currentView) {
+            case 'left':
+                this.ctx.drawImage(this.leftCanvas, 0, 0);
+                break;
+            case 'right':
+                this.ctx.drawImage(this.rightCanvas, 0, 0);
+                break;
+            case 'combined':
+                this.renderCombinedView();
+                break;
+        }
+    }
+
+    renderCombinedView() {
+        const { width, height } = this.outputCanvas;
+        const stripeWidth = this.barrierWidth;
+
+        // Interlace left and right views
+        for (let x = 0; x < width; x += stripeWidth * 2) {
+            // Left eye stripe
+            this.ctx.drawImage(this.leftCanvas, x, 0, stripeWidth, height, x, 0, stripeWidth, height);
+            
+            // Right eye stripe
+            if (x + stripeWidth < width) {
+                this.ctx.drawImage(this.rightCanvas, x + stripeWidth, 0, stripeWidth, height, x + stripeWidth, 0, stripeWidth, height);
+            }
+        }
+    }
+
+    updatePreviews() {
+        const previewWidth = this.leftPreview.width;
+        const previewHeight = this.leftPreview.height;
+
+        // Scale and draw left preview
+        this.leftCtx.drawImage(this.leftCanvas, 0, 0, previewWidth, previewHeight);
+        
+        // Scale and draw right preview  
+        this.rightCtx.drawImage(this.rightCanvas, 0, 0, previewWidth, previewHeight);
+    }
+
+    renderBarrier() {
+        const { width, height } = this.barrierCanvas;
+        const stripeWidth = this.barrierWidth;
+
+        this.barrierCtx.clearRect(0, 0, width, height);
+        this.barrierCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+
+        for (let x = stripeWidth; x < width; x += stripeWidth * 2) {
+            this.barrierCtx.fillRect(x, 0, stripeWidth, height);
+        }
+    }
+
+    setView(view) {
+        this.currentView = view;
+        
+        // Update button states
+        Object.entries(this.viewButtons).forEach(([v, button]) => {
+            button.classList.toggle('active', v === view);
+        });
+
+        // Show/hide barrier canvas
+        this.barrierCanvas.classList.toggle('hidden', view !== 'combined' || !this.barrierVisible);
+
+        this.renderCurrentFrame();
+    }
+
+    toggleBarrier() {
+        this.barrierVisible = !this.barrierVisible;
+        this.toggleBarrierBtn.textContent = this.barrierVisible ? 'Hide Barrier' : 'Show Barrier';
+        this.barrierCanvas.classList.toggle('hidden', !this.barrierVisible || this.currentView !== 'combined');
+        this.renderCurrentFrame();
+    }
+
+    exportCurrentFrame() {
+        if (!this.video) return;
+
+        const link = document.createElement('a');
+        link.download = `autostereoscopic_frame_${Date.now()}.png`;
+        link.href = this.outputCanvas.toDataURL();
+        link.click();
+    }
+
+    getExportDimensions(resolution) {
+        const { videoWidth, videoHeight } = this.video;
+        const aspectRatio = videoWidth / videoHeight;
+
+        switch (resolution) {
+            case '1080p':
+                return { width: 1920, height: 1080 };
+            case '1440p':
+                return { width: 2560, height: 1440 };
+            case '4k':
+                return { width: 3840, height: 2160 };
+            default: // original
+                return { width: videoWidth, height: videoHeight };
+        }
+    }
+
+    async renderFrameAtTime(time, dimensions, viewType) {
+        return new Promise((resolve) => {
+            const { width, height } = dimensions;
+            
+            // Create temporary canvas for rendering
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+
+            // Create temporary video element
+            const tempVideo = document.createElement('video');
+            tempVideo.src = this.video.src;
+            tempVideo.currentTime = time;
+            tempVideo.muted = true;
+
+            tempVideo.addEventListener('seeked', () => {
+                // Render the frame based on view type
+                this.renderFrameToCanvas(tempVideo, tempCanvas, tempCtx, viewType);
+                resolve(tempCanvas.toDataURL('image/png'));
+            }, { once: true });
+        });
+    }
+
+    renderFrameToCanvas(video, canvas, ctx, viewType) {
+        const { width, height } = canvas;
+        const separationOffset = this.separation * this.depth;
+
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
+
+        switch (viewType) {
+            case 'left':
+                ctx.drawImage(video, -separationOffset, 0, width, height);
+                break;
+            case 'right':
+                ctx.drawImage(video, separationOffset, 0, width, height);
+                break;
+            case 'side-by-side':
+                const halfWidth = width / 2;
+                ctx.drawImage(video, -separationOffset, 0, width, height, 0, 0, halfWidth, height);
+                ctx.drawImage(video, separationOffset, 0, width, height, halfWidth, 0, halfWidth, height);
+                break;
+            case 'combined':
+            default:
+                // Create temp canvases for left/right views
+                const leftTemp = document.createElement('canvas');
+                const rightTemp = document.createElement('canvas');
+                leftTemp.width = rightTemp.width = width;
+                leftTemp.height = rightTemp.height = height;
+                const leftTempCtx = leftTemp.getContext('2d');
+                const rightTempCtx = rightTemp.getContext('2d');
+
+                // Render left and right views
+                leftTempCtx.drawImage(video, -separationOffset, 0, width, height);
+                rightTempCtx.drawImage(video, separationOffset, 0, width, height);
+
+                // Combine with parallax barrier
+                const stripeWidth = this.barrierWidth;
+                for (let x = 0; x < width; x += stripeWidth * 2) {
+                    ctx.drawImage(leftTemp, x, 0, stripeWidth, height, x, 0, stripeWidth, height);
+                    if (x + stripeWidth < width) {
+                        ctx.drawImage(rightTemp, x + stripeWidth, 0, stripeWidth, height, x + stripeWidth, 0, stripeWidth, height);
+                    }
+                }
+                break;
+        }
+    }
+
+    async exportAsZip() {
+        if (this.isExporting || !this.video) return;
+        
+        this.isExporting = true;
+        this.exportProgress.classList.remove('hidden');
+        this.exportStatus.classList.remove('hidden');
+        this.exportStatus.textContent = 'Preparing ZIP export...';
+
+        try {
+            const resolution = this.exportResolution.value;
+            const viewType = this.exportView.value;
+            const dimensions = this.getExportDimensions(resolution);
+            
+            const { startTime, endTime, fps } = this.getExportRange();
+            const totalFrames = Math.ceil((endTime - startTime) * fps);
+            
+            const zip = new JSZip();
+            let processedFrames = 0;
+
+            for (let i = 0; i < totalFrames; i++) {
+                const time = startTime + (i / fps);
+                if (time > endTime) break;
+
+                const frameData = await this.renderFrameAtTime(time, dimensions, viewType);
+                const frameBlob = await fetch(frameData).then(r => r.blob());
+                
+                zip.file(`frame_${String(i).padStart(6, '0')}.png`, frameBlob);
+                
+                processedFrames++;
+                const progress = (processedFrames / totalFrames) * 100;
+                this.updateExportProgress(progress, `Processing frame ${processedFrames}/${totalFrames}`);
+            }
+
+            this.exportStatus.textContent = 'Generating ZIP file...';
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(zipBlob);
+            link.download = `autostereoscopic_frames_${resolution}_${viewType}_${Date.now()}.zip`;
+            link.click();
+
+            this.exportStatus.textContent = 'ZIP export completed!';
+            setTimeout(() => this.hideExportProgress(), 3000);
+
+        } catch (error) {
+            this.exportStatus.textContent = 'Export failed: ' + error.message;
+            this.showStatus('Export failed: ' + error.message, 'error');
+        } finally {
+            this.isExporting = false;
+        }
+    }
+
+    async exportAsMP4() {
+        if (this.isExporting || !this.video) return;
+
+        // For MP4 export, we'll create a sequence of images and provide instructions
+        // Since browser-based MP4 encoding is complex, we'll export frames and provide instructions
+        this.showStatus('MP4 export requires additional setup. Exporting frames instead...', 'processing');
+        
+        // Export as ZIP first, then provide instructions
+        await this.exportAsZip();
+        
+        // Show instructions for MP4 conversion
+        const instructions = `
+To convert your exported frames to MP4:
+
+1. Download and install FFmpeg (https://ffmpeg.org/)
+2. Extract the ZIP file to a folder
+3. Open terminal/command prompt in that folder
+4. Run this command:
+
+ffmpeg -framerate 30 -i frame_%06d.png -c:v libx264 -pix_fmt yuv420p -crf 18 output.mp4
+
+This will create a high-quality MP4 video from your frames.
+        `;
+
+        setTimeout(() => {
+            alert(instructions);
+        }, 2000);
+    }
+
+    getExportRange() {
+        const fps = 30; // Standard framerate for export
+        let startTime = 0;
+        let endTime = this.video.duration;
+
+        switch (this.frameRange.value) {
+            case 'current':
+                startTime = Math.max(0, this.video.currentTime - 0.5);
+                endTime = Math.min(this.video.duration, this.video.currentTime + 0.5);
+                break;
+            case 'custom':
+                startTime = Math.max(0, parseFloat(this.startTime.value));
+                endTime = Math.min(this.video.duration, parseFloat(this.endTime.value));
+                break;
+        }
+
+        return { startTime, endTime, fps };
+    }
+
+    updateExportProgress(percentage, statusText) {
+        this.exportProgressFill.style.width = percentage + '%';
+        this.exportProgressFill.textContent = Math.round(percentage) + '%';
+        if (statusText) {
+            this.exportStatus.textContent = statusText;
+        }
+    }
+
+    hideExportProgress() {
+        this.exportProgress.classList.add('hidden');
+        this.exportStatus.classList.add('hidden');
+    }
+}
+
+// Initialize the renderer when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    new VideoAutostereoscopicRenderer();
+});
+
+            </script>
