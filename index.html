@@ -420,6 +420,160 @@
       font-size: 0.9rem;
       line-height: 1.4;
     }
+    
+      /* Page flip container */
+        .page-flip-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1000;
+            perspective: 1200px;
+        }
+
+        .page {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transform-origin: left center;
+            transition: transform 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .page-front, .page-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            background: #f8f8f8;
+            border-right: 3px solid #ddd;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .page-front {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 2;
+        }
+
+        .page-back {
+            transform: rotateY(180deg);
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: #333;
+            text-align: center;
+        }
+
+        /* Animation states */
+        .page-flip-container.flipping .page {
+            transform: rotateY(-180deg);
+        }
+
+        .page-flip-container.active {
+            pointer-events: all;
+        }
+
+        /* Paper texture overlay */
+        .page-front::before,
+        .page-back::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(255,255,255,0.2) 2px, transparent 0),
+                radial-gradient(circle at 75% 75%, rgba(0,0,0,0.1) 1px, transparent 0);
+            background-size: 30px 30px;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Binding effect */
+        .page::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 20px;
+            background: linear-gradient(to right, 
+                rgba(0,0,0,0.3) 0%, 
+                rgba(0,0,0,0.1) 50%, 
+                transparent 100%);
+            z-index: 10;
+        }
+
+        /* Exit message styling */
+        .exit-message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            text-align: center;
+            z-index: 1001;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .exit-message.show {
+            opacity: 1;
+        }
+
+        .exit-message h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+        }
+
+        .exit-message p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .exit-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .exit-buttons button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .stay-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .stay-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .leave-btn {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .leave-btn:hover {
+            background: #e0e0e0;
+        }
   </style>
   
   <script>
@@ -1078,6 +1232,125 @@
         }
 
         document.addEventListener('DOMContentLoaded', renderReviews);
+        
+         let isExiting = false;
+        let exitAttempted = false;
+
+        // Function to trigger the page flip animation
+        function triggerPageFlip() {
+            if (isExiting) return;
+            
+            const container = document.getElementById('pageFlipContainer');
+            const message = document.getElementById('exitMessage');
+            
+            // Activate the flip container
+            container.classList.add('active');
+            
+            // Start the flip animation
+            setTimeout(() => {
+                container.classList.add('flipping');
+            }, 50);
+            
+            // Show exit message after flip starts
+            setTimeout(() => {
+                message.classList.add('show');
+            }, 600);
+            
+            isExiting = true;
+            exitAttempted = true;
+        }
+
+        // Function to reset the animation
+        function resetPageFlip() {
+            const container = document.getElementById('pageFlipContainer');
+            const message = document.getElementById('exitMessage');
+            
+            container.classList.remove('active', 'flipping');
+            message.classList.remove('show');
+            isExiting = false;
+        }
+
+        // Handle beforeunload event (page exit attempt)
+        window.addEventListener('beforeunload', function(e) {
+            if (!exitAttempted) {
+                e.preventDefault();
+                e.returnValue = '';
+                triggerPageFlip();
+                return '';
+            }
+        });
+
+        // Handle page visibility change (tab switching, minimizing)
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && !exitAttempted) {
+                triggerPageFlip();
+            }
+        });
+
+        // Handle mouse leaving the viewport (moving to address bar, etc.)
+        document.addEventListener('mouseleave', function(e) {
+            // Only trigger if mouse is leaving from the top (likely going to address bar or tab)
+            if (e.clientY <= 0 && !exitAttempted) {
+                triggerPageFlip();
+            }
+        });
+
+        // User chooses to stay
+        function cancelExit() {
+            resetPageFlip();
+            exitAttempted = false;
+        }
+
+        // User confirms they want to leave
+        function confirmExit() {
+            isExiting = true;
+            exitAttempted = true;
+            
+            // Complete the flip animation
+            const container = document.getElementById('pageFlipContainer');
+            const message = document.getElementById('exitMessage');
+            
+            message.classList.remove('show');
+            
+            // Optional: Add a final farewell animation
+            setTimeout(() => {
+                document.body.style.opacity = '0';
+                setTimeout(() => {
+                    window.close(); // This may not work in all browsers due to security restrictions
+                    // Alternative: redirect to a farewell page
+                    // window.location.href = 'farewell.html';
+                }, 500);
+            }, 300);
+        }
+
+        // Reset animation when user returns to page
+        window.addEventListener('focus', function() {
+            if (exitAttempted && !isExiting) {
+                setTimeout(() => {
+                    resetPageFlip();
+                    exitAttempted = false;
+                }, 1000);
+            }
+        });
+
+        // Handle keyboard shortcuts that might indicate leaving
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+W (close tab), Ctrl+R (refresh), F5 (refresh), Alt+F4 (close window)
+            if ((e.ctrlKey && (e.key === 'w' || e.key === 'r')) || 
+                e.key === 'F5' || 
+                (e.altKey && e.key === 'F4')) {
+                if (!exitAttempted) {
+                    triggerPageFlip();
+                }
+            }
+        });
+
+        // Prevent right-click context menu from interfering
+        document.addEventListener('contextmenu', function(e) {
+            // Allow right-click but don't trigger exit animation
+        });
+
+        console.log('Page flip exit effect loaded! Try to leave the page to see it in action.');
   </script>
 </body>
 </html>
