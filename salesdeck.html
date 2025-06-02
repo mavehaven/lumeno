@@ -443,6 +443,121 @@
         });
     }
     
+   function downloadPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Set font
+    doc.setFont("helvetica");
+    
+    // Helper function to draw a simple chart with better spacing
+    function drawBarChart(doc, x, y, width, height, data, labels, title) {
+        // Chart title
+        doc.setFontSize(12);
+        doc.setTextColor(52, 73, 94);
+        doc.text(title, x + width/2, y - 15, { align: "center" });
+        
+        // Chart border
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(x, y, width, height);
+        
+        const barWidth = (width - 20) / data.length; // Add padding
+        const maxValue = Math.max(...data);
+        
+        data.forEach((value, index) => {
+            const barHeight = (value / maxValue) * (height - 20); // Leave space for labels
+            const barX = x + 10 + index * barWidth + 5;
+            const barY = y + height - barHeight - 15;
+            
+            // Draw bar
+            doc.setFillColor(102, 126, 234);
+            doc.rect(barX, barY, barWidth - 10, barHeight, 'F');
+            
+            // Draw value on top
+            doc.setFontSize(8);
+            doc.setTextColor(85, 85, 85);
+            doc.text(value.toString(), barX + (barWidth - 10)/2, barY - 3, { align: "center" });
+            
+            // Draw label at bottom
+            doc.text(labels[index], barX + (barWidth - 10)/2, y + height + 8, { align: "center" });
+        });
+    }
+    
+    // Helper function to draw a simple pie chart with better positioning
+    function drawPieChart(doc, centerX, centerY, radius, data, labels, colors, title) {
+        // Title
+        doc.setFontSize(12);
+        doc.setTextColor(52, 73, 94);
+        doc.text(title, centerX, centerY - radius - 20, { align: "center" });
+        
+        const total = data.reduce((sum, val) => sum + val, 0);
+        let currentAngle = -Math.PI/2; // Start at top
+        
+        data.forEach((value, index) => {
+            const sliceAngle = (value / total) * 2 * Math.PI;
+            const midAngle = currentAngle + sliceAngle / 2;
+            
+            // Draw colored rectangle as slice indicator
+            doc.setFillColor(colors[index][0], colors[index][1], colors[index][2]);
+            const indicatorX = centerX + (radius * 0.7) * Math.cos(midAngle);
+            const indicatorY = centerY + (radius * 0.7) * Math.sin(midAngle);
+            doc.rect(indicatorX - 4, indicatorY - 4, 8, 8, 'F');
+            
+            // Add label with line
+            const labelX = centerX + (radius + 25) * Math.cos(midAngle);
+            const labelY = centerY + (radius + 25) * Math.sin(midAngle);
+            
+            doc.setFontSize(9);
+            doc.setTextColor(85, 85, 85);
+            doc.text(`${labels[index]}`, labelX, labelY, { align: "center" });
+            doc.text(`${Math.round(value/total*100)}%`, labelX, labelY + 8, { align: "center" });
+            
+            // Draw line from slice to label
+            doc.setDrawColor(150, 150, 150);
+            doc.line(centerX + radius * Math.cos(midAngle), 
+                    centerY + radius * Math.sin(midAngle), 
+                    labelX - 15, labelY);
+            
+            currentAngle += sliceAngle;
+        });
+        
+        // Draw circle border
+        doc.setDrawColor(200, 200, 200);
+        doc.circle(centerX, centerY, radius);
+    }
+    
+    // Helper function to draw tech stack diagram with better spacing
+    function drawTechStack(doc, x, y) {
+        const layers = [
+            { name: "Display Layer", color: [255, 107, 107] },
+            { name: "Rendering Engine", color: [102, 126, 234] },
+            { name: "Eye Tracking", color: [46, 204, 113] },
+            { name: "Core Algorithm", color: [241, 196, 15] }
+        ];
+        
+        layers.forEach((layer, index) => {
+            const layerY = y + index * 30;
+            
+            // Draw layer box
+            doc.setFillColor(layer.color[0], layer.color[1], layer.color[2]);
+            doc.rect(x, layerY, 120, 22, 'F');
+            
+            // Add layer text
+            doc.setFontSize(10);
+            doc.setTextColor(255, 255, 255);
+            doc.text(layer.name, x + 60, layerY + 14, { align: "center" });
+            
+            // Draw arrow between layers
+            if (index < layers.length - 1) {
+                doc.setDrawColor(85, 85, 85);
+                doc.line(x + 60, layerY + 22, x + 60, layerY + 30);
+                // Arrow head
+                doc.line(x + 57, layerY + 27, x + 60, layerY + 30);
+                doc.line(x + 63, layerY + 27, x + 60, layerY + 30);
+            }
+        });
+    }
+    
     // SLIDE 1: Title Page
     doc.setFontSize(28);
     doc.setTextColor(102, 126, 234);
