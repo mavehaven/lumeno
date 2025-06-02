@@ -425,110 +425,360 @@
 
     <script>
         function downloadPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Set font
+    doc.setFont("helvetica");
+    
+    // Helper function to draw a simple chart
+    function drawBarChart(doc, x, y, width, height, data, labels, title) {
+        // Chart title
+        doc.setFontSize(12);
+        doc.setTextColor(52, 73, 94);
+        doc.text(title, x + width/2, y - 10, { align: "center" });
+        
+        // Chart border
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(x, y, width, height);
+        
+        const barWidth = width / data.length;
+        const maxValue = Math.max(...data);
+        
+        data.forEach((value, index) => {
+            const barHeight = (value / maxValue) * height;
+            const barX = x + index * barWidth + 5;
+            const barY = y + height - barHeight;
             
-            // Set font
-            doc.setFont("helvetica");
+            // Draw bar
+            doc.setFillColor(102, 126, 234);
+            doc.rect(barX, barY, barWidth - 10, barHeight, 'F');
             
-            // Slide 1: Title
-            doc.setFontSize(24);
-            doc.setTextColor(102, 126, 234);
-            doc.text("V.A.R.E.", 105, 50, { align: "center" });
-            
-            doc.setFontSize(16);
-            doc.setTextColor(100, 100, 100);
-            doc.text("Video Autostereoscopic Rendering Engine", 105, 70, { align: "center" });
-            
-            doc.setFontSize(18);
-            doc.setTextColor(255, 107, 107);
-            doc.text("Revolutionizing Depth. Real-Time. No Glasses.", 105, 90, { align: "center" });
-            
-            // New page for slide 2
-            doc.addPage();
-            doc.setFontSize(18);
-            doc.setTextColor(52, 73, 94);
-            doc.text("The Problem with Visual Media Today:", 20, 30);
-            
-            doc.setFontSize(12);
+            // Draw value on top
+            doc.setFontSize(8);
             doc.setTextColor(85, 85, 85);
-            doc.text("• Flat 2D content limits immersion", 30, 50);
-            doc.text("• VR headsets create isolation and discomfort", 30, 70);
-            doc.text("• True 3D visualization is still locked behind expensive,", 30, 90);
-            doc.text("  inaccessible tech", 30, 105);
+            doc.text(value.toString(), barX + (barWidth - 10)/2, barY - 2, { align: "center" });
             
-            // New page for slide 3
-            doc.addPage();
-            doc.setFontSize(18);
-            doc.setTextColor(52, 73, 94);
-            doc.text("V.A.R.E. – The Future of Visual Engagement", 20, 30);
+            // Draw label
+            doc.text(labels[index], barX + (barWidth - 10)/2, y + height + 10, { align: "center" });
+        });
+    }
+    
+    // Helper function to draw a simple pie chart
+    function drawPieChart(doc, centerX, centerY, radius, data, labels, colors) {
+        const total = data.reduce((sum, val) => sum + val, 0);
+        let currentAngle = 0;
+        
+        data.forEach((value, index) => {
+            const sliceAngle = (value / total) * 2 * Math.PI;
+            const endAngle = currentAngle + sliceAngle;
             
-            doc.setFontSize(12);
+            // Draw pie slice (simplified as filled triangle from center)
+            doc.setFillColor(colors[index][0], colors[index][1], colors[index][2]);
+            
+            // Create arc points (simplified)
+            const points = [];
+            points.push([centerX, centerY]);
+            for (let a = currentAngle; a <= endAngle; a += 0.1) {
+                points.push([
+                    centerX + radius * Math.cos(a),
+                    centerY + radius * Math.sin(a)
+                ]);
+            }
+            points.push([
+                centerX + radius * Math.cos(endAngle),
+                centerY + radius * Math.sin(endAngle)
+            ]);
+            
+            // Draw filled polygon (simplified as rectangle for jsPDF compatibility)
+            const midAngle = currentAngle + sliceAngle / 2;
+            const labelX = centerX + (radius + 15) * Math.cos(midAngle);
+            const labelY = centerY + (radius + 15) * Math.sin(midAngle);
+            
+            // Draw colored rectangle as slice indicator
+            doc.rect(centerX + radius * Math.cos(midAngle) - 3, 
+                    centerY + radius * Math.sin(midAngle) - 3, 6, 6, 'F');
+            
+            // Add label
+            doc.setFontSize(8);
             doc.setTextColor(85, 85, 85);
-            doc.text("• Glasses-free, real-time 3D rendering", 30, 50);
-            doc.text("• Powered by advanced video autostereoscopic algorithms", 30, 70);
-            doc.text("• Seamlessly integrates with modern displays", 30, 90);
+            doc.text(`${labels[index]} (${Math.round(value/total*100)}%)`, labelX, labelY);
             
-            // New page for slide 4
-            doc.addPage();
-            doc.setFontSize(18);
-            doc.setTextColor(52, 73, 94);
-            doc.text("Our Secret Sauce:", 20, 30);
+            currentAngle = endAngle;
+        });
+        
+        // Draw circle border
+        doc.setDrawColor(200, 200, 200);
+        doc.circle(centerX, centerY, radius);
+    }
+    
+    // Helper function to draw tech stack diagram
+    function drawTechStack(doc, x, y) {
+        const layers = [
+            { name: "Display Layer", color: [255, 107, 107] },
+            { name: "Rendering Engine", color: [102, 126, 234] },
+            { name: "Eye Tracking", color: [46, 204, 113] },
+            { name: "Core Algorithm", color: [241, 196, 15] }
+        ];
+        
+        layers.forEach((layer, index) => {
+            const layerY = y + index * 25;
             
-            doc.setFontSize(12);
-            doc.setTextColor(85, 85, 85);
-            doc.text("• Real-time parallax rendering", 30, 50);
-            doc.text("• Dynamic eye-tracking optimization", 30, 70);
-            doc.text("• Hardware-agnostic engine with modular architecture", 30, 90);
-            doc.text("• Supports stereo pair decomposition + light field synthesis", 30, 110);
+            // Draw layer box
+            doc.setFillColor(layer.color[0], layer.color[1], layer.color[2]);
+            doc.rect(x, layerY, 120, 20, 'F');
             
-            // New page for slide 5
-            doc.addPage();
-            doc.setFontSize(18);
-            doc.setTextColor(52, 73, 94);
-            doc.text("Key Features", 20, 30);
-            
-            doc.setFontSize(12);
-            doc.setTextColor(85, 85, 85);
-            doc.text("• Autostereoscopic Output (No headset/glasses needed)", 30, 50);
-            doc.text("• Real-time Rendering with minimal latency", 30, 70);
-            doc.text("• Flexible SDK for devs and creators", 30, 90);
-            doc.text("• Cross-platform compatibility", 30, 110);
-            doc.text("• Scalable architecture for mobile, desktop, and large displays", 30, 130);
-            
-            // New page for slide 6
-            doc.addPage();
-            doc.setFontSize(18);
-            doc.setTextColor(52, 73, 94);
-            doc.text("Target Markets", 20, 30);
-            
-            doc.setFontSize(14);
-            doc.setTextColor(52, 73, 94);
-            doc.text("Home Cinemas", 30, 50);
+            // Add layer text
             doc.setFontSize(10);
-            doc.setTextColor(85, 85, 85);
-            doc.text("Turn personal viewing setups into rich, immersive 3D experiences", 30, 65);
-            doc.text("without headsets or glasses", 30, 75);
+            doc.setTextColor(255, 255, 255);
+            doc.text(layer.name, x + 60, layerY + 13, { align: "center" });
             
-            doc.setFontSize(14);
-            doc.setTextColor(52, 73, 94);
-            doc.text("Advertisers", 30, 95);
-            doc.setFontSize(10);
-            doc.setTextColor(85, 85, 85);
-            doc.text("Capture attention with striking, depth-enhanced visuals for", 30, 110);
-            doc.text("billboards, retail displays, and branded installations", 30, 120);
-            
-            doc.setFontSize(14);
-            doc.setTextColor(52, 73, 94);
-            doc.text("Real Estate Visualization", 30, 140);
-            doc.setFontSize(10);
-            doc.setTextColor(85, 85, 85);
-            doc.text("Give clients true-to-scale, spatial walkthroughs of", 30, 155);
-            doc.text("properties before stepping inside", 30, 165);
-            
-            // Save the PDF
-            doc.save("VARE_Sales_Deck.pdf");
+            // Draw arrow between layers
+            if (index < layers.length - 1) {
+                doc.setDrawColor(85, 85, 85);
+                doc.line(x + 60, layerY + 20, x + 60, layerY + 25);
+                // Arrow head
+                doc.line(x + 57, layerY + 22, x + 60, layerY + 25);
+                doc.line(x + 63, layerY + 22, x + 60, layerY + 25);
+            }
+        });
+    }
+    
+    // Slide 1: Title with visual elements
+    doc.setFontSize(24);
+    doc.setTextColor(102, 126, 234);
+    doc.text("V.A.R.E.", 105, 50, { align: "center" });
+    
+    doc.setFontSize(16);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Video Autostereoscopic Rendering Engine", 105, 70, { align: "center" });
+    
+    doc.setFontSize(18);
+    doc.setTextColor(255, 107, 107);
+    doc.text("Revolutionizing Depth. Real-Time. No Glasses.", 105, 90, { align: "center" });
+    
+    // Add decorative elements
+    doc.setDrawColor(102, 126, 234);
+    doc.setLineWidth(2);
+    doc.line(50, 110, 160, 110);
+    
+    // Add some geometric shapes to represent 3D
+    doc.setFillColor(102, 126, 234, 0.3);
+    doc.rect(70, 130, 30, 30);
+    doc.setFillColor(255, 107, 107, 0.3);
+    doc.rect(85, 140, 30, 30);
+    doc.setFillColor(46, 204, 113, 0.3);
+    doc.rect(100, 150, 30, 30);
+    
+    // Slide 2: Problem Statement with Market Data
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(52, 73, 94);
+    doc.text("The Problem with Visual Media Today:", 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(85, 85, 85);
+    doc.text("• Flat 2D content limits immersion", 30, 50);
+    doc.text("• VR headsets create isolation and discomfort", 30, 70);
+    doc.text("• True 3D visualization is still locked behind expensive,", 30, 90);
+    doc.text("  inaccessible tech", 30, 105);
+    
+    // Add market data chart
+    doc.setFontSize(14);
+    doc.setTextColor(52, 73, 94);
+    doc.text("User Experience Pain Points", 20, 130);
+    
+    const painPointData = [85, 72, 68, 91];
+    const painPointLabels = ["2D Flat", "VR Isolation", "Cost Barrier", "Accessibility"];
+    drawBarChart(doc, 20, 140, 150, 60, painPointData, painPointLabels, "% of Users Reporting Issues");
+    
+    // Slide 3: V.A.R.E. Solution with Architecture
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(52, 73, 94);
+    doc.text("V.A.R.E. – The Future of Visual Engagement", 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(85, 85, 85);
+    doc.text("• Glasses-free, real-time 3D rendering", 30, 50);
+    doc.text("• Powered by advanced video autostereoscopic algorithms", 30, 70);
+    doc.text("• Seamlessly integrates with modern displays", 30, 90);
+    
+    // Add technology stack diagram
+    doc.setFontSize(14);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Technology Stack", 20, 120);
+    drawTechStack(doc, 30, 130);
+    
+    // Slide 4: Technical Features with Flowchart
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Our Secret Sauce:", 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(85, 85, 85);
+    doc.text("• Real-time parallax rendering", 30, 50);
+    doc.text("• Dynamic eye-tracking optimization", 30, 70);
+    doc.text("• Hardware-agnostic engine with modular architecture", 30, 90);
+    doc.text("• Supports stereo pair decomposition + light field synthesis", 30, 110);
+    
+    // Add processing flow diagram
+    doc.setFontSize(10);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Processing Flow", 20, 140);
+    
+    // Flow boxes
+    const flowSteps = ["Input", "Track", "Render", "Display"];
+    const flowColors = [[241, 196, 15], [46, 204, 113], [102, 126, 234], [255, 107, 107]];
+    
+    flowSteps.forEach((step, index) => {
+        const boxX = 20 + index * 40;
+        const boxY = 150;
+        
+        doc.setFillColor(flowColors[index][0], flowColors[index][1], flowColors[index][2]);
+        doc.rect(boxX, boxY, 35, 20, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.text(step, boxX + 17.5, boxY + 12, { align: "center" });
+        
+        // Arrow
+        if (index < flowSteps.length - 1) {
+            doc.setDrawColor(85, 85, 85);
+            doc.line(boxX + 35, boxY + 10, boxX + 40, boxY + 10);
+            doc.line(boxX + 37, boxY + 8, boxX + 40, boxY + 10);
+            doc.line(boxX + 37, boxY + 12, boxX + 40, boxY + 10);
         }
+    });
+    
+    // Slide 5: Key Features with Performance Metrics
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Key Features", 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(85, 85, 85);
+    doc.text("• Autostereoscopic Output (No headset/glasses needed)", 30, 50);
+    doc.text("• Real-time Rendering with minimal latency", 30, 70);
+    doc.text("• Flexible SDK for devs and creators", 30, 90);
+    doc.text("• Cross-platform compatibility", 30, 110);
+    doc.text("• Scalable architecture for mobile, desktop, and large displays", 30, 130);
+    
+    // Add performance metrics
+    doc.setFontSize(14);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Performance Metrics", 20, 160);
+    
+    const perfData = [120, 16, 4, 99];
+    const perfLabels = ["FPS", "Latency(ms)", "Power(W)", "Accuracy(%)"];
+    drawBarChart(doc, 20, 170, 150, 50, perfData, perfLabels, "Key Performance Indicators");
+    
+    // Slide 6: Target Markets with Market Size
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Target Markets", 20, 30);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Home Cinemas", 30, 50);
+    doc.setFontSize(10);
+    doc.setTextColor(85, 85, 85);
+    doc.text("Turn personal viewing setups into rich, immersive 3D experiences", 30, 65);
+    doc.text("without headsets or glasses", 30, 75);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Advertisers", 30, 95);
+    doc.setFontSize(10);
+    doc.setTextColor(85, 85, 85);
+    doc.text("Capture attention with striking, depth-enhanced visuals for", 30, 110);
+    doc.text("billboards, retail displays, and branded installations", 30, 120);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Real Estate Visualization", 30, 140);
+    doc.setFontSize(10);
+    doc.setTextColor(85, 85, 85);
+    doc.text("Give clients true-to-scale, spatial walkthroughs of", 30, 155);
+    doc.text("properties before stepping inside", 30, 165);
+    
+    // Add market size pie chart
+    doc.setFontSize(12);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Market Distribution ($B)", 110, 50);
+    
+    const marketData = [15, 8, 5];
+    const marketLabels = ["Home Cinema", "Advertising", "Real Estate"];
+    const marketColors = [[102, 126, 234], [255, 107, 107], [46, 204, 113]];
+    
+    drawPieChart(doc, 140, 100, 25, marketData, marketLabels, marketColors);
+    
+    // Add slide 7: Competitive Advantage
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Competitive Advantage", 20, 30);
+    
+    // Comparison table
+    const competitors = ["V.A.R.E.", "Traditional VR", "Holographic Displays"];
+    const features = ["No Glasses", "Real-time", "Affordable", "Portable"];
+    const scores = [
+        [100, 100, 90, 95],  // V.A.R.E.
+        [0, 85, 40, 70],     // Traditional VR
+        [80, 60, 20, 30]     // Holographic
+    ];
+    const colors = [[46, 204, 113], [255, 107, 107], [241, 196, 15]];
+    
+    // Table headers
+    doc.setFontSize(10);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Feature", 30, 55);
+    competitors.forEach((comp, index) => {
+        doc.text(comp, 70 + index * 40, 55);
+    });
+    
+    // Table rows
+    features.forEach((feature, rowIndex) => {
+        const y = 70 + rowIndex * 15;
+        doc.setTextColor(85, 85, 85);
+        doc.text(feature, 30, y);
+        
+        scores.forEach((compScores, colIndex) => {
+            const score = compScores[rowIndex];
+            const x = 70 + colIndex * 40;
+            
+            // Color code the scores
+            if (score >= 80) doc.setTextColor(46, 204, 113);
+            else if (score >= 60) doc.setTextColor(241, 196, 15);
+            else doc.setTextColor(255, 107, 107);
+            
+            doc.text(score.toString(), x, y);
+        });
+    });
+    
+    // Add slide 8: Revenue Model
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(52, 73, 94);
+    doc.text("Revenue Model", 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(85, 85, 85);
+    doc.text("• Licensing fees for enterprise clients", 30, 50);
+    doc.text("• SDK subscriptions for developers", 30, 70);
+    doc.text("• Hardware partnerships and integration", 30, 90);
+    doc.text("• Custom solution development", 30, 110);
+    
+    // Revenue projection chart
+    const revenueData = [2, 8, 15, 28, 45];
+    const revenueLabels = ["Y1", "Y2", "Y3", "Y4", "Y5"];
+    drawBarChart(doc, 20, 140, 150, 60, revenueData, revenueLabels, "Revenue Projection ($M)");
+    
+    // Save the PDF
+    doc.save("VARE_Sales_Deck.pdf");
+}
     </script>
 </body>
 </html>
