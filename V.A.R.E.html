@@ -1686,4 +1686,621 @@ document.addEventListener('DOMContentLoaded', () => {
     new VideoAutostereoscopicRenderer();
     new FloatingChatMenu();
 });
+
+// Firebase/PayPal Paywall Integration
+// Add this script after your existing VideoAutostereoscopicRenderer class
+
+class PaywallManager {
+    constructor() {
+        this.currentTier = 'free';
+        this.subscriptionId = null;
+        this.firebaseConfig = {
+            // Replace with your Firebase config
+            apiKey: "your-api-key",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "your-app-id"
+        };
+        
+        this.paypalConfig = {
+            clientId: "your-paypal-client-id", // Replace with your PayPal client ID
+            environment: "sandbox" // Change to "production" for live
+        };
+
+        this.tiers = {
+            free: {
+                name: "Free Tier",
+                price: 0,
+                features: {
+                    tutorialGuide: false,
+                    areFullExport: false,
+                    vareExport: false,
+                    maxResolution: "720p",
+                    lenticularDesign: false,
+                    glasses3DService: false
+                }
+            },
+            standard: {
+                name: "Standard Tier",
+                price: 1399,
+                planId: "P-STANDARD-MONTHLY-PLAN", // Replace with your PayPal plan ID
+                features: {
+                    tutorialGuide: true,
+                    areFullExport: true,
+                    vareExport: true,
+                    maxResolution: "1080p",
+                    lenticularDesign: false,
+                    glasses3DService: false
+                }
+            },
+            silver: {
+                name: "Silver Tier",
+                price: 11899,
+                planId: "P-SILVER-MONTHLY-PLAN", // Replace with your PayPal plan ID
+                features: {
+                    tutorialGuide: true,
+                    areFullExport: true,
+                    vareExport: true,
+                    maxResolution: "1440p",
+                    lenticularDesign: true,
+                    glasses3DService: false
+                }
+            },
+            gold: {
+                name: "Gold Tier",
+                price: 12499,
+                planId: "P-GOLD-MONTHLY-PLAN", // Replace with your PayPal plan ID
+                features: {
+                    tutorialGuide: true,
+                    areFullExport: true,
+                    vareExport: true,
+                    maxResolution: "4k",
+                    lenticularDesign: true,
+                    glasses3DService: true
+                }
+            }
+        };
+
+        this.init();
+    }
+
+    async init() {
+        try {
+            // Initialize Firebase
+            if (typeof firebase !== 'undefined') {
+                firebase.initializeApp(this.firebaseConfig);
+                this.auth = firebase.auth();
+                this.db = firebase.firestore();
+                
+                // Listen for auth state changes
+                this.auth.onAuthStateChanged(user => {
+                    if (user) {
+                        this.loadUserSubscription(user.uid);
+                    } else {
+                        this.currentTier = 'free';
+                        this.updateUIRestrictions();
+                    }
+                });
+            }
+
+            // Load PayPal SDK
+            if (!document.querySelector('#paypal-sdk')) {
+                const script = document.createElement('script');
+                script.id = 'paypal-sdk';
+                script.src = `https://www.paypal.com/sdk/js?client-id=${this.paypalConfig.clientId}&vault=true&intent=subscription`;
+                document.head.appendChild(script);
+            }
+
+            this.createPaywallUI();
+            this.updateUIRestrictions();
+        } catch (error) {
+            console.error('Paywall initialization error:', error);
+        }
+    }
+
+    createPaywallUI() {
+        // Create paywall modal
+        const paywallHTML = `
+            <div id="paywallModal" class="paywall-modal hidden">
+                <div class="paywall-content">
+                    <div class="paywall-header">
+                        <h2>Upgrade Your Plan</h2>
+                        <button id="closePaywall" class="close-btn">&times;</button>
+                    </div>
+                    
+                    <div class="subscription-tiers">
+                        ${Object.entries(this.tiers).filter(([key]) => key !== 'free').map(([key, tier]) => `
+                            <div class="tier-card ${key}" data-tier="${key}">
+                                <div class="tier-header">
+                                    <h3>${tier.name}</h3>
+                                    <div class="price">$${tier.price}/month</div>
+                                </div>
+                                <div class="tier-features">
+                                    <ul>
+                                        ${tier.features.tutorialGuide ? '<li>✓ Tutorial Guide</li>' : ''}
+                                        ${tier.features.areFullExport ? '<li>✓ A.R.E Full Export</li>' : ''}
+                                        ${tier.features.vareExport ? '<li>✓ V.A.R.E Export</li>' : ''}
+                                        <li>✓ Up to ${tier.features.maxResolution} Export</li>
+                                        ${tier.features.lenticularDesign ? '<li>✓ Lenticular Lens Design</li>' : ''}
+                                        ${tier.features.glasses3DService ? '<li>✓ Full Glasses Free 3D Service</li>' : ''}
+                                    </ul>
+                                </div>
+                                <div class="paypal-button-container" id="paypal-${key}"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="auth-section">
+                        <div id="loginSection" class="auth-form">
+                            <h3>Login to Continue</h3>
+                            <input type="email" id="loginEmail" placeholder="Email" />
+                            <input type="password" id="loginPassword" placeholder="Password" />
+                            <button id="loginBtn">Login</button>
+                            <button id="showRegister">Need an account? Register</button>
+                        </div>
+                        
+                        <div id="registerSection" class="auth-form hidden">
+                            <h3>Create Account</h3>
+                            <input type="email" id="registerEmail" placeholder="Email" />
+                            <input type="password" id="registerPassword" placeholder="Password" />
+                            <button id="registerBtn">Register</button>
+                            <button id="showLogin">Already have an account? Login</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="subscriptionStatus" class="subscription-status">
+                <div class="status-content">
+                    <span id="currentTierDisplay">Free Tier</span>
+                    <button id="manageSub">Manage Subscription</button>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', paywallHTML);
+        this.setupPaywallEventListeners();
+        this.initializePayPalButtons();
+    }
+
+    setupPaywallEventListeners() {
+        // Modal controls
+        document.getElementById('closePaywall').addEventListener('click', () => {
+            this.hidePaywall();
+        });
+
+        // Auth forms
+        document.getElementById('showRegister').addEventListener('click', () => {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('registerSection').classList.remove('hidden');
+        });
+
+        document.getElementById('showLogin').addEventListener('click', () => {
+            document.getElementById('registerSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+        });
+
+        // Auth actions
+        document.getElementById('loginBtn').addEventListener('click', () => this.handleLogin());
+        document.getElementById('registerBtn').addEventListener('click', () => this.handleRegister());
+        document.getElementById('manageSub').addEventListener('click', () => this.showPaywall());
+    }
+
+    initializePayPalButtons() {
+        Object.entries(this.tiers).forEach(([tierKey, tier]) => {
+            if (tierKey === 'free') return;
+
+            const containerId = `paypal-${tierKey}`;
+            
+            // Wait for PayPal SDK to load
+            const initButton = () => {
+                if (typeof paypal !== 'undefined') {
+                    paypal.Buttons({
+                        style: {
+                            shape: 'rect',
+                            color: 'blue',
+                            layout: 'vertical',
+                            label: 'subscribe'
+                        },
+                        createSubscription: (data, actions) => {
+                            return actions.subscription.create({
+                                plan_id: tier.planId
+                            });
+                        },
+                        onApprove: (data, actions) => {
+                            this.handleSubscriptionApproval(data, tierKey);
+                        },
+                        onError: (err) => {
+                            console.error('PayPal error:', err);
+                            alert('Payment failed. Please try again.');
+                        }
+                    }).render(`#${containerId}`);
+                } else {
+                    setTimeout(initButton, 500);
+                }
+            };
+
+            initButton();
+        });
+    }
+
+    async handleLogin() {
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+
+        try {
+            await this.auth.signInWithEmailAndPassword(email, password);
+            this.hidePaywall();
+        } catch (error) {
+            alert('Login failed: ' + error.message);
+        }
+    }
+
+    async handleRegister() {
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+
+        try {
+            const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
+            await this.createUserSubscription(userCredential.user.uid, 'free');
+            this.hidePaywall();
+        } catch (error) {
+            alert('Registration failed: ' + error.message);
+        }
+    }
+
+    async handleSubscriptionApproval(data, tierKey) {
+        const user = this.auth.currentUser;
+        if (!user) {
+            alert('Please login first');
+            return;
+        }
+
+        try {
+            // Update user subscription in Firebase
+            await this.updateUserSubscription(user.uid, {
+                tier: tierKey,
+                subscriptionId: data.subscriptionID,
+                status: 'active',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            this.currentTier = tierKey;
+            this.subscriptionId = data.subscriptionID;
+            this.updateUIRestrictions();
+            this.hidePaywall();
+            
+            alert(`Successfully subscribed to ${this.tiers[tierKey].name}!`);
+        } catch (error) {
+            console.error('Subscription update error:', error);
+            alert('Subscription activation failed. Please contact support.');
+        }
+    }
+
+    async createUserSubscription(userId, tier) {
+        if (!this.db) return;
+        
+        await this.db.collection('subscriptions').doc(userId).set({
+            tier: tier,
+            status: 'active',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    }
+
+    async updateUserSubscription(userId, subscriptionData) {
+        if (!this.db) return;
+        
+        await this.db.collection('subscriptions').doc(userId).update(subscriptionData);
+    }
+
+    async loadUserSubscription(userId) {
+        if (!this.db) return;
+        
+        try {
+            const doc = await this.db.collection('subscriptions').doc(userId).get();
+            if (doc.exists) {
+                const data = doc.data();
+                this.currentTier = data.tier || 'free';
+                this.subscriptionId = data.subscriptionId;
+                this.updateUIRestrictions();
+            }
+        } catch (error) {
+            console.error('Error loading subscription:', error);
+        }
+    }
+
+    checkFeatureAccess(feature) {
+        const tierFeatures = this.tiers[this.currentTier]?.features;
+        return tierFeatures ? tierFeatures[feature] : false;
+    }
+
+    updateUIRestrictions() {
+        // Update current tier display
+        document.getElementById('currentTierDisplay').textContent = this.tiers[this.currentTier].name;
+
+        // Restrict export resolution dropdown
+        const exportResolution = document.getElementById('exportResolution');
+        if (exportResolution) {
+            const maxResolution = this.tiers[this.currentTier].features.maxResolution;
+            const options = exportResolution.querySelectorAll('option');
+            
+            options.forEach(option => {
+                const value = option.value;
+                let disabled = false;
+                
+                switch (maxResolution) {
+                    case '720p':
+                        disabled = ['1080p', '1440p', '4k'].includes(value);
+                        break;
+                    case '1080p':
+                        disabled = ['1440p', '4k'].includes(value);
+                        break;
+                    case '1440p':
+                        disabled = ['4k'].includes(value);
+                        break;
+                }
+                
+                option.disabled = disabled;
+                if (disabled) {
+                    option.textContent += ' (Premium)';
+                }
+            });
+        }
+
+        // Update export buttons
+        this.updateExportButtons();
+    }
+
+    updateExportButtons() {
+        const exportMP4Btn = document.getElementById('exportMP4');
+        const exportZipBtn = document.getElementById('exportZip');
+        
+        if (!this.checkFeatureAccess('vareExport')) {
+            if (exportMP4Btn) {
+                exportMP4Btn.disabled = true;
+                exportMP4Btn.textContent = 'Export MP4 (Premium)';
+                exportMP4Btn.onclick = () => this.showPaywall();
+            }
+            if (exportZipBtn) {
+                exportZipBtn.disabled = true;
+                exportZipBtn.textContent = 'Export ZIP (Premium)';
+                exportZipBtn.onclick = () => this.showPaywall();
+            }
+        }
+    }
+
+    showPaywall() {
+        document.getElementById('paywallModal').classList.remove('hidden');
+    }
+
+    hidePaywall() {
+        document.getElementById('paywallModal').classList.add('hidden');
+    }
+
+    // Hook into existing export methods
+    interceptExportMethods(renderer) {
+        const originalExportAsMP4 = renderer.exportAsMP4.bind(renderer);
+        const originalExportAsZip = renderer.exportAsZip.bind(renderer);
+
+        renderer.exportAsMP4 = () => {
+            if (!this.checkFeatureAccess('vareExport')) {
+                this.showPaywall();
+                return;
+            }
+            originalExportAsMP4();
+        };
+
+        renderer.exportAsZip = () => {
+            if (!this.checkFeatureAccess('vareExport')) {
+                this.showPaywall();
+                return;
+            }
+            originalExportAsZip();
+        };
+    }
+}
+
+// CSS Styles for Paywall
+const paywallStyles = `
+<style>
+.paywall-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    backdrop-filter: blur(10px);
+}
+
+.paywall-modal.hidden {
+    display: none;
+}
+
+.paywall-content {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 1200px;
+    max-height: 90vh;
+    overflow-y: auto;
+    color: white;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.paywall-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 20px;
+}
+
+.paywall-header h2 {
+    margin: 0;
+    font-size: 2.5em;
+    font-weight: 700;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 2em;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+}
+
+.close-btn:hover {
+    opacity: 1;
+}
+
+.subscription-tiers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.tier-card {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 25px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.tier-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+}
+
+.tier-card.gold {
+    border: 2px solid #ffd700;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.tier-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.tier-header h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
+.price {
+    font-size: 2em;
+    font-weight: 700;
+    color: #4CAF50;
+}
+
+.tier-features ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px 0;
+}
+
+.tier-features li {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    padding-top: 20px;
+}
+
+.auth-form {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.auth-form input {
+    width: 100%;
+    padding: 12px 15px;
+    margin: 10px 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 16px;
+}
+
+.auth-form input::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.auth-form button {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 8px;
+    background: #4CAF50;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.auth-form button:hover {
+    background: #45a049;
+}
+
+.subscription-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+    z-index: 9999;
+}
+
+.status-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.status-content button {
+    background: #4CAF50;
+    border: none;
+    color: white;
+    padding: 5px 15px;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 12px;
+}
+</style>
+`;
+
+// Add styles to document
+document.head.insertAdjacentHTML('beforeend', paywallStyles);
+
+// Initialize paywall when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const paywall = new PaywallManager();
+    
+    // Hook into existing renderer if it exists
+    setTimeout(() => {
+        if (window.videoRenderer) {
+            paywall.interceptExportMethods(window.videoRenderer);
+        }
+    }, 1000);
+});
             </script>
