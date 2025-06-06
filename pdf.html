@@ -132,479 +132,531 @@
 
     <script>
         function generatePDF() {
-            const loadingDiv = document.getElementById('loading');
-            const button = document.querySelector('.generate-btn');
-            
-            loadingDiv.classList.remove('hidden');
-            button.disabled = true;
-            button.textContent = '📄 Generating...';
-            
-            setTimeout(() => {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                // Title page
-                doc.setFontSize(24);
-                doc.setTextColor(0, 100, 0);
-                doc.text('OLED Stereoscopic Device', 105, 30, { align: 'center' });
-                doc.setFontSize(18);
-                doc.text('Professional Assembly Guide', 105, 45, { align: 'center' });
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                doc.text('Document Version: 1.0', 20, 60);
-                doc.text('Date: ' + new Date().toLocaleDateString(), 20, 70);
-                doc.text('PCB Specifications: 4-Layer FR4, εᵣ=4.35', 20, 80);
-                
-                // Table of Contents
-                doc.setFontSize(16);
-                doc.setTextColor(0, 100, 0);
-                doc.text('Table of Contents', 20, 100);
-                doc.setFontSize(11);
-                doc.setTextColor(0, 0, 0);
-                const toc = [
-                    '1. Safety Guidelines ................................. 3',
-                    '2. Required Tools & Equipment ........................ 4',
-                    '3. Component Identification Table ................... 5',
-                    '4. PCB Technical Specifications ..................... 7',
-                    '5. Assembly Sequence ................................ 8',
-                    '6. Soldering Guidelines ............................. 12',
-                    '7. Testing & Verification ........................... 14',
-                    '8. Troubleshooting Guide ............................ 16',
-                    '9. Final Inspection Checklist ....................... 18'
-                ];
-                
-                let yPos = 110;
-                toc.forEach(item => {
-                    doc.text(item, 25, yPos);
-                    yPos += 8;
-                });
-                
-                // Add new page for Safety Guidelines
+    const loadingDiv = document.getElementById('loading');
+    const button = document.querySelector('.generate-btn');
+    
+    loadingDiv.classList.remove('hidden');
+    button.disabled = true;
+    button.textContent = '📄 Generating...';
+    
+    setTimeout(() => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Helper function to check if we need a new page
+        function checkPageBreak(doc, currentY, requiredSpace = 20) {
+            if (currentY > 280 - requiredSpace) {
                 doc.addPage();
-                doc.setFontSize(18);
-                doc.setTextColor(0, 100, 0);
-                doc.text('1. Safety Guidelines', 20, 30);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                const safetyGuidelines = [
-                    '• Wear ESD wrist strap at all times during assembly',
-                    '• Use ESD-safe work surface and tools',
-                    '• Handle components by edges only',
-                    '• Avoid touching IC pins directly',
-                    '• Temperature: 18-25°C, Humidity: 30-70% RH',
-                    '• Use lead-free solder (SAC305 recommended)',
-                    '• Soldering iron temperature: 350°C ± 10°C',
-                    '• Ventilation required for flux fumes',
-                    '• Emergency contact: [Your contact info]'
-                ];
-                
-                yPos = 50;
-                safetyGuidelines.forEach(item => {
-                    doc.text(item, 25, yPos);
-                    yPos += 10;
-                });
-                
-                // Tools & Equipment page
-                doc.addPage();
-                doc.setFontSize(18);
-                doc.setTextColor(0, 100, 0);
-                doc.text('2. Required Tools & Equipment', 20, 30);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                const tools = [
-                    'Essential Tools:',
-                    '• Soldering iron (temperature controlled)',
-                    '• Lead-free solder wire (0.6mm diameter)',
-                    '• Flux paste (no-clean type)',
-                    '• Desoldering braid',
-                    '• Tweezers (ESD-safe)',
-                    '• Magnifying glass or microscope',
-                    '• Digital multimeter',
-                    '• Oscilloscope (100MHz minimum)',
-                    '',
-                    'Inspection Equipment:',
-                    '• Magnifying lamp (10x minimum)',
-                    '• Digital calipers',
-                    '• PCB ruler',
-                    '• Component height gauge'
-                ];
-                
-                yPos = 50;
-                tools.forEach(item => {
-                    if (item === '') yPos += 5;
-                    else {
-                        if (item.includes(':')) doc.setFont(undefined, 'bold');
-                        else doc.setFont(undefined, 'normal');
-                        doc.text(item, 25, yPos);
-                        yPos += 8;
-                    }
-                });
-                
-                // Component Table page
-                doc.addPage();
-                doc.setFontSize(18);
-                doc.setTextColor(0, 100, 0);
-                doc.text('3. Component Identification Table', 20, 30);
-                
-                // Create component table
-                const components = [
-                    ['Ref', 'Component', 'Value/Part Number', 'Package', 'Qty'],
-                    ['U1', 'STM32F4xx MCU', 'STM32F407VGT6', 'LQFP-100', '1'],
-                    ['U2', 'FPGA', 'ICE40HX4K-TQ144', 'TQFP-144', '1'],
-                    ['U4', 'LDO Regulator', 'AMS1117-3.3', 'SOT-223', '1'],
-                    ['Y1', 'Crystal', '16MHz ±50ppm', 'HC-49/S', '1'],
-                    ['C1,C2', 'Load Capacitors', '18pF ±5%', '0603', '2'],
-                    ['C3-C6', 'Decoupling Caps', '100nF X7R', '0603', '4'],
-                    ['C7,C8', 'Power Filtering', '10μF Tantalum', '1206', '2'],
-                    ['R1-R4', 'Potentiometers', '10kΩ Linear', 'Through-hole', '4'],
-                    ['R5,R6', 'Pull-up Resistors', '4.7kΩ ±1%', '0603', '2'],
-                    ['J1', 'OLED Connector', '4-pin 1.25mm', 'JST-GH', '1'],
-                    ['J2', 'Power Input', '2.1mm DC Jack', 'Through-hole', '1'],
-                    ['J3', 'GPIO Header', '2x10 pins', '2.54mm', '1'],
-                    ['J4', 'Servo Connector', '3-pin servo', '2.54mm', '1']
-                ];
-                
-                yPos = 50;
-                components.forEach((row, index) => {
-                    if (index === 0) {
-                        doc.setFont(undefined, 'bold');
-                        doc.setFillColor(230, 230, 230);
-                        doc.rect(20, yPos-5, 170, 8, 'F');
-                    } else {
-                        doc.setFont(undefined, 'normal');
-                    }
-                    
-                    doc.text(row[0], 25, yPos);
-                    doc.text(row[1], 45, yPos);
-                    doc.text(row[2], 85, yPos);
-                    doc.text(row[3], 130, yPos);
-                    doc.text(row[4], 170, yPos);
-                    yPos += 10;
-                });
-                
-                // PCB Technical Specifications
-                doc.addPage();
-                doc.setFontSize(18);
-                doc.setTextColor(0, 100, 0);
-                doc.text('4. PCB Technical Specifications', 20, 30);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                const pcbSpecs = [
-                    'PCB Stackup (4-Layer):',
-                    '• Layer 1: Signal/Component (35μm Cu)',
-                    '• Layer 2: Ground Plane (35μm Cu)',
-                    '• Layer 3: Power Plane (35μm Cu)', 
-                    '• Layer 4: Signal/Component (35μm Cu)',
-                    '',
-                    'Material Properties:',
-                    '• Substrate: FR4 (εᵣ=4.35, tanδ=0.02)',
-                    '• Board thickness: 1.6mm ±10%',
-                    '• Copper weight: 1oz (35μm)',
-                    '• Surface finish: HASL or ENIG',
-                    '',
-                    'Design Rules:',
-                    '• Minimum track width: 0.1mm (4mil)',
-                    '• Minimum via size: 0.2mm drill, 0.4mm pad',
-                    '• Minimum spacing: 0.1mm (4mil)',
-                    '• Controlled impedance: 50Ω ±10% (single-ended)',
-                    '• Differential pairs: 100Ω ±10%',
-                    '',
-                    'Signal Integrity:',
-                    '• High-speed traces length-matched ±0.1mm',
-                    '• Maximum via stubs: 0.2mm',
-                    '• Ground plane continuity maintained'
-                ];
-                
-                yPos = 50;
-                pcbSpecs.forEach(item => {
-                    if (item === '') yPos += 5;
-                    else {
-                        if (item.includes(':')) doc.setFont(undefined, 'bold');
-                        else doc.setFont(undefined, 'normal');
-                        doc.text(item, 25, yPos);
-                        yPos += 8;
-                    }
-                });
-                
-                // Assembly Sequence
-                doc.addPage();
-                doc.setFontSize(18);
-                doc.setTextColor(0, 100, 0);
-                doc.text('5. Assembly Sequence', 20, 30);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                const assemblySteps = [
-                    '5.1 Pre-Assembly Inspection',
-                    '• Inspect PCB for defects, scratches, or contamination',
-                    '• Verify all components against BOM',
-                    '• Check component orientation markings',
-                    '• Measure PCB dimensions and hole sizes',
-                    '',
-                    '5.2 SMD Component Assembly (Bottom Side First)',
-                    'Step 1: Apply solder paste using stencil',
-                    '• Align stencil carefully with fiducials',
-                    '• Use consistent squeegee pressure',
-                    '• Inspect paste deposit quality',
-                    '',
-                    'Step 2: Place passive components (0603)',
-                    '• Start with smallest components first',
-                    '• Use vacuum pick-and-place tool',
-                    '• Verify component values before placement',
-                    '• Check component orientation',
-                    '',
-                    'Step 3: Place active components',
-                    '• STM32 MCU (U1) - check pin 1 orientation',
-                    '• FPGA (U2) - verify proper alignment',
-                    '• LDO regulator (U4)',
-                    '',
-                    '5.3 Reflow Soldering',
-                    '• Use lead-free reflow profile',
-                    '• Peak temperature: 245°C ±5°C',
-                    '• Time above liquidus: 60-90 seconds',
-                    '• Cooling rate: <6°C/second'
-                ];
-                
-                yPos = 50;
-                assemblySteps.forEach(item => {
-                    if (item === '') yPos += 3;
-                    else {
-                        if (item.startsWith('5.') || item.startsWith('Step')) {
-                            doc.setFont(undefined, 'bold');
-                        } else {
-                            doc.setFont(undefined, 'normal');
-                        }
-                        doc.text(item, 25, yPos);
-                        yPos += 7;
-                    }
-                });
-                
-                // Continue assembly steps on new page
-                doc.addPage();
-                doc.setFontSize(14);
-                doc.setTextColor(0, 100, 0);
-                doc.text('5. Assembly Sequence (continued)', 20, 30);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                const assemblySteps2 = [
-                    '5.4 Through-Hole Component Assembly',
-                    'Step 4: Insert crystal oscillator (Y1)',
-                    '• Orient according to pin 1 marking',
-                    '• Ensure flush mounting against PCB',
-                    '• Solder and trim leads',
-                    '',
-                    'Step 5: Install connectors',
-                    '• Power jack (J2) - verify polarity',
-                    '• GPIO header (J3) - ensure straight alignment',
-                    '• Servo connector (J4)',
-                    '• OLED display connector (J1)',
-                    '',
-                    'Step 6: Install potentiometers (R1-R4)',
-                    '• Mount flush to PCB surface',
-                    '• Ensure smooth rotation',
-                    '• Verify resistance values',
-                    '',
-                    '5.5 Final Assembly',
-                    '• Clean flux residue with IPA',
-                    '• Visual inspection under magnification',
-                    '• Continuity testing of critical nets',
-                    '• Power-on testing (see Section 7)'
-                ];
-                
-                yPos = 50;
-                assemblySteps2.forEach(item => {
-                    if (item === '') yPos += 3;
-                    else {
-                        if (item.startsWith('5.') || item.startsWith('Step')) {
-                            doc.setFont(undefined, 'bold');
-                        } else {
-                            doc.setFont(undefined, 'normal');
-                        }
-                        doc.text(item, 25, yPos);
-                        yPos += 7;
-                    }
-                });
-                
-                // Testing & Verification
-                doc.addPage();
-                doc.setFontSize(18);
-                doc.setTextColor(0, 100, 0);
-                doc.text('7. Testing & Verification', 20, 30);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                const testingSteps = [
-                    '7.1 Power System Tests',
-                    '• Measure input voltage: 5V ±0.25V',
-                    '• Verify 3.3V rail: 3.3V ±3%',
-                    '• Check current consumption: <150mA typical',
-                    '• Thermal imaging of power components',
-                    '',
-                    '7.2 Digital Signal Testing',
-                    '• Crystal oscillator: 16MHz ±50ppm',
-                    '• I²C bus signals (SDA/SCL): 3.3V logic levels',
-                    '• SPI communication: 48MHz max frequency',
-                    '• GPIO functionality verification',
-                    '',
-                    '7.3 OLED Display Test',
-                    '• Connect 40×10mm OLED display',
-                    '• Verify I²C address response (0x3C/0x3D)',
-                    '• Display test pattern',
-                    '• Check pixel integrity',
-                    '',
-                    '7.4 Servo Control Test',
-                    '• Connect test servo motor',
-                    '• Verify PWM signal generation',
-                    '• Test full range of motion',
-                    '• Check signal timing accuracy',
-                    '',
-                    '7.5 Potentiometer Calibration',
-                    '• Verify 10kΩ resistance range',
-                    '• Test ADC conversion accuracy',
-                    '• Check for noise and stability',
-                    '• Calibrate dead zones if needed'
-                ];
-                
-                yPos = 50;
-                testingSteps.forEach(item => {
-                    if (item === '') yPos += 3;
-                    else {
-                        if (item.startsWith('7.')) {
-                            doc.setFont(undefined, 'bold');
-                        } else {
-                            doc.setFont(undefined, 'normal');
-                        }
-                        doc.text(item, 25, yPos);
-                        yPos += 7;
-                    }
-                });
-                
-                // Troubleshooting Guide
-                doc.addPage();
-                doc.setFontSize(18);
-                doc.setTextColor(0, 100, 0);
-                doc.text('8. Troubleshooting Guide', 20, 30);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                const troubleshooting = [
-                    'Common Issues and Solutions:',
-                    '',
-                    'Problem: No power to board',
-                    '• Check input voltage and polarity',
-                    '• Verify LDO regulator orientation',
-                    '• Test for short circuits on power rails',
-                    '• Check solder joints on power components',
-                    '',
-                    'Problem: MCU not responding',
-                    '• Verify crystal oscillator soldering',
-                    '• Check power supply to MCU',
-                    '• Test BOOT0 pin state',
-                    '• Verify programming connections',
-                    '',
-                    'Problem: OLED display blank',
-                    '• Check I²C connection integrity',
-                    '• Verify display power supply (3.3V)',
-                    '• Test pull-up resistors on SDA/SCL',
-                    '• Check display module compatibility',
-                    '',
-                    'Problem: Servo not responding',
-                    '• Verify PWM signal generation',
-                    '• Check servo power requirements',
-                    '• Test signal timing with oscilloscope',
-                    '• Verify connector pinout',
-                    '',
-                    'Problem: Erratic potentiometer readings',
-                    '• Clean potentiometer contacts',
-                    '• Check for loose connections',
-                    '• Verify ADC reference voltage',
-                    '• Test for electromagnetic interference'
-                ];
-                
-                yPos = 50;
-                troubleshooting.forEach(item => {
-                    if (item === '') yPos += 3;
-                    else {
-                        if (item.startsWith('Problem:') || item.includes('Solutions:')) {
-                            doc.setFont(undefined, 'bold');
-                        } else {
-                            doc.setFont(undefined, 'normal');
-                        }
-                        doc.text(item, 25, yPos);
-                        yPos += 7;
-                        if (yPos > 270) {
-                            doc.addPage();
-                            yPos = 30;
-                        }
-                    }
-                });
-                
-                // Final page - Inspection Checklist
-                doc.addPage();
-                doc.setFontSize(18);
-                doc.setTextColor(0, 100, 0);
-                doc.text('9. Final Inspection Checklist', 20, 30);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                const checklist = [
-                    'Visual Inspection: □',
-                    '□ No visible solder bridges or shorts',
-                    '□ All components properly oriented',
-                    '□ Solder joints have proper fillet shape',
-                    '□ No cold solder joints or dry joints',
-                    '□ Component values match BOM',
-                    '□ PCB clean of flux residue',
-                    '',
-                    'Electrical Testing: □',
-                    '□ Power supply voltages within spec',
-                    '□ Current consumption normal',
-                    '□ No short circuits detected',
-                    '□ Crystal oscillation verified',
-                    '□ I²C communication functional',
-                    '□ All GPIO pins operational',
-                    '',
-                    'Functional Testing: □',
-                    '□ OLED display working correctly',
-                    '□ Servo control responsive',
-                    '□ Potentiometers calibrated',
-                    '□ All connectors secure',
-                    '□ Software/firmware loaded',
-                    '',
-                    'Final Approval:',
-                    'Inspector: _________________ Date: _________',
-                    'Quality Engineer: __________ Date: _________',
-                    'Project Manager: __________ Date: _________'
-                ];
-                
-                yPos = 50;
-                checklist.forEach(item => {
-                    if (item === '') yPos += 5;
-                    else {
-                        if (item.includes(':') && !item.includes('□')) {
-                            doc.setFont(undefined, 'bold');
-                        } else {
-                            doc.setFont(undefined, 'normal');
-                        }
-                        doc.text(item, 25, yPos);
-                        yPos += 10;
-                    }
-                });
-                
-                // Save the PDF
-                doc.save('OLED_Stereoscopic_Device_Assembly_Guide.pdf');
-                
-                loadingDiv.classList.add('hidden');
-                button.disabled = false;
-                button.textContent = '📄 Generate Assembly Guide PDF';
-                
-            }, 1000);
+                return 30; // Reset Y position
+            }
+            return currentY;
         }
+        
+        // Title page
+        doc.setFontSize(28);
+        doc.setTextColor(0, 100, 0);
+        doc.text('OLED Stereoscopic Device', 105, 40, { align: 'center' });
+        doc.setFontSize(20);
+        doc.text('Professional Assembly Guide', 105, 60, { align: 'center' });
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text('Document Version: 1.0', 20, 85);
+        doc.text('Date: ' + new Date().toLocaleDateString(), 20, 100);
+        doc.text('PCB Specifications: 4-Layer FR4, εᵣ=4.35', 20, 115);
+        
+        // Table of Contents
+        doc.setFontSize(18);
+        doc.setTextColor(0, 100, 0);
+        doc.text('Table of Contents', 20, 140);
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        const toc = [
+            '1. Safety Guidelines ................................. 3',
+            '2. Required Tools & Equipment ........................ 4',
+            '3. Component Identification Table ................... 5',
+            '4. PCB Technical Specifications ..................... 7',
+            '5. Assembly Sequence ................................ 8',
+            '6. Soldering Guidelines ............................. 12',
+            '7. Testing & Verification ........................... 14',
+            '8. Troubleshooting Guide ............................ 16',
+            '9. Final Inspection Checklist ....................... 18'
+        ];
+        
+        let yPos = 155;
+        toc.forEach(item => {
+            doc.text(item, 25, yPos);
+            yPos += 12;
+        });
+        
+        // Add new page for Safety Guidelines
+        doc.addPage();
+        doc.setFontSize(20);
+        doc.setTextColor(0, 100, 0);
+        doc.text('1. Safety Guidelines', 20, 35);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const safetyGuidelines = [
+            '• Wear ESD wrist strap at all times during assembly',
+            '• Use ESD-safe work surface and tools',
+            '• Handle components by edges only',
+            '• Avoid touching IC pins directly',
+            '• Temperature: 18-25°C, Humidity: 30-70% RH',
+            '• Use lead-free solder (SAC305 recommended)',
+            '• Soldering iron temperature: 350°C ± 10°C',
+            '• Ventilation required for flux fumes',
+            '• Emergency contact: [Your contact info]'
+        ];
+        
+        yPos = 55;
+        safetyGuidelines.forEach(item => {
+            doc.text(item, 25, yPos);
+            yPos += 15;
+        });
+        
+        // Tools & Equipment page
+        doc.addPage();
+        doc.setFontSize(20);
+        doc.setTextColor(0, 100, 0);
+        doc.text('2. Required Tools & Equipment', 20, 35);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const tools = [
+            'Essential Tools:',
+            '• Soldering iron (temperature controlled)',
+            '• Lead-free solder wire (0.6mm diameter)',
+            '• Flux paste (no-clean type)',
+            '• Desoldering braid',
+            '• Tweezers (ESD-safe)',
+            '• Magnifying glass or microscope',
+            '• Digital multimeter',
+            '• Oscilloscope (100MHz minimum)',
+            '',
+            'Inspection Equipment:',
+            '• Magnifying lamp (10x minimum)',
+            '• Digital calipers',
+            '• PCB ruler',
+            '• Component height gauge'
+        ];
+        
+        yPos = 55;
+        tools.forEach(item => {
+            if (item === '') {
+                yPos += 10;
+            } else {
+                if (item.includes(':')) {
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(13);
+                } else {
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(12);
+                }
+                doc.text(item, 25, yPos);
+                yPos += 12;
+            }
+        });
+        
+        // Component Table page
+        doc.addPage();
+        doc.setFontSize(20);
+        doc.setTextColor(0, 100, 0);
+        doc.text('3. Component Identification Table', 20, 35);
+        
+        // Create component table with better spacing
+        const components = [
+            ['Ref', 'Component', 'Value/Part Number', 'Package', 'Qty'],
+            ['U1', 'STM32F4xx MCU', 'STM32F407VGT6', 'LQFP-100', '1'],
+            ['U2', 'FPGA', 'ICE40HX4K-TQ144', 'TQFP-144', '1'],
+            ['U4', 'LDO Regulator', 'AMS1117-3.3', 'SOT-223', '1'],
+            ['Y1', 'Crystal', '16MHz ±50ppm', 'HC-49/S', '1'],
+            ['C1,C2', 'Load Capacitors', '18pF ±5%', '0603', '2'],
+            ['C3-C6', 'Decoupling Caps', '100nF X7R', '0603', '4'],
+            ['C7,C8', 'Power Filtering', '10μF Tantalum', '1206', '2'],
+            ['R1-R4', 'Potentiometers', '10kΩ Linear', 'Through-hole', '4'],
+            ['R5,R6', 'Pull-up Resistors', '4.7kΩ ±1%', '0603', '2'],
+            ['J1', 'OLED Connector', '4-pin 1.25mm', 'JST-GH', '1'],
+            ['J2', 'Power Input', '2.1mm DC Jack', 'Through-hole', '1'],
+            ['J3', 'GPIO Header', '2x10 pins', '2.54mm', '1'],
+            ['J4', 'Servo Connector', '3-pin servo', '2.54mm', '1']
+        ];
+        
+        yPos = 55;
+        const colWidths = [25, 50, 75, 40, 20]; // Column widths
+        const colPositions = [20, 45, 95, 170, 210]; // X positions
+        
+        components.forEach((row, index) => {
+            if (index === 0) {
+                doc.setFont(undefined, 'bold');
+                doc.setFontSize(11);
+                doc.setFillColor(230, 230, 230);
+                doc.rect(20, yPos-8, 190, 12, 'F');
+            } else {
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(10);
+            }
+            
+            row.forEach((cell, colIndex) => {
+                doc.text(cell, colPositions[colIndex], yPos);
+            });
+            yPos += 14;
+        });
+        
+        // PCB Technical Specifications
+        doc.addPage();
+        doc.setFontSize(20);
+        doc.setTextColor(0, 100, 0);
+        doc.text('4. PCB Technical Specifications', 20, 35);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const pcbSpecs = [
+            'PCB Stackup (4-Layer):',
+            '• Layer 1: Signal/Component (35μm Cu)',
+            '• Layer 2: Ground Plane (35μm Cu)',
+            '• Layer 3: Power Plane (35μm Cu)', 
+            '• Layer 4: Signal/Component (35μm Cu)',
+            '',
+            'Material Properties:',
+            '• Substrate: FR4 (εᵣ=4.35, tanδ=0.02)',
+            '• Board thickness: 1.6mm ±10%',
+            '• Copper weight: 1oz (35μm)',
+            '• Surface finish: HASL or ENIG',
+            '',
+            'Design Rules:',
+            '• Minimum track width: 0.1mm (4mil)',
+            '• Minimum via size: 0.2mm drill, 0.4mm pad',
+            '• Minimum spacing: 0.1mm (4mil)',
+            '• Controlled impedance: 50Ω ±10% (single-ended)',
+            '• Differential pairs: 100Ω ±10%',
+            '',
+            'Signal Integrity:',
+            '• High-speed traces length-matched ±0.1mm',
+            '• Maximum via stubs: 0.2mm',
+            '• Ground plane continuity maintained'
+        ];
+        
+        yPos = 55;
+        pcbSpecs.forEach(item => {
+            if (item === '') {
+                yPos += 10;
+            } else {
+                if (item.includes(':')) {
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(13);
+                } else {
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(12);
+                }
+                doc.text(item, 25, yPos);
+                yPos += 12;
+            }
+        });
+        
+        // Assembly Sequence
+        doc.addPage();
+        doc.setFontSize(20);
+        doc.setTextColor(0, 100, 0);
+        doc.text('5. Assembly Sequence', 20, 35);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const assemblySteps = [
+            '5.1 Pre-Assembly Inspection',
+            '• Inspect PCB for defects, scratches, or contamination',
+            '• Verify all components against BOM',
+            '• Check component orientation markings',
+            '• Measure PCB dimensions and hole sizes',
+            '',
+            '5.2 SMD Component Assembly (Bottom Side First)',
+            'Step 1: Apply solder paste using stencil',
+            '• Align stencil carefully with fiducials',
+            '• Use consistent squeegee pressure',
+            '• Inspect paste deposit quality',
+            '',
+            'Step 2: Place passive components (0603)',
+            '• Start with smallest components first',
+            '• Use vacuum pick-and-place tool',
+            '• Verify component values before placement',
+            '• Check component orientation',
+            '',
+            'Step 3: Place active components',
+            '• STM32 MCU (U1) - check pin 1 orientation',
+            '• FPGA (U2) - verify proper alignment',
+            '• LDO regulator (U4)',
+            '',
+            '5.3 Reflow Soldering',
+            '• Use lead-free reflow profile',
+            '• Peak temperature: 245°C ±5°C',
+            '• Time above liquidus: 60-90 seconds',
+            '• Cooling rate: <6°C/second'
+        ];
+        
+        yPos = 55;
+        assemblySteps.forEach(item => {
+            yPos = checkPageBreak(doc, yPos, 15);
+            
+            if (item === '') {
+                yPos += 8;
+            } else {
+                if (item.startsWith('5.')) {
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(14);
+                } else if (item.startsWith('Step')) {
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(12);
+                } else {
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(11);
+                }
+                doc.text(item, 25, yPos);
+                yPos += item.startsWith('5.') ? 15 : 12;
+            }
+        });
+        
+        // Continue assembly steps on new page
+        doc.addPage();
+        doc.setFontSize(16);
+        doc.setTextColor(0, 100, 0);
+        doc.text('5. Assembly Sequence (continued)', 20, 35);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const assemblySteps2 = [
+            '5.4 Through-Hole Component Assembly',
+            'Step 4: Insert crystal oscillator (Y1)',
+            '• Orient according to pin 1 marking',
+            '• Ensure flush mounting against PCB',
+            '• Solder and trim leads',
+            '',
+            'Step 5: Install connectors',
+            '• Power jack (J2) - verify polarity',
+            '• GPIO header (J3) - ensure straight alignment',
+            '• Servo connector (J4)',
+            '• OLED display connector (J1)',
+            '',
+            'Step 6: Install potentiometers (R1-R4)',
+            '• Mount flush to PCB surface',
+            '• Ensure smooth rotation',
+            '• Verify resistance values',
+            '',
+            '5.5 Final Assembly',
+            '• Clean flux residue with IPA',
+            '• Visual inspection under magnification',
+            '• Continuity testing of critical nets',
+            '• Power-on testing (see Section 7)'
+        ];
+        
+        yPos = 55;
+        assemblySteps2.forEach(item => {
+            yPos = checkPageBreak(doc, yPos, 15);
+            
+            if (item === '') {
+                yPos += 8;
+            } else {
+                if (item.startsWith('5.')) {
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(14);
+                } else if (item.startsWith('Step')) {
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(12);
+                } else {
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(11);
+                }
+                doc.text(item, 25, yPos);
+                yPos += item.startsWith('5.') ? 15 : 12;
+            }
+        });
+        
+        // Testing & Verification
+        doc.addPage();
+        doc.setFontSize(20);
+        doc.setTextColor(0, 100, 0);
+        doc.text('7. Testing & Verification', 20, 35);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const testingSteps = [
+            '7.1 Power System Tests',
+            '• Measure input voltage: 5V ±0.25V',
+            '• Verify 3.3V rail: 3.3V ±3%',
+            '• Check current consumption: <150mA typical',
+            '• Thermal imaging of power components',
+            '',
+            '7.2 Digital Signal Testing',
+            '• Crystal oscillator: 16MHz ±50ppm',
+            '• I²C bus signals (SDA/SCL): 3.3V logic levels',
+            '• SPI communication: 48MHz max frequency',
+            '• GPIO functionality verification',
+            '',
+            '7.3 OLED Display Test',
+            '• Connect 40×10mm OLED display',
+            '• Verify I²C address response (0x3C/0x3D)',
+            '• Display test pattern',
+            '• Check pixel integrity',
+            '',
+            '7.4 Servo Control Test',
+            '• Connect test servo motor',
+            '• Verify PWM signal generation',
+            '• Test full range of motion',
+            '• Check signal timing accuracy',
+            '',
+            '7.5 Potentiometer Calibration',
+            '• Verify 10kΩ resistance range',
+            '• Test ADC conversion accuracy',
+            '• Check for noise and stability',
+            '• Calibrate dead zones if needed'
+        ];
+        
+        yPos = 55;
+        testingSteps.forEach(item => {
+            yPos = checkPageBreak(doc, yPos, 15);
+            
+            if (item === '') {
+                yPos += 8;
+            } else {
+                if (item.startsWith('7.')) {
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(13);
+                } else {
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(11);
+                }
+                doc.text(item, 25, yPos);
+                yPos += item.startsWith('7.') ? 15 : 12;
+            }
+        });
+        
+        // Troubleshooting Guide
+        doc.addPage();
+        doc.setFontSize(20);
+        doc.setTextColor(0, 100, 0);
+        doc.text('8. Troubleshooting Guide', 20, 35);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const troubleshooting = [
+            'Common Issues and Solutions:',
+            '',
+            'Problem: No power to board',
+            '• Check input voltage and polarity',
+            '• Verify LDO regulator orientation',
+            '• Test for short circuits on power rails',
+            '• Check solder joints on power components',
+            '',
+            'Problem: MCU not responding',
+            '• Verify crystal oscillator soldering',
+            '• Check power supply to MCU',
+            '• Test BOOT0 pin state',
+            '• Verify programming connections',
+            '',
+            'Problem: OLED display blank',
+            '• Check I²C connection integrity',
+            '• Verify display power supply (3.3V)',
+            '• Test pull-up resistors on SDA/SCL',
+            '• Check display module compatibility',
+            '',
+            'Problem: Servo not responding',
+            '• Verify PWM signal generation',
+            '• Check servo power requirements',
+            '• Test signal timing with oscilloscope',
+            '• Verify connector pinout',
+            '',
+            'Problem: Erratic potentiometer readings',
+            '• Clean potentiometer contacts',
+            '• Check for loose connections',
+            '• Verify ADC reference voltage',
+            '• Test for electromagnetic interference'
+        ];
+        
+        yPos = 55;
+        troubleshooting.forEach(item => {
+            yPos = checkPageBreak(doc, yPos, 15);
+            
+            if (item === '') {
+                yPos += 8;
+            } else {
+                if (item.startsWith('Problem:') || item.includes('Solutions:')) {
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(13);
+                } else {
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(11);
+                }
+                doc.text(item, 25, yPos);
+                yPos += item.startsWith('Problem:') ? 15 : 12;
+            }
+        });
+        
+        // Final page - Inspection Checklist
+        doc.addPage();
+        doc.setFontSize(20);
+        doc.setTextColor(0, 100, 0);
+        doc.text('9. Final Inspection Checklist', 20, 35);
+        
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const checklist = [
+            'Visual Inspection:',
+            '□ No visible solder bridges or shorts',
+            '□ All components properly oriented',
+            '□ Solder joints have proper fillet shape',
+            '□ No cold solder joints or dry joints',
+            '□ Component values match BOM',
+            '□ PCB clean of flux residue',
+            '',
+            'Electrical Testing:',
+            '□ Power supply voltages within spec',
+            '□ Current consumption normal',
+            '□ No short circuits detected',
+            '□ Crystal oscillation verified',
+            '□ I²C communication functional',
+            '□ All GPIO pins operational',
+            '',
+            'Functional Testing:',
+            '□ OLED display working correctly',
+            '□ Servo control responsive',
+            '□ Potentiometers calibrated',
+            '□ All connectors secure',
+            '□ Software/firmware loaded',
+            '',
+            'Final Approval:',
+            '',
+            'Inspector: _________________________ Date: ____________',
+            '',
+            'Quality Engineer: __________________ Date: ____________',
+            '',
+            'Project Manager: ___________________ Date: ____________'
+        ];
+        
+        yPos = 55;
+        checklist.forEach(item => {
+            if (item === '') {
+                yPos += 8;
+            } else {
+                if (item.includes(':') && !item.includes('□') && !item.includes('_')) {
+                    doc.setFont(undefined, 'bold');
+                    doc.setFontSize(13);
+                } else {
+                    doc.setFont(undefined, 'normal');
+                    doc.setFontSize(12);
+                }
+                doc.text(item, 25, yPos);
+                yPos += 15;
+            }
+        });
+        
+        // Save the PDF
+        doc.save('OLED_Stereoscopic_Device_Assembly_Guide.pdf');
+        
+        loadingDiv.classList.add('hidden');
+        button.disabled = false;
+        button.textContent = '📄 Generate Assembly Guide PDF';
+        
+    }, 1000);
+}
     </script>
 </body>
 </html>
