@@ -1584,20 +1584,44 @@
     }
 
     getExportDimensions(resolution) {
-        const { videoWidth, videoHeight } = this.video;
-        const aspectRatio = videoWidth / videoHeight;
-
-        switch (resolution) {
-            case '1080p':
-                return { width: 1920, height: 1080 };
-            case '1440p':
-                return { width: 2560, height: 1440 };
-            case '4k':
-                return { width: 3840, height: 2160 };
-            default: // original
-                return { width: videoWidth, height: videoHeight };
-        }
+    const { videoWidth, videoHeight } = this.video;
+    const aspectRatio = videoWidth / videoHeight;
+    
+    switch (resolution) {
+        case '720p':
+            return { width: 1280, height: 720 };
+        case '1080p':
+            return { width: 1920, height: 1080 };
+        case '1440p':
+            return { width: 2560, height: 1440 };
+        case '4k':
+        case '2160p':
+            return { width: 3840, height: 2160 };
+        case '5k':
+            return { width: 5120, height: 2880 };
+        case '6k':
+            return { width: 6144, height: 3456 };
+        case '8k':
+        case '4320p':
+            return { width: 7680, height: 4320 };
+        case '12k':
+            return { width: 11520, height: 6480 };
+        case '16k':
+            return { width: 15360, height: 8640 };
+        case '18k':
+            return { width: 17280, height: 9720 };
+        case 'cinematic_8k':
+            return { width: 8192, height: 4320 }; // DCI 8K
+        case 'imax':
+            return { width: 5616, height: 4096 }; // IMAX Digital
+        case 'ultrawide_4k':
+            return { width: 5120, height: 2160 }; // 21:9 aspect ratio
+        case 'ultrawide_8k':
+            return { width: 10240, height: 4320 }; // 21:9 aspect ratio
+        default: // original
+            return { width: videoWidth, height: videoHeight };
     }
+}
 
     // Fixed renderFrameAtTime method
     renderFrameAtTime(video, time, dimensions, viewType) {
@@ -2250,33 +2274,57 @@ class PaywallManager {
         document.getElementById('currentTierDisplay').textContent = this.tiers[this.currentTier].name;
 
         // Restrict export resolution dropdown
-        const exportResolution = document.getElementById('exportResolution');
-        if (exportResolution) {
-            const maxResolution = this.tiers[this.currentTier].features.maxResolution;
-            const options = exportResolution.querySelectorAll('option');
+        updateExportResolutionOptions() {
+    const exportResolution = document.getElementById('exportResolution');
+    if (exportResolution) {
+        const maxResolution = this.tiers[this.currentTier].features.maxResolution;
+        const options = exportResolution.querySelectorAll('option');
+        
+        options.forEach(option => {
+            const value = option.value;
+            let disabled = false;
             
-            options.forEach(option => {
-                const value = option.value;
-                let disabled = false;
-                
-                switch (maxResolution) {
-                    case '720p':
-                        disabled = ['1080p', '1440p', '4k'].includes(value);
-                        break;
-                    case '1080p':
-                        disabled = ['1440p', '4k'].includes(value);
-                        break;
-                    case '1440p':
-                        disabled = ['4k'].includes(value);
-                        break;
-                }
-                
-                option.disabled = disabled;
-                if (disabled) {
-                    option.textContent += ' (Premium)';
-                }
-            });
-        }
+            switch (maxResolution) {
+                case '720p':
+                    disabled = ['1080p', '1440p', '4k', '5k', '6k', '8k', '12k', '16k', '18k', 'cinematic_8k', 'imax', 'ultrawide_4k', 'ultrawide_8k'].includes(value);
+                    break;
+                case '1080p':
+                    disabled = ['1440p', '4k', '5k', '6k', '8k', '12k', '16k', '18k', 'cinematic_8k', 'imax', 'ultrawide_4k', 'ultrawide_8k'].includes(value);
+                    break;
+                case '1440p':
+                    disabled = ['4k', '5k', '6k', '8k', '12k', '16k', '18k', 'cinematic_8k', 'imax', 'ultrawide_4k', 'ultrawide_8k'].includes(value);
+                    break;
+                case '4k':
+                    disabled = ['5k', '6k', '8k', '12k', '16k', '18k', 'cinematic_8k', 'ultrawide_8k'].includes(value);
+                    break;
+                case '5k':
+                    disabled = ['6k', '8k', '12k', '16k', '18k', 'cinematic_8k', 'ultrawide_8k'].includes(value);
+                    break;
+                case '6k':
+                    disabled = ['8k', '12k', '16k', '18k', 'cinematic_8k', 'ultrawide_8k'].includes(value);
+                    break;
+                case '8k':
+                    disabled = ['12k', '16k', '18k'].includes(value);
+                    break;
+                case '12k':
+                    disabled = ['16k', '18k'].includes(value);
+                    break;
+                case '16k':
+                    disabled = ['18k'].includes(value);
+                    break;
+                case '18k':
+                    // All resolutions available at 18k tier
+                    disabled = false;
+                    break;
+            }
+            
+            option.disabled = disabled;
+            if (disabled && !option.textContent.includes('(Premium)')) {
+                option.textContent += ' (Premium)';
+            }
+        });
+    }
+}
 
         // Update export buttons
         this.updateExportButtons();
