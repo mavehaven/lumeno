@@ -14,6 +14,9 @@
       --bg-glass: rgba(13, 13, 13, 0.6);
       --neon-glow: 0 0 20px rgba(0, 234, 255, 0.7);
       --text-glow: 0 0 10px rgba(255, 0, 200, 0.7);
+      --success: #00ff88;
+      --warning: #ffaa00;
+      --error: #ff4444;
     }
 
     * {
@@ -50,8 +53,14 @@
       border-bottom: 1px solid rgba(0, 234, 255, 0.2);
     }
 
+    .logo {
+      height: 80px;
+      width: auto;
+      filter: drop-shadow(var(--neon-glow));
+    }
+
     .title {
-      font-size: 2.5rem;
+      font-size: 2rem;
       font-weight: 900;
       text-transform: uppercase;
       letter-spacing: 2px;
@@ -68,6 +77,7 @@
       cursor: pointer;
       transition: all 0.2s ease;
       background: rgba(0, 234, 255, 0.05);
+      position: relative;
     }
 
     .upload-area:hover {
@@ -75,49 +85,87 @@
       background: rgba(0, 234, 255, 0.1);
     }
 
-    .upload-area p {
-      font-size: 1.2rem;
-      margin-bottom: 1rem;
+    .upload-area.dragover {
+      border-color: var(--accent);
+      background: rgba(255, 0, 200, 0.1);
     }
 
-    .file-info {
-      background: rgba(0, 234, 255, 0.1);
-      padding: 1rem;
-      border-radius: 0.5rem;
+    .upload-info {
       margin-top: 1rem;
-      display: none;
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.7);
     }
 
     .progress-container {
-      background: rgba(0, 234, 255, 0.05);
-      border-radius: 1rem;
-      padding: 2rem;
-      margin: 2rem 0;
-      border: 1px solid rgba(0, 234, 255, 0.2);
+      width: 100%;
+      height: 8px;
+      background: rgba(0, 234, 255, 0.2);
+      border-radius: 4px;
+      margin: 1rem 0;
+      overflow: hidden;
       display: none;
     }
 
     .progress-bar {
-      width: 100%;
-      height: 20px;
-      background: rgba(0, 234, 255, 0.2);
-      border-radius: 10px;
-      overflow: hidden;
-      margin: 1rem 0;
-    }
-
-    .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, var(--primary), var(--accent));
       width: 0%;
       transition: width 0.3s ease;
-      box-shadow: 0 0 10px var(--primary);
+      position: relative;
     }
 
-    .progress-text {
-      text-align: center;
-      font-weight: 600;
-      color: var(--primary);
+    .progress-bar::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .status {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: 1rem 2rem;
+      border-radius: 0.5rem;
+      font-weight: 700;
+      opacity: 0;
+      transform: translateY(1rem);
+      transition: all 0.3s ease;
+      z-index: 1000;
+      max-width: 400px;
+    }
+
+    .status.processing {
+      opacity: 1;
+      transform: translateY(0);
+      background: rgba(0, 234, 255, 0.9);
+      color: #000;
+      box-shadow: 0 0 20px rgba(0, 234, 255, 0.7);
+    }
+
+    .status.success {
+      opacity: 1;
+      transform: translateY(0);
+      background: rgba(0, 255, 136, 0.9);
+      color: #000;
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.7);
+    }
+
+    .status.error {
+      opacity: 1;
+      transform: translateY(0);
+      background: rgba(255, 68, 68, 0.9);
+      color: #fff;
+      box-shadow: 0 0 20px rgba(255, 68, 68, 0.7);
     }
 
     .controls {
@@ -136,7 +184,7 @@
     }
 
     .control-group h3 {
-      font-size: 1.3rem;
+      font-size: 1.5rem;
       margin-bottom: 1rem;
       text-transform: uppercase;
       color: var(--primary);
@@ -153,6 +201,12 @@
       font-weight: 600;
       color: #fff;
       text-shadow: 0 0 5px rgba(0, 234, 255, 0.5);
+    }
+
+    .value-display {
+      float: right;
+      color: var(--accent);
+      font-weight: 700;
     }
 
     input[type="range"] {
@@ -181,11 +235,12 @@
     select {
       width: 100%;
       padding: 0.75rem;
-      background: rgba(0, 234, 255, 0.1);
+      margin: 0.5rem 0;
       border: 1px solid rgba(0, 234, 255, 0.3);
       border-radius: 0.5rem;
+      background: rgba(0, 234, 255, 0.1);
       color: #fff;
-      font-size: 1rem;
+      font-weight: 600;
     }
 
     button {
@@ -202,6 +257,8 @@
       cursor: pointer;
       transition: background 0.2s ease, box-shadow 0.2s ease;
       box-shadow: 0 0 10px var(--primary);
+      position: relative;
+      overflow: hidden;
     }
 
     button:hover {
@@ -210,29 +267,36 @@
     }
 
     button:disabled {
-      background: #666;
+      background: rgba(0, 234, 255, 0.3);
       cursor: not-allowed;
       box-shadow: none;
     }
 
-    .process-button {
+    .download-button {
       background: var(--accent);
-      font-size: 1.1rem;
-      padding: 1rem;
     }
 
-    .process-button:hover {
+    .download-button:hover {
       background: var(--accent-dark);
     }
 
-    .video-preview {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 1.5rem;
-      margin: 2rem 0;
+    .render-button {
+      background: var(--success);
+      color: #000;
+    }
+
+    .render-button:hover {
+      background: #00cc66;
     }
 
     .preview-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    .preview-view {
       background: rgba(0, 234, 255, 0.05);
       padding: 1.5rem;
       border-radius: 1rem;
@@ -240,7 +304,7 @@
       box-shadow: 0 0 15px rgba(0, 234, 255, 0.1);
     }
 
-    .preview-container h4 {
+    .preview-view h4 {
       margin-bottom: 1rem;
       font-size: 1.25rem;
       color: var(--primary);
@@ -248,841 +312,802 @@
       letter-spacing: 1px;
     }
 
-    video {
-      width: 100%;
+    video, canvas {
+      max-width: 100%;
       border-radius: 0.5rem;
       box-shadow: 0 0 15px rgba(0, 234, 255, 0.3);
     }
 
-    .status {
-      position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      padding: 1rem 2rem;
-      border-radius: 0.5rem;
-      background: rgba(0, 234, 255, 0.9);
+    #output {
+      position: relative;
+      margin: 2rem 0;
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow: 0 0 30px rgba(0, 234, 255, 0.3);
+      border: 1px solid rgba(0, 234, 255, 0.3);
+      backdrop-filter: blur(4px);
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .output-placeholder {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 1.2rem;
+      text-align: center;
+    }
+
+    .resolution-badge {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: var(--accent);
       color: #000;
-      font-weight: 700;
-      opacity: 0;
-      transform: translateY(1rem);
-      transition: all 0.3s ease;
-      box-shadow: 0 0 20px rgba(0, 234, 255, 0.7);
-      z-index: 1000;
-    }
-
-    .status.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .performance-monitor {
-      background: rgba(255, 0, 200, 0.1);
-      border: 1px solid rgba(255, 0, 200, 0.3);
-      padding: 1rem;
+      padding: 0.5rem 1rem;
       border-radius: 0.5rem;
-      margin: 1rem 0;
-      font-family: monospace;
+      font-weight: 700;
       font-size: 0.9rem;
     }
 
-    .error-message {
-      background: rgba(255, 0, 0, 0.1);
-      border: 1px solid rgba(255, 0, 0, 0.3);
-      color: #ff6b6b;
-      padding: 1rem;
-      border-radius: 0.5rem;
+    .frame-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin: 1rem 0;
-      display: none;
+      padding: 1rem;
+      background: rgba(0, 234, 255, 0.1);
+      border-radius: 0.5rem;
+    }
+
+    .fps-counter {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .loading-spinner {
+      border: 3px solid rgba(0, 234, 255, 0.3);
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
+      <img src="https://b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1728834965913x568986154418384060/2.svg" alt="Logo" class="logo">
       <h1 class="title">Holographic Video Engine - 16K</h1>
     </div>
     
     <div class="upload-area" id="dropZone">
-      <p>Drop a video file here or click to upload</p>
-      <small>Supports: MP4, WebM, MOV, AVI | Max size: 2GB | Up to 16K resolution</small>
+      <p><strong>Drop a video file here or click to upload</strong></p>
+      <div class="upload-info">
+        Supported formats: MP4, WebM, MOV, AVI<br>
+        Maximum resolution: 16K (15360×8640)<br>
+        Recommended: Up to 4K for optimal processing speed
+      </div>
       <input type="file" id="videoInput" accept="video/*" style="display: none;">
-      <div class="file-info" id="fileInfo"></div>
+      <div class="progress-container" id="progressContainer">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
     </div>
-
-    <div class="error-message" id="errorMessage"></div>
     
-   
+    <div id="output">
+      <div class="output-placeholder">Upload a video to begin holographic processing</div>
+    </div>
     
-    <div class="video-preview" id="videoPreview" style="display: none;">
-      <div class="preview-container">
+    <div class="preview-container">
+      <div class="preview-view">
         <h4>Original Video</h4>
-        <video id="originalVideo" controls muted></video>
+        <video id="originalVideo" controls style="display: none;"></video>
+        <div class="frame-info" id="frameInfo" style="display: none;">
+          <span>Frame: <span id="currentFrame">0</span> of <span id="totalFrames">0</span></span>
+          <span class="fps-counter">FPS: <span id="fpsDisplay">0</span></span>
+        </div>
       </div>
-      <div class="preview-container">
-        <h4>Stereoscopic Preview</h4>
-        <video id="processedVideo" controls muted></video>
-      </div>
-    </div>
-  </div>
-  
-   <div class="status" id="status">Ready</div>
-   
-   <div class="progress-container" id="progressContainer">
-      <h3>Processing Video...</h3>
-      <div class="progress-bar">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-      <div class="progress-text" id="progressText">Initializing...</div>
-      <div class="performance-monitor" id="performanceMonitor">
-        Memory Usage: 0MB | Processing Speed: 0 FPS | ETA: --
+      <div class="preview-view">
+        <h4>Processed Preview</h4>
+        <canvas id="previewCanvas" style="display: none;"></canvas>
+        <div class="loading-spinner" id="loadingSpinner" style="display: none;"></div>
       </div>
     </div>
-
- 
     
     <div class="controls">
       <div class="control-group">
-        <h3>Video Processing</h3>
-        <button id="processVideo" class="process-button" disabled>Process Video</button>
-        <button id="pauseProcess" disabled>Pause Processing</button>
-        <button id="stopProcess" disabled>Stop Processing</button>
-        
+        <h3>Processing Settings</h3>
         <div class="slider-group">
-          <label>Processing Quality</label>
-          <select id="processingQuality">
-            <option value="draft">Draft (Fast)</option>
-            <option value="standard" selected>Standard</option>
-            <option value="high">High Quality</option>
-            <option value="ultra">Ultra (16K Ready)</option>
+          <label>Output Resolution <span class="value-display" id="resolutionDisplay">4K</span></label>
+          <select id="outputResolution">
+            <option value="1920x1080">1080p (1920×1080)</option>
+            <option value="2560x1440">1440p (2560×1440)</option>
+            <option value="3840x2160" selected>4K (3840×2160)</option>
+            <option value="7680x4320">8K (7680×4320)</option>
+            <option value="15360x8640">16K (15360×8640)</option>
           </select>
+        </div>
+        <div class="slider-group">
+          <label>Frame Rate <span class="value-display" id="fpsDisplay2">30</span></label>
+          <input type="range" id="outputFps" min="24" max="60" step="1" value="30">
+        </div>
+        <div class="slider-group">
+          <label>Quality <span class="value-display" id="qualityDisplay">85</span></label>
+          <input type="range" id="outputQuality" min="50" max="100" step="5" value="85">
         </div>
       </div>
 
       <div class="control-group">
-        <h3>3D Stereoscopic Effects</h3>
+        <h3>Stereoscopic Effects</h3>
         <div class="slider-group">
-          <label>3D Separation: <span id="separationValue">25</span>px</label>
-          <input type="range" id="separation" min="1" max="200" step="1" value="25">
+          <label>3D Separation <span class="value-display" id="separationDisplay">15</span></label>
+          <input type="range" id="separation" min="1" max="100" step="0.5" value="15">
         </div>
         <div class="slider-group">
-          <label>Barrier Width: <span id="barrierWidthValue">3</span>px</label>
-          <input type="range" id="barrierWidth" min="1" max="50" step="0.1" value="3">
+          <label>Barrier Width <span class="value-display" id="barrierWidthDisplay">2</span></label>
+          <input type="range" id="barrierWidth" min="1" max="20" step="0.1" value="2">
         </div>
         <div class="slider-group">
-          <label>Barrier Opacity: <span id="barrierOpacityValue">60</span>%</label>
-          <input type="range" id="barrierOpacity" min="0" max="100" step="1" value="60">
+          <label>Barrier Opacity <span class="value-display" id="barrierOpacityDisplay">50</span></label>
+          <input type="range" id="barrierOpacity" min="0" max="100" step="1" value="50">
         </div>
         <div class="slider-group">
-          <label>Perspective Depth: <span id="perspectiveValue">8</span></label>
-          <input type="range" id="perspective" min="0" max="50" step="0.1" value="8">
+          <label>Perspective Tilt <span class="value-display" id="perspectiveTiltDisplay">5</span></label>
+          <input type="range" id="perspectiveTilt" min="0" max="20" step="0.1" value="5">
         </div>
       </div>
 
       <div class="control-group">
         <h3>Video Enhancement</h3>
         <div class="slider-group">
-          <label>Brightness: <span id="brightnessValue">0</span></label>
-          <input type="range" id="brightness" min="-100" max="100" step="1" value="0">
+          <label>Brightness <span class="value-display" id="brightnessDisplay">0</span></label>
+          <input type="range" id="brightness" min="-50" max="50" step="1" value="0">
         </div>
         <div class="slider-group">
-          <label>Contrast: <span id="contrastValue">0</span></label>
-          <input type="range" id="contrast" min="-100" max="100" step="1" value="0">
+          <label>Contrast <span class="value-display" id="contrastDisplay">0</span></label>
+          <input type="range" id="contrast" min="-50" max="50" step="1" value="0">
         </div>
         <div class="slider-group">
-          <label>Saturation: <span id="saturationValue">0</span></label>
-          <input type="range" id="saturation" min="-100" max="100" step="1" value="0">
-        </div>
-        <div class="slider-group">
-          <label>Sharpness: <span id="sharpnessValue">0</span></label>
-          <input type="range" id="sharpness" min="0" max="100" step="1" value="0">
+          <label>Saturation <span class="value-display" id="saturationDisplay">0</span></label>
+          <input type="range" id="saturation" min="-50" max="50" step="1" value="0">
         </div>
       </div>
 
       <div class="control-group">
-        <h3>Output Settings</h3>
+        <h3>Render & Download</h3>
+        <button id="renderVideo" class="render-button">Render Holographic Video</button>
+        <button id="downloadVideo" class="download-button" disabled>Download Processed Video</button>
+        <button id="downloadFrames" class="download-button" disabled>Download Frame Sequence</button>
         <div class="slider-group">
-          <label>Output Resolution</label>
-          <select id="outputResolution">
-            <option value="original">Original Resolution</option>
-            <option value="1080p">1080p (1920x1080)</option>
-            <option value="1440p">1440p (2560x1440)</option>
-            <option value="4k">4K (3840x2160)</option>
-            <option value="8k">8K (7680x4320)</option>
-            <option value="16k">16K (15360x8640)</option>
+          <label>Compression <span class="value-display" id="compressionDisplay">Medium</span></label>
+          <select id="compressionLevel">
+            <option value="low">Low (Highest Quality)</option>
+            <option value="medium" selected>Medium (Balanced)</option>
+            <option value="high">High (Smallest File)</option>
           </select>
         </div>
-        <div class="slider-group">
-          <label>Video Quality: <span id="qualityValue">85</span>%</label>
-          <input type="range" id="videoQuality" min="10" max="100" step="1" value="85">
-        </div>
-        <div class="slider-group">
-          <label>Frame Rate</label>
-          <select id="frameRate">
-            <option value="original">Original FPS</option>
-            <option value="24">24 FPS</option>
-            <option value="30">30 FPS</option>
-            <option value="60">60 FPS</option>
-            <option value="120">120 FPS</option>
-          </select>
-        </div>
-        <button id="downloadVideo" disabled>Download Processed Video</button>
       </div>
     </div>
+  </div>
 
-    
-
+  <div class="status" id="status">Ready to process video...</div>
+  
   <script>
     class HolographicVideoEngine {
       constructor() {
         this.initializeElements();
         this.initializeEventListeners();
         this.initializeState();
-        this.initializeWorkers();
-        console.log('Holographic Video Engine initialized - 16K capable');
+        this.setupWorkers();
+        console.log('Holographic Video Engine initialized - Ready for 16K processing');
       }
 
       initializeElements() {
-        // File handling
+        // Main elements
         this.dropZone = document.getElementById('dropZone');
         this.videoInput = document.getElementById('videoInput');
-        this.fileInfo = document.getElementById('fileInfo');
-        this.errorMessage = document.getElementById('errorMessage');
-
-        // Progress tracking
+        this.output = document.getElementById('output');
+        this.status = document.getElementById('status');
         this.progressContainer = document.getElementById('progressContainer');
-        this.progressFill = document.getElementById('progressFill');
-        this.progressText = document.getElementById('progressText');
-        this.performanceMonitor = document.getElementById('performanceMonitor');
-
-        // Controls
-        this.processBtn = document.getElementById('processVideo');
-        this.pauseBtn = document.getElementById('pauseProcess');
-        this.stopBtn = document.getElementById('stopProcess');
-        this.downloadBtn = document.getElementById('downloadVideo');
-
-        // Settings
-        this.separationSlider = document.getElementById('separation');
-        this.barrierWidthSlider = document.getElementById('barrierWidth');
-        this.barrierOpacitySlider = document.getElementById('barrierOpacity');
-        this.perspectiveSlider = document.getElementById('perspective');
-        this.brightnessSlider = document.getElementById('brightness');
-        this.contrastSlider = document.getElementById('contrast');
-        this.saturationSlider = document.getElementById('saturation');
-        this.sharpnessSlider = document.getElementById('sharpness');
-        this.processingQualitySelect = document.getElementById('processingQuality');
-        this.outputResolutionSelect = document.getElementById('outputResolution');
-        this.videoQualitySlider = document.getElementById('videoQuality');
-        this.frameRateSelect = document.getElementById('frameRate');
+        this.progressBar = document.getElementById('progressBar');
 
         // Video elements
-        this.videoPreview = document.getElementById('videoPreview');
         this.originalVideo = document.getElementById('originalVideo');
-        this.processedVideo = document.getElementById('processedVideo');
-        this.status = document.getElementById('status');
+        this.previewCanvas = document.getElementById('previewCanvas');
+        this.previewCtx = this.previewCanvas.getContext('2d');
+        this.loadingSpinner = document.getElementById('loadingSpinner');
 
-        // Value displays
-        this.separationValue = document.getElementById('separationValue');
-        this.barrierWidthValue = document.getElementById('barrierWidthValue');
-        this.barrierOpacityValue = document.getElementById('barrierOpacityValue');
-        this.perspectiveValue = document.getElementById('perspectiveValue');
-        this.brightnessValue = document.getElementById('brightnessValue');
-        this.contrastValue = document.getElementById('contrastValue');
-        this.saturationValue = document.getElementById('saturationValue');
-        this.sharpnessValue = document.getElementById('sharpnessValue');
-        this.qualityValue = document.getElementById('qualityValue');
+        // Control elements
+        this.outputResolution = document.getElementById('outputResolution');
+        this.outputFps = document.getElementById('outputFps');
+        this.outputQuality = document.getElementById('outputQuality');
+        this.compressionLevel = document.getElementById('compressionLevel');
+
+        // Effect sliders
+        this.separation = document.getElementById('separation');
+        this.barrierWidth = document.getElementById('barrierWidth');
+        this.barrierOpacity = document.getElementById('barrierOpacity');
+        this.perspectiveTilt = document.getElementById('perspectiveTilt');
+        this.brightness = document.getElementById('brightness');
+        this.contrast = document.getElementById('contrast');
+        this.saturation = document.getElementById('saturation');
+
+        // Buttons
+        this.renderButton = document.getElementById('renderVideo');
+        this.downloadButton = document.getElementById('downloadVideo');
+        this.downloadFramesButton = document.getElementById('downloadFrames');
+
+        // Info displays
+        this.frameInfo = document.getElementById('frameInfo');
+        this.currentFrameSpan = document.getElementById('currentFrame');
+        this.totalFramesSpan = document.getElementById('totalFrames');
+        this.fpsDisplaySpan = document.getElementById('fpsDisplay');
       }
 
       initializeState() {
         this.currentVideo = null;
         this.processedFrames = [];
-        this.totalFrames = 0;
         this.isProcessing = false;
-        this.isPaused = false;
-        this.processingStartTime = 0;
+        this.renderProgress = 0;
         this.processedVideoBlob = null;
-
+        
         this.settings = {
-          separation: 25,
-          barrierWidth: 3,
-          barrierOpacity: 60,
-          perspective: 8,
+          outputResolution: '3840x2160',
+          outputFps: 30,
+          outputQuality: 85,
+          separation: 15,
+          barrierWidth: 2,
+          barrierOpacity: 50,
+          perspectiveTilt: 5,
           brightness: 0,
           contrast: 0,
           saturation: 0,
-          sharpness: 0,
-          processingQuality: 'standard',
-          outputResolution: 'original',
-          videoQuality: 85,
-          frameRate: 'original'
+          compressionLevel: 'medium'
         };
       }
 
-      initializeWorkers() {
-        // Initialize web workers for heavy processing
-        this.workers = [];
-        const workerCount = navigator.hardwareConcurrency || 4;
-        
-        for (let i = 0; i < Math.min(workerCount, 8); i++) {
-          const worker = new Worker(URL.createObjectURL(new Blob([this.getWorkerScript()], {type: 'application/javascript'})));
-          worker.onmessage = (e) => this.handleWorkerMessage(e, i);
-          this.workers.push(worker);
-        }
-      }
-
-      getWorkerScript() {
-        return `
+      setupWorkers() {
+        // Setup web workers for intensive processing
+        this.frameWorker = new Worker(URL.createObjectURL(new Blob([`
           self.onmessage = function(e) {
-            const { imageData, settings, workerId, frameIndex } = e.data;
+            const { imageData, settings, frameIndex } = e.data;
             
-            // Apply stereoscopic transformation
-            const processed = processFrame(imageData, settings);
+            // Process frame with stereoscopic effects
+            const processedData = processFrame(imageData, settings);
             
             self.postMessage({
-              workerId: workerId,
-              frameIndex: frameIndex,
-              processedData: processed,
-              timestamp: Date.now()
+              frameIndex,
+              processedData
             });
           };
-
+          
           function processFrame(imageData, settings) {
-            const canvas = new OffscreenCanvas(imageData.width, imageData.height);
-            const ctx = canvas.getContext('2d');
-            
-            // Create ImageData from array buffer
-            const imgData = new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
-            ctx.putImageData(imgData, 0, 0);
-            
-            // Apply image enhancements
-            applyEnhancements(ctx, settings);
-            
-            // Generate stereoscopic views
-            const { leftView, rightView } = generateStereoViews(ctx, settings);
-            
-            // Combine views with barrier
-            const combined = combineViews(leftView, rightView, settings);
-            
-            return ctx.getImageData(0, 0, canvas.width, canvas.height);
-          }
-
-          function applyEnhancements(ctx, settings) {
-            const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
             const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
             
-            const brightness = settings.brightness;
-            const contrast = settings.contrast;
-            const saturation = settings.saturation / 100;
-            
+            // Apply brightness, contrast, saturation
             for (let i = 0; i < data.length; i += 4) {
-              // Brightness and contrast
-              const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+              // Brightness
+              data[i] = Math.max(0, Math.min(255, data[i] + settings.brightness));
+              data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + settings.brightness));
+              data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + settings.brightness));
               
-              data[i] = Math.max(0, Math.min(255, factor * (data[i] - 128) + 128 + brightness));
-              data[i + 1] = Math.max(0, Math.min(255, factor * (data[i + 1] - 128) + 128 + brightness));
-              data[i + 2] = Math.max(0, Math.min(255, factor * (data[i + 2] - 128) + 128 + brightness));
+              // Contrast
+              const contrastFactor = (259 * (settings.contrast + 255)) / (255 * (259 - settings.contrast));
+              data[i] = Math.max(0, Math.min(255, contrastFactor * (data[i] - 128) + 128));
+              data[i + 1] = Math.max(0, Math.min(255, contrastFactor * (data[i + 1] - 128) + 128));
+              data[i + 2] = Math.max(0, Math.min(255, contrastFactor * (data[i + 2] - 128) + 128));
               
               // Saturation
-              if (saturation !== 0) {
-                const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-                data[i] = Math.max(0, Math.min(255, gray + saturation * (data[i] - gray)));
-                data[i + 1] = Math.max(0, Math.min(255, gray + saturation * (data[i + 1] - gray)));
-                data[i + 2] = Math.max(0, Math.min(255, gray + saturation * (data[i + 2] - gray)));
-              }
+              const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+              data[i] = Math.max(0, Math.min(255, gray + (data[i] - gray) * (1 + settings.saturation / 100)));
+              data[i + 1] = Math.max(0, Math.min(255, gray + (data[i + 1] - gray) * (1 + settings.saturation / 100)));
+              data[i + 2] = Math.max(0, Math.min(255, gray + (data[i + 2] - gray) * (1 + settings.saturation / 100)));
             }
             
-            ctx.putImageData(imageData, 0, 0);
+            return imageData;
           }
-
-          function generateStereoViews(ctx, settings) {
-            const separation = settings.separation;
-            const perspective = settings.perspective / 100;
-            
-            const leftCanvas = new OffscreenCanvas(ctx.canvas.width, ctx.canvas.height);
-            const rightCanvas = new OffscreenCanvas(ctx.canvas.width, ctx.canvas.height);
-            const leftCtx = leftCanvas.getContext('2d');
-            const rightCtx = rightCanvas.getContext('2d');
-            
-            // Enhanced perspective transformation for left view
-            leftCtx.setTransform(1, perspective, 0, 1, -separation / 2, 0);
-            leftCtx.drawImage(ctx.canvas, 0, 0);
-            
-            // Enhanced perspective transformation for right view
-            rightCtx.setTransform(1, -perspective, 0, 1, separation / 2, 0);
-            rightCtx.drawImage(ctx.canvas, 0, 0);
-            
-            return { leftView: leftCtx, rightView: rightCtx };
-          }
-
-          function combineViews(leftCtx, rightCtx, settings) {
-            const canvas = new OffscreenCanvas(leftCtx.canvas.width, leftCtx.canvas.height);
-            const ctx = canvas.getContext('2d');
-            
-            // Start with left view
-            ctx.drawImage(leftCtx.canvas, 0, 0);
-            
-            // Apply barrier pattern
-            const barrierWidth = settings.barrierWidth;
-            const opacity = settings.barrierOpacity / 100;
-            
-            const leftImageData = leftCtx.getImageData(0, 0, leftCtx.canvas.width, leftCtx.canvas.height);
-            const rightImageData = rightCtx.getImageData(0, 0, rightCtx.canvas.width, rightCtx.canvas.height);
-            const combinedImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            
-            for (let y = 0; y < canvas.height; y++) {
-              for (let x = 0; x < canvas.width; x++) {
-                const i = (y * canvas.width + x) * 4;
-                
-                if ((x % (barrierWidth * 2)) >= barrierWidth) {
-                  // Use right view
-                  combinedImageData.data[i] = rightImageData.data[i];
-                  combinedImageData.data[i + 1] = rightImageData.data[i + 1];
-                  combinedImageData.data[i + 2] = rightImageData.data[i + 2];
-                  combinedImageData.data[i + 3] = rightImageData.data[i + 3];
-                } else {
-                  // Apply barrier effect to left view
-                  combinedImageData.data[i] = leftImageData.data[i] * (1 - opacity);
-                  combinedImageData.data[i + 1] = leftImageData.data[i + 1] * (1 - opacity);
-                  combinedImageData.data[i + 2] = leftImageData.data[i + 2] * (1 - opacity);
-                }
-              }
-            }
-            
-            ctx.putImageData(combinedImageData, 0, 0);
-            return ctx;
-          }
-        `;
+        `], { type: 'application/javascript' })));
       }
 
       initializeEventListeners() {
-        // File upload
+        // File upload listeners
         this.dropZone.addEventListener('click', () => this.videoInput.click());
-        this.dropZone.addEventListener('dragover', this.handleDragOver.bind(this));
-        this.dropZone.addEventListener('drop', this.handleDrop.bind(this));
-        this.videoInput.addEventListener('change', this.handleFileSelect.bind(this));
+        this.dropZone.addEventListener('dragover', (e) => this.handleDragOver(e));
+        this.dropZone.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+        this.dropZone.addEventListener('drop', (e) => this.handleDrop(e));
+        this.videoInput.addEventListener('change', (e) => this.handleFileSelect(e));
 
-        // Processing controls
-        this.processBtn.addEventListener('click', this.startProcessing.bind(this));
-        this.pauseBtn.addEventListener('click', this.pauseProcessing.bind(this));
-        this.stopBtn.addEventListener('click', this.stopProcessing.bind(this));
-        this.downloadBtn.addEventListener('click', this.downloadVideo.bind(this));
+        // Control listeners
+        this.renderButton.addEventListener('click', () => this.renderVideo());
+        this.downloadButton.addEventListener('click', () => this.downloadVideo());
+        this.downloadFramesButton.addEventListener('click', () => this.downloadFrames());
 
-        // Settings sliders with real-time updates
-        this.setupSlider(this.separationSlider, this.separationValue, 'separation', 'px');
-        this.setupSlider(this.barrierWidthSlider, this.barrierWidthValue, 'barrierWidth', 'px');
-        this.setupSlider(this.barrierOpacitySlider, this.barrierOpacityValue, 'barrierOpacity', '%');
-        this.setupSlider(this.perspectiveSlider, this.perspectiveValue, 'perspective');
-        this.setupSlider(this.brightnessSlider, this.brightnessValue, 'brightness');
-        this.setupSlider(this.contrastSlider, this.contrastValue, 'contrast');
-        this.setupSlider(this.saturationSlider, this.saturationValue, 'saturation');
-        this.setupSlider(this.sharpnessSlider, this.sharpnessValue, 'sharpness');
-        this.setupSlider(this.videoQualitySlider, this.qualityValue, 'videoQuality', '%');
+        // Settings listeners with value displays
+        this.setupSliderListener('outputFps', 'fpsDisplay2');
+        this.setupSliderListener('outputQuality', 'qualityDisplay');
+        this.setupSliderListener('separation', 'separationDisplay');
+        this.setupSliderListener('barrierWidth', 'barrierWidthDisplay');
+        this.setupSliderListener('barrierOpacity', 'barrierOpacityDisplay');
+        this.setupSliderListener('perspectiveTilt', 'perspectiveTiltDisplay');
+        this.setupSliderListener('brightness', 'brightnessDisplay');
+        this.setupSliderListener('contrast', 'contrastDisplay');
+        this.setupSliderListener('saturation', 'saturationDisplay');
 
-        // Select controls
-        this.processingQualitySelect.addEventListener('change', (e) => {
-          this.settings.processingQuality = e.target.value;
+        // Resolution and compression listeners
+        this.outputResolution.addEventListener('change', () => {
+          this.settings.outputResolution = this.outputResolution.value;
+          document.getElementById('resolutionDisplay').textContent = this.getResolutionLabel(this.outputResolution.value);
         });
-        this.outputResolutionSelect.addEventListener('change', (e) => {
-          this.settings.outputResolution = e.target.value;
-        });
-        this.frameRateSelect.addEventListener('change', (e) => {
-          this.settings.frameRate = e.target.value;
+
+        this.compressionLevel.addEventListener('change', () => {
+          this.settings.compressionLevel = this.compressionLevel.value;
+          document.getElementById('compressionDisplay').textContent = this.compressionLevel.options[this.compressionLevel.selectedIndex].text.split(' ')[0];
         });
       }
 
-      setupSlider(slider, display, setting, unit = '') {
-        slider.addEventListener('input', (e) => {
-          const value = parseFloat(e.target.value);
-          this.settings[setting] = value;
-          display.textContent = value + unit;
+      setupSliderListener(sliderId, displayId) {
+        const slider = document.getElementById(sliderId);
+        const display = document.getElementById(displayId);
+        
+        slider.addEventListener('input', () => {
+          const value = parseFloat(slider.value);
+          this.settings[sliderId] = value;
+          display.textContent = value;
+          
+          if (this.currentVideo && !this.isProcessing) {
+            this.updatePreview();
+          }
         });
+      }
+
+      getResolutionLabel(resolution) {
+        const labels = {
+          '1920x1080': '1080p',
+          '2560x1440': '1440p',
+          '3840x2160': '4K',
+          '7680x4320': '8K',
+          '15360x8640': '16K'
+        };
+        return labels[resolution] || resolution;
       }
 
       handleDragOver(e) {
         e.preventDefault();
-        this.dropZone.style.borderColor = 'var(--primary)';
+        e.stopPropagation();
+        this.dropZone.classList.add('dragover');
       }
 
-      handleDrop(e) {
+      handleDragLeave(e) {
         e.preventDefault();
-        this.dropZone.style.borderColor = 'rgba(0, 234, 255, 0.5)';
+        e.stopPropagation();
+        this.dropZone.classList.remove('dragover');
+      }
+
+      async handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.dropZone.classList.remove('dragover');
+        
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-          this.loadVideo(e.dataTransfer.files[0]);
+          await this.loadVideo(e.dataTransfer.files[0]);
         }
       }
 
-      handleFileSelect(e) {
+      async handleFileSelect(e) {
         if (e.target.files && e.target.files[0]) {
-          this.loadVideo(e.target.files[0]);
+          await this.loadVideo(e.target.files[0]);
         }
       }
 
       async loadVideo(file) {
         if (!file.type.startsWith('video/')) {
-          this.showError('Please upload a video file');
+          this.showStatus('Please upload a video file', 'error');
           return;
         }
 
-        if (file.size > 2 * 1024 * 1024 * 1024) { // 2GB limit
-          this.showError('File size exceeds 2GB limit');
-          return;
-        }
-
-        this.showStatus('Loading video...');
+        this.showStatus('Loading video...', 'processing');
+        this.progressContainer.style.display = 'block';
         
         try {
-          const videoUrl = URL.createObjectURL(file);
-          
-          // Load video metadata
-          const video = document.createElement('video');
-          video.src = videoUrl;
-          video.preload = 'metadata';
+          const videoURL = URL.createObjectURL(file);
+          this.originalVideo.src = videoURL;
+          this.originalVideo.style.display = 'block';
           
           await new Promise((resolve, reject) => {
-            video.onloadedmetadata = () => {
-              this.currentVideo = {
-                file: file,
-                url: videoUrl,
-                element: video,
-                duration: video.duration,
-                width: video.videoWidth,
-                height: video.videoHeight,
-                fps: 30 // Default, will be detected
-              };
-              
-              // Display file info
-              this.fileInfo.innerHTML = `
-                <strong>File:</strong> ${file.name}<br>
-                <strong>Size:</strong> ${(file.size / (1024 * 1024)).toFixed(2)} MB<br>
-                <strong>Duration:</strong> ${this.formatTime(video.duration)}<br>
-                <strong>Resolution:</strong> ${video.videoWidth}x${video.videoHeight}<br>
-                <strong>Format:</strong> ${file.type}
-              `;
-              this.fileInfo.style.display = 'block';
-              
-              // Setup original video preview
-              this.originalVideo.src = videoUrl;
-              this.videoPreview.style.display = 'grid';
-              
-              // Enable processing
-              this.processBtn.disabled = false;
-              
+            this.originalVideo.onloadedmetadata = () => {
+              this.currentVideo = this.originalVideo;
+              this.setupVideoInfo();
               resolve();
             };
-            
-            video.onerror = () => reject(new Error('Failed to load video'));
+            this.originalVideo.onerror = reject;
           });
           
-          this.showStatus('Video loaded successfully');
+          this.previewCanvas.style.display = 'block';
+          this.frameInfo.style.display = 'flex';
+          
+          await this.updatePreview();
+          this.showStatus('Video loaded successfully!', 'success');
+          
+          // Update output
+          this.output.innerHTML = '';
+          const clone = this.originalVideo.cloneNode(true);
+          clone.controls = true;
+          this.output.appendChild(clone);
+          
+          // Add resolution badge
+          const badge = document.createElement('div');
+          badge.className = 'resolution-badge';
+          badge.textContent = `${this.originalVideo.videoWidth}×${this.originalVideo.videoHeight}`;
+          this.output.appendChild(badge);
           
         } catch (error) {
-          this.showError(`Failed to load video: ${error.message}`);
+          console.error('Error loading video:', error);
+          this.showStatus('Error loading video', 'error');
+        } finally {
+          this.progressContainer.style.display = 'none';
         }
       }
 
-      formatTime(seconds) {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
+      setupVideoInfo() {
+        const duration = this.originalVideo.duration;
+        const fps = 30; // Default FPS, could be extracted from metadata
+        const totalFrames = Math.floor(duration * fps);
+        
+        this.totalFramesSpan.textContent = totalFrames;
+        this.fpsDisplaySpan.textContent = fps;
       }
 
-      async startProcessing() {
+      async updatePreview() {
+        if (!this.currentVideo) return;
+        
+        this.loadingSpinner.style.display = 'block';
+        
+        try {
+          // Set canvas size based on video
+          this.previewCanvas.width = this.currentVideo.videoWidth;
+          this.previewCanvas.height = this.currentVideo.videoHeight;
+          
+          // Draw current frame
+          this.previewCtx.drawImage(this.currentVideo, 0, 0);
+          
+          // Get image data for processing
+          const imageData = this.previewCtx.getImageData(0, 0, this.previewCanvas.width, this.previewCanvas.height);
+          
+          // Apply holographic effects
+          await this.applyHolographicEffects(imageData);
+          
+          // Update frame info
+          const currentTime = this.currentVideo.currentTime;
+          const fps = 30; // Default FPS
+          const currentFrame = Math.floor(currentTime * fps);
+          this.currentFrameSpan.textContent = currentFrame;
+          
+        } catch (error) {
+          console.error('Error updating preview:', error);
+        } finally {
+          this.loadingSpinner.style.display = 'none';
+        }
+      }
+
+      async applyHolographicEffects(imageData) {
+        const data = imageData.data;
+        const width = imageData.width;
+        const height = imageData.height;
+        
+        // Create stereoscopic effect
+        const leftEye = new ImageData(width, height);
+        const rightEye = new ImageData(width, height);
+        
+        // Copy original data
+        leftEye.data.set(data);
+        rightEye.data.set(data);
+        
+        // Apply 3D separation
+        const separation = this.settings.separation;
+        const offsetPixels = Math.floor(separation * 0.1);
+        
+        // Shift pixels for stereoscopic effect
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const index = (y * width + x) * 4;
+            
+            // Left eye - shift left
+            if (x >= offsetPixels) {
+              const sourceIndex = (y * width + (x - offsetPixels)) * 4;
+              leftEye.data[index] = data[sourceIndex];
+              leftEye.data[index + 1] = data[sourceIndex + 1];
+              leftEye.data[index + 2] = data[sourceIndex + 2];
+              leftEye.data[index + 3] = data[sourceIndex + 3];
+            }
+            
+            // Right eye - shift right
+            if (x < width - offsetPixels) {
+              const sourceIndex = (y * width + (x + offsetPixels)) * 4;
+              rightEye.data[index] = data[sourceIndex];
+              rightEye.data[index + 1] = data[sourceIndex + 1];
+              rightEye.data[index + 2] = data[sourceIndex + 2];
+              rightEye.data[index + 3] = data[sourceIndex + 3];
+            }
+          }
+        }
+        
+        // Apply lenticular barrier effect
+        await this.applyLenticularBarrier(leftEye, rightEye, imageData);
+        
+        // Apply color enhancements
+        this.applyColorEnhancements(imageData);
+        
+        // Put processed image back
+        this.previewCtx.putImageData(imageData, 0, 0);
+      }
+
+      async applyLenticularBarrier(leftEye, rightEye, outputData) {
+        const width = outputData.width;
+        const height = outputData.height;
+        const barrierWidth = Math.max(1, Math.floor(this.settings.barrierWidth));
+        const barrierOpacity = this.settings.barrierOpacity / 100;
+        
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const index = (y * width + x) * 4;
+            const isLeftStripe = Math.floor(x / barrierWidth) % 2 === 0;
+            
+            if (isLeftStripe) {
+              // Use left eye data
+              outputData.data[index] = leftEye.data[index];
+              outputData.data[index + 1] = leftEye.data[index + 1];
+              outputData.data[index + 2] = leftEye.data[index + 2];
+              outputData.data[index + 3] = leftEye.data[index + 3];
+            } else {
+              // Use right eye data
+              outputData.data[index] = rightEye.data[index];
+              outputData.data[index + 1] = rightEye.data[index + 1];
+              outputData.data[index + 2] = rightEye.data[index + 2];
+              outputData.data[index + 3] = rightEye.data[index + 3];
+            }
+            
+            // Apply barrier opacity for transition zones
+            if (x % barrierWidth === 0 || x % barrierWidth === barrierWidth - 1) {
+              outputData.data[index] = Math.floor(outputData.data[index] * barrierOpacity);
+              outputData.data[index + 1] = Math.floor(outputData.data[index + 1] * barrierOpacity);
+              outputData.data[index + 2] = Math.floor(outputData.data[index + 2] * barrierOpacity);
+            }
+          }
+        }
+      }
+
+      applyColorEnhancements(imageData) {
+        const data = imageData.data;
+        const brightness = this.settings.brightness;
+        const contrast = this.settings.contrast;
+        const saturation = this.settings.saturation;
+        
+        for (let i = 0; i < data.length; i += 4) {
+          // Apply brightness
+          data[i] = Math.max(0, Math.min(255, data[i] + brightness));
+          data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + brightness));
+          data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + brightness));
+          
+          // Apply contrast
+          const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+          data[i] = Math.max(0, Math.min(255, contrastFactor * (data[i] - 128) + 128));
+          data[i + 1] = Math.max(0, Math.min(255, contrastFactor * (data[i + 1] - 128) + 128));
+          data[i + 2] = Math.max(0, Math.min(255, contrastFactor * (data[i + 2] - 128) + 128));
+          
+          // Apply saturation
+          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          const satFactor = 1 + saturation / 100;
+          data[i] = Math.max(0, Math.min(255, gray + (data[i] - gray) * satFactor));
+          data[i + 1] = Math.max(0, Math.min(255, gray + (data[i + 1] - gray) * satFactor));
+          data[i + 2] = Math.max(0, Math.min(255, gray + (data[i + 2] - gray) * satFactor));
+        }
+      }
+
+      async renderVideo() {
         if (!this.currentVideo || this.isProcessing) return;
         
         this.isProcessing = true;
-        this.isPaused = false;
-        this.processingStartTime = Date.now();
-        
-        // Update UI
-        this.processBtn.disabled = true;
-        this.pauseBtn.disabled = false;
-        this.stopBtn.disabled = false;
-        this.progressContainer.style.display = 'block';
-        
-        this.showStatus('Starting video processing...');
+        this.renderButton.disabled = true;
+        this.showStatus('Rendering holographic video...', 'processing');
         
         try {
-          await this.processVideoFrames();
-        } catch (error) {
-          this.showError(`Processing failed: ${error.message}`);
-          this.resetProcessingState();
-        }
-      }
-
-      async processVideoFrames() {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const video = this.currentVideo.element;
-        
-        // Set canvas dimensions based on output resolution
-        const outputDimensions = this.getOutputDimensions();
-        canvas.width = outputDimensions.width;
-        canvas.height = outputDimensions.height;
-        
-        // Calculate total frames
-        const fps = this.getOutputFPS();
-        this.totalFrames = Math.floor(video.duration * fps);
-        this.processedFrames = [];
-        
-        let frameIndex = 0;
-        const frameInterval = 1 / fps;
-        
-        // Process frames
-        for (let time = 0; time < video.duration; time += frameInterval) {
-          if (!this.isProcessing) break;
+          const [width, height] = this.settings.outputResolution.split('x').map(Number);
+          const fps = this.settings.outputFps;
+          const duration = this.currentVideo.duration;
+          const totalFrames = Math.floor(duration * fps);
           
-          while (this.isPaused) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            if (!this.isProcessing) break;
-          }
+          // Create render canvas
+          const renderCanvas = document.createElement('canvas');
+          renderCanvas.width = width;
+          renderCanvas.height = height;
+          const renderCtx = renderCanvas.getContext('2d');
           
-          // Seek to frame time
-          video.currentTime = time;
-          await new Promise(resolve => {
-            video.onseeked = resolve;
-            video.onerror = resolve;
+          // Setup MediaRecorder for video capture
+          const stream = renderCanvas.captureStream(fps);
+          const mediaRecorder = new MediaRecorder(stream, {
+            mimeType: 'video/webm;codecs=vp9',
+            videoBitsPerSecond: this.getVideoBitrate()
           });
           
-          // Draw frame to canvas
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          
-          // Get image data for processing
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          
-          // Process frame with worker
-          await this.processFrameWithWorker(imageData, frameIndex);
-          
-          frameIndex++;
-          this.updateProgress(frameIndex, this.totalFrames);
-          
-          // Performance monitoring
-          this.updatePerformanceMonitor(frameIndex);
-        }
-        
-        if (this.isProcessing) {
-          await this.finalizeVideo();
-        }
-      }
-
-      async processFrameWithWorker(imageData, frameIndex) {
-        return new Promise((resolve) => {
-          const workerIndex = frameIndex % this.workers.length;
-          const worker = this.workers[workerIndex];
-          
-          const handler = (e) => {
-            if (e.data.frameIndex === frameIndex) {
-              worker.removeEventListener('message', handler);
-              this.processedFrames[frameIndex] = e.data.processedData;
-              resolve();
+          const chunks = [];
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              chunks.push(event.data);
             }
-          };
-          
-          worker.addEventListener('message', handler);
-          
-          // Send frame data to worker
-          worker.postMessage({
-            imageData: {
-              data: imageData.data.buffer,
-              width: imageData.width,
-              height: imageData.height
-            },
-            settings: this.settings,
-            workerId: workerIndex,
-            frameIndex: frameIndex
-          }, [imageData.data.buffer]);
-        });
-      }
-
-      async finalizeVideo() {
-        this.showStatus('Finalizing video...');
-        this.progressText.textContent = 'Creating final video file...';
-        
-        try {
-          // Create video from processed frames
-          const videoBlob = await this.createVideoFromFrames();
-          this.processedVideoBlob = videoBlob;
-          
-          // Setup processed video preview
-          const processedUrl = URL.createObjectURL(videoBlob);
-          this.processedVideo.src = processedUrl;
-          
-          // Enable download
-          this.downloadBtn.disabled = false;
-          
-          this.showStatus('Video processing completed successfully!');
-          this.progressText.textContent = 'Processing complete!';
-          
-        } catch (error) {
-          this.showError(`Failed to create final video: ${error.message}`);
-        }
-        
-        this.resetProcessingState();
-      }
-
-      async createVideoFromFrames() {
-        // Use MediaRecorder to create video from canvas frames
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const outputDimensions = this.getOutputDimensions();
-        
-        canvas.width = outputDimensions.width;
-        canvas.height = outputDimensions.height;
-        
-        const stream = canvas.captureStream(this.getOutputFPS());
-        const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: 'video/webm;codecs=vp9',
-          videoBitsPerSecond: this.calculateBitrate()
-        });
-        
-        const chunks = [];
-        
-        return new Promise((resolve, reject) => {
-          mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) chunks.push(e.data);
           };
           
           mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            resolve(blob);
+            this.processedVideoBlob = new Blob(chunks, { type: 'video/webm' });
+            this.downloadButton.disabled = false;
+            this.downloadFramesButton.disabled = false;
+            this.showStatus('Video rendered successfully!', 'success');
+            this.isProcessing = false;
+            this.renderButton.disabled = false;
           };
-          
-          mediaRecorder.onerror = reject;
           
           mediaRecorder.start();
           
-          // Draw processed frames to canvas
-          let frameIndex = 0;
-          const drawFrame = () => {
-            if (frameIndex < this.processedFrames.length) {
-              const frameData = this.processedFrames[frameIndex];
-              if (frameData) {
-                ctx.putImageData(frameData, 0, 0);
-              }
-              frameIndex++;
-              setTimeout(drawFrame, 1000 / this.getOutputFPS());
-            } else {
-              mediaRecorder.stop();
-            }
-          };
+          // Process each frame
+          const frameInterval = 1 / fps;
+          for (let frame = 0; frame < totalFrames; frame++) {
+            const time = frame * frameInterval;
+            this.currentVideo.currentTime = time;
+            
+            await new Promise(resolve => {
+              this.currentVideo.onseeked = resolve;
+            });
+            
+            // Draw and process frame
+            renderCtx.drawImage(this.currentVideo, 0, 0, width, height);
+            const imageData = renderCtx.getImageData(0, 0, width, height);
+            await this.applyHolographicEffects(imageData);
+            renderCtx.putImageData(imageData, 0, 0);
+            
+            // Update progress
+            const progress = ((frame + 1) / totalFrames) * 100;
+            this.updateProgress(progress);
+            
+            // Small delay to allow UI updates
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
           
-          drawFrame();
-        });
+          mediaRecorder.stop();
+          
+        } catch (error) {
+          console.error('Error rendering video:', error);
+          this.showStatus('Error rendering video', 'error');
+          this.isProcessing = false;
+          this.renderButton.disabled = false;
+        }
       }
 
-      getOutputDimensions() {
-        const resolution = this.settings.outputResolution;
-        const original = { width: this.currentVideo.width, height: this.currentVideo.height };
+      getVideoBitrate() {
+        const [width, height] = this.settings.outputResolution.split('x').map(Number);
+        const pixels = width * height;
+        const quality = this.settings.outputQuality / 100;
+        const compression = this.settings.compressionLevel;
         
-        const resolutions = {
-          'original': original,
-          '1080p': { width: 1920, height: 1080 },
-          '1440p': { width: 2560, height: 1440 },
-          '4k': { width: 3840, height: 2160 },
-          '8k': { width: 7680, height: 4320 },
-          '16k': { width: 15360, height: 8640 }
-        };
+        let baseBitrate;
+        if (pixels <= 1920 * 1080) baseBitrate = 5000000; // 5Mbps for 1080p
+        else if (pixels <= 3840 * 2160) baseBitrate = 20000000; // 20Mbps for 4K
+        else if (pixels <= 7680 * 4320) baseBitrate = 80000000; // 80Mbps for 8K
+        else baseBitrate = 320000000; // 320Mbps for 16K
         
-        return resolutions[resolution] || original;
-      }
-
-      getOutputFPS() {
-        const frameRate = this.settings.frameRate;
-        if (frameRate === 'original') return 30; // Default assumption
-        return parseInt(frameRate);
-      }
-
-      calculateBitrate() {
-        const quality = this.settings.videoQuality / 100;
-        const dimensions = this.getOutputDimensions();
-        const pixels = dimensions.width * dimensions.height;
-        const fps = this.getOutputFPS();
+        const compressionMultiplier = compression === 'low' ? 1.5 : compression === 'high' ? 0.5 : 1;
         
-        // Base bitrate calculation (rough estimation)
-        const baseBitrate = (pixels * fps * 0.1) * quality;
-        return Math.min(baseBitrate, 50000000); // Cap at 50Mbps
+        return Math.floor(baseBitrate * quality * compressionMultiplier);
       }
 
-      pauseProcessing() {
-        this.isPaused = !this.isPaused;
-        this.pauseBtn.textContent = this.isPaused ? 'Resume Processing' : 'Pause Processing';
-        this.showStatus(this.isPaused ? 'Processing paused' : 'Processing resumed');
-      }
-
-      stopProcessing() {
-        this.isProcessing = false;
-        this.isPaused = false;
-        this.resetProcessingState();
-        this.showStatus('Processing stopped');
-      }
-
-      resetProcessingState() {
-        this.isProcessing = false;
-        this.isPaused = false;
-        this.processBtn.disabled = false;
-        this.pauseBtn.disabled = true;
-        this.stopBtn.disabled = true;
-        this.pauseBtn.textContent = 'Pause Processing';
-        this.progressContainer.style.display = 'none';
-      }
-
-      updateProgress(current, total) {
-        const percentage = (current / total) * 100;
-        this.progressFill.style.width = `${percentage}%`;
-        this.progressText.textContent = `Processing frame ${current} of ${total} (${percentage.toFixed(1)}%)`;
-      }
-
-      updatePerformanceMonitor(frameIndex) {
-        const currentTime = Date.now();
-        const elapsed = (currentTime - this.processingStartTime) / 1000;
-        const fps = frameIndex / elapsed;
-        const memoryUsage = (performance.memory?.usedJSHeapSize || 0) / (1024 * 1024);
-        const eta = (this.totalFrames - frameIndex) / fps;
-        
-        this.performanceMonitor.textContent = 
-          `Memory Usage: ${memoryUsage.toFixed(1)}MB | ` +
-          `Processing Speed: ${fps.toFixed(1)} FPS | ` +
-          `ETA: ${this.formatTime(eta)}`;
+      updateProgress(percentage) {
+        this.progressBar.style.width = `${percentage}%`;
+        this.renderProgress = percentage;
       }
 
       downloadVideo() {
         if (!this.processedVideoBlob) return;
         
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(this.processedVideoBlob);
-        link.download = `holographic_${this.currentVideo.file.name.replace(/\.[^/.]+$/, "")}.webm`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const url = URL.createObjectURL(this.processedVideoBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `holographic_video_${this.settings.outputResolution}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
         
-        this.showStatus('Download started');
+        this.showStatus('Video downloaded!', 'success');
       }
 
-      handleWorkerMessage(e, workerId) {
-        // Worker message handling is done in processFrameWithWorker
-        console.log(`Worker ${workerId} completed frame ${e.data.frameIndex}`);
+      async downloadFrames() {
+        if (!this.currentVideo) return;
+        
+        this.showStatus('Preparing frame sequence...', 'processing');
+        
+        try {
+          const zip = new JSZip();
+          const [width, height] = this.settings.outputResolution.split('x').map(Number);
+          const fps = this.settings.outputFps;
+          const duration = this.currentVideo.duration;
+          const totalFrames = Math.floor(duration * fps);
+          
+          const renderCanvas = document.createElement('canvas');
+          renderCanvas.width = width;
+          renderCanvas.height = height;
+          const renderCtx = renderCanvas.getContext('2d');
+          
+          for (let frame = 0; frame < totalFrames; frame++) {
+            const time = frame * (1 / fps);
+            this.currentVideo.currentTime = time;
+            
+            await new Promise(resolve => {
+              this.currentVideo.onseeked = resolve;
+            });
+            
+            renderCtx.drawImage(this.currentVideo, 0, 0, width, height);
+            const imageData = renderCtx.getImageData(0, 0, width, height);
+            await this.applyHolographicEffects(imageData);
+            renderCtx.putImageData(imageData, 0, 0);
+            
+            // Convert to blob
+            const blob = await new Promise(resolve => {
+              renderCanvas.toBlob(resolve, 'image/png');
+            });
+            
+            zip.file(`frame_${String(frame).padStart(6, '0')}.png`, blob);
+            
+            const progress = ((frame + 1) / totalFrames) * 100;
+            this.updateProgress(progress);
+          }
+          
+          const zipBlob = await zip.generateAsync({ type: 'blob' });
+          
+          const url = URL.createObjectURL(zipBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `holographic_frames_${this.settings.outputResolution}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          this.showStatus('Frame sequence downloaded!', 'success');
+          
+        } catch (error) {
+          console.error('Error downloading frames:', error);
+          this.showStatus('Error downloading frames', 'error');
+        }
       }
 
-      showStatus(message) {
+      showStatus(message, type) {
         this.status.textContent = message;
-        this.status.classList.add('show');
-        setTimeout(() => {
-          this.status.classList.remove('show');
-        }, 3000);
-      }
-
-      showError(message) {
-        this.errorMessage.textContent = message;
-        this.errorMessage.style.display = 'block';
-        setTimeout(() => {
-          this.errorMessage.style.display = 'none';
-        }, 5000);
-        console.error(message);
+        this.status.className = `status ${type}`;
+        
+        if (type === 'success' || type === 'error') {
+          setTimeout(() => {
+            this.status.className = 'status';
+          }, 3000);
+        }
       }
     }
 
-    // Initialize the application
+    // Initialize the engine when DOM is loaded
     document.addEventListener('DOMContentLoaded', () => {
       new HolographicVideoEngine();
     });
+
+    // Add JSZip for frame sequence downloads
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    document.head.appendChild(script);
   </script>
 </body>
 </html>
