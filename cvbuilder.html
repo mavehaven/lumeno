@@ -1794,15 +1794,109 @@ function updateLanguage() {
 
 function handlePhotoUpload(event) {
     const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const previewPhoto = document.getElementById('previewPhoto');
-            previewPhoto.src = e.target.result;
-            previewPhoto.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+    
+    if (!file) {
+        console.log('No file selected');
+        return;
     }
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+        event.target.value = ''; // Clear the input
+        return;
+    }
+    
+    // Check file size (optional - limit to 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+        alert('Image file is too large. Please select an image under 5MB.');
+        event.target.value = ''; // Clear the input
+        return;
+    }
+    
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const previewPhoto = document.getElementById('previewPhoto');
+        
+        if (!previewPhoto) {
+            console.error('Preview photo element not found!');
+            return;
+        }
+        
+        previewPhoto.src = e.target.result;
+        previewPhoto.style.display = 'block';
+        
+        // Optional: Add some styling to make it look better (circular)
+        previewPhoto.style.width = '150px';
+        previewPhoto.style.height = '150px';
+        previewPhoto.style.objectFit = 'cover';
+        previewPhoto.style.borderRadius = '50%';
+        
+        console.log('Photo uploaded successfully');
+    };
+    
+    reader.onerror = function() {
+        alert('Error reading the file. Please try again.');
+        console.error('FileReader error:', reader.error);
+    };
+    
+    reader.readAsDataURL(file);
+}
+
+// Alternative function if you want to also update the CV preview
+function handlePhotoUploadWithPreview(event) {
+    const file = event.target.files[0];
+    
+    if (!file) {
+        console.log('No file selected');
+        return;
+    }
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+        alert('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+        event.target.value = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const imageData = e.target.result;
+        
+        // Update the preview photo
+        const previewPhoto = document.getElementById('previewPhoto');
+        if (previewPhoto) {
+            previewPhoto.src = imageData;
+            previewPhoto.style.display = 'block';
+            previewPhoto.style.width = '150px';
+            previewPhoto.style.height = '150px';
+            previewPhoto.style.objectFit = 'cover';
+            previewPhoto.style.borderRadius = '50%';
+        }
+        
+        // Also update the CV preview if it exists
+        const cvPhoto = document.getElementById('cvPhoto') || document.querySelector('.cv-photo');
+        if (cvPhoto) {
+            cvPhoto.src = imageData;
+            cvPhoto.style.display = 'block';
+        }
+        
+        // Call updatePreview to refresh the entire CV preview
+        if (typeof updatePreview === 'function') {
+            updatePreview();
+        }
+    };
+    
+    reader.onerror = function() {
+        alert('Error reading the file. Please try again.');
+    };
+    
+    reader.readAsDataURL(file);
 }
 
 function selectTemplate(template) {
