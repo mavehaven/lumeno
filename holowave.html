@@ -376,6 +376,7 @@
                 this.recordingMode = 'standard';
                 this.vrCameras = [];
                 this.multiAngleData = [];
+                this.specialRecordingStream = null;
                 
                 this.gridSize = 64;
                 this.sensitivity = 1.5;
@@ -820,7 +821,7 @@
                 this.updatePlaylistUI();
             }
             
-            async previousTrack() {
+           async previousTrack() {
                 if (this.playlist.length === 0) return;
                 
                 if (this.shuffleMode) {
@@ -841,6 +842,7 @@
             removeTrack(index) {
                 if (this.playlist.length <= 1) return;
                 
+                URL.revokeObjectURL(this.playlist[index].url);
                 this.playlist.splice(index, 1);
                 
                 if (index === this.currentTrackIndex) {
@@ -864,7 +866,7 @@
                     
                     await this.audio.play();
                     this.isPlaying = true;
-                    document.getElementById('status').textContent = 'Playing: ' + this.playlist[this.currentTrackIndex].name;
+                    document.getElementById('status').textContent = 'Playing...';
                     
                 } catch (error) {
                     console.error('Error playing audio:', error);
@@ -876,7 +878,7 @@
                 if (this.audio) {
                     this.audio.pause();
                     this.isPlaying = false;
-                    document.getElementById('status').textContent = 'Paused: ' + this.playlist[this.currentTrackIndex].name;
+                    document.getElementById('status').textContent = 'Paused';
                 }
             }
             
@@ -885,35 +887,24 @@
                 
                 try {
                     const quality = document.getElementById('recordQuality').value;
-                    const canvas = this.renderer.domElement;
-                    
-                    // Setup recording parameters based on mode
-                    let recordingOptions = {
+                    const options = {
                         videoBitsPerSecond: this.getVideoBitrate(quality),
                         mimeType: 'video/webm;codecs=vp9'
                     };
                     
-                    if (!MediaRecorder.isTypeSupported(recordingOptions.mimeType)) {
-                        recordingOptions.mimeType = 'video/webm;codecs=vp8';
-                    }
-                    
-                    if (!MediaRecorder.isTypeSupported(recordingOptions.mimeType)) {
-                        recordingOptions.mimeType = 'video/webm';
-                    }
-                    
-                    // Create stream based on recording mode
+                    // Setup canvas stream based on recording mode
                     let stream;
                     if (this.recordingMode === '360') {
-                        stream = await this.create360Stream(quality);
+                        stream = await this.setup360Recording(quality);
                     } else if (this.recordingMode === 'multi') {
-                        stream = await this.createMultiAngleStream(quality);
+                        stream = await this.setupMultiAngleRecording(quality);
                     } else if (this.recordingMode === 'stereoscopic') {
-                        stream = await this.createStereoscopicStream(quality);
+                        stream = await this.setupStereoscopicRecording(quality);
                     } else {
-                        stream = canvas.captureStream(60);
+                        stream = this.renderer.domElement.captureStream(60);
                     }
                     
-                    this.mediaRecorder = new MediaRecorder(stream, recordingOptions);
+                    this.mediaRecorder = new MediaRecorder(stream, options);
                     this.recordedChunks = [];
                     
                     this.mediaRecorder.ondataavailable = (event) => {
@@ -923,14 +914,13 @@
                     };
                     
                     this.mediaRecorder.onstop = () => {
-                        this.processRecording();
+                        this.saveRecording();
                     };
                     
                     this.mediaRecorder.start();
                     this.isRecording = true;
                     
                     document.getElementById('recordBtn').classList.add('recording');
-                    document.getElementById('recordBtn').textContent = 'Recording...';
                     document.getElementById('stopRecordBtn').disabled = false;
                     document.getElementById('recordingStatus').style.display = 'block';
                     
@@ -940,339 +930,313 @@
                 }
             }
             
+            async setup360Recording(quality) {
+                // Create a larger canvas for 360° recording
+                const canvas = document.createElement('canvas');
+                const size = parseInt(quality);
+                canvas.width = size * 2;
+                canvas.height = size;
+                
+                const ctx = canvas.getContext('2d');
+                const tempRenderer = new THREE.WebGLRenderer({ canvas: canvas, preserveDrawingBuffer: true });
+                tempRenderer.setSize(canvas.width, canvas.height);
+                
+                // Render 360° view by combining multiple camera angles
+                const renderLoop = () => {
+                    if (!this.isRecording) return;
+                    
+                    // Render panoramic view
+                    this.render360View(tempRenderer, ctx, size);
+                    requestAnimationFrame(renderLoop);
+                };
+                
+                renderLoop();
+                return canvas.captureStream(60);
+            }
+            
+            async setupMultiAngleRecording(quality) {
+                // Create grid canvas with multiple angles
+                const canvas = document.createElement('canvas');
+                const size = parseInt(quality);
+                canvas.width = size * 2;
+                canvas.height = size * 2;
+                
+                const ctx = canvas.getContext('2d');
+                const tempRenderers = [];
+                
+                // Create 4 different camera angles
+                const angles = [
+                    { pos: [0, 80, 120], target: [0, 0, 0] },
+                    { pos: [120, 80, 0], target: [0, 0, 0] },
+                    { pos: [0, 150, 0], target: [0, 0, 0] },
+                    { pos: [-120, 80, 0], target: [0, 0, 0] }
+                ];
+                
+                angles.forEach((angle, index) => {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = size;
+                    tempCanvas.height = size;
+                    
+                    const renderer = new THREE.WebGLRenderer({ canvas: tempCanvas, preserveDrawingBuffer: true });
+                    renderer.setSize(size, size);
+                    
+                    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                    camera.position.set(...angle.pos);
+                    camera.lookAt(...angle.target);
+                    
+                    tempRenderers.push({ renderer, camera, canvas: tempCanvas });
+                });
+                
+                const renderLoop = () => {
+                    if (!this.isRecording) return;
+                    
+                    // Render each angle and composite
+                    tempRenderers.forEach(({ renderer, camera, canvas }, index) => {
+                        renderer.render(this.scene, camera);
+                        
+                        const x = (index % 2) * size;
+                        const y = Math.floor(index / 2) * size;
+                        ctx.drawImage(canvas, x, y);
+                    });
+                    
+                    requestAnimationFrame(renderLoop);
+                };
+                
+                renderLoop();
+                return canvas.captureStream(60);
+            }
+            
+            async setupStereoscopicRecording(quality) {
+                // Create side-by-side stereoscopic view
+                const canvas = document.createElement('canvas');
+                const size = parseInt(quality);
+                canvas.width = size * 2;
+                canvas.height = size;
+                
+                const ctx = canvas.getContext('2d');
+                
+                // Create left and right eye cameras
+                const leftCamera = this.camera.clone();
+                const rightCamera = this.camera.clone();
+                
+                const eyeSeparation = 2;
+                leftCamera.position.x -= eyeSeparation;
+                rightCamera.position.x += eyeSeparation;
+                
+                const leftRenderer = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
+                const rightRenderer = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
+                
+                leftRenderer.setSize(size, size);
+                rightRenderer.setSize(size, size);
+                
+                const renderLoop = () => {
+                    if (!this.isRecording) return;
+                    
+                    // Render left eye
+                    leftRenderer.render(this.scene, leftCamera);
+                    ctx.drawImage(leftRenderer.domElement, 0, 0);
+                    
+                    // Render right eye
+                    rightRenderer.render(this.scene, rightCamera);
+                    ctx.drawImage(rightRenderer.domElement, size, 0);
+                    
+                    requestAnimationFrame(renderLoop);
+                };
+                
+                renderLoop();
+                return canvas.captureStream(60);
+            }
+            
+            render360View(renderer, ctx, size) {
+                // Render panoramic view using multiple cameras
+                this.vrCameras.forEach((camera, index) => {
+                    renderer.render(this.scene, camera);
+                    
+                    // Position each face in the panoramic layout
+                    const x = (index % 3) * (size / 3);
+                    const y = Math.floor(index / 3) * (size / 2);
+                    
+                    ctx.drawImage(renderer.domElement, x, y, size / 3, size / 2);
+                });
+            }
+            
+            getVideoBitrate(quality) {
+                const bitrates = {
+                    '720': 2500000,
+                    '1080': 5000000,
+                    '1440': 10000000,
+                    '2160': 20000000
+                };
+                return bitrates[quality] || 5000000;
+            }
+            
             stopRecording() {
-                if (!this.isRecording || !this.mediaRecorder) return;
+                if (!this.isRecording) return;
                 
                 this.mediaRecorder.stop();
                 this.isRecording = false;
                 
                 document.getElementById('recordBtn').classList.remove('recording');
-                document.getElementById('recordBtn').textContent = 'Start Recording';
                 document.getElementById('stopRecordBtn').disabled = true;
                 document.getElementById('recordingStatus').style.display = 'none';
             }
             
-            async create360Stream(quality) {
-                // Create 360° VR recording by rendering to multiple cameras
-                const size = parseInt(quality);
-                const canvas = document.createElement('canvas');
-                canvas.width = size * 2;
-                canvas.height = size;
-                const ctx = canvas.getContext('2d');
-                
-                // Create cube map renderer
-                const cubeRenderer = new THREE.WebGLRenderer({ antialias: true });
-                cubeRenderer.setSize(size / 2, size / 2);
-                
-                // Render and composite all 6 faces
-                const renderCubeFace = () => {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    
-                    this.vrCameras.forEach((camera, index) => {
-                        cubeRenderer.render(this.scene, camera);
-                        const x = (index % 3) * (size / 2);
-                        const y = Math.floor(index / 3) * (size / 2);
-                        ctx.drawImage(cubeRenderer.domElement, x, y);
-                    });
-                };
-                
-                // Start rendering loop for 360° content
-                const renderInterval = setInterval(renderCubeFace, 16);
-                
-                // Store cleanup function
-                this.cleanup360Recording = () => {
-                    clearInterval(renderInterval);
-                    cubeRenderer.dispose();
-                };
-                
-                return canvas.captureStream(60);
-            }
-            
-            async createMultiAngleStream(quality) {
-                // Create multi-angle recording with picture-in-picture layout
-                const size = parseInt(quality);
-                const canvas = document.createElement('canvas');
-                canvas.width = size;
-                canvas.height = size;
-                const ctx = canvas.getContext('2d');
-                
-                // Create additional cameras for different angles
-                const angles = [
-                    { pos: [0, 100, 150], name: 'main' },
-                    { pos: [150, 50, 0], name: 'side' },
-                    { pos: [0, 200, 0], name: 'top' },
-                    { pos: [-150, 50, 150], name: 'wide' }
-                ];
-                
-                const angleCameras = angles.map(angle => {
-                    const cam = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-                    cam.position.set(...angle.pos);
-                    cam.lookAt(0, 0, 0);
-                    return cam;
-                });
-                
-                const tempRenderer = new THREE.WebGLRenderer({ antialias: true });
-                tempRenderer.setSize(size / 2, size / 2);
-                
-                const renderMultiAngle = () => {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    
-                    angleCameras.forEach((camera, index) => {
-                        tempRenderer.render(this.scene, camera);
-                        const x = (index % 2) * (size / 2);
-                        const y = Math.floor(index / 2) * (size / 2);
-                        ctx.drawImage(tempRenderer.domElement, x, y);
-                    });
-                };
-                
-                const renderInterval = setInterval(renderMultiAngle, 16);
-                
-                this.cleanupMultiAngleRecording = () => {
-                    clearInterval(renderInterval);
-                    tempRenderer.dispose();
-                };
-                
-                return canvas.captureStream(60);
-            }
-            
-            async createStereoscopicStream(quality) {
-                // Create stereoscopic 3D recording
-                const size = parseInt(quality);
-                const canvas = document.createElement('canvas');
-                canvas.width = size;
-                canvas.height = size / 2;
-                const ctx = canvas.getContext('2d');
-                
-                // Create left and right eye cameras
-                const eyeDistance = 6.4; // Average human eye distance
-                const leftCamera = this.camera.clone();
-                const rightCamera = this.camera.clone();
-                
-                leftCamera.position.x -= eyeDistance / 2;
-                rightCamera.position.x += eyeDistance / 2;
-                
-                const tempRenderer = new THREE.WebGLRenderer({ antialias: true });
-                tempRenderer.setSize(size / 2, size / 2);
-                
-                const renderStereoscopic = () => {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    
-                    // Render left eye
-                    tempRenderer.render(this.scene, leftCamera);
-                    ctx.drawImage(tempRenderer.domElement, 0, 0);
-                    
-                    // Render right eye
-                    tempRenderer.render(this.scene, rightCamera);
-                    ctx.drawImage(tempRenderer.domElement, size / 2, 0);
-                };
-                
-                const renderInterval = setInterval(renderStereoscopic, 16);
-                
-                this.cleanupStereoscopicRecording = () => {
-                    clearInterval(renderInterval);
-                    tempRenderer.dispose();
-                };
-                
-                return canvas.captureStream(60);
-            }
-            
-            getVideoBitrate(quality) {
-                const bitrates = {
-                    '720': 5000000,
-                    '1080': 8000000,
-                    '1440': 16000000,
-                    '2160': 40000000
-                };
-                return bitrates[quality] || bitrates['1080'];
-            }
-            
-            processRecording() {
+            saveRecording() {
                 if (this.recordedChunks.length === 0) return;
                 
                 const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
                 const url = URL.createObjectURL(blob);
                 
-                // Clean up specialized recording streams
-                if (this.cleanup360Recording) {
-                    this.cleanup360Recording();
-                    this.cleanup360Recording = null;
-                }
-                if (this.cleanupMultiAngleRecording) {
-                    this.cleanupMultiAngleRecording();
-                    this.cleanupMultiAngleRecording = null;
-                }
-                if (this.cleanupStereoscopicRecording) {
-                    this.cleanupStereoscopicRecording();
-                    this.cleanupStereoscopicRecording = null;
-                }
-                
-                this.createDownloadLink(url, blob);
-                document.getElementById('status').textContent = 'Recording saved successfully';
-            }
-            
-            createDownloadLink(url, blob) {
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const quality = document.getElementById('recordQuality').value;
-                const filename = `audio-viz-${this.recordingMode}-${quality}p-${timestamp}.webm`;
+                const filename = `visualizer_${this.recordingMode}_${timestamp}.webm`;
                 
-                const downloadLinks = document.getElementById('downloadLinks');
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
-                link.className = 'download-link';
-                link.textContent = `Download ${filename} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`;
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = filename;
+                downloadLink.className = 'download-link';
+                downloadLink.textContent = `Download ${filename}`;
                 
-                downloadLinks.appendChild(link);
+                document.getElementById('downloadLinks').appendChild(downloadLink);
                 
-                // Auto-cleanup old links
-                if (downloadLinks.children.length > 5) {
-                    downloadLinks.removeChild(downloadLinks.firstChild);
+                // Also create metadata file for VR recordings
+                if (this.recordingMode !== 'standard') {
+                    this.saveRecordingMetadata(filename);
                 }
+                
+                document.getElementById('status').textContent = 'Recording saved!';
             }
             
-            animate() {
-                requestAnimationFrame(() => this.animate());
+            saveRecordingMetadata(videoFilename) {
+                const metadata = {
+                    recordingMode: this.recordingMode,
+                    timestamp: new Date().toISOString(),
+                    audioTrack: this.playlist[this.currentTrackIndex]?.name || 'Unknown',
+                    quality: document.getElementById('recordQuality').value,
+                    settings: {
+                        sensitivity: this.sensitivity,
+                        smoothing: this.smoothing,
+                        gridSize: this.gridSize
+                    }
+                };
                 
-                if (this.isPlaying && this.analyser && this.dataArray) {
-                    this.analyser.getByteFrequencyData(this.dataArray);
-                    this.updateVisualization();
-                }
+                const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(metadataBlob);
                 
-                this.updateCamera();
-                this.updateLighting();
-                this.renderer.render(this.scene, this.camera);
+                const metadataFilename = videoFilename.replace('.webm', '_metadata.json');
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = metadataFilename;
+                downloadLink.className = 'download-link';
+                downloadLink.textContent = `Download ${metadataFilename}`;
+                
+                document.getElementById('downloadLinks').appendChild(downloadLink);
             }
             
             updateVisualization() {
-                if (!this.mesh || !this.dataArray) return;
+                if (!this.analyser || !this.dataArray) return;
+                
+                this.analyser.getByteFrequencyData(this.dataArray);
                 
                 const positions = this.mesh.geometry.attributes.position.array;
                 const wireframePositions = this.wireframeMesh.geometry.attributes.position.array;
-                const colors = [];
+                const time = Date.now() * 0.001;
                 
-                // Enhanced frequency analysis
-                const lowFreq = this.getFrequencyRange(0, 85);
-                const midFreq = this.getFrequencyRange(85, 170);
-                const highFreq = this.getFrequencyRange(170, 255);
-                
+                // Update mesh based on audio data
                 for (let i = 0; i < this.gridSize; i++) {
                     for (let j = 0; j < this.gridSize; j++) {
                         const index = i * this.gridSize + j;
                         const vertexIndex = index * 3;
                         
-                        // Calculate audio-reactive height
+                        if (vertexIndex + 1 >= positions.length) continue;
+                        
                         const x = (j - this.gridSize / 2) * 2.5;
                         const z = (i - this.gridSize / 2) * 2.5;
                         const distance = Math.sqrt(x * x + z * z);
                         
-                        // Multiple frequency bands affecting different areas
-                        const freqIndex = Math.floor((distance / 100) * this.dataArray.length);
-                        const clampedIndex = Math.min(Math.max(freqIndex, 0), this.dataArray.length - 1);
-                        const amplitude = this.dataArray[clampedIndex] / 255;
+                        // Get audio data for this position
+                        const audioIndex = Math.floor((index / (this.gridSize * this.gridSize)) * this.dataArray.length);
+                        const audioValue = this.dataArray[audioIndex] || 0;
                         
-                        // Complex wave calculation with audio data
-                        const audioHeight = amplitude * this.sensitivity * 30;
-                        const time = Date.now() * 0.001;
-                        const wave = Math.sin(distance * 0.1 + time) * (5 + amplitude * 10);
-                        const ripple = Math.cos(x * 0.05 + time) * Math.sin(z * 0.05 + time) * (2 + amplitude * 8);
+                        // Combine audio data with base wave patterns
+                        const audioHeight = (audioValue / 255) * 30 * this.sensitivity;
+                        const wave1 = Math.sin(distance * 0.08 + time * 1.5) * 8;
+                        const wave2 = Math.cos(x * 0.03 + time) * Math.sin(z * 0.03 + time) * 4;
                         
-                        const finalHeight = audioHeight + wave + ripple;
+                        const height = audioHeight + wave1 + wave2;
                         
-                        if (vertexIndex + 1 < positions.length) {
-                            positions[vertexIndex + 1] = finalHeight;
-                            wireframePositions[vertexIndex + 1] = finalHeight + 1;
-                        }
+                        positions[vertexIndex + 1] = height;
+                        wireframePositions[vertexIndex + 1] = height + 0.5;
                         
-                        // Dynamic color based on frequency
-                        const r = (lowFreq + amplitude) * 0.5;
-                        const g = (midFreq + amplitude) * 0.3;
-                        const b = (highFreq + amplitude) * 0.8;
-                        
-                        colors.push(r, g, b);
+                        // Update colors based on audio intensity
+                        const intensity = audioValue / 255;
+                        this.mesh.material.color.setHSL(
+                            (intensity * 0.3 + time * 0.1) % 1,
+                            0.8,
+                            0.5 + intensity * 0.3
+                        );
                     }
                 }
                 
                 this.mesh.geometry.attributes.position.needsUpdate = true;
                 this.wireframeMesh.geometry.attributes.position.needsUpdate = true;
                 
-                // Update material color based on overall audio level
-                const avgAmplitude = this.dataArray.reduce((a, b) => a + b) / this.dataArray.length / 255;
-                this.mesh.material.color.setHSL(
-                    (avgAmplitude * 0.8 + Date.now() * 0.0001) % 1,
-                    0.7 + avgAmplitude * 0.3,
-                    0.4 + avgAmplitude * 0.4
-                );
-                
                 // Update particle system
                 if (this.particles) {
-                    this.particles.rotation.y += 0.001 + avgAmplitude * 0.005;
-                    this.particles.rotation.x += 0.0005 + avgAmplitude * 0.002;
+                    this.particles.rotation.y += 0.005;
+                    this.particles.rotation.x += 0.002;
+                    
+                    const particlePositions = this.particles.geometry.attributes.position.array;
+                    for (let i = 0; i < particlePositions.length; i += 3) {
+                        const audioIndex = Math.floor((i / 3) % this.dataArray.length);
+                        const audioValue = this.dataArray[audioIndex] || 0;
+                        const intensity = audioValue / 255;
+                        
+                        particlePositions[i + 1] += Math.sin(time + i) * intensity * 0.5;
+                    }
+                    this.particles.geometry.attributes.position.needsUpdate = true;
                 }
-            }
-            
-            getFrequencyRange(start, end) {
-                if (!this.dataArray) return 0;
-                let sum = 0;
-                const count = end - start;
-                for (let i = start; i < end && i < this.dataArray.length; i++) {
-                    sum += this.dataArray[i];
-                }
-                return sum / count / 255;
+                
+                // Update lighting based on audio
+                const avgIntensity = this.dataArray.reduce((sum, val) => sum + val, 0) / this.dataArray.length / 255;
+                this.scene.children.forEach(child => {
+                    if (child.type === 'PointLight') {
+                        child.intensity = 1 + avgIntensity * 2;
+                    }
+                });
             }
             
             updateCamera() {
-                // Smooth camera movement based on mouse and audio
-                const targetX = this.mouseX * 20;
-                const targetY = 20 + this.mouseY * 10;
+                // Auto-rotate camera
+                this.cameraAngle += 0.005;
                 
-                this.camera.position.x += (targetX - this.camera.position.x) * 0.05;
-                this.camera.position.y += (targetY - this.camera.position.y) * 0.05;
+                // Add mouse influence
+                const mouseInfluence = 0.1;
+                const targetX = this.cameraRadius * Math.cos(this.cameraAngle) + this.mouseX * 20;
+                const targetZ = this.cameraRadius * Math.sin(this.cameraAngle) + this.mouseY * 20;
                 
-                // Audio-reactive camera movement
-                if (this.dataArray) {
-                    const avgAmplitude = this.dataArray.reduce((a, b) => a + b) / this.dataArray.length / 255;
-                    this.cameraAngle += 0.005 + avgAmplitude * 0.01;
-                    
-                    const radius = 120 + avgAmplitude * 30;
-                    this.camera.position.x += Math.sin(this.cameraAngle) * 0.5;
-                    this.camera.position.z += Math.cos(this.cameraAngle) * 0.5;
-                }
+                this.camera.position.x = targetX;
+                this.camera.position.z = targetZ;
+                this.camera.position.y = 80 + Math.sin(this.cameraAngle * 0.5) * 20;
                 
                 this.camera.lookAt(0, 0, 0);
             }
             
-            updateLighting() {
-                // Dynamic lighting based on audio
-                if (this.dataArray) {
-                    const lowFreq = this.getFrequencyRange(0, 85);
-                    const midFreq = this.getFrequencyRange(85, 170);
-                    const highFreq = this.getFrequencyRange(170, 255);
-                    
-                    // Update point light colors and intensities
-                    const lights = this.scene.children.filter(child => child instanceof THREE.PointLight);
-                    if (lights.length >= 3) {
-                        lights[0].intensity = 0.5 + lowFreq * 1.5;
-                        lights[1].intensity = 0.5 + midFreq * 1.5;
-                        lights[2].intensity = 0.5 + highFreq * 1.5;
-                        
-                        // Color shifting
-                        const time = Date.now() * 0.001;
-                        lights[0].color.setHSL((time * 0.1 + lowFreq) % 1, 0.8, 0.6);
-                        lights[1].color.setHSL((time * 0.1 + midFreq + 0.3) % 1, 0.8, 0.6);
-                        lights[2].color.setHSL((time * 0.1 + highFreq + 0.6) % 1, 0.8, 0.6);
-                    }
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                if (this.isPlaying) {
+                    this.updateVisualization();
                 }
+                
+                this.updateCamera();
+                this.renderer.render(this.scene, this.camera);
             }
         }
         
         // Initialize the visualizer
-        let visualizer;
+        const visualizer = new EnhancedAudioVisualizer();
         
-        window.addEventListener('load', () => {
-            visualizer = new EnhancedAudioVisualizer();
-        });
-        
-        // Export for global access
+        // Make visualizer globally available for UI interactions
         window.visualizer = visualizer;
     </script>
 </body>
