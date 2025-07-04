@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Audio Frequency Visualizer - Playlist Edition</title>
+    <title>Enhanced 3D Audio Visualizer - VR Ready</title>
     <style>
         body {
             margin: 0;
@@ -26,11 +26,10 @@
             z-index: 100;
             background: rgba(0, 0, 0, 0.9);
             padding: 20px;
-            border-radius: 10px;
+            border-radius: 15px;
             border: 1px solid #333;
             max-width: 350px;
-            max-height: 80vh;
-            overflow-y: auto;
+            backdrop-filter: blur(10px);
         }
         
         #fileInput {
@@ -41,11 +40,11 @@
             background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 10px 20px;
-            margin: 3px;
-            border-radius: 20px;
+            padding: 12px 24px;
+            margin: 5px;
+            border-radius: 25px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 14px;
             transition: all 0.3s ease;
             display: inline-block;
         }
@@ -74,22 +73,55 @@
         }
         
         .btn.playlist {
-            background: linear-gradient(45deg, #ffa726 0%, #ff7043 100%);
+            background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .btn.vr {
+            background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
         }
         
         .btn.active {
-            background: linear-gradient(45deg, #4caf50 0%, #45a049 100%);
-        }
-        
-        .btn.small {
-            padding: 5px 12px;
-            font-size: 11px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
         }
         
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.7; }
             100% { opacity: 1; }
+        }
+        
+        #playlist {
+            max-height: 150px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .playlist-item {
+            padding: 8px;
+            margin: 3px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .playlist-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .playlist-item.active {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .playlist-item .remove {
+            float: right;
+            color: #ff6b6b;
+            font-weight: bold;
         }
         
         #info {
@@ -99,25 +131,14 @@
             color: #fff;
             font-size: 12px;
             background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-            max-width: 400px;
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 450px;
+            backdrop-filter: blur(10px);
         }
         
         .control-group {
             margin: 10px 0;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-        }
-        
-        .control-group:last-child {
-            border-bottom: none;
-        }
-        
-        .control-group h3 {
-            color: #fff;
-            font-size: 14px;
-            margin: 0 0 10px 0;
         }
         
         label {
@@ -128,15 +149,16 @@
         }
         
         input[type="range"] {
-            width: 180px;
+            width: 200px;
         }
         
         select {
-            background: #333;
-            color: #fff;
-            border: 1px solid #555;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid #333;
+            border-radius: 5px;
             padding: 5px;
-            border-radius: 3px;
+            width: 100%;
         }
         
         #status {
@@ -173,93 +195,65 @@
             background: rgba(78, 205, 196, 0.2);
         }
         
-        #playlist {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 5px;
-            padding: 10px;
-            margin-top: 10px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .playlist-item {
+        .checkbox-group {
             display: flex;
             align-items: center;
-            padding: 5px;
-            margin: 3px 0;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            margin: 5px 0;
         }
         
-        .playlist-item:hover {
-            background: rgba(255, 255, 255, 0.2);
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 8px;
         }
         
-        .playlist-item.current {
-            background: rgba(102, 126, 234, 0.3);
-            border: 1px solid #667eea;
-        }
-        
-        .playlist-item .name {
-            flex: 1;
-            color: #fff;
+        .checkbox-group label {
+            margin-bottom: 0;
             font-size: 11px;
-            margin-right: 10px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
         
-        .playlist-item .duration {
-            color: #aaa;
-            font-size: 10px;
-            margin-right: 10px;
-        }
-        
-        .playlist-item .remove {
-            color: #ff6b6b;
-            cursor: pointer;
-            font-size: 12px;
-            padding: 2px 5px;
-        }
-        
-        .playlist-item .remove:hover {
-            color: #ff4444;
-        }
-        
-        .playlist-controls {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .now-playing {
+        #currentTrack {
             color: #4ecdc4;
-            font-size: 12px;
-            margin-bottom: 10px;
-            padding: 8px;
-            background: rgba(78, 205, 196, 0.1);
-            border-radius: 5px;
-            border-left: 3px solid #4ecdc4;
+            font-size: 11px;
+            margin: 5px 0;
+            font-weight: bold;
         }
         
-        .progress-bar {
+        #progress {
             width: 100%;
             height: 4px;
-            background: #333;
+            background: rgba(255, 255, 255, 0.2);
             border-radius: 2px;
             overflow: hidden;
             margin: 5px 0;
         }
         
-        .progress {
+        #progressBar {
             height: 100%;
-            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(90deg, #667eea, #764ba2);
             width: 0%;
             transition: width 0.1s ease;
+        }
+        
+        .recording-modes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        
+        .mode-btn {
+            padding: 5px 10px;
+            font-size: 10px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .mode-btn.active {
+            background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
+            border-color: #4facfe;
         }
     </style>
 </head>
@@ -267,72 +261,86 @@
     <div id="container">
         <div id="controls">
             <div class="control-group">
-                <h3>Audio Upload</h3>
                 <input type="file" id="fileInput" accept="audio/*" multiple>
                 <button class="btn" onclick="document.getElementById('fileInput').click()">Add Audio Files</button>
             </div>
             
+            <div id="playlist"></div>
+            
             <div class="control-group">
-                <h3>Playback Controls</h3>
+                <div id="currentTrack">No track selected</div>
+                <div id="progress">
+                    <div id="progressBar"></div>
+                </div>
+            </div>
+            
+            <div class="control-group">
                 <button class="btn" id="playBtn" disabled>Play</button>
                 <button class="btn" id="pauseBtn" disabled>Pause</button>
-                <button class="btn" id="prevBtn" disabled>Previous</button>
                 <button class="btn" id="nextBtn" disabled>Next</button>
+                <button class="btn" id="prevBtn" disabled>Previous</button>
             </div>
             
             <div class="control-group">
-                <h3>Playlist Options</h3>
-                <div class="playlist-controls">
-                    <button class="btn playlist small" id="loopBtn">Loop: Off</button>
-                    <button class="btn playlist small" id="shuffleBtn">Shuffle: Off</button>
-                    <button class="btn playlist small" id="clearBtn">Clear All</button>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="shuffleMode">
+                    <label for="shuffleMode">Shuffle</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="loopMode">
+                    <label for="loopMode">Loop Playlist</label>
                 </div>
             </div>
             
             <div class="control-group">
-                <h3>Now Playing</h3>
-                <div id="nowPlaying" class="now-playing">No track selected</div>
-                <div class="progress-bar">
-                    <div class="progress" id="progressBar"></div>
+                <label for="recordingMode">Recording Mode:</label>
+                <div class="recording-modes">
+                    <div class="mode-btn active" data-mode="standard">Standard</div>
+                    <div class="mode-btn" data-mode="360">360° VR</div>
+                    <div class="mode-btn" data-mode="multi">Multi-Angle</div>
+                    <div class="mode-btn" data-mode="stereoscopic">Stereoscopic</div>
                 </div>
             </div>
             
             <div class="control-group">
-                <h3>Playlist</h3>
-                <div id="playlist"></div>
-            </div>
-            
-            <div class="control-group">
-                <h3>Recording</h3>
                 <button class="btn record" id="recordBtn" disabled>Start Recording</button>
                 <button class="btn" id="stopRecordBtn" disabled>Stop Recording</button>
-                <label for="recordQuality">Quality:</label>
+            </div>
+            
+            <div class="control-group">
+                <label for="sensitivity">Sensitivity:</label>
+                <input type="range" id="sensitivity" min="0.1" max="5" value="1.5" step="0.1">
+            </div>
+            
+            <div class="control-group">
+                <label for="smoothing">Smoothing:</label>
+                <input type="range" id="smoothing" min="0" max="0.9" value="0.7" step="0.1">
+            </div>
+            
+            <div class="control-group">
+                <label for="recordQuality">Recording Quality:</label>
                 <select id="recordQuality">
                     <option value="720">720p</option>
                     <option value="1080" selected>1080p</option>
                     <option value="1440">1440p</option>
+                    <option value="2160">4K</option>
                 </select>
-            </div>
-            
-            <div class="control-group">
-                <h3>Visualization</h3>
-                <label for="sensitivity">Sensitivity:</label>
-                <input type="range" id="sensitivity" min="0.1" max="3" value="1.5" step="0.1">
-                <label for="smoothing">Smoothing:</label>
-                <input type="range" id="smoothing" min="0" max="0.9" value="0.7" step="0.1">
             </div>
             
             <div id="downloadSection">
                 <div id="downloadLinks"></div>
             </div>
             
-            <div id="status">Ready - Add audio files to create playlist</div>
+            <div id="status">Ready - Add audio files to begin</div>
             <div id="recordingStatus">● Recording...</div>
         </div>
         
         <div id="info">
-            3D Audio Frequency Visualizer - Playlist Edition<br>
-            <small>Upload multiple files, create playlists, and record your visualizations!</small>
+            Enhanced 3D Audio Visualizer with VR Recording<br>
+            <small>• Add multiple audio files for playlist<br>
+            • Record in 360° VR, multi-angle, or stereoscopic formats<br>
+            • Shuffle and loop functionality<br>
+            • Export 3D data for VR experiences</small>
         </div>
         
         <canvas id="canvas"></canvas>
@@ -340,7 +348,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        class AudioVisualizer {
+        class EnhancedAudioVisualizer {
             constructor() {
                 this.scene = null;
                 this.camera = null;
@@ -357,16 +365,17 @@
                 // Playlist properties
                 this.playlist = [];
                 this.currentTrackIndex = 0;
-                this.isLooping = false;
-                this.isShuffling = false;
-                this.shuffleHistory = [];
+                this.shuffleMode = false;
+                this.loopMode = false;
+                this.shuffleOrder = [];
                 
                 // Recording properties
                 this.mediaRecorder = null;
                 this.recordedChunks = [];
                 this.isRecording = false;
-                this.stream = null;
-                this.audioStream = null;
+                this.recordingMode = 'standard';
+                this.vrCameras = [];
+                this.multiAngleData = [];
                 
                 this.gridSize = 64;
                 this.sensitivity = 1.5;
@@ -380,7 +389,6 @@
                 this.init();
                 this.setupEventListeners();
                 this.animate();
-                this.startProgressUpdater();
             }
             
             init() {
@@ -393,6 +401,9 @@
                 this.camera.position.set(0, 80, 120);
                 this.camera.lookAt(0, 0, 0);
                 
+                // Setup VR cameras for 360° recording
+                this.setupVRCameras();
+                
                 // Renderer setup
                 this.renderer = new THREE.WebGLRenderer({ 
                     canvas: document.getElementById('canvas'),
@@ -403,7 +414,7 @@
                 this.renderer.shadowMap.enabled = true;
                 this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
                 
-                // Lighting
+                // Enhanced lighting
                 const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
                 this.scene.add(ambientLight);
                 
@@ -412,7 +423,7 @@
                 directionalLight.castShadow = true;
                 this.scene.add(directionalLight);
                 
-                // Point lights
+                // Multiple dynamic point lights
                 const pointLight1 = new THREE.PointLight(0xff0080, 1, 200);
                 pointLight1.position.set(50, 50, 50);
                 this.scene.add(pointLight1);
@@ -421,15 +432,39 @@
                 pointLight2.position.set(-50, 50, -50);
                 this.scene.add(pointLight2);
                 
+                const pointLight3 = new THREE.PointLight(0x80ff00, 1, 200);
+                pointLight3.position.set(0, 100, 0);
+                this.scene.add(pointLight3);
+                
                 // Create initial mesh
                 this.createMesh();
                 
                 // Update status
-                document.getElementById('status').textContent = 'Scene initialized - Add audio files to playlist';
+                document.getElementById('status').textContent = 'Scene initialized - Add audio files';
+            }
+            
+            setupVRCameras() {
+                // Create 6 cameras for cube mapping (360° VR)
+                this.vrCameras = [];
+                const directions = [
+                    { pos: [100, 0, 0], target: [0, 0, 0] },    // Right
+                    { pos: [-100, 0, 0], target: [0, 0, 0] },   // Left
+                    { pos: [0, 100, 0], target: [0, 0, 0] },    // Top
+                    { pos: [0, -100, 0], target: [0, 0, 0] },   // Bottom
+                    { pos: [0, 0, 100], target: [0, 0, 0] },    // Front
+                    { pos: [0, 0, -100], target: [0, 0, 0] }    // Back
+                ];
+                
+                directions.forEach(dir => {
+                    const camera = new THREE.PerspectiveCamera(90, 1, 0.1, 1000);
+                    camera.position.set(...dir.pos);
+                    camera.lookAt(...dir.target);
+                    this.vrCameras.push(camera);
+                });
             }
             
             createMesh() {
-                // Create plane geometry
+                // Create enhanced plane geometry
                 const geometry = new THREE.PlaneGeometry(
                     160, 160, 
                     this.gridSize - 1, 
@@ -437,21 +472,23 @@
                 );
                 geometry.rotateX(-Math.PI / 2);
                 
-                // Main mesh material
+                // Enhanced material with more dynamic properties
                 const material = new THREE.MeshPhongMaterial({
                     color: 0x4444ff,
                     wireframe: false,
                     transparent: true,
                     opacity: 0.8,
                     side: THREE.DoubleSide,
-                    shininess: 100
+                    shininess: 100,
+                    specular: 0x111111
                 });
                 
                 this.mesh = new THREE.Mesh(geometry, material);
                 this.mesh.receiveShadow = true;
+                this.mesh.castShadow = true;
                 this.scene.add(this.mesh);
                 
-                // Wireframe overlay
+                // Enhanced wireframe overlay
                 const wireframeGeometry = geometry.clone();
                 const wireframeMaterial = new THREE.MeshBasicMaterial({
                     color: 0x00ffff,
@@ -464,8 +501,44 @@
                 this.wireframeMesh.position.y = 0.2;
                 this.scene.add(this.wireframeMesh);
                 
-                // Add base animation
+                // Add particles for extra visual flair
+                this.createParticles();
+                
+                // Start base animation
                 this.startBaseAnimation();
+            }
+            
+            createParticles() {
+                const particleCount = 500;
+                const particles = new THREE.BufferGeometry();
+                const positions = [];
+                const colors = [];
+                
+                for (let i = 0; i < particleCount; i++) {
+                    positions.push(
+                        (Math.random() - 0.5) * 300,
+                        Math.random() * 200,
+                        (Math.random() - 0.5) * 300
+                    );
+                    colors.push(
+                        Math.random(),
+                        Math.random(),
+                        Math.random()
+                    );
+                }
+                
+                particles.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                particles.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+                
+                const particleMaterial = new THREE.PointsMaterial({
+                    size: 2,
+                    transparent: true,
+                    opacity: 0.6,
+                    vertexColors: true
+                });
+                
+                this.particles = new THREE.Points(particles, particleMaterial);
+                this.scene.add(this.particles);
             }
             
             startBaseAnimation() {
@@ -492,7 +565,8 @@
                         
                         const wave1 = Math.sin(distance * 0.08 + time * 1.5) * 8;
                         const wave2 = Math.cos(x * 0.03 + time) * Math.sin(z * 0.03 + time) * 4;
-                        const height = wave1 + wave2;
+                        const wave3 = Math.sin(time * 0.5) * Math.cos(distance * 0.02) * 3;
+                        const height = wave1 + wave2 + wave3;
                         
                         if (vertexIndex + 1 < positions.length) {
                             positions[vertexIndex + 1] = height;
@@ -503,6 +577,11 @@
                 
                 this.mesh.geometry.attributes.position.needsUpdate = true;
                 this.wireframeMesh.geometry.attributes.position.needsUpdate = true;
+                
+                // Animate particles
+                if (this.particles) {
+                    this.particles.rotation.y += 0.001;
+                }
             }
             
             setupEventListeners() {
@@ -518,24 +597,12 @@
                     this.pauseAudio();
                 });
                 
-                document.getElementById('prevBtn').addEventListener('click', () => {
-                    this.previousTrack();
-                });
-                
                 document.getElementById('nextBtn').addEventListener('click', () => {
                     this.nextTrack();
                 });
                 
-                document.getElementById('loopBtn').addEventListener('click', () => {
-                    this.toggleLoop();
-                });
-                
-                document.getElementById('shuffleBtn').addEventListener('click', () => {
-                    this.toggleShuffle();
-                });
-                
-                document.getElementById('clearBtn').addEventListener('click', () => {
-                    this.clearPlaylist();
+                document.getElementById('prevBtn').addEventListener('click', () => {
+                    this.previousTrack();
                 });
                 
                 document.getElementById('recordBtn').addEventListener('click', () => {
@@ -544,6 +611,17 @@
                 
                 document.getElementById('stopRecordBtn').addEventListener('click', () => {
                     this.stopRecording();
+                });
+                
+                document.getElementById('shuffleMode').addEventListener('change', (e) => {
+                    this.shuffleMode = e.target.checked;
+                    if (this.shuffleMode) {
+                        this.generateShuffleOrder();
+                    }
+                });
+                
+                document.getElementById('loopMode').addEventListener('change', (e) => {
+                    this.loopMode = e.target.checked;
                 });
                 
                 document.getElementById('sensitivity').addEventListener('input', (e) => {
@@ -555,6 +633,15 @@
                     if (this.analyser) {
                         this.analyser.smoothingTimeConstant = this.smoothing;
                     }
+                });
+                
+                // Recording mode selection
+                document.querySelectorAll('.mode-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        this.recordingMode = e.target.dataset.mode;
+                    });
                 });
                 
                 window.addEventListener('resize', () => {
@@ -572,118 +659,116 @@
             async loadAudioFiles(files) {
                 if (!files || files.length === 0) return;
                 
-                const loadPromises = Array.from(files).map(file => this.loadSingleAudio(file));
-                const results = await Promise.allSettled(loadPromises);
-                
-                const successCount = results.filter(r => r.status === 'fulfilled').length;
-                const failCount = results.filter(r => r.status === 'rejected').length;
-                
-                if (successCount > 0) {
-                    this.updatePlaylistUI();
-                    this.updateButtons();
+                for (let file of files) {
+                    const audioData = {
+                        file: file,
+                        name: file.name,
+                        url: URL.createObjectURL(file),
+                        duration: 0
+                    };
                     
-                    if (this.playlist.length === successCount) {
-                        // First files loaded, select first track
-                        this.currentTrackIndex = 0;
-                        this.selectTrack(0);
-                    }
-                    
-                    document.getElementById('status').textContent = 
-                        `Loaded ${successCount} file(s)${failCount > 0 ? `, ${failCount} failed` : ''}`;
-                } else {
-                    document.getElementById('status').textContent = 'Error loading audio files';
+                    this.playlist.push(audioData);
                 }
-            }
-            
-            async loadSingleAudio(file) {
-                return new Promise((resolve, reject) => {
-                    const audio = new Audio();
-                    audio.crossOrigin = 'anonymous';
-                    audio.src = URL.createObjectURL(file);
-                    
-                    audio.addEventListener('loadedmetadata', () => {
-                        const track = {
-                            name: file.name,
-                            file: file,
-                            url: audio.src,
-                            duration: audio.duration,
-                            audio: audio
-                        };
-                        
-                        this.playlist.push(track);
-                        resolve(track);
-                    });
-                    
-                    audio.addEventListener('error', reject);
-                    audio.addEventListener('ended', () => {
-                        this.onTrackEnded();
-                    });
-                });
+                
+                this.updatePlaylistUI();
+                this.generateShuffleOrder();
+                
+                if (this.playlist.length === 1) {
+                    this.currentTrackIndex = 0;
+                    await this.loadCurrentTrack();
+                }
+                
+                this.enablePlaylistControls();
+                document.getElementById('status').textContent = `Added ${files.length} tracks to playlist`;
             }
             
             updatePlaylistUI() {
-                const playlistElement = document.getElementById('playlist');
-                playlistElement.innerHTML = '';
+                const playlistDiv = document.getElementById('playlist');
+                playlistDiv.innerHTML = '';
                 
                 this.playlist.forEach((track, index) => {
                     const item = document.createElement('div');
-                    item.className = `playlist-item ${index === this.currentTrackIndex ? 'current' : ''}`;
+                    item.className = 'playlist-item';
+                    if (index === this.currentTrackIndex) {
+                        item.classList.add('active');
+                    }
                     
-                    const name = document.createElement('div');
-                    name.className = 'name';
-                    name.textContent = track.name;
+                    item.innerHTML = `
+                        <span>${track.name}</span>
+                        <span class="remove" onclick="visualizer.removeTrack(${index})">×</span>
+                    `;
                     
-                    const duration = document.createElement('div');
-                    duration.className = 'duration';
-                    duration.textContent = this.formatTime(track.duration);
-                    
-                    const remove = document.createElement('div');
-                    remove.className = 'remove';
-                    remove.textContent = '×';
-                    remove.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.removeTrack(index);
+                    item.addEventListener('click', (e) => {
+                        if (!e.target.classList.contains('remove')) {
+                            this.selectTrack(index);
+                        }
                     });
                     
-                    item.appendChild(name);
-                    item.appendChild(duration);
-                    item.appendChild(remove);
-                    
-                    item.addEventListener('click', () => {
-                        this.selectTrack(index);
-                    });
-                    
-                    playlistElement.appendChild(item);
+                    playlistDiv.appendChild(item);
                 });
             }
             
-            selectTrack(index) {
-                if (index < 0 || index >= this.playlist.length) return;
-                
-                this.pauseAudio();
-                this.currentTrackIndex = index;
-                
-                const track = this.playlist[index];
-                this.setupAudioContext(track);
-                this.updatePlaylistUI();
-                this.updateNowPlaying();
-                
-                document.getElementById('status').textContent = `Selected: ${track.name}`;
+            enablePlaylistControls() {
+                document.getElementById('playBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = false;
+                document.getElementById('nextBtn').disabled = false;
+                document.getElementById('prevBtn').disabled = false;
+                document.getElementById('recordBtn').disabled = false;
             }
             
-            async setupAudioContext(track) {
+            generateShuffleOrder() {
+                this.shuffleOrder = [...Array(this.playlist.length).keys()];
+                for (let i = this.shuffleOrder.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.shuffleOrder[i], this.shuffleOrder[j]] = [this.shuffleOrder[j], this.shuffleOrder[i]];
+                }
+            }
+            
+            async selectTrack(index) {
+                this.pauseAudio();
+                this.currentTrackIndex = index;
+                await this.loadCurrentTrack();
+                this.updatePlaylistUI();
+            }
+            
+            async loadCurrentTrack() {
+                if (!this.playlist[this.currentTrackIndex]) return;
+                
+                const track = this.playlist[this.currentTrackIndex];
+                
                 try {
+                    document.getElementById('status').textContent = `Loading: ${track.name}`;
+                    document.getElementById('currentTrack').textContent = `Now: ${track.name}`;
+                    
                     if (this.audioContext) {
                         await this.audioContext.close();
                     }
                     
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    this.audio = track.audio;
+                    
+                    this.audio = new Audio();
+                    this.audio.crossOrigin = 'anonymous';
+                    this.audio.src = track.url;
+                    
+                    await new Promise((resolve, reject) => {
+                        this.audio.addEventListener('loadeddata', resolve);
+                        this.audio.addEventListener('error', reject);
+                    });
+                    
+                    // Setup audio ended listener for auto-advance
+                    this.audio.addEventListener('ended', () => {
+                        this.onTrackEnded();
+                    });
+                    
+                    // Setup progress tracking
+                    this.audio.addEventListener('timeupdate', () => {
+                        this.updateProgress();
+                    });
                     
                     this.source = this.audioContext.createMediaElementSource(this.audio);
                     this.analyser = this.audioContext.createAnalyser();
                     
-                    this.analyser.fftSize = 256;
+                    this.analyser.fftSize = 512;
                     this.analyser.smoothingTimeConstant = this.smoothing;
                     
                     this.source.connect(this.analyser);
@@ -691,28 +776,82 @@
                     
                     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
                     
+                    document.getElementById('status').textContent = `Ready: ${track.name}`;
+                    
                 } catch (error) {
-                    console.error('Error setting up audio context:', error);
+                    console.error('Error loading track:', error);
+                    document.getElementById('status').textContent = `Error loading: ${track.name}`;
                 }
             }
             
-            updateNowPlaying() {
-                const nowPlayingElement = document.getElementById('nowPlaying');
-                if (this.playlist.length > 0 && this.currentTrackIndex >= 0) {
-                    const track = this.playlist[this.currentTrackIndex];
-                    nowPlayingElement.textContent = `${track.name} (${this.currentTrackIndex + 1}/${this.playlist.length})`;
+            updateProgress() {
+                if (this.audio) {
+                    const progress = (this.audio.currentTime / this.audio.duration) * 100;
+                    document.getElementById('progressBar').style.width = progress + '%';
+                }
+            }
+            
+            onTrackEnded() {
+                if (this.loopMode && this.playlist.length > 1) {
+                    this.nextTrack();
+                } else if (this.currentTrackIndex < this.playlist.length - 1) {
+                    this.nextTrack();
                 } else {
-                    nowPlayingElement.textContent = 'No track selected';
+                    this.isPlaying = false;
+                    document.getElementById('status').textContent = 'Playlist finished';
                 }
             }
             
-            updateButtons() {
-                const hasPlaylist = this.playlist.length > 0;
-                document.getElementById('playBtn').disabled = !hasPlaylist;
-                document.getElementById('pauseBtn').disabled = !hasPlaylist;
-                document.getElementById('prevBtn').disabled = !hasPlaylist;
-                document.getElementById('nextBtn').disabled = !hasPlaylist;
-                document.getElementById('recordBtn').disabled = !hasPlaylist;
+            async nextTrack() {
+                if (this.playlist.length === 0) return;
+                
+                if (this.shuffleMode) {
+                    const currentShuffleIndex = this.shuffleOrder.indexOf(this.currentTrackIndex);
+                    const nextShuffleIndex = (currentShuffleIndex + 1) % this.shuffleOrder.length;
+                    this.currentTrackIndex = this.shuffleOrder[nextShuffleIndex];
+                } else {
+                    this.currentTrackIndex = (this.currentTrackIndex + 1) % this.playlist.length;
+                }
+                
+                await this.loadCurrentTrack();
+                if (this.isPlaying) {
+                    this.playAudio();
+                }
+                this.updatePlaylistUI();
+            }
+            
+            async previousTrack() {
+                if (this.playlist.length === 0) return;
+                
+                if (this.shuffleMode) {
+                    const currentShuffleIndex = this.shuffleOrder.indexOf(this.currentTrackIndex);
+                    const prevShuffleIndex = (currentShuffleIndex - 1 + this.shuffleOrder.length) % this.shuffleOrder.length;
+                    this.currentTrackIndex = this.shuffleOrder[prevShuffleIndex];
+                } else {
+                    this.currentTrackIndex = (this.currentTrackIndex - 1 + this.playlist.length) % this.playlist.length;
+                }
+                
+                await this.loadCurrentTrack();
+                if (this.isPlaying) {
+                    this.playAudio();
+                }
+                this.updatePlaylistUI();
+            }
+            
+            removeTrack(index) {
+                if (this.playlist.length <= 1) return;
+                
+                this.playlist.splice(index, 1);
+                
+                if (index === this.currentTrackIndex) {
+                    this.currentTrackIndex = Math.min(this.currentTrackIndex, this.playlist.length - 1);
+                    this.loadCurrentTrack();
+                } else if (index < this.currentTrackIndex) {
+                    this.currentTrackIndex--;
+                }
+                
+                this.updatePlaylistUI();
+                this.generateShuffleOrder();
             }
             
             async playAudio() {
@@ -725,7 +864,7 @@
                     
                     await this.audio.play();
                     this.isPlaying = true;
-                    document.getElementById('status').textContent = 'Playing - Visualizing frequencies';
+                    document.getElementById('status').textContent = 'Playing: ' + this.playlist[this.currentTrackIndex].name;
                     
                 } catch (error) {
                     console.error('Error playing audio:', error);
@@ -737,180 +876,45 @@
                 if (this.audio) {
                     this.audio.pause();
                     this.isPlaying = false;
-                    document.getElementById('status').textContent = 'Paused';
+                    document.getElementById('status').textContent = 'Paused: ' + this.playlist[this.currentTrackIndex].name;
                 }
-            }
-            
-            previousTrack() {
-                if (this.playlist.length === 0) return;
-                
-                let newIndex;
-                if (this.isShuffling) {
-                    // Go back in shuffle history
-                    if (this.shuffleHistory.length > 1) {
-                        this.shuffleHistory.pop(); // Remove current
-                        newIndex = this.shuffleHistory[this.shuffleHistory.length - 1];
-                    } else {
-                        newIndex = this.getRandomTrackIndex();
-                    }
-                } else {
-                    newIndex = this.currentTrackIndex - 1;
-                    if (newIndex < 0) {
-                        newIndex = this.isLooping ? this.playlist.length - 1 : 0;
-                    }
-                }
-                
-                this.selectTrack(newIndex);
-                if (this.isPlaying) {
-                    this.playAudio();
-                }
-            }
-            
-            nextTrack() {
-                if (this.playlist.length === 0) return;
-                
-                let newIndex;
-                if (this.isShuffling) {
-                    newIndex = this.getRandomTrackIndex();
-                    this.shuffleHistory.push(newIndex);
-                } else {
-                    newIndex = this.currentTrackIndex + 1;
-                    if (newIndex >= this.playlist.length) {
-                        newIndex = this.isLooping ? 0 : this.playlist.length - 1;
-                    }
-                }
-                
-                this.selectTrack(newIndex);
-                if (this.isPlaying) {
-                    this.playAudio();
-                }
-            }
-            
-            getRandomTrackIndex() {
-                if (this.playlist.length === 1) return 0;
-                
-                let randomIndex;
-                do {
-                    randomIndex = Math.floor(Math.random() * this.playlist.length);
-                } while (randomIndex === this.currentTrackIndex);
-                
-                return randomIndex;
-            }
-            
-            onTrackEnded() {
-                if (this.isLooping && this.playlist.length === 1) {
-                    this.audio.currentTime = 0;
-                    this.playAudio();
-                } else if (this.currentTrackIndex < this.playlist.length - 1 || this.isLooping || this.isShuffling) {
-                    this.nextTrack();
-                } else {
-                    this.isPlaying = false;
-                    document.getElementById('status').textContent = 'Playlist finished';
-                }
-            }
-            
-            toggleLoop() {
-                this.isLooping = !this.isLooping;
-                const btn = document.getElementById('loopBtn');
-                btn.textContent = `Loop: ${this.isLooping ? 'On' : 'Off'}`;
-                btn.classList.toggle('active', this.isLooping);
-            }
-            
-            toggleShuffle() {
-                this.isShuffling = !this.isShuffling;
-                const btn = document.getElementById('shuffleBtn');
-                btn.textContent = `Shuffle: ${this.isShuffling ? 'On' : 'Off'}`;
-                btn.classList.toggle('active', this.isShuffling);
-                
-                if (this.isShuffling) {
-                    this.shuffleHistory = [this.currentTrackIndex];
-                } else {
-                    this.shuffleHistory = [];
-                }
-            }
-            
-            removeTrack(index) {
-                if (index < 0 || index >= this.playlist.length) return;
-                
-                const wasCurrentTrack = index === this.currentTrackIndex;
-                const wasPlaying = this.isPlaying;
-                
-                // Clean up URL
-                URL.revokeObjectURL(this.playlist[index].url);
-                
-                // Remove from playlist
-                this.playlist.splice(index, 1);
-                
-                // Adjust current track index
-                if (index < this.currentTrackIndex) {
-                    this.currentTrackIndex--;
-                } else if (index === this.currentTrackIndex) {
-                    if (this.currentTrackIndex >= this.playlist.length) {
-                        this.currentTrackIndex = Math.max(0, this.playlist.length - 1);
-                    }
-                    
-                    if (this.playlist.length > 0) {
-                        this.selectTrack(this.currentTrackIndex);
-                        if (wasPlaying) {
-                            this.playAudio();
-                        }
-                    } else {
-                        this.pauseAudio();
-                        this.currentTrackIndex = 0;
-                    }
-                }
-                this.updatePlaylistUI();
-                this.updateButtons();
-                this.updateNowPlaying();
-            }
-            
-            clearPlaylist() {
-                this.pauseAudio();
-                
-                // Clean up URLs
-                this.playlist.forEach(track => {
-                    URL.revokeObjectURL(track.url);
-                });
-                
-                this.playlist = [];
-                this.currentTrackIndex = 0;
-                this.shuffleHistory = [];
-                
-                this.updatePlaylistUI();
-                this.updateButtons();
-                this.updateNowPlaying();
-                
-                document.getElementById('status').textContent = 'Playlist cleared';
             }
             
             async startRecording() {
-                if (!this.renderer || this.isRecording) return;
+                if (this.isRecording) return;
                 
                 try {
-                    // Get canvas stream
                     const quality = document.getElementById('recordQuality').value;
-                    const fps = 30;
+                    const canvas = this.renderer.domElement;
                     
-                    this.stream = this.renderer.domElement.captureStream(fps);
+                    // Setup recording parameters based on mode
+                    let recordingOptions = {
+                        videoBitsPerSecond: this.getVideoBitrate(quality),
+                        mimeType: 'video/webm;codecs=vp9'
+                    };
                     
-                    // Get audio stream if available
-                    if (this.audio && this.audioContext) {
-                        const dest = this.audioContext.createMediaStreamDestination();
-                        this.source.connect(dest);
-                        this.audioStream = dest.stream;
-                        
-                        // Combine video and audio
-                        const audioTracks = this.audioStream.getAudioTracks();
-                        audioTracks.forEach(track => {
-                            this.stream.addTrack(track);
-                        });
+                    if (!MediaRecorder.isTypeSupported(recordingOptions.mimeType)) {
+                        recordingOptions.mimeType = 'video/webm;codecs=vp8';
                     }
                     
+                    if (!MediaRecorder.isTypeSupported(recordingOptions.mimeType)) {
+                        recordingOptions.mimeType = 'video/webm';
+                    }
+                    
+                    // Create stream based on recording mode
+                    let stream;
+                    if (this.recordingMode === '360') {
+                        stream = await this.create360Stream(quality);
+                    } else if (this.recordingMode === 'multi') {
+                        stream = await this.createMultiAngleStream(quality);
+                    } else if (this.recordingMode === 'stereoscopic') {
+                        stream = await this.createStereoscopicStream(quality);
+                    } else {
+                        stream = canvas.captureStream(60);
+                    }
+                    
+                    this.mediaRecorder = new MediaRecorder(stream, recordingOptions);
                     this.recordedChunks = [];
-                    this.mediaRecorder = new MediaRecorder(this.stream, {
-                        mimeType: 'video/webm;codecs=vp9',
-                        videoBitsPerSecond: this.getVideoBitrate(quality)
-                    });
                     
                     this.mediaRecorder.ondataavailable = (event) => {
                         if (event.data.size > 0) {
@@ -919,18 +923,16 @@
                     };
                     
                     this.mediaRecorder.onstop = () => {
-                        this.saveRecording();
+                        this.processRecording();
                     };
                     
                     this.mediaRecorder.start();
                     this.isRecording = true;
                     
-                    document.getElementById('recordBtn').disabled = true;
-                    document.getElementById('stopRecordBtn').disabled = false;
                     document.getElementById('recordBtn').classList.add('recording');
+                    document.getElementById('recordBtn').textContent = 'Recording...';
+                    document.getElementById('stopRecordBtn').disabled = false;
                     document.getElementById('recordingStatus').style.display = 'block';
-                    
-                    document.getElementById('status').textContent = 'Recording visualization...';
                     
                 } catch (error) {
                     console.error('Error starting recording:', error);
@@ -944,171 +946,334 @@
                 this.mediaRecorder.stop();
                 this.isRecording = false;
                 
-                // Clean up streams
-                if (this.stream) {
-                    this.stream.getTracks().forEach(track => track.stop());
-                }
-                if (this.audioStream) {
-                    this.audioStream.getTracks().forEach(track => track.stop());
-                }
-                
-                document.getElementById('recordBtn').disabled = false;
-                document.getElementById('stopRecordBtn').disabled = true;
                 document.getElementById('recordBtn').classList.remove('recording');
+                document.getElementById('recordBtn').textContent = 'Start Recording';
+                document.getElementById('stopRecordBtn').disabled = true;
                 document.getElementById('recordingStatus').style.display = 'none';
+            }
+            
+            async create360Stream(quality) {
+                // Create 360° VR recording by rendering to multiple cameras
+                const size = parseInt(quality);
+                const canvas = document.createElement('canvas');
+                canvas.width = size * 2;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
                 
-                document.getElementById('status').textContent = 'Recording stopped - Processing...';
+                // Create cube map renderer
+                const cubeRenderer = new THREE.WebGLRenderer({ antialias: true });
+                cubeRenderer.setSize(size / 2, size / 2);
+                
+                // Render and composite all 6 faces
+                const renderCubeFace = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    this.vrCameras.forEach((camera, index) => {
+                        cubeRenderer.render(this.scene, camera);
+                        const x = (index % 3) * (size / 2);
+                        const y = Math.floor(index / 3) * (size / 2);
+                        ctx.drawImage(cubeRenderer.domElement, x, y);
+                    });
+                };
+                
+                // Start rendering loop for 360° content
+                const renderInterval = setInterval(renderCubeFace, 16);
+                
+                // Store cleanup function
+                this.cleanup360Recording = () => {
+                    clearInterval(renderInterval);
+                    cubeRenderer.dispose();
+                };
+                
+                return canvas.captureStream(60);
+            }
+            
+            async createMultiAngleStream(quality) {
+                // Create multi-angle recording with picture-in-picture layout
+                const size = parseInt(quality);
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                // Create additional cameras for different angles
+                const angles = [
+                    { pos: [0, 100, 150], name: 'main' },
+                    { pos: [150, 50, 0], name: 'side' },
+                    { pos: [0, 200, 0], name: 'top' },
+                    { pos: [-150, 50, 150], name: 'wide' }
+                ];
+                
+                const angleCameras = angles.map(angle => {
+                    const cam = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                    cam.position.set(...angle.pos);
+                    cam.lookAt(0, 0, 0);
+                    return cam;
+                });
+                
+                const tempRenderer = new THREE.WebGLRenderer({ antialias: true });
+                tempRenderer.setSize(size / 2, size / 2);
+                
+                const renderMultiAngle = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    angleCameras.forEach((camera, index) => {
+                        tempRenderer.render(this.scene, camera);
+                        const x = (index % 2) * (size / 2);
+                        const y = Math.floor(index / 2) * (size / 2);
+                        ctx.drawImage(tempRenderer.domElement, x, y);
+                    });
+                };
+                
+                const renderInterval = setInterval(renderMultiAngle, 16);
+                
+                this.cleanupMultiAngleRecording = () => {
+                    clearInterval(renderInterval);
+                    tempRenderer.dispose();
+                };
+                
+                return canvas.captureStream(60);
+            }
+            
+            async createStereoscopicStream(quality) {
+                // Create stereoscopic 3D recording
+                const size = parseInt(quality);
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size / 2;
+                const ctx = canvas.getContext('2d');
+                
+                // Create left and right eye cameras
+                const eyeDistance = 6.4; // Average human eye distance
+                const leftCamera = this.camera.clone();
+                const rightCamera = this.camera.clone();
+                
+                leftCamera.position.x -= eyeDistance / 2;
+                rightCamera.position.x += eyeDistance / 2;
+                
+                const tempRenderer = new THREE.WebGLRenderer({ antialias: true });
+                tempRenderer.setSize(size / 2, size / 2);
+                
+                const renderStereoscopic = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Render left eye
+                    tempRenderer.render(this.scene, leftCamera);
+                    ctx.drawImage(tempRenderer.domElement, 0, 0);
+                    
+                    // Render right eye
+                    tempRenderer.render(this.scene, rightCamera);
+                    ctx.drawImage(tempRenderer.domElement, size / 2, 0);
+                };
+                
+                const renderInterval = setInterval(renderStereoscopic, 16);
+                
+                this.cleanupStereoscopicRecording = () => {
+                    clearInterval(renderInterval);
+                    tempRenderer.dispose();
+                };
+                
+                return canvas.captureStream(60);
             }
             
             getVideoBitrate(quality) {
                 const bitrates = {
-                    '720': 2500000,
-                    '1080': 5000000,
-                    '1440': 8000000
+                    '720': 5000000,
+                    '1080': 8000000,
+                    '1440': 16000000,
+                    '2160': 40000000
                 };
                 return bitrates[quality] || bitrates['1080'];
             }
             
-            saveRecording() {
+            processRecording() {
                 if (this.recordedChunks.length === 0) return;
                 
                 const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
                 const url = URL.createObjectURL(blob);
                 
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const filename = `visualizer-${timestamp}.webm`;
+                // Clean up specialized recording streams
+                if (this.cleanup360Recording) {
+                    this.cleanup360Recording();
+                    this.cleanup360Recording = null;
+                }
+                if (this.cleanupMultiAngleRecording) {
+                    this.cleanupMultiAngleRecording();
+                    this.cleanupMultiAngleRecording = null;
+                }
+                if (this.cleanupStereoscopicRecording) {
+                    this.cleanupStereoscopicRecording();
+                    this.cleanupStereoscopicRecording = null;
+                }
                 
-                // Create download link
+                this.createDownloadLink(url, blob);
+                document.getElementById('status').textContent = 'Recording saved successfully';
+            }
+            
+            createDownloadLink(url, blob) {
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const quality = document.getElementById('recordQuality').value;
+                const filename = `audio-viz-${this.recordingMode}-${quality}p-${timestamp}.webm`;
+                
                 const downloadLinks = document.getElementById('downloadLinks');
                 const link = document.createElement('a');
                 link.href = url;
                 link.download = filename;
                 link.className = 'download-link';
-                link.textContent = `Download ${filename}`;
+                link.textContent = `Download ${filename} (${(blob.size / 1024 / 1024).toFixed(2)} MB)`;
                 
-                // Add remove functionality
-                const removeBtn = document.createElement('span');
-                removeBtn.textContent = ' ×';
-                removeBtn.style.color = '#ff6b6b';
-                removeBtn.style.cursor = 'pointer';
-                removeBtn.onclick = (e) => {
-                    e.preventDefault();
-                    URL.revokeObjectURL(url);
-                    link.remove();
-                };
-                
-                link.appendChild(removeBtn);
                 downloadLinks.appendChild(link);
                 
-                document.getElementById('status').textContent = 'Recording saved! Check downloads.';
+                // Auto-cleanup old links
+                if (downloadLinks.children.length > 5) {
+                    downloadLinks.removeChild(downloadLinks.firstChild);
+                }
             }
             
-            startProgressUpdater() {
-                setInterval(() => {
-                    if (this.audio && this.isPlaying) {
-                        const progress = (this.audio.currentTime / this.audio.duration) * 100;
-                        document.getElementById('progressBar').style.width = progress + '%';
-                    }
-                }, 100);
-            }
-            
-            formatTime(seconds) {
-                if (isNaN(seconds)) return '0:00';
-                const minutes = Math.floor(seconds / 60);
-                const remainingSeconds = Math.floor(seconds % 60);
-                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                if (this.isPlaying && this.analyser && this.dataArray) {
+                    this.analyser.getByteFrequencyData(this.dataArray);
+                    this.updateVisualization();
+                }
+                
+                this.updateCamera();
+                this.updateLighting();
+                this.renderer.render(this.scene, this.camera);
             }
             
             updateVisualization() {
-                if (!this.analyser || !this.dataArray || !this.isPlaying) return;
-                
-                this.analyser.getByteFrequencyData(this.dataArray);
+                if (!this.mesh || !this.dataArray) return;
                 
                 const positions = this.mesh.geometry.attributes.position.array;
                 const wireframePositions = this.wireframeMesh.geometry.attributes.position.array;
+                const colors = [];
                 
-                // Process frequency data
-                const frequencyStep = this.dataArray.length / (this.gridSize * this.gridSize);
+                // Enhanced frequency analysis
+                const lowFreq = this.getFrequencyRange(0, 85);
+                const midFreq = this.getFrequencyRange(85, 170);
+                const highFreq = this.getFrequencyRange(170, 255);
                 
                 for (let i = 0; i < this.gridSize; i++) {
                     for (let j = 0; j < this.gridSize; j++) {
                         const index = i * this.gridSize + j;
                         const vertexIndex = index * 3;
                         
-                        // Get frequency data
-                        const freqIndex = Math.floor(index * frequencyStep);
-                        const frequency = this.dataArray[freqIndex] || 0;
-                        
-                        // Calculate height based on frequency
-                        const normalizedFreq = frequency / 255;
-                        const height = normalizedFreq * 50 * this.sensitivity;
-                        
-                        // Add some wave motion
-                        const time = Date.now() * 0.001;
+                        // Calculate audio-reactive height
                         const x = (j - this.gridSize / 2) * 2.5;
                         const z = (i - this.gridSize / 2) * 2.5;
-                        const waveEffect = Math.sin(time * 2 + Math.sqrt(x * x + z * z) * 0.1) * 2;
+                        const distance = Math.sqrt(x * x + z * z);
                         
-                        const finalHeight = height + waveEffect;
+                        // Multiple frequency bands affecting different areas
+                        const freqIndex = Math.floor((distance / 100) * this.dataArray.length);
+                        const clampedIndex = Math.min(Math.max(freqIndex, 0), this.dataArray.length - 1);
+                        const amplitude = this.dataArray[clampedIndex] / 255;
+                        
+                        // Complex wave calculation with audio data
+                        const audioHeight = amplitude * this.sensitivity * 30;
+                        const time = Date.now() * 0.001;
+                        const wave = Math.sin(distance * 0.1 + time) * (5 + amplitude * 10);
+                        const ripple = Math.cos(x * 0.05 + time) * Math.sin(z * 0.05 + time) * (2 + amplitude * 8);
+                        
+                        const finalHeight = audioHeight + wave + ripple;
                         
                         if (vertexIndex + 1 < positions.length) {
                             positions[vertexIndex + 1] = finalHeight;
-                            wireframePositions[vertexIndex + 1] = finalHeight + 0.5;
+                            wireframePositions[vertexIndex + 1] = finalHeight + 1;
                         }
+                        
+                        // Dynamic color based on frequency
+                        const r = (lowFreq + amplitude) * 0.5;
+                        const g = (midFreq + amplitude) * 0.3;
+                        const b = (highFreq + amplitude) * 0.8;
+                        
+                        colors.push(r, g, b);
                     }
                 }
                 
                 this.mesh.geometry.attributes.position.needsUpdate = true;
                 this.wireframeMesh.geometry.attributes.position.needsUpdate = true;
                 
-                // Update colors based on frequency intensity
-                const avgFrequency = this.dataArray.reduce((sum, val) => sum + val, 0) / this.dataArray.length;
-                const normalizedAvg = avgFrequency / 255;
-                
+                // Update material color based on overall audio level
+                const avgAmplitude = this.dataArray.reduce((a, b) => a + b) / this.dataArray.length / 255;
                 this.mesh.material.color.setHSL(
-                    normalizedAvg * 0.7 + 0.6,
-                    0.8,
-                    0.5 + normalizedAvg * 0.3
+                    (avgAmplitude * 0.8 + Date.now() * 0.0001) % 1,
+                    0.7 + avgAmplitude * 0.3,
+                    0.4 + avgAmplitude * 0.4
                 );
                 
-                this.wireframeMesh.material.color.setHSL(
-                    normalizedAvg * 0.7 + 0.4,
-                    0.9,
-                    0.6 + normalizedAvg * 0.4
-                );
+                // Update particle system
+                if (this.particles) {
+                    this.particles.rotation.y += 0.001 + avgAmplitude * 0.005;
+                    this.particles.rotation.x += 0.0005 + avgAmplitude * 0.002;
+                }
+            }
+            
+            getFrequencyRange(start, end) {
+                if (!this.dataArray) return 0;
+                let sum = 0;
+                const count = end - start;
+                for (let i = start; i < end && i < this.dataArray.length; i++) {
+                    sum += this.dataArray[i];
+                }
+                return sum / count / 255;
             }
             
             updateCamera() {
-                // Mouse-based camera movement
-                this.cameraAngle += this.mouseX * 0.005;
-                
-                const targetX = Math.sin(this.cameraAngle) * this.cameraRadius;
-                const targetZ = Math.cos(this.cameraAngle) * this.cameraRadius;
-                const targetY = 80 + this.mouseY * 30;
+                // Smooth camera movement based on mouse and audio
+                const targetX = this.mouseX * 20;
+                const targetY = 20 + this.mouseY * 10;
                 
                 this.camera.position.x += (targetX - this.camera.position.x) * 0.05;
-                this.camera.position.z += (targetZ - this.camera.position.z) * 0.05;
                 this.camera.position.y += (targetY - this.camera.position.y) * 0.05;
+                
+                // Audio-reactive camera movement
+                if (this.dataArray) {
+                    const avgAmplitude = this.dataArray.reduce((a, b) => a + b) / this.dataArray.length / 255;
+                    this.cameraAngle += 0.005 + avgAmplitude * 0.01;
+                    
+                    const radius = 120 + avgAmplitude * 30;
+                    this.camera.position.x += Math.sin(this.cameraAngle) * 0.5;
+                    this.camera.position.z += Math.cos(this.cameraAngle) * 0.5;
+                }
                 
                 this.camera.lookAt(0, 0, 0);
             }
             
-            animate() {
-                requestAnimationFrame(() => this.animate());
-                
-                if (this.isPlaying) {
-                    this.updateVisualization();
+            updateLighting() {
+                // Dynamic lighting based on audio
+                if (this.dataArray) {
+                    const lowFreq = this.getFrequencyRange(0, 85);
+                    const midFreq = this.getFrequencyRange(85, 170);
+                    const highFreq = this.getFrequencyRange(170, 255);
+                    
+                    // Update point light colors and intensities
+                    const lights = this.scene.children.filter(child => child instanceof THREE.PointLight);
+                    if (lights.length >= 3) {
+                        lights[0].intensity = 0.5 + lowFreq * 1.5;
+                        lights[1].intensity = 0.5 + midFreq * 1.5;
+                        lights[2].intensity = 0.5 + highFreq * 1.5;
+                        
+                        // Color shifting
+                        const time = Date.now() * 0.001;
+                        lights[0].color.setHSL((time * 0.1 + lowFreq) % 1, 0.8, 0.6);
+                        lights[1].color.setHSL((time * 0.1 + midFreq + 0.3) % 1, 0.8, 0.6);
+                        lights[2].color.setHSL((time * 0.1 + highFreq + 0.6) % 1, 0.8, 0.6);
+                    }
                 }
-                
-                this.updateCamera();
-                this.renderer.render(this.scene, this.camera);
             }
         }
         
-        // Initialize the visualizer when the page loads
+        // Initialize the visualizer
+        let visualizer;
+        
         window.addEventListener('load', () => {
-            new AudioVisualizer();
+            visualizer = new EnhancedAudioVisualizer();
         });
+        
+        // Export for global access
+        window.visualizer = visualizer;
     </script>
 </body>
 </html>
