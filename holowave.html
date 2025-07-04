@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Audio Frequency Visualizer - Playlist Edition</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            max-width: 350px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 3px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn.recording {
+            background: linear-gradient(45deg, #ff4444 0%, #cc0000 100%);
+            animation: pulse 1s infinite;
+        }
+        
+        .btn.record {
+            background: linear-gradient(45deg, #ff6b6b 0%, #ee5a52 100%);
+        }
+        
+        .btn.download {
+            background: linear-gradient(45deg, #4ecdc4 0%, #44a08d 100%);
+        }
+        
+        .btn.playlist {
+            background: linear-gradient(45deg, #ffa726 0%, #ff7043 100%);
+        }
+        
+        .btn.active {
+            background: linear-gradient(45deg, #4caf50 0%, #45a049 100%);
+        }
+        
+        .btn.small {
+            padding: 5px 12px;
+            font-size: 11px;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 400px;
+        }
+        
+        .control-group {
+            margin: 10px 0;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .control-group:last-child {
+            border-bottom: none;
+        }
+        
+        .control-group h3 {
+            color: #fff;
+            font-size: 14px;
+            margin: 0 0 10px 0;
+        }
+        
+        label {
+            color: #fff;
+            font-size: 12px;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        input[type="range"] {
+            width: 180px;
+        }
+        
+        select {
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        #status {
+            color: #0f0;
+            font-size: 10px;
+            margin-top: 5px;
+        }
+        
+        #recordingStatus {
+            color: #ff6b6b;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        #downloadSection {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+        }
+        
+        .download-link {
+            display: block;
+            color: #4ecdc4;
+            text-decoration: none;
+            font-size: 11px;
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(78, 205, 196, 0.1);
+            border-radius: 3px;
+        }
+        
+        .download-link:hover {
+            background: rgba(78, 205, 196, 0.2);
+        }
+        
+        #playlist {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .playlist-item {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            margin: 3px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .playlist-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .playlist-item.current {
+            background: rgba(102, 126, 234, 0.3);
+            border: 1px solid #667eea;
+        }
+        
+        .playlist-item .name {
+            flex: 1;
+            color: #fff;
+            font-size: 11px;
+            margin-right: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .playlist-item .duration {
+            color: #aaa;
+            font-size: 10px;
+            margin-right: 10px;
+        }
+        
+        .playlist-item .remove {
+            color: #ff6b6b;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px 5px;
+        }
+        
+        .playlist-item .remove:hover {
+            color: #ff4444;
+        }
+        
+        .playlist-controls {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .now-playing {
+            color: #4ecdc4;
+            font-size: 12px;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: rgba(78, 205, 196, 0.1);
+            border-radius: 5px;
+            border-left: 3px solid #4ecdc4;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        
+        .progress {
+            height: 100%;
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="controls">
+            <div class="control-group">
+                <h3>Audio Upload</h3>
+                <input type="file" id="fileInput" accept="audio/*" multiple>
+                <button class="btn" onclick="document.getElementById('fileInput').click()">Add Audio Files</button>
+            </div>
+            
+            <div class="control-group">
+                <h3>Playback Controls</h3>
+                <button class="btn" id="playBtn" disabled>Play</button>
+                <button class="btn" id="pauseBtn" disabled>Pause</button>
+                <button class="btn" id="prevBtn" disabled>Previous</button>
+                <button class="btn" id="nextBtn" disabled>Next</button>
+            </div>
+            
+            <div class="control-group">
+                <h3>Playlist Options</h3>
+                <div class="playlist-controls">
+                    <button class="btn playlist small" id="loopBtn">Loop: Off</button>
+                    <button class="btn playlist small" id="shuffleBtn">Shuffle: Off</button>
+                    <button class="btn playlist small" id="clearBtn">Clear All</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Now Playing</h3>
+                <div id="nowPlaying" class="now-playing">No track selected</div>
+                <div class="progress-bar">
+                    <div class="progress" id="progressBar"></div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Playlist</h3>
+                <div id="playlist"></div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Recording</h3>
+                <button class="btn record" id="recordBtn" disabled>Start Recording</button>
+                <button class="btn" id="stopRecordBtn" disabled>Stop Recording</button>
+                <label for="recordQuality">Quality:</label>
+                <select id="recordQuality">
+                    <option value="720">720p</option>
+                    <option value="1080" selected>1080p</option>
+                    <option value="1440">1440p</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <h3>Visualization</h3>
+                <label for="sensitivity">Sensitivity:</label>
+                <input type="range" id="sensitivity" min="0.1" max="3" value="1.5" step="0.1">
+                <label for="smoothing">Smoothing:</label>
+                <input type="range" id="smoothing" min="0" max="0.9" value="0.7" step="0.1">
+            </div>
+            
+            <div id="downloadSection">
+                <div id="downloadLinks"></div>
+            </div>
+            
+            <div id="status">Ready - Add audio files to create playlist</div>
+            <div id="recordingStatus">● Recording...</div>
+        </div>
+        
+        <div id="info">
+            3D Audio Frequency Visualizer - Playlist Edition<br>
+            <small>Upload multiple files, create playlists, and record your visualizations!</small>
+        </div>
+        
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        class AudioVisualizer {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.analyser = null;
+                this.dataArray = null;
+                this.audioContext = null;
+                this.source = null;
+                this.audio = null;
+                this.mesh = null;
+                this.wireframeMesh = null;
+                this.isPlaying = false;
+                
+                // Playlist properties
+                this.playlist = [];
+                this.currentTrackIndex = 0;
+                this.isLooping = false;
+                this.isShuffling = false;
+                this.shuffleHistory = [];
+                
+                // Recording properties
+                this.mediaRecorder = null;
+                this.recordedChunks = [];
+                this.isRecording = false;
+                this.stream = null;
+                this.audioStream = null;
+                
+                this.gridSize = 64;
+                this.sensitivity = 1.5;
+                this.smoothing = 0.7;
+                
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.cameraRadius = 150;
+                this.cameraAngle = 0;
+                
+                this.init();
+                this.setupEventListeners();
+                this.animate();
+                this.startProgressUpdater();
+            }
+            
+            init() {
+                // Scene setup
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x000011);
+                
+                // Camera setup
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.set(0, 80, 120);
+                this.camera.lookAt(0, 0, 0);
+                
+                // Renderer setup
+                this.renderer = new THREE.WebGLRenderer({ 
+                    canvas: document.getElementById('canvas'),
+                    antialias: true,
+                    preserveDrawingBuffer: true
+                });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                
+                // Lighting
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                this.scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(50, 100, 50);
+                directionalLight.castShadow = true;
+                this.scene.add(directionalLight);
+                
+                // Point lights
+                const pointLight1 = new THREE.PointLight(0xff0080, 1, 200);
+                pointLight1.position.set(50, 50, 50);
+                this.scene.add(pointLight1);
+                
+                const pointLight2 = new THREE.PointLight(0x0080ff, 1, 200);
+                pointLight2.position.set(-50, 50, -50);
+                this.scene.add(pointLight2);
+                
+                // Create initial mesh
+                this.createMesh();
+                
+                // Update status
+                document.getElementById('status').textContent = 'Scene initialized - Add audio files to playlist';
+            }
+            
+            createMesh() {
+                // Create plane geometry
+                const geometry = new THREE.PlaneGeometry(
+                    160, 160, 
+                    this.gridSize - 1, 
+                    this.gridSize - 1
+                );
+                geometry.rotateX(-Math.PI / 2);
+                
+                // Main mesh material
+                const material = new THREE.MeshPhongMaterial({
+                    color: 0x4444ff,
+                    wireframe: false,
+                    transparent: true,
+                    opacity: 0.8,
+                    side: THREE.DoubleSide,
+                    shininess: 100
+                });
+                
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.mesh.receiveShadow = true;
+                this.scene.add(this.mesh);
+                
+                // Wireframe overlay
+                const wireframeGeometry = geometry.clone();
+                const wireframeMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x00ffff,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.4
+                });
+                
+                this.wireframeMesh = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
+                this.wireframeMesh.position.y = 0.2;
+                this.scene.add(this.wireframeMesh);
+                
+                // Add base animation
+                this.startBaseAnimation();
+            }
+            
+            startBaseAnimation() {
+                this.baseAnimationId = setInterval(() => {
+                    if (!this.isPlaying && this.mesh) {
+                        this.updateBaseVisualization();
+                    }
+                }, 16);
+            }
+            
+            updateBaseVisualization() {
+                const positions = this.mesh.geometry.attributes.position.array;
+                const wireframePositions = this.wireframeMesh.geometry.attributes.position.array;
+                const time = Date.now() * 0.001;
+                
+                for (let i = 0; i < this.gridSize; i++) {
+                    for (let j = 0; j < this.gridSize; j++) {
+                        const index = i * this.gridSize + j;
+                        const vertexIndex = index * 3;
+                        
+                        const x = (j - this.gridSize / 2) * 2.5;
+                        const z = (i - this.gridSize / 2) * 2.5;
+                        const distance = Math.sqrt(x * x + z * z);
+                        
+                        const wave1 = Math.sin(distance * 0.08 + time * 1.5) * 8;
+                        const wave2 = Math.cos(x * 0.03 + time) * Math.sin(z * 0.03 + time) * 4;
+                        const height = wave1 + wave2;
+                        
+                        if (vertexIndex + 1 < positions.length) {
+                            positions[vertexIndex + 1] = height;
+                            wireframePositions[vertexIndex + 1] = height + 0.5;
+                        }
+                    }
+                }
+                
+                this.mesh.geometry.attributes.position.needsUpdate = true;
+                this.wireframeMesh.geometry.attributes.position.needsUpdate = true;
+            }
+            
+            setupEventListeners() {
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.loadAudioFiles(e.target.files);
+                });
+                
+                document.getElementById('playBtn').addEventListener('click', () => {
+                    this.playAudio();
+                });
+                
+                document.getElementById('pauseBtn').addEventListener('click', () => {
+                    this.pauseAudio();
+                });
+                
+                document.getElementById('prevBtn').addEventListener('click', () => {
+                    this.previousTrack();
+                });
+                
+                document.getElementById('nextBtn').addEventListener('click', () => {
+                    this.nextTrack();
+                });
+                
+                document.getElementById('loopBtn').addEventListener('click', () => {
+                    this.toggleLoop();
+                });
+                
+                document.getElementById('shuffleBtn').addEventListener('click', () => {
+                    this.toggleShuffle();
+                });
+                
+                document.getElementById('clearBtn').addEventListener('click', () => {
+                    this.clearPlaylist();
+                });
+                
+                document.getElementById('recordBtn').addEventListener('click', () => {
+                    this.startRecording();
+                });
+                
+                document.getElementById('stopRecordBtn').addEventListener('click', () => {
+                    this.stopRecording();
+                });
+                
+                document.getElementById('sensitivity').addEventListener('input', (e) => {
+                    this.sensitivity = parseFloat(e.target.value);
+                });
+                
+                document.getElementById('smoothing').addEventListener('input', (e) => {
+                    this.smoothing = parseFloat(e.target.value);
+                    if (this.analyser) {
+                        this.analyser.smoothingTimeConstant = this.smoothing;
+                    }
+                });
+                
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+                
+                document.addEventListener('mousemove', (e) => {
+                    this.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+                    this.mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+                });
+            }
+            
+            async loadAudioFiles(files) {
+                if (!files || files.length === 0) return;
+                
+                const loadPromises = Array.from(files).map(file => this.loadSingleAudio(file));
+                const results = await Promise.allSettled(loadPromises);
+                
+                const successCount = results.filter(r => r.status === 'fulfilled').length;
+                const failCount = results.filter(r => r.status === 'rejected').length;
+                
+                if (successCount > 0) {
+                    this.updatePlaylistUI();
+                    this.updateButtons();
+                    
+                    if (this.playlist.length === successCount) {
+                        // First files loaded, select first track
+                        this.currentTrackIndex = 0;
+                        this.selectTrack(0);
+                    }
+                    
+                    document.getElementById('status').textContent = 
+                        `Loaded ${successCount} file(s)${failCount > 0 ? `, ${failCount} failed` : ''}`;
+                } else {
+                    document.getElementById('status').textContent = 'Error loading audio files';
+                }
+            }
+            
+            async loadSingleAudio(file) {
+                return new Promise((resolve, reject) => {
+                    const audio = new Audio();
+                    audio.crossOrigin = 'anonymous';
+                    audio.src = URL.createObjectURL(file);
+                    
+                    audio.addEventListener('loadedmetadata', () => {
+                        const track = {
+                            name: file.name,
+                            file: file,
+                            url: audio.src,
+                            duration: audio.duration,
+                            audio: audio
+                        };
+                        
+                        this.playlist.push(track);
+                        resolve(track);
+                    });
+                    
+                    audio.addEventListener('error', reject);
+                    audio.addEventListener('ended', () => {
+                        this.onTrackEnded();
+                    });
+                });
+            }
+            
+            updatePlaylistUI() {
+                const playlistElement = document.getElementById('playlist');
+                playlistElement.innerHTML = '';
+                
+                this.playlist.forEach((track, index) => {
+                    const item = document.createElement('div');
+                    item.className = `playlist-item ${index === this.currentTrackIndex ? 'current' : ''}`;
+                    
+                    const name = document.createElement('div');
+                    name.className = 'name';
+                    name.textContent = track.name;
+                    
+                    const duration = document.createElement('div');
+                    duration.className = 'duration';
+                    duration.textContent = this.formatTime(track.duration);
+                    
+                    const remove = document.createElement('div');
+                    remove.className = 'remove';
+                    remove.textContent = '×';
+                    remove.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.removeTrack(index);
+                    });
+                    
+                    item.appendChild(name);
+                    item.appendChild(duration);
+                    item.appendChild(remove);
+                    
+                    item.addEventListener('click', () => {
+                        this.selectTrack(index);
+                    });
+                    
+                    playlistElement.appendChild(item);
+                });
+            }
+            
+            selectTrack(index) {
+                if (index < 0 || index >= this.playlist.length) return;
+                
+                this.pauseAudio();
+                this.currentTrackIndex = index;
+                
+                const track = this.playlist[index];
+                this.setupAudioContext(track);
+                this.updatePlaylistUI();
+                this.updateNowPlaying();
+                
+                document.getElementById('status').textContent = `Selected: ${track.name}`;
+            }
+            
+            async setupAudioContext(track) {
+                try {
+                    if (this.audioContext) {
+                        await this.audioContext.close();
+                    }
+                    
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.audio = track.audio;
+                    
+                    this.source = this.audioContext.createMediaElementSource(this.audio);
+                    this.analyser = this.audioContext.createAnalyser();
+                    
+                    this.analyser.fftSize = 256;
+                    this.analyser.smoothingTimeConstant = this.smoothing;
+                    
+                    this.source.connect(this.analyser);
+                    this.analyser.connect(this.audioContext.destination);
+                    
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    
+                } catch (error) {
+                    console.error('Error setting up audio context:', error);
+                }
+            }
+            
+            updateNowPlaying() {
+                const nowPlayingElement = document.getElementById('nowPlaying');
+                if (this.playlist.length > 0 && this.currentTrackIndex >= 0) {
+                    const track = this.playlist[this.currentTrackIndex];
+                    nowPlayingElement.textContent = `${track.name} (${this.currentTrackIndex + 1}/${this.playlist.length})`;
+                } else {
+                    nowPlayingElement.textContent = 'No track selected';
+                }
+            }
+            
+            updateButtons() {
+                const hasPlaylist = this.playlist.length > 0;
+                document.getElementById('playBtn').disabled = !hasPlaylist;
+                document.getElementById('pauseBtn').disabled = !hasPlaylist;
+                document.getElementById('prevBtn').disabled = !hasPlaylist;
+                document.getElementById('nextBtn').disabled = !hasPlaylist;
+                document.getElementById('recordBtn').disabled = !hasPlaylist;
+            }
+            
+            async playAudio() {
+                if (!this.audio || !this.audioContext) return;
+                
+                try {
+                    if (this.audioContext.state === 'suspended') {
+                        await this.audioContext.resume();
+                    }
+                    
+                    await this.audio.play();
+                    this.isPlaying = true;
+                    document.getElementById('status').textContent = 'Playing - Visualizing frequencies';
+                    
+                } catch (error) {
+                    console.error('Error playing audio:', error);
+                    document.getElementById('status').textContent = 'Error playing audio';
+                }
+            }
+            
+            pauseAudio() {
+                if (this.audio) {
+                    this.audio.pause();
+                    this.isPlaying = false;
+                    document.getElementById('status').textContent = 'Paused';
+                }
+            }
+            
+            previousTrack() {
+                if (this.playlist.length === 0) return;
+                
+                let newIndex;
+                if (this.isShuffling) {
+                    // Go back in shuffle history
+                    if (this.shuffleHistory.length > 1) {
+                        this.shuffleHistory.pop(); // Remove current
+                        newIndex = this.shuffleHistory[this.shuffleHistory.length - 1];
+                    } else {
+                        newIndex = this.getRandomTrackIndex();
+                    }
+                } else {
+                    newIndex = this.currentTrackIndex - 1;
+                    if (newIndex < 0) {
+                        newIndex = this.isLooping ? this.playlist.length - 1 : 0;
+                    }
+                }
+                
+                this.selectTrack(newIndex);
+                if (this.isPlaying) {
+                    this.playAudio();
+                }
+            }
+            
+            nextTrack() {
+                if (this.playlist.length === 0) return;
+                
+                let newIndex;
+                if (this.isShuffling) {
+                    newIndex = this.getRandomTrackIndex();
+                    this.shuffleHistory.push(newIndex);
+                } else {
+                    newIndex = this.currentTrackIndex + 1;
+                    if (newIndex >= this.playlist.length) {
+                        newIndex = this.isLooping ? 0 : this.playlist.length - 1;
+                    }
+                }
+                
+                this.selectTrack(newIndex);
+                if (this.isPlaying) {
+                    this.playAudio();
+                }
+            }
+            
+            getRandomTrackIndex() {
+                if (this.playlist.length === 1) return 0;
+                
+                let randomIndex;
+                do {
+                    randomIndex = Math.floor(Math.random() * this.playlist.length);
+                } while (randomIndex === this.currentTrackIndex);
+                
+                return randomIndex;
+            }
+            
+            onTrackEnded() {
+                if (this.isLooping && this.playlist.length === 1) {
+                    this.audio.currentTime = 0;
+                    this.playAudio();
+                } else if (this.currentTrackIndex < this.playlist.length - 1 || this.isLooping || this.isShuffling) {
+                    this.nextTrack();
+                } else {
+                    this.isPlaying = false;
+                    document.getElementById('status').textContent = 'Playlist finished';
+                }
+            }
+            
+            toggleLoop() {
+                this.isLooping = !this.isLooping;
+                const btn = document.getElementById('loopBtn');
+                btn.textContent = `Loop: ${this.isLooping ? 'On' : 'Off'}`;
+                btn.classList.toggle('active', this.isLooping);
+            }
+            
+            toggleShuffle() {
+                this.isShuffling = !this.isShuffling;
+                const btn = document.getElementById('shuffleBtn');
+                btn.textContent = `Shuffle: ${this.isShuffling ? 'On' : 'Off'}`;
+                btn.classList.toggle('active', this.isShuffling);
+                
+                if (this.isShuffling) {
+                    this.shuffleHistory = [this.currentTrackIndex];
+                } else {
+                    this.shuffleHistory = [];
+                }
+            }
+            
+            removeTrack(index) {
+                if (index < 0 || index >= this.playlist.length) return;
+                
+                const wasCurrentTrack = index === this.currentTrackIndex;
+                const wasPlaying = this.isPlaying;
+                
+                // Clean up URL
+                URL.revokeObjectURL(this.playlist[index].url);
+                
+                // Remove from playlist
+                this.playlist.splice(index, 1);
+                
+                // Adjust current track index
+                if (index < this.currentTrackIndex) {
+                    this.currentTrackIndex--;
+                } else if (index === this.currentTrackIndex) {
+                    if (this.currentTrackIndex >= this.playlist.length) {
+                        this.currentTrackIndex = Math.max(0, this.playlist.length - 1);
+                    }
+                    
+                    if (this.playlist.length > 0) {
+                        this.selectTrack(this.currentTrackIndex);
+                        if (wasPlaying) {
+                            this.playAudio();
+                        }
+                    } else {
+                        this.pauseAudio();
+                        this.currentTrackIndex = 0;
+                    }
+                }
+                this.updatePlaylistUI();
+                this.updateButtons();
+                this.updateNowPlaying();
+            }
+            
+            clearPlaylist() {
+                this.pauseAudio();
+                
+                // Clean up URLs
+                this.playlist.forEach(track => {
+                    URL.revokeObjectURL(track.url);
+                });
+                
+                this.playlist = [];
+                this.currentTrackIndex = 0;
+                this.shuffleHistory = [];
+                
+                this.updatePlaylistUI();
+                this.updateButtons();
+                this.updateNowPlaying();
+                
+                document.getElementById('status').textContent = 'Playlist cleared';
+            }
+            
+            async startRecording() {
+                if (!this.renderer || this.isRecording) return;
+                
+                try {
+                    // Get canvas stream
+                    const quality = document.getElementById('recordQuality').value;
+                    const fps = 30;
+                    
+                    this.stream = this.renderer.domElement.captureStream(fps);
+                    
+                    // Get audio stream if available
+                    if (this.audio && this.audioContext) {
+                        const dest = this.audioContext.createMediaStreamDestination();
+                        this.source.connect(dest);
+                        this.audioStream = dest.stream;
+                        
+                        // Combine video and audio
+                        const audioTracks = this.audioStream.getAudioTracks();
+                        audioTracks.forEach(track => {
+                            this.stream.addTrack(track);
+                        });
+                    }
+                    
+                    this.recordedChunks = [];
+                    this.mediaRecorder = new MediaRecorder(this.stream, {
+                        mimeType: 'video/webm;codecs=vp9',
+                        videoBitsPerSecond: this.getVideoBitrate(quality)
+                    });
+                    
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.recordedChunks.push(event.data);
+                        }
+                    };
+                    
+                    this.mediaRecorder.onstop = () => {
+                        this.saveRecording();
+                    };
+                    
+                    this.mediaRecorder.start();
+                    this.isRecording = true;
+                    
+                    document.getElementById('recordBtn').disabled = true;
+                    document.getElementById('stopRecordBtn').disabled = false;
+                    document.getElementById('recordBtn').classList.add('recording');
+                    document.getElementById('recordingStatus').style.display = 'block';
+                    
+                    document.getElementById('status').textContent = 'Recording visualization...';
+                    
+                } catch (error) {
+                    console.error('Error starting recording:', error);
+                    document.getElementById('status').textContent = 'Error starting recording';
+                }
+            }
+            
+            stopRecording() {
+                if (!this.isRecording || !this.mediaRecorder) return;
+                
+                this.mediaRecorder.stop();
+                this.isRecording = false;
+                
+                // Clean up streams
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                }
+                if (this.audioStream) {
+                    this.audioStream.getTracks().forEach(track => track.stop());
+                }
+                
+                document.getElementById('recordBtn').disabled = false;
+                document.getElementById('stopRecordBtn').disabled = true;
+                document.getElementById('recordBtn').classList.remove('recording');
+                document.getElementById('recordingStatus').style.display = 'none';
+                
+                document.getElementById('status').textContent = 'Recording stopped - Processing...';
+            }
+            
+            getVideoBitrate(quality) {
+                const bitrates = {
+                    '720': 2500000,
+                    '1080': 5000000,
+                    '1440': 8000000
+                };
+                return bitrates[quality] || bitrates['1080'];
+            }
+            
+            saveRecording() {
+                if (this.recordedChunks.length === 0) return;
+                
+                const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const filename = `visualizer-${timestamp}.webm`;
+                
+                // Create download link
+                const downloadLinks = document.getElementById('downloadLinks');
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.className = 'download-link';
+                link.textContent = `Download ${filename}`;
+                
+                // Add remove functionality
+                const removeBtn = document.createElement('span');
+                removeBtn.textContent = ' ×';
+                removeBtn.style.color = '#ff6b6b';
+                removeBtn.style.cursor = 'pointer';
+                removeBtn.onclick = (e) => {
+                    e.preventDefault();
+                    URL.revokeObjectURL(url);
+                    link.remove();
+                };
+                
+                link.appendChild(removeBtn);
+                downloadLinks.appendChild(link);
+                
+                document.getElementById('status').textContent = 'Recording saved! Check downloads.';
+            }
+            
+            startProgressUpdater() {
+                setInterval(() => {
+                    if (this.audio && this.isPlaying) {
+                        const progress = (this.audio.currentTime / this.audio.duration) * 100;
+                        document.getElementById('progressBar').style.width = progress + '%';
+                    }
+                }, 100);
+            }
+            
+            formatTime(seconds) {
+                if (isNaN(seconds)) return '0:00';
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = Math.floor(seconds % 60);
+                return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }
+            
+            updateVisualization() {
+                if (!this.analyser || !this.dataArray || !this.isPlaying) return;
+                
+                this.analyser.getByteFrequencyData(this.dataArray);
+                
+                const positions = this.mesh.geometry.attributes.position.array;
+                const wireframePositions = this.wireframeMesh.geometry.attributes.position.array;
+                
+                // Process frequency data
+                const frequencyStep = this.dataArray.length / (this.gridSize * this.gridSize);
+                
+                for (let i = 0; i < this.gridSize; i++) {
+                    for (let j = 0; j < this.gridSize; j++) {
+                        const index = i * this.gridSize + j;
+                        const vertexIndex = index * 3;
+                        
+                        // Get frequency data
+                        const freqIndex = Math.floor(index * frequencyStep);
+                        const frequency = this.dataArray[freqIndex] || 0;
+                        
+                        // Calculate height based on frequency
+                        const normalizedFreq = frequency / 255;
+                        const height = normalizedFreq * 50 * this.sensitivity;
+                        
+                        // Add some wave motion
+                        const time = Date.now() * 0.001;
+                        const x = (j - this.gridSize / 2) * 2.5;
+                        const z = (i - this.gridSize / 2) * 2.5;
+                        const waveEffect = Math.sin(time * 2 + Math.sqrt(x * x + z * z) * 0.1) * 2;
+                        
+                        const finalHeight = height + waveEffect;
+                        
+                        if (vertexIndex + 1 < positions.length) {
+                            positions[vertexIndex + 1] = finalHeight;
+                            wireframePositions[vertexIndex + 1] = finalHeight + 0.5;
+                        }
+                    }
+                }
+                
+                this.mesh.geometry.attributes.position.needsUpdate = true;
+                this.wireframeMesh.geometry.attributes.position.needsUpdate = true;
+                
+                // Update colors based on frequency intensity
+                const avgFrequency = this.dataArray.reduce((sum, val) => sum + val, 0) / this.dataArray.length;
+                const normalizedAvg = avgFrequency / 255;
+                
+                this.mesh.material.color.setHSL(
+                    normalizedAvg * 0.7 + 0.6,
+                    0.8,
+                    0.5 + normalizedAvg * 0.3
+                );
+                
+                this.wireframeMesh.material.color.setHSL(
+                    normalizedAvg * 0.7 + 0.4,
+                    0.9,
+                    0.6 + normalizedAvg * 0.4
+                );
+            }
+            
+            updateCamera() {
+                // Mouse-based camera movement
+                this.cameraAngle += this.mouseX * 0.005;
+                
+                const targetX = Math.sin(this.cameraAngle) * this.cameraRadius;
+                const targetZ = Math.cos(this.cameraAngle) * this.cameraRadius;
+                const targetY = 80 + this.mouseY * 30;
+                
+                this.camera.position.x += (targetX - this.camera.position.x) * 0.05;
+                this.camera.position.z += (targetZ - this.camera.position.z) * 0.05;
+                this.camera.position.y += (targetY - this.camera.position.y) * 0.05;
+                
+                this.camera.lookAt(0, 0, 0);
+            }
+            
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                if (this.isPlaying) {
+                    this.updateVisualization();
+                }
+                
+                this.updateCamera();
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+        
+        // Initialize the visualizer when the page loads
+        window.addEventListener('load', () => {
+            new AudioVisualizer();
+        });
+    </script>
+</body>
+</html>
