@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Wave Propagation Simulation - Physics Units</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3a 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            color: #ffffff;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 380px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            color: #64ffda;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .control-item {
+            margin-bottom: 12px;
+        }
+        
+        .control-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #b0b0b0;
+        }
+        
+        .control-item input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+            -webkit-appearance: none;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+        }
+        
+        .control-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #64ffda;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(100, 255, 218, 0.5);
+        }
+        
+        .value-display {
+            font-size: 11px;
+            color: #64ffda;
+            text-align: right;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .unit-label {
+            font-size: 10px;
+            color: #888;
+            margin-left: 5px;
+        }
+        
+        .toggle-btn {
+            background: rgba(100, 255, 218, 0.2);
+            border: 1px solid #64ffda;
+            color: #64ffda;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .toggle-btn.active {
+            background: #64ffda;
+            color: #0f0f23;
+        }
+        
+        .toggle-btn:hover {
+            background: rgba(100, 255, 218, 0.3);
+        }
+        
+        .toggle-btn.active:hover {
+            background: #4fd3a7;
+        }
+        
+        #equations {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 350px;
+            font-size: 12px;
+            color: #e0e0e0;
+        }
+        
+        .equation {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #64ffda;
+        }
+        
+        .equation-title {
+            color: #64ffda;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .equation-formula {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #fff;
+            margin-bottom: 5px;
+        }
+        
+        .equation-desc {
+            color: #b0b0b0;
+            font-size: 11px;
+            line-height: 1.3;
+        }
+        
+        #physics-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 11px;
+            color: #b0b0b0;
+            max-width: 300px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .physics-param {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .param-name {
+            color: #64ffda;
+            font-weight: bold;
+        }
+        
+        .param-value {
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #b0b0b0;
+            max-width: 300px;
+        }
+        
+        .simulation-mode {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .coherence-indicator {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .coherence-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%);
+            transition: width 0.3s ease;
+            width: 100%;
+        }
+        
+        .wave-type-select {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .medium-type {
+            font-size: 11px;
+            color: #888;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="controls">
+            <div class="control-group">
+                <h3>Wave Type</h3>
+                <div class="wave-type-select">
+                    <button class="toggle-btn active" id="mechanicalBtn">Mechanical</button>
+                    <button class="toggle-btn" id="electromagBtn">EM Wave</button>
+                    <button class="toggle-btn" id="acousticBtn">Acoustic</button>
+                </div>
+                <div class="medium-type" id="mediumType">Medium: Water (ρ = 1000 kg/m³)</div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Simulation Mode</h3>
+                <div class="simulation-mode">
+                    <button class="toggle-btn active" id="singleBtn">Single Source</button>
+                    <button class="toggle-btn" id="dualBtn">Dual Source</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Wave Parameters</h3>
+                <div class="control-item">
+                    <label>Amplitude (A)</label>
+                    <input type="range" id="amplitude" min="0.1" max="2" step="0.1" value="1">
+                    <div class="value-display" id="amplitudeVal">1.0 <span class="unit-label" id="amplitudeUnit">m</span></div>
+                </div>
+                <div class="control-item">
+                    <label>Wavelength (λ)</label>
+                    <input type="range" id="wavelength" min="0.5" max="5" step="0.1" value="2">
+                    <div class="value-display" id="wavelengthVal">2.0 <span class="unit-label">m</span></div>
+                </div>
+                <div class="control-item">
+                    <label>Frequency (f)</label>
+                    <input type="range" id="frequency" min="0.1" max="3" step="0.1" value="1">
+                    <div class="value-display" id="frequencyVal">1.0 <span class="unit-label">Hz</span></div>
+                </div>
+                <div class="control-item">
+                    <label>Phase (φ)</label>
+                    <input type="range" id="phase" min="0" max="6.28" step="0.1" value="0">
+                    <div class="value-display" id="phaseVal">0.0 <span class="unit-label">rad</span></div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Medium Properties</h3>
+                <div class="control-item">
+                    <label>Density (ρ)</label>
+                    <input type="range" id="density" min="100" max="2000" step="50" value="1000">
+                    <div class="value-display" id="densityVal">1000 <span class="unit-label">kg/m³</span></div>
+                </div>
+                <div class="control-item">
+                    <label>Damping Coefficient (β)</label>
+                    <input type="range" id="damping" min="0" max="0.1" step="0.005" value="0.02">
+                    <div class="value-display" id="dampingVal">0.02 <span class="unit-label">m⁻¹</span></div>
+                </div>
+                <div class="control-item">
+                    <label>Wave Speed (v)</label>
+                    <input type="range" id="waveSpeed" min="100" max="1500" step="50" value="343">
+                    <div class="value-display" id="waveSpeedVal">343 <span class="unit-label">m/s</span></div>
+                </div>
+            </div>
+            
+            <div class="control-group" id="dualSourceControls" style="display: none;">
+                <h3>Dual Source Interference</h3>
+                <div class="control-item">
+                    <label>Source Separation (d)</label>
+                    <input type="range" id="sourceSeparation" min="1" max="10" step="0.5" value="4">
+                    <div class="value-display" id="sourceSeparationVal">4.0 <span class="unit-label">m</span></div>
+                </div>
+                <div class="control-item">
+                    <label>Phase Difference (Δφ)</label>
+                    <input type="range" id="phaseDiff" min="0" max="6.28" step="0.1" value="0">
+                    <div class="value-display" id="phaseDiffVal">0.0 <span class="unit-label">rad</span></div>
+                </div>
+                <div class="control-item">
+                    <label>Coherence Factor</label>
+                    <input type="range" id="coherence" min="0" max="1" step="0.05" value="1">
+                    <div class="value-display" id="coherenceVal">1.0 <span class="unit-label">-</span></div>
+                    <div class="coherence-indicator">
+                        <div class="coherence-bar" id="coherenceBar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="equations">
+            <h3 style="color: #64ffda; margin-top: 0;">Wave Equations</h3>
+            
+            <div class="equation">
+                <div class="equation-title">Wave Equation</div>
+                <div class="equation-formula">ψ(r,t) = A sin(kr - ωt + φ)</div>
+                <div class="equation-desc">Where k = 2π/λ, ω = 2πf, r = distance from source</div>
+            </div>
+            
+            <div class="equation">
+                <div class="equation-title">Wave Speed Relation</div>
+                <div class="equation-formula">v = fλ = ω/k</div>
+                <div class="equation-desc">Fundamental wave speed relationship</div>
+            </div>
+            
+            <div class="equation">
+                <div class="equation-title">Damped Wave</div>
+                <div class="equation-formula">ψ(r,t) = A e^(-βr) sin(kr - ωt + φ)</div>
+                <div class="equation-desc">Exponential decay with distance (β = damping coefficient)</div>
+            </div>
+            
+            <div class="equation" id="interferenceEq" style="display: none;">
+                <div class="equation-title">Interference</div>
+                <div class="equation-formula">ψ_total = ψ₁ + ψ₂</div>
+                <div class="equation-desc">Superposition of two coherent sources</div>
+            </div>
+            
+            <div class="equation" id="intensityEq" style="display: none;">
+                <div class="equation-title">Intensity Pattern</div>
+                <div class="equation-formula">I = I₁ + I₂ + 2√(I₁I₂)cos(Δφ)</div>
+                <div class="equation-desc">Interference intensity (Δφ = path difference)</div>
+            </div>
+        </div>
+        
+        <div id="physics-info">
+            <h4 style="color: #64ffda; margin-top: 0;">Real-time Physics</h4>
+            <div class="physics-param">
+                <span class="param-name">Wave Number (k):</span>
+                <span class="param-value" id="waveNumber">3.14 m⁻¹</span>
+            </div>
+            <div class="physics-param">
+                <span class="param-name">Angular Freq (ω):</span>
+                <span class="param-value" id="angularFreq">6.28 rad/s</span>
+            </div>
+            <div class="physics-param">
+                <span class="param-name">Period (T):</span>
+                <span class="param-value" id="period">1.0 s</span>
+            </div>
+            <div class="physics-param">
+                <span class="param-name">Current Speed (v):</span>
+                <span class="param-value" id="currentSpeed">343 m/s</span>
+            </div>
+            <div class="physics-param">
+                <span class="param-name">Energy Density:</span>
+                <span class="param-value" id="energyDensity">500 J/m³</span>
+            </div>
+        </div>
+        
+        <div id="info">
+            <div><strong>Controls:</strong></div>
+            <div>• Mouse: Rotate view</div>
+            <div>• Scroll: Zoom in/out</div>
+            <div>• Change wave type to see different physics</div>
+            <div>• Dual source shows interference patterns</div>
+            <div>• All parameters use real SI units</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Global variables
+        let scene, camera, renderer, controls;
+        let waveGeometry, waveMaterial, waveMesh;
+        let source1, source2;
+        let time = 0;
+        let currentMode = 'single';
+        let waveType = 'mechanical';
+        
+        // Physics parameters with real units
+        let params = {
+            amplitude: 1.0,        // m
+            wavelength: 2.0,       // m
+            frequency: 1.0,        // Hz
+            phase: 0.0,            // rad
+            density: 1000,         // kg/m³
+            damping: 0.02,         // m⁻¹
+            waveSpeed: 343,        // m/s
+            sourceSeparation: 4.0, // m
+            phaseDiff: 0.0,        // rad
+            coherence: 1.0         // dimensionless
+        };
+        
+        // Wave type properties
+        const waveTypes = {
+            mechanical: {
+                name: 'Mechanical Wave',
+                medium: 'Water (ρ = 1000 kg/m³)',
+                defaultSpeed: 343,
+                amplitudeUnit: 'm',
+                description: 'Physical displacement of medium particles'
+            },
+            electromagnetic: {
+                name: 'Electromagnetic Wave',
+                medium: 'Vacuum (c = 3×10⁸ m/s)',
+                defaultSpeed: 299792458,
+                amplitudeUnit: 'V/m',
+                description: 'Electric field amplitude'
+            },
+            acoustic: {
+                name: 'Acoustic Wave',
+                medium: 'Air (ρ = 1.225 kg/m³)',
+                defaultSpeed: 343,
+                amplitudeUnit: 'Pa',
+                description: 'Pressure amplitude'
+            }
+        };
+        
+        // Mouse controls
+        let mouseX = 0, mouseY = 0;
+        let isMouseDown = false;
+        let cameraAngleX = 0, cameraAngleY = 0;
+        let cameraDistance = 20;
+        
+        // Initialize the simulation
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            updateCameraPosition();
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 10);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            // Create wave surface
+            createWaveSurface();
+            
+            // Create wave sources
+            createWaveSources();
+            
+            // Add mouse controls
+            setupMouseControls();
+            
+            // Setup UI controls
+            setupUIControls();
+            
+            // Update physics display
+            updatePhysicsDisplay();
+            
+            // Start animation
+            animate();
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        function createWaveSurface() {
+            const width = 20;
+            const height = 20;
+            const widthSegments = 80;
+            const heightSegments = 80;
+            
+            waveGeometry = new THREE.PlaneGeometry(width, height, widthSegments, heightSegments);
+            waveGeometry.rotateX(-Math.PI / 2);
+            
+            waveMaterial = new THREE.MeshPhongMaterial({
+                color: 0x64ffda,
+                transparent: true,
+                opacity: 0.8,
+                wireframe: false,
+                side: THREE.DoubleSide,
+                vertexColors: true
+            });
+            
+            waveMesh = new THREE.Mesh(waveGeometry, waveMaterial);
+            scene.add(waveMesh);
+        }
+        
+        function createWaveSources() {
+            // Source 1
+            const sourceGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+            const sourceMaterial1 = new THREE.MeshPhongMaterial({ 
+                color: 0xff6b6b, 
+                emissive: 0x441111 
+            });
+            source1 = new THREE.Mesh(sourceGeometry, sourceMaterial1);
+            source1.position.set(0, 0.5, 0);
+            scene.add(source1);
+            
+            // Source 2 (initially hidden)
+            const sourceMaterial2 = new THREE.MeshPhongMaterial({ 
+                color: 0x6b6bff, 
+                emissive: 0x111144 
+            });
+            source2 = new THREE.Mesh(sourceGeometry, sourceMaterial2);
+            source2.position.set(params.sourceSeparation, 0.5, 0);
+            source2.visible = false;
+            scene.add(source2);
+        }
+        
+        function setupMouseControls() {
+            const canvas = renderer.domElement;
+            
+            canvas.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isMouseDown) {
+                    const deltaX = e.clientX - mouseX;
+                    const deltaY = e.clientY - mouseY;
+                    
+                    cameraAngleX += deltaX * 0.01;
+                    cameraAngleY += deltaY * 0.01;
+                    
+                    // Clamp Y angle
+                    cameraAngleY = Math.max(-Math.PI/2, Math.min(Math.PI/2, cameraAngleY));
+                    
+                    updateCameraPosition();
+                    
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                }
+            });
+            
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const scale = e.deltaY > 0 ? 1.1 : 0.9;
+                cameraDistance *= scale;
+                cameraDistance = Math.max(5, Math.min(50, cameraDistance));
+                updateCameraPosition();
+            });
+        }
+        
+        function updateCameraPosition() {
+            camera.position.x = cameraDistance * Math.cos(cameraAngleY) * Math.cos(cameraAngleX);
+            camera.position.y = cameraDistance * Math.sin(cameraAngleY);
+            camera.position.z = cameraDistance * Math.cos(cameraAngleY) * Math.sin(cameraAngleX);
+            camera.lookAt(0, 0, 0);
+        }
+        
+        function updateWave() {
+            const vertices = waveGeometry.attributes.position.array;
+            const colors = [];
+            
+            // Calculate wave parameters
+            const k = (2 * Math.PI) / params.wavelength;  // Wave number (m⁻¹)
+            const omega = 2 * Math.PI * params.frequency;  // Angular frequency (rad/s)
+            const dt = 0.05; // Time step
+            
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const z = vertices[i + 2];
+                
+                let height = 0;
+                let colorIntensity = 0;
+                
+                if (currentMode === 'single') {
+                    // Single source wave: ψ(r,t) = A * e^(-βr) * sin(kr - ωt + φ)
+                    const r = Math.sqrt(x * x + z * z);
+                    const wavePhase = k * r - omega * time + params.phase;
+                    const dampingFactor = Math.exp(-params.damping * r);
+                    
+                    height = params.amplitude * dampingFactor * Math.sin(wavePhase);
+                    colorIntensity = Math.abs(height);
+                } else {
+                    // Dual source interference
+                    const r1 = Math.sqrt(x * x + z * z);
+                    const r2 = Math.sqrt((x - params.sourceSeparation) * (x - params.sourceSeparation) + z * z);
+                    
+                    const phase1 = k * r1 - omega * time + params.phase;
+                    const phase2 = k * r2 - omega * time + params.phase + params.phaseDiff;
+                    
+                    const damping1 = Math.exp(-params.damping * r1);
+                    const damping2 = Math.exp(-params.damping * r2);
+                    
+                    let wave1 = params.amplitude * damping1 * Math.sin(phase1);
+                    let wave2 = params.amplitude * damping2 * Math.sin(phase2);
+                    
+                    // Apply coherence
+                    if (params.coherence < 1) {
+                        const randomPhase = (Math.random() - 0.5) * 2 * Math.PI * (1 - params.coherence);
+                        wave2 *= Math.cos(randomPhase);
+                    }
+                    
+                    height = wave1 + wave2;
+                    colorIntensity = Math.abs(height);
+                }
+                
+                vertices[i + 1] = height;
+                
+                // Color based on wave intensity
+                const normalizedIntensity = Math.min(1, colorIntensity / (params.amplitude * 2));
+                const red = 0.4 + normalizedIntensity * 0.6;
+                const green = 1.0 - normalizedIntensity * 0.2;
+                const blue = 0.8 + normalizedIntensity * 0.2;
+                
+                colors.push(red, green, blue);
+            }
+            
+            waveGeometry.attributes.position.needsUpdate = true;
+            
+            // Update colors
+            if (!waveGeometry.attributes.color) {
+                waveGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            } else {
+                waveGeometry.attributes.color.array = new Float32Array(colors);
+                waveGeometry.attributes.color.needsUpdate = true;
+            }
+            
+            waveGeometry.computeVertexNormals();
+        }
+        
+        function updatePhysicsDisplay() {
+            // Calculate derived physics quantities
+            const k = (2 * Math.PI) / params.wavelength;
+            const omega = 2 * Math.PI * params.frequency;
+            const period = 1 / params.frequency;
+            const currentSpeed = params.frequency * params.wavelength;
+            
+            // Energy density (simplified): E = (1/2) * ρ * ω² * A²
+            const energyDensity = 0.5 * params.density * omega * omega * params.amplitude * params.amplitude;
+            
+            // Update displays
+            document.getElementById('waveNumber').textContent = k.toFixed(3) + ' m⁻¹';
+            document.getElementById('angularFreq').textContent = omega.toFixed(2) + ' rad/s';
+            document.getElementById('period').textContent = period.toFixed(3) + ' s';
+            document.getElementById('currentSpeed').textContent = currentSpeed.toFixed(1) + ' m/s';
+            document.getElementById('energyDensity').textContent = energyDensity.toFixed(0) + ' J/m³';
+            
+            // Update wave speed consistency check
+            const theoreticalSpeed = params.waveSpeed;
+            const actualSpeed = currentSpeed;
+            const speedDifference = Math.abs(theoreticalSpeed - actualSpeed);
+            
+            if (speedDifference > 0.1) {
+                document.getElementById('currentSpeed').style.color = '#ff6b6b';
+            } else {
+                document.getElementById('currentSpeed').style.color = '#fff';
+            }
+        }
+        
+        function animate() {
+            time += 0.05;
+            
+            updateWave();
+            updatePhysicsDisplay();
+            
+            // Animate sources
+            const pulse1 = Math.sin(time * params.frequency * 2 * Math.PI + params.phase);
+            const pulse2 = Math.sin(time * params.frequency * 2 * Math.PI + params.phase + params.phaseDiff);
+            
+            source1.material.emissive.setRGB(0.2 + pulse1 * 0.3, 0.05, 0.05);
+            
+            if (currentMode === 'dual') {
+                source2.material.emissive.setRGB(0.05, 0.05, 0.2 + pulse2 * 0.3);
+            }
+            
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // UI Control Functions
+        function setupUIControls() {
+            // Wave type buttons
+            document.getElementById('mechanicalBtn').addEventListener('click', () => setWaveType('mechanical'));
+            document.getElementById('electromagBtn').addEventListener('click', () => setWaveType('electromagnetic'));
+            document.getElementById('acousticBtn').addEventListener('click', () => setWaveType('acoustic'));
+            
+            // Mode buttons
+            document.getElementById('singleBtn').addEventListener('click', () => setMode('single'));
+            document.getElementById('dualBtn').addEventListener('click', () => setMode('dual'));
+            
+            // Parameter sliders
+            const sliders = [
+                'amplitude', 'wavelength', 'frequency', 'phase', 
+                'density', 'damping', 'waveSpeed', 'sourceSeparation', 'phaseDiff', 'coherence'
+            ];
+            
+            sliders.forEach(param => {
+                const slider = document.getElementById(param);
+                const display = document.getElementById(param + 'Val');
+                
+                if (slider && display) {
+                    slider.addEventListener('input', (e) => {
+                        const value = parseFloat(e.target.value);
+                        params[param] = value;
+                        updateSliderDisplay(param, value);
+                        updatePhysicsDisplay();
+                        
+                        // Update coherence bar
+                        if (param === 'coherence') {
+                            updateCoherenceBar(value);
+                        }
+                        
+                        // Update source position
+                        if (param === 'sourceSeparation') {
+                            source2.position.x = value;
+                        }
+                    });
+                    
+                    // Initialize display
+                    updateSliderDisplay(param, params[param]);
+                }
+            });
+            
+            // Initialize coherence bar
+            updateCoherenceBar(params.coherence);
+        }
+        
+        function updateSliderDisplay(param, value) {
+            const display = document.getElementById(param + 'Val');
+            if (display) {
+                let formattedValue;
+                if (param === 'phase' || param === 'phaseDiff') {
+                    formattedValue = value.toFixed(2);
+                } else if (param === 'damping') {
+                    formattedValue = value.toFixed(3);
+                } else if (param === 'coherence') {
+                    formattedValue = value.toFixed(2);
+                } else {
+                    formattedValue = value.toFixed(1);
+                }
+                
+                const unitSpan = display.querySelector('.unit-label');
+                if (unitSpan) {
+                    display.innerHTML = formattedValue + ' ' + unitSpan.outerHTML;
+                } else {
+                    display.textContent = formattedValue;
+                }
+            }
+        }
+        
+        function updateCoherenceBar(value) {
+            const bar = document.getElementById('coherenceBar');
+            if (bar) {
+                bar.style.width = (value * 100) + '%';
+            }
+        }
+        
+        function setWaveType(type) {
+            waveType = type;
+            
+            // Update button states
+            document.querySelectorAll('.wave-type-select .toggle-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (type === 'mechanical') {
+                document.getElementById('mechanicalBtn').classList.add('active');
+                params.waveSpeed = 343;
+                document.getElementById('mediumType').textContent = 'Medium: Water (ρ = 1000 kg/m³)';
+                document.getElementById('amplitudeUnit').textContent = 'm';
+            } else if (type === 'electromagnetic') {
+                document.getElementById('electromagBtn').classList.add('active');
+                params.waveSpeed = 299792458;
+                document.getElementById('mediumType').textContent = 'Medium: Vacuum (c = 3×10⁸ m/s)';
+                document.getElementById('amplitudeUnit').textContent = 'V/m';
+            } else if (type === 'acoustic') {
+                document.getElementById('acousticBtn').classList.add('active');
+                params.waveSpeed = 343;
+                document.getElementById('mediumType').textContent = 'Medium: Air (ρ = 1.225 kg/m³)';
+                document.getElementById('amplitudeUnit').textContent = 'Pa';
+            }
+            
+            // Update wave speed slider and display
+            const speedSlider = document.getElementById('waveSpeed');
+            const speedDisplay = document.getElementById('waveSpeedVal');
+            
+            if (type === 'electromagnetic') {
+                speedSlider.min = 100000000;
+                speedSlider.max = 300000000;
+                speedSlider.step = 10000000;
+                speedSlider.value = params.waveSpeed;
+            } else {
+                speedSlider.min = 100;
+                speedSlider.max = 1500;
+                speedSlider.step = 50;
+                speedSlider.value = params.waveSpeed;
+            }
+            
+            updateSliderDisplay('waveSpeed', params.waveSpeed);
+            updatePhysicsDisplay();
+        }
+        
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update button states
+            document.querySelectorAll('.simulation-mode .toggle-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            if (mode === 'single') {
+                document.getElementById('singleBtn').classList.add('active');
+                document.getElementById('dualSourceControls').style.display = 'none';
+                document.getElementById('interferenceEq').style.display = 'none';
+                document.getElementById('intensityEq').style.display = 'none';
+                source2.visible = false;
+            } else {
+                document.getElementById('dualBtn').classList.add('active');
+                document.getElementById('dualSourceControls').style.display = 'block';
+                document.getElementById('interferenceEq').style.display = 'block';
+                document.getElementById('intensityEq').style.display = 'block';
+                source2.visible = true;
+            }
+        }
+        
+        // Initialize the simulation when the page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
