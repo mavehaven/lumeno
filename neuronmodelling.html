@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neuron Simulation: Hodgkin-Huxley and Izhikevich Models</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.0/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f8f9fa;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+    .model-container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    /* Chart container is now a plain block with extra margin-bottom */
+    .chart-container {
+      width: 100%;
+      margin-bottom: 30px;
+    }
+    /* Ensure the canvas takes full width of its container */
+    .chart-container canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+    .controls {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+    }
+    .slider-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    .button-controls {
+      display: flex;
+      gap: 10px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      min-width: 150px;
+    }
+    label {
+      font-size: 14px;
+      margin-bottom: 5px;
+      color: #555;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+    button {
+      background-color: #4a76a8;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #3a5a7d;
+    }
+    .toggle-button {
+      margin-top: 10px;
+      background-color: #6c757d;
+    }
+    .tabs {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 10px;
+    }
+    .tab {
+      padding: 10px 20px;
+      background-color: #e9ecef;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+    }
+    .tab.active {
+      background-color: white;
+      border-bottom: 2px solid #4a76a8;
+    }
+    .model-explanation {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f0f4f8;
+      border-radius: 4px;
+    }
+    .parameter-value {
+      display: inline-block;
+      width: 50px;
+      text-align: right;
+      font-weight: bold;
+    }
+    .phase-plane {
+      margin-top: 30px;
+      text-align: center;
+    }
+    .phase-plane .chart-container {
+      max-width: 600px;
+      margin: 0 auto;
+      height: 300px;
+    }
+    .phase-plane .chart-container canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Interactive Neuron Simulation</h1>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('hh')">Hodgkin-Huxley Model</div>
+      <div class="tab" onclick="switchTab('iz')">Izhikevich Model</div>
+    </div>
+    
+    <!-- Hodgkin-Huxley Model -->
+    <div id="hh-model" class="model-container">
+      <h2>Hodgkin-Huxley Model</h2>
+      
+      <div class="model-explanation">
+        <p>The Hodgkin-Huxley model describes how action potentials in neurons are initiated and propagated through a set of nonlinear differential equations:</p>
+        <p>
+          \[
+          \begin{aligned}
+          C_m \frac{dV}{dt} &= -\bar{g}_\text{Na} m^3 h (V - E_\text{Na}) - \bar{g}_\text{K} n^4 (V - E_\text{K}) - \bar{g}_\text{L} (V - E_\text{L}) + I_\text{ext},\\[1mm]
+          \frac{dm}{dt} &= \alpha_m(V)(1-m) - \beta_m(V)m,\\[1mm]
+          \frac{dh}{dt} &= \alpha_h(V)(1-h) - \beta_h(V)h,\\[1mm]
+          \frac{dn}{dt} &= \alpha_n(V)(1-n) - \beta_n(V)n.
+          \end{aligned}
+          \]
+        </p>
+        <p>where \(V\) is the membrane potential, \(m\), \(h\), and \(n\) are gating variables, and \(I_\text{ext}\) is the external current stimulus.</p>
+      </div>
+      
+      <!-- Chart -->
+      <div class="chart-container">
+        <canvas id="hh-chart"></canvas>
+      </div>
+      
+      <!-- Controls -->
+      <div class="controls">
+        <div class="slider-controls">
+          <div class="control-group">
+            <label>External Current (μA/cm²): <span class="parameter-value" id="hh-i-ext-value">10</span></label>
+            <input type="range" id="hh-i-ext" min="0" max="30" step="0.1" value="10">
+          </div>
+          <div class="control-group">
+            <label>gNa (mS/cm²): <span class="parameter-value" id="hh-g-na-value">120</span></label>
+            <input type="range" id="hh-g-na" min="0" max="200" step="1" value="120">
+          </div>
+          <div class="control-group">
+            <label>gK (mS/cm²): <span class="parameter-value" id="hh-g-k-value">36</span></label>
+            <input type="range" id="hh-g-k" min="0" max="100" step="1" value="36">
+          </div>
+          <div class="control-group">
+            <label>gL (mS/cm²): <span class="parameter-value" id="hh-g-l-value">0.3</span></label>
+            <input type="range" id="hh-g-l" min="0" max="1" step="0.01" value="0.3">
+          </div>
+        </div>
+        <div class="button-controls">
+          <button id="hh-run">Run Simulation</button>
+          <button id="hh-reset" class="toggle-button">Reset</button>
+        </div>
+      </div>
+      
+      <button id="hh-toggle-gates" class="toggle-button">Show/Hide Gating Variables</button>
+      
+      <!-- Phase Plane -->
+      <div class="phase-plane">
+        <h3>Phase Plane (V vs. n)</h3>
+        <div class="chart-container">
+          <canvas id="hh-phase-plane"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Izhikevich Model -->
+    <div id="iz-model" class="model-container" style="display: none;">
+      <h2>Izhikevich Model</h2>
+      
+      <div class="model-explanation">
+        <p>The Izhikevich model is a simplified neuronal model that can reproduce various firing patterns while being computationally efficient:</p>
+        <p>
+          \[
+          \begin{aligned}
+          \frac{dv}{dt} &= 0.04v^2 + 5v + 140 - u + I,\\[1mm]
+          \frac{du}{dt} &= a(bv - u)
+          \end{aligned}
+          \]
+        </p>
+        <p>with the reset condition:</p>
+        <p>
+          \[
+          \text{if } v \geq 30 \text{ mV, then } \begin{cases}
+          v \leftarrow c,\\[1mm]
+          u \leftarrow u + d
+          \end{cases}
+          \]
+        </p>
+        <p>where \(v\) represents the membrane potential, \(u\) is a recovery variable, and parameters \(a\), \(b\), \(c\), and \(d\) control the firing pattern.</p>
+      </div>
+      
+      <!-- Chart -->
+      <div class="chart-container">
+        <canvas id="iz-chart"></canvas>
+      </div>
+      
+      <!-- Controls -->
+      <div class="controls">
+        <div class="slider-controls">
+          <div class="control-group">
+            <label>Current (I): <span class="parameter-value" id="iz-i-value">10</span></label>
+            <input type="range" id="iz-i" min="0" max="20" step="0.1" value="10">
+          </div>
+          <div class="control-group">
+            <label>a: <span class="parameter-value" id="iz-a-value">0.02</span></label>
+            <input type="range" id="iz-a" min="0.01" max="0.1" step="0.01" value="0.02">
+          </div>
+          <div class="control-group">
+            <label>b: <span class="parameter-value" id="iz-b-value">0.2</span></label>
+            <input type="range" id="iz-b" min="0.1" max="0.3" step="0.01" value="0.2">
+          </div>
+          <div class="control-group">
+            <label>c: <span class="parameter-value" id="iz-c-value">-65</span></label>
+            <input type="range" id="iz-c" min="-70" max="-50" step="1" value="-65">
+          </div>
+          <div class="control-group">
+            <label>d: <span class="parameter-value" id="iz-d-value">8</span></label>
+            <input type="range" id="iz-d" min="0" max="10" step="0.1" value="8">
+          </div>
+          <div class="control-group">
+            <label>Neuron Type:</label>
+            <select id="iz-preset">
+              <option value="rs">Regular Spiking</option>
+              <option value="fs">Fast Spiking</option>
+              <option value="lb">Low-Threshold Bursting</option>
+              <option value="ch">Chattering</option>
+            </select>
+          </div>
+        </div>
+        <div class="button-controls">
+          <button id="iz-run">Run Simulation</button>
+          <button id="iz-reset" class="toggle-button">Reset</button>
+        </div>
+      </div>
+      
+      <button id="iz-toggle-recovery" class="toggle-button">Show/Hide Recovery Variable</button>
+      
+      <!-- Phase Plane -->
+      <div class="phase-plane">
+        <h3>Phase Plane (v vs. u)</h3>
+        <div class="chart-container">
+          <canvas id="iz-phase-plane"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global variables for charts and simulation intervals
+    let hhChart, hhPhaseChart, izChart, izPhaseChart;
+    let hhSimulationInterval = null;
+    let izSimulationInterval = null;
+    let showHHGates = false;
+    let showIZRecovery = false;
+    
+    // Rate functions (global)
+    function alphaM(v) { return (v === -40) ? 1 : (0.1 * (v + 40)) / (1 - Math.exp(-(v + 40) / 10)); }
+    function betaM(v) { return 4 * Math.exp(-(v + 65) / 18); }
+    function alphaH(v) { return 0.07 * Math.exp(-(v + 65) / 20); }
+    function betaH(v) { return 1 / (1 + Math.exp(-(v + 35) / 10)); }
+    function alphaN(v) { return (v === -55) ? 0.1 : (0.01 * (v + 55)) / (1 - Math.exp(-(v + 55) / 10)); }
+    function betaN(v) { return 0.125 * Math.exp(-(v + 65) / 80); }
+    
+    // Initialization
+    document.addEventListener('DOMContentLoaded', function() {
+      initHodgkinHuxley();
+      initIzhikevich();
+      
+      // Hodgkin-Huxley event listeners
+      document.getElementById('hh-run').addEventListener('click', runHHSimulation);
+      document.getElementById('hh-reset').addEventListener('click', resetHHSimulation);
+      document.getElementById('hh-toggle-gates').addEventListener('click', toggleHHGates);
+      
+      // Izhikevich event listeners
+      document.getElementById('iz-run').addEventListener('click', runIZSimulation);
+      document.getElementById('iz-reset').addEventListener('click', resetIZSimulation);
+      document.getElementById('iz-toggle-recovery').addEventListener('click', toggleIZRecovery);
+      document.getElementById('iz-preset').addEventListener('change', applyIZPreset);
+      
+      // Connect sliders for HH
+      connectSlider('hh-i-ext', 'hh-i-ext-value');
+      connectSlider('hh-g-na', 'hh-g-na-value');
+      connectSlider('hh-g-k', 'hh-g-k-value');
+      connectSlider('hh-g-l', 'hh-g-l-value');
+      
+      // Connect sliders for IZ
+      connectSlider('iz-i', 'iz-i-value');
+      connectSlider('iz-a', 'iz-a-value');
+      connectSlider('iz-b', 'iz-b-value');
+      connectSlider('iz-c', 'iz-c-value');
+      connectSlider('iz-d', 'iz-d-value');
+    });
+
+    function connectSlider(sliderId, valueId) {
+      const slider = document.getElementById(sliderId);
+      const display = document.getElementById(valueId);
+      display.textContent = slider.value;
+      slider.addEventListener('input', function() {
+        display.textContent = this.value;
+      });
+      slider.addEventListener('change', function() {
+        display.textContent = this.value;
+      });
+    }
+    
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.model-container').forEach(m => m.style.display = 'none');
+      if (tab === 'hh') {
+        document.querySelectorAll('.tab')[0].classList.add('active');
+        document.getElementById('hh-model').style.display = 'block';
+      } else if (tab === 'iz') {
+        document.querySelectorAll('.tab')[1].classList.add('active');
+        document.getElementById('iz-model').style.display = 'block';
+      }
+    }
+    
+    // Hodgkin-Huxley Model: Initialize Charts
+    function initHodgkinHuxley() {
+      const ctx = document.getElementById('hh-chart').getContext('2d');
+      hhChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Membrane Potential (mV)',
+              data: [],
+              borderColor: 'rgb(75, 192, 192)',
+              tension: 0.1,
+              yAxisID: 'y'
+            },
+            {
+              label: 'm (Na+ activation)',
+              data: [],
+              borderColor: 'rgb(255, 99, 132)',
+              tension: 0.1,
+              hidden: true,
+              yAxisID: 'y1'
+            },
+            {
+              label: 'h (Na+ inactivation)',
+              data: [],
+              borderColor: 'rgb(255, 205, 86)',
+              tension: 0.1,
+              hidden: true,
+              yAxisID: 'y1'
+            },
+            {
+              label: 'n (K+ activation)',
+              data: [],
+              borderColor: 'rgb(54, 162, 235)',
+              tension: 0.1,
+              hidden: true,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          animation: false,
+          scales: {
+            x: { title: { display: true, text: 'Time (ms)' } },
+            y: { title: { display: true, text: 'Membrane Potential (mV)' }, min: -90, max: 50 },
+            y1: {
+              title: { display: true, text: 'Gating Variables' },
+              min: 0, max: 1, position: 'right',
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+      
+      const phaseCtx = document.getElementById('hh-phase-plane').getContext('2d');
+      hhPhaseChart = new Chart(phaseCtx, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'V vs. n',
+            data: [],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.5)',
+            showLine: true,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          animation: false,
+          scales: {
+            x: { title: { display: true, text: 'Membrane Potential (mV)' }, min: -90, max: 50 },
+            y: { title: { display: true, text: 'n (K+ activation)' }, min: 0, max: 1 }
+          }
+        }
+      });
+    }
+    
+    // Hodgkin-Huxley: Real-time simulation loop
+    function runHHSimulation() {
+      if (hhSimulationInterval) return; // already running
+      // Initialize state
+      let V = -65;
+      let m = alphaM(V) / (alphaM(V) + betaM(V));
+      let h = alphaH(V) / (alphaH(V) + betaH(V));
+      let n = alphaN(V) / (alphaN(V) + betaN(V));
+      let t = 0;
+      const dt = 0.01;
+      
+      // Clear previous data
+      hhChart.data.labels = [];
+      hhChart.data.datasets.forEach(ds => ds.data = []);
+      hhPhaseChart.data.datasets[0].data = [];
+      
+      // Start simulation loop
+      hhSimulationInterval = setInterval(() => {
+        // Read slider parameters in real time
+        const I_ext = parseFloat(document.getElementById('hh-i-ext').value);
+        const g_Na = parseFloat(document.getElementById('hh-g-na').value);
+        const g_K = parseFloat(document.getElementById('hh-g-k').value);
+        const g_L = parseFloat(document.getElementById('hh-g-l').value);
+        const C_m = 1.0, E_Na = 50, E_K = -77, E_L = -54.4;
+        
+        // Compute derivatives
+        const I_Na = g_Na * Math.pow(m, 3) * h * (V - E_Na);
+        const I_K = g_K * Math.pow(n, 4) * (V - E_K);
+        const I_L = g_L * (V - E_L);
+        const dVdt = (I_ext - I_Na - I_K - I_L) / C_m;
+        const dmdt = alphaM(V) * (1 - m) - betaM(V) * m;
+        const dhdt = alphaH(V) * (1 - h) - betaH(V) * h;
+        const dndt = alphaN(V) * (1 - n) - betaN(V) * n;
+        
+        // Update state using Euler integration
+        V += dVdt * dt;
+        m += dmdt * dt;
+        h += dhdt * dt;
+        n += dndt * dt;
+        t += dt;
+        
+        // Append new data for plotting
+        hhChart.data.labels.push(t.toFixed(2));
+        hhChart.data.datasets[0].data.push(V);
+        hhChart.data.datasets[1].data.push(m);
+        hhChart.data.datasets[2].data.push(h);
+        hhChart.data.datasets[3].data.push(n);
+        hhPhaseChart.data.datasets[0].data.push({ x: V, y: n });
+        
+        // Update charts (using 'none' to avoid animation)
+        hhChart.update('none');
+        hhPhaseChart.update('none');
+      }, 10);
+    }
+    
+    function resetHHSimulation() {
+      if (hhSimulationInterval) {
+        clearInterval(hhSimulationInterval);
+        hhSimulationInterval = null;
+      }
+      hhChart.data.labels = [];
+      hhChart.data.datasets.forEach(ds => ds.data = []);
+      hhChart.update();
+      hhPhaseChart.data.datasets[0].data = [];
+      hhPhaseChart.update();
+    }
+    
+    function toggleHHGates() {
+      showHHGates = !showHHGates;
+      hhChart.data.datasets[1].hidden = !showHHGates;
+      hhChart.data.datasets[2].hidden = !showHHGates;
+      hhChart.data.datasets[3].hidden = !showHHGates;
+      hhChart.update();
+    }
+    
+    // Izhikevich Model: Initialize Charts
+    function initIzhikevich() {
+      const ctx = document.getElementById('iz-chart').getContext('2d');
+      izChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Membrane Potential (v)',
+              data: [],
+              borderColor: 'rgb(75, 192, 192)',
+              tension: 0.1,
+              yAxisID: 'y'
+            },
+            {
+              label: 'Recovery Variable (u)',
+              data: [],
+              borderColor: 'rgb(255, 99, 132)',
+              tension: 0.1,
+              hidden: true,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          animation: false,
+          scales: {
+            x: { title: { display: true, text: 'Time (ms)' } },
+            y: { title: { display: true, text: 'Membrane Potential (v)' }, min: -90, max: 40 },
+            y1: {
+              title: { display: true, text: 'Recovery Variable (u)' },
+              position: 'right',
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+      
+      const phaseCtx = document.getElementById('iz-phase-plane').getContext('2d');
+      izPhaseChart = new Chart(phaseCtx, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'v vs. u',
+            data: [],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.5)',
+            showLine: true,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          animation: false,
+          scales: {
+            x: { title: { display: true, text: 'Membrane Potential (v)' }, min: -90, max: 40 },
+            y: { title: { display: true, text: 'Recovery Variable (u)' } }
+          }
+        }
+      });
+    }
+    
+    // Izhikevich: Real-time simulation loop
+    function runIZSimulation() {
+      if (izSimulationInterval) return; // already running
+      // Initialize state; use the current slider for c as the starting v
+      let v = parseFloat(document.getElementById('iz-c').value);
+      let u = parseFloat(document.getElementById('iz-b').value) * v;
+      let t = 0;
+      const dt = 0.1;
+      
+      // Clear previous data
+      izChart.data.labels = [];
+      izChart.data.datasets.forEach(ds => ds.data = []);
+      izPhaseChart.data.datasets[0].data = [];
+      
+      // Start simulation loop
+      izSimulationInterval = setInterval(() => {
+        // Read current slider parameters
+        const I = parseFloat(document.getElementById('iz-i').value);
+        const a = parseFloat(document.getElementById('iz-a').value);
+        const b = parseFloat(document.getElementById('iz-b').value);
+        const c = parseFloat(document.getElementById('iz-c').value);
+        const d = parseFloat(document.getElementById('iz-d').value);
+        
+        // Compute derivatives
+        const dvdt = 0.04 * v * v + 5 * v + 140 - u + I;
+        const dudt = a * (b * v - u);
+        
+        // Update state using Euler integration
+        v += dvdt * dt;
+        u += dudt * dt;
+        if (v >= 30) {
+          v = c;
+          u += d;
+        }
+        t += dt;
+        
+        // Append new data for plotting
+        izChart.data.labels.push(t.toFixed(1));
+        izChart.data.datasets[0].data.push(v);
+        izChart.data.datasets[1].data.push(u);
+        izPhaseChart.data.datasets[0].data.push({ x: v, y: u });
+        
+        // Update charts without animation
+        izChart.update('none');
+        izPhaseChart.update('none');
+      }, 10);
+    }
+    
+    function resetIZSimulation() {
+      if (izSimulationInterval) {
+        clearInterval(izSimulationInterval);
+        izSimulationInterval = null;
+      }
+      izChart.data.labels = [];
+      izChart.data.datasets.forEach(ds => ds.data = []);
+      izChart.update();
+      izPhaseChart.data.datasets[0].data = [];
+      izPhaseChart.update();
+    }
+    
+    function toggleIZRecovery() {
+      showIZRecovery = !showIZRecovery;
+      izChart.data.datasets[1].hidden = !showIZRecovery;
+      izChart.update();
+    }
+    
+    function applyIZPreset() {
+      const preset = document.getElementById('iz-preset').value;
+      let a, b, c, d;
+      switch (preset) {
+        case 'rs':  a = 0.02; b = 0.2; c = -65; d = 8; break;
+        case 'fs':  a = 0.1;  b = 0.2; c = -65; d = 2; break;
+        case 'lb':  a = 0.02; b = 0.25; c = -55; d = 4; break;
+        case 'ch':  a = 0.02; b = 0.2; c = -50; d = 2; break;
+        default: return;
+      }
+      document.getElementById('iz-a').value = a;
+      document.getElementById('iz-b').value = b;
+      document.getElementById('iz-c').value = c;
+      document.getElementById('iz-d').value = d;
+      document.getElementById('iz-a-value').textContent = a;
+      document.getElementById('iz-b-value').textContent = b;
+      document.getElementById('iz-c-value').textContent = c;
+      document.getElementById('iz-d-value').textContent = d;
+    }
+  </script>
+</body>
+</html>
