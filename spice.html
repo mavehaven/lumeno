@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memristor Modeling Simulation</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: #2c3e50;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .simulation-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .simulation-panel {
+      flex: 1;
+      min-width: 300px;
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 6px;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+    }
+    .control-panel {
+      flex: 1;
+      min-width: 300px;
+      background-color: #f0f7ff;
+      padding: 15px;
+      border-radius: 6px;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+    }
+    canvas {
+      width: 100%;
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    input[type="range"] {
+      width: 100%;
+      margin-bottom: 15px;
+    }
+    .param-value {
+      display: inline-block;
+      min-width: 40px;
+      text-align: right;
+      font-family: monospace;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    .info-panel {
+      background-color: #fff;
+      padding: 15px;
+      border-radius: 6px;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+      margin-top: 20px;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 15px;
+    }
+    .tab {
+      padding: 10px 15px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-bottom: none;
+      margin-right: 5px;
+      border-radius: 4px 4px 0 0;
+    }
+    .tab.active {
+      background-color: #fff;
+      border-color: #ddd;
+      color: #3498db;
+      font-weight: bold;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .grid {
+      stroke: #ccc;
+      stroke-width: 0.5;
+    }
+    .axis {
+      stroke: #000;
+      stroke-width: 1;
+    }
+    .axis-label {
+      font-size: 12px;
+      text-anchor: middle;
+    }
+    .plot-line {
+      fill: none;
+      stroke-width: 2;
+    }
+    .legend {
+      font-size: 12px;
+      margin-top: 10px;
+    }
+    .legend-item {
+      display: inline-block;
+      margin-right: 15px;
+    }
+    .legend-color {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Memristor Modeling Simulation</h1>
+    
+    <div class="tabs">
+      <div class="tab active" data-tab="simulation">Interactive Simulation</div>
+      <div class="tab" data-tab="spice">SPICE Model</div>
+      <div class="tab" data-tab="theory">Theory</div>
+    </div>
+    
+    <div class="tab-content active" id="simulation">
+      <div class="simulation-container">
+        <div class="simulation-panel">
+          <h2>Memristor Characteristics</h2>
+          <canvas id="hysteresisCanvas" height="300"></canvas>
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color" style="background-color: #e74c3c;"></span>
+              <span>I-V Curve</span>
+            </div>
+          </div>
+          
+          <canvas id="timeSeriesCanvas" height="200"></canvas>
+          <div class="legend">
+            <div class="legend-item">
+              <span class="legend-color" style="background-color: #3498db;"></span>
+              <span>Voltage</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color" style="background-color: #2ecc71;"></span>
+              <span>Current</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-color" style="background-color: #f39c12;"></span>
+              <span>Resistance</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="control-panel">
+          <h2>Simulation Controls</h2>
+          
+          <label for="inputWaveform">Input Waveform:</label>
+          <select id="inputWaveform" class="form-control">
+            <option value="sine">Sine Wave</option>
+            <option value="triangle">Triangle Wave</option>
+            <option value="square">Square Wave</option>
+            <option value="sawtooth">Sawtooth Wave</option>
+          </select>
+          <br>
+          
+          <label for="frequency">Frequency (Hz): <span id="frequencyValue" class="param-value">1.0</span></label>
+          <input type="range" id="frequency" min="0.1" max="10" step="0.1" value="1.0">
+          
+          <label for="amplitude">Amplitude (V): <span id="amplitudeValue" class="param-value">1.0</span></label>
+          <input type="range" id="amplitude" min="0.1" max="2" step="0.1" value="1.0">
+          
+          <h3>Memristor Parameters</h3>
+          
+          <label for="rOn">R<sub>ON</sub> (Ω): <span id="rOnValue" class="param-value">100</span></label>
+          <input type="range" id="rOn" min="10" max="1000" step="10" value="100">
+          
+          <label for="rOff">R<sub>OFF</sub> (Ω): <span id="rOffValue" class="param-value">16000</span></label>
+          <input type="range" id="rOff" min="1000" max="50000" step="1000" value="16000">
+          
+          <label for="mobility">Mobility (μ): <span id="mobilityValue" class="param-value">10.0</span></label>
+          <input type="range" id="mobility" min="0.1" max="50" step="0.1" value="10.0">
+          
+          <label for="deviceLength">Device Length (nm): <span id="deviceLengthValue" class="param-value">10.0</span></label>
+          <input type="range" id="deviceLength" min="5" max="50" step="0.5" value="10.0">
+          
+          <label for="initialState">Initial State (x): <span id="initialStateValue" class="param-value">0.5</span></label>
+          <input type="range" id="initialState" min="0.01" max="0.99" step="0.01" value="0.5">
+          
+          <button id="runBtn">Run Simulation</button>
+          <button id="resetBtn">Reset</button>
+          <button id="pauseBtn">Pause</button>
+        </div>
+      </div>
+      
+      <div class="info-panel">
+        <h2>Simulation Information</h2>
+        <p>This interactive simulation demonstrates the behavior of a memristor based on the HP Labs' TiO<sub>2</sub> memristor model. The simulation shows the characteristic hysteresis loop in the I-V curve and the relationship between voltage, current, and memristance over time.</p>
+        <p>Adjust the parameters to see how they affect the memristor's behavior:</p>
+        <ul>
+          <li><strong>R<sub>ON</sub>:</strong> The resistance in the low resistance state</li>
+          <li><strong>R<sub>OFF</sub>:</strong> The resistance in the high resistance state</li>
+          <li><strong>Mobility (μ):</strong> Ion mobility parameter that affects switching speed</li>
+          <li><strong>Device Length:</strong> The physical length of the memristor device</li>
+          <li><strong>Initial State (x):</strong> The initial doped region proportion (0-1)</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="tab-content" id="spice">
+      <h2>SPICE Model Implementation</h2>
+      <p>Below is a sample SPICE model implementation for the memristor. This can be used in circuit simulators like LTspice, PSPICE, or Ngspice to incorporate memristors into more complex circuit designs.</p>
+      <pre style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">
+* Memristor SPICE Model based on HP Labs TiO2 memristor
+* Parameters:
+* Ron - Resistance in ON state
+* Roff - Resistance in OFF state
+* D - Device length
+* uv - Mobility
+* x0 - Initial state
+
+.SUBCKT MEMRISTOR PLUS MINUS PARAMS: Ron=100 Roff=16k D=10n uv=10e-14 x0=0.5
+.PARAM a = {uv*Ron/D^2}
+* State equation dx/dt = a*i*f(x)
+.FUNC f(x) = 1-(2*x-1)^2
+.FUNC w(x) = x*(1-x)
+.PARAM xinit = {x0}
+Ex memx 0 value = {idt(I(Gx)*a*f(V(memx)), xinit)}
+Bx memx 0 V = {limit(V(memx), 0, 1)}
+.FUNC Rmem(x) = {Ron*x + Roff*(1-x)}
+Gx PLUS MINUS value = {V(PLUS,MINUS)/Rmem(V(memx))}
+.ENDS MEMRISTOR
+
+* Example usage:
+* X1 input 0 MEMRISTOR Ron=100 Roff=16k D=10n uv=10e-14 x0=0.5
+* Vsource input 0 SIN(0 1.0 1)
+* .tran 0.01 10
+* .plot V(input) I(X1)
+      </pre>
+      
+      <h3>Using the SPICE Model</h3>
+      <p>To use this model in your SPICE simulations:</p>
+      <ol>
+        <li>Copy the above model definition into your SPICE netlist or save it as a separate file that you can include.</li>
+        <li>Create instances of the memristor in your circuit using the X statement as shown in the example.</li>
+        <li>Adjust the parameters to match your desired memristor characteristics.</li>
+        <li>Run transient analysis to observe the memristor behavior over time.</li>
+      </ol>
+      
+      <h3>Example Circuit</h3>
+      <p>A simple test circuit could look like this:</p>
+      <pre style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">
+* Include the memristor model
+.include memristor.cir
+
+* Simple test circuit with a sine wave input
+Vsrc in 0 SIN(0 1.2 1 0 0)
+Xmem in out MEMRISTOR Ron=100 Roff=16k D=10n uv=10e-14 x0=0.5
+Rload out 0 1k
+
+* Analysis commands
+.tran 0.01 4
+.probe V(in) I(Xmem) V(out)
+.end
+      </pre>
+    </div>
+    
+    <div class="tab-content" id="theory">
+      <h2>Memristor Theory</h2>
+      <h3>What is a Memristor?</h3>
+      <p>A memristor (memory + resistor) is the fourth fundamental passive circuit element, alongside the resistor, capacitor, and inductor. It was theoretically described by Leon Chua in 1971 but was only physically realized by HP Labs in 2008 using a titanium dioxide (TiO<sub>2</sub>) thin film.</p>
+      <p>The key property of a memristor is that its resistance depends on the history of current that has flowed through it. This gives it a memory-like property, hence the name "memristor."</p>
+      <h3>Mathematical Description</h3>
+      <p>A memristor relates electric charge q and magnetic flux φ:</p>
+      <p style="text-align: center;">dφ = M(q) · dq</p>
+      <p>Where M(q) is the memristance, which depends on the charge q that has flowed through the device.</p>
+      <p>For voltage v and current i:</p>
+      <p style="text-align: center;">v = M(q) · i</p>
+      <h3>HP Labs' Physical Model</h3>
+      <p>The HP Labs memristor consists of a thin film of TiO<sub>2</sub> sandwiched between platinum electrodes. The TiO<sub>2</sub> film has two regions:</p>
+      <ul>
+        <li>A doped region with oxygen vacancies (low resistance)</li>
+        <li>An undoped region (high resistance)</li>
+      </ul>
+      <p>As current flows through the device, the boundary between these regions moves, changing the overall resistance of the device. The state variable x (where 0 ≤ x ≤ 1) represents the normalized position of this boundary.</p>
+      <p>The memristance can be modeled as:</p>
+      <p style="text-align: center;">R(x) = R<sub>ON</sub> · x + R<sub>OFF</sub> · (1-x)</p>
+      <p>And the state evolution by:</p>
+      <p style="text-align: center;">dx/dt = μ · R<sub>ON</sub>/D<sup>2</sup> · i · f(x)</p>
+      <p>Where:</p>
+      <ul>
+        <li>R<sub>ON</sub> is the low resistance state</li>
+        <li>R<sub>OFF</sub> is the high resistance state</li>
+        <li>μ is the ion mobility</li>
+        <li>D is the device length</li>
+        <li>f(x) is a window function that ensures x stays between 0 and 1</li>
+      </ul>
+      <h3>Key Properties</h3>
+      <ul>
+        <li><strong>Hysteresis:</strong> The I-V curve shows a pinched hysteresis loop passing through the origin</li>
+        <li><strong>Nonvolatility:</strong> The device retains its state when power is removed</li>
+        <li><strong>Variable resistance:</strong> The resistance can be continuously varied between R<sub>ON</sub> and R<sub>OFF</sub></li>
+        <li><strong>Frequency dependence:</strong> The hysteresis loop area decreases with increasing frequency</li>
+      </ul>
+      <h3>Applications</h3>
+      <ul>
+        <li><strong>Non-volatile memory:</strong> ReRAM (Resistive Random Access Memory)</li>
+        <li><strong>Neuromorphic computing:</strong> Artificial synapses in neural networks</li>
+        <li><strong>Analog computing:</strong> Compact implementation of analog functions</li>
+        <li><strong>Chaotic circuits:</strong> Generation of chaotic signals</li>
+        <li><strong>Signal processing:</strong> Adaptive filters and pattern recognition</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script>
+    // DOM elements
+    const tabButtons = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    const hysteresisCanvas = document.getElementById('hysteresisCanvas');
+    const timeSeriesCanvas = document.getElementById('timeSeriesCanvas');
+    const ctxHyst = hysteresisCanvas.getContext('2d');
+    const ctxTime = timeSeriesCanvas.getContext('2d');
+
+    // Input controls
+    const inputWaveform = document.getElementById('inputWaveform');
+    const frequencySlider = document.getElementById('frequency');
+    const frequencyValue = document.getElementById('frequencyValue');
+    const amplitudeSlider = document.getElementById('amplitude');
+    const amplitudeValue = document.getElementById('amplitudeValue');
+    const rOnSlider = document.getElementById('rOn');
+    const rOnValue = document.getElementById('rOnValue');
+    const rOffSlider = document.getElementById('rOff');
+    const rOffValue = document.getElementById('rOffValue');
+    const mobilitySlider = document.getElementById('mobility');
+    const mobilityValue = document.getElementById('mobilityValue');
+    const deviceLengthSlider = document.getElementById('deviceLength');
+    const deviceLengthValue = document.getElementById('deviceLengthValue');
+    const initialStateSlider = document.getElementById('initialState');
+    const initialStateValue = document.getElementById('initialStateValue');
+
+    // Buttons
+    const runBtn = document.getElementById('runBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+
+    // Tab switching
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const tabName = button.getAttribute('data-tab');
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        tabContents.forEach(content => content.classList.remove('active'));
+        document.getElementById(tabName).classList.add('active');
+      });
+    });
+
+    // Memristor simulation variables
+    let isRunning = false;
+    let animationId = null;
+    let time = 0;
+    let dt = 0.01;
+    const maxPoints = 1000;
+    let stateX = 0.5;  // Normalized boundary position (0 to 1)
+
+    // Data arrays for plotting
+    let voltageData = [];
+    let currentData = [];
+    let resistanceData = [];
+    let ivData = [];
+
+    // Simulation parameters
+    let params = {
+      waveform: 'sine',
+      frequency: 1.0,
+      amplitude: 1.0,
+      rOn: 100,
+      rOff: 16000,
+      mobility: 10.0,
+      deviceLength: 10.0,
+      initialState: 0.5
+    };
+
+    // Update parameter display
+    function updateParamDisplay() {
+      frequencyValue.textContent = params.frequency.toFixed(1);
+      amplitudeValue.textContent = params.amplitude.toFixed(1);
+      rOnValue.textContent = params.rOn;
+      rOffValue.textContent = params.rOff;
+      mobilityValue.textContent = params.mobility.toFixed(1);
+      deviceLengthValue.textContent = params.deviceLength.toFixed(1);
+      initialStateValue.textContent = params.initialState.toFixed(2);
+    }
+    updateParamDisplay();
+
+    // Event listeners for sliders
+    frequencySlider.addEventListener('input', () => {
+      params.frequency = parseFloat(frequencySlider.value);
+      updateParamDisplay();
+    });
+    amplitudeSlider.addEventListener('input', () => {
+      params.amplitude = parseFloat(amplitudeSlider.value);
+      updateParamDisplay();
+    });
+    rOnSlider.addEventListener('input', () => {
+      params.rOn = parseInt(rOnSlider.value);
+      updateParamDisplay();
+    });
+    rOffSlider.addEventListener('input', () => {
+      params.rOff = parseInt(rOffSlider.value);
+      updateParamDisplay();
+    });
+    mobilitySlider.addEventListener('input', () => {
+      params.mobility = parseFloat(mobilitySlider.value);
+      updateParamDisplay();
+    });
+    deviceLengthSlider.addEventListener('input', () => {
+      params.deviceLength = parseFloat(deviceLengthSlider.value);
+      updateParamDisplay();
+    });
+    initialStateSlider.addEventListener('input', () => {
+      params.initialState = parseFloat(initialStateSlider.value);
+      updateParamDisplay();
+    });
+    inputWaveform.addEventListener('change', () => {
+      params.waveform = inputWaveform.value;
+    });
+
+    // Button event listeners
+    runBtn.addEventListener('click', startSimulation);
+    resetBtn.addEventListener('click', resetSimulation);
+    pauseBtn.addEventListener('click', togglePause);
+
+    // Generate input waveform
+    function generateWaveform(t, type, frequency, amplitude) {
+      const omega = 2 * Math.PI * frequency;
+      switch (type) {
+        case 'sine':
+          return amplitude * Math.sin(omega * t);
+        case 'triangle':
+          const period = 1 / frequency;
+          const normalizedT = (t % period) / period;
+          return amplitude * (normalizedT < 0.5 ? 4 * normalizedT - 1 : 3 - 4 * normalizedT);
+        case 'square':
+          return amplitude * Math.sign(Math.sin(omega * t));
+        case 'sawtooth':
+          const sawPeriod = 1 / frequency;
+          const sawNormalizedT = (t % sawPeriod) / sawPeriod;
+          return amplitude * (2 * sawNormalizedT - 1);
+        default:
+          return amplitude * Math.sin(omega * t);
+      }
+    }
+
+    // Memristor window function to constrain state variable
+    function windowFunction(x) {
+      return x * (1 - x);
+    }
+
+    // Calculate memristor current for a given voltage and state
+    function calculateCurrent(voltage, x, rOn, rOff) {
+      const resistance = rOn * x + rOff * (1 - x);
+      return voltage / resistance;
+    }
+
+    // Update memristor state based on current
+    function updateMemristorState(current, dt, x, mobility, rOn, deviceLength) {
+      // dx/dt = (mobility * rOn / D^2) * i * window(x)
+      const dxdt = (mobility * 1e-14 * rOn / Math.pow(deviceLength * 1e-9, 2)) * current * windowFunction(x);
+      return Math.max(0, Math.min(1, x + dxdt * dt));
+    }
+
+    // Clear the canvases
+    function clearCanvases() {
+      ctxHyst.clearRect(0, 0, hysteresisCanvas.width, hysteresisCanvas.height);
+      ctxTime.clearRect(0, 0, timeSeriesCanvas.width, timeSeriesCanvas.height);
+    }
+
+    // Draw axes on hysteresis canvas
+    function drawHysteresisAxes() {
+      const width = hysteresisCanvas.width;
+      const height = hysteresisCanvas.height;
+      const centerX = width / 2;
+      const centerY = height / 2;
+      ctxHyst.strokeStyle = '#000';
+      ctxHyst.lineWidth = 1;
+      ctxHyst.beginPath();
+      // X-axis
+      ctxHyst.moveTo(0, centerY);
+      ctxHyst.lineTo(width, centerY);
+      // Y-axis
+      ctxHyst.moveTo(centerX, 0);
+      ctxHyst.lineTo(centerX, height);
+      ctxHyst.font = '12px Arial';
+      ctxHyst.fillStyle = '#000';
+      ctxHyst.textAlign = 'center';
+      ctxHyst.fillText('Voltage (V)', width - 40, centerY - 10);
+      ctxHyst.save();
+      ctxHyst.translate(centerX - 10, 40);
+      ctxHyst.rotate(-Math.PI / 2);
+      ctxHyst.fillText('Current (mA)', 0, 0);
+      ctxHyst.restore();
+      // Grid lines
+      ctxHyst.strokeStyle = '#ccc';
+      ctxHyst.lineWidth = 0.5;
+      for (let x = centerX - 50; x > 0; x -= 50) {
+        ctxHyst.moveTo(x, 0);
+        ctxHyst.lineTo(x, height);
+      }
+      for (let x = centerX + 50; x < width; x += 50) {
+        ctxHyst.moveTo(x, 0);
+        ctxHyst.lineTo(x, height);
+      }
+      for (let y = centerY - 50; y > 0; y -= 50) {
+        ctxHyst.moveTo(0, y);
+        ctxHyst.lineTo(width, y);
+      }
+      for (let y = centerY + 50; y < height; y += 50) {
+        ctxHyst.moveTo(0, y);
+        ctxHyst.lineTo(width, y);
+      }
+      ctxHyst.stroke();
+    }
+
+    // Draw axes on time series canvas
+    function drawTimeSeriesAxes() {
+      const width = timeSeriesCanvas.width;
+      const height = timeSeriesCanvas.height;
+      ctxTime.strokeStyle = '#000';
+      ctxTime.lineWidth = 1;
+      ctxTime.beginPath();
+      // X-axis (time)
+      ctxTime.moveTo(0, height - 30);
+      ctxTime.lineTo(width, height - 30);
+      // Y-axis (values)
+      ctxTime.moveTo(30, 0);
+      ctxTime.lineTo(30, height);
+      ctxTime.font = '12px Arial';
+      ctxTime.fillStyle = '#000';
+      ctxTime.textAlign = 'center';
+      ctxTime.fillText('Time (s)', width - 40, height - 10);
+      ctxTime.stroke();
+    }
+
+    // Plot I-V curve on hysteresis canvas
+    function plotIVCurve() {
+      if (ivData.length < 2) return;
+      const width = hysteresisCanvas.width;
+      const height = hysteresisCanvas.height;
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const scaleX = 100;  // pixels per volt
+      const scaleY = 2000; // pixels per mA (adjust as needed)
+      ctxHyst.strokeStyle = '#e74c3c';
+      ctxHyst.lineWidth = 2;
+      ctxHyst.beginPath();
+      let firstPoint = true;
+      for (const point of ivData) {
+        const x = centerX + point.voltage * scaleX;
+        // Multiply current (A) by 1000 to convert to mA for plotting
+        const y = centerY - point.current * 1000 * scaleY;
+        if (firstPoint) {
+          ctxHyst.moveTo(x, y);
+          firstPoint = false;
+        } else {
+          ctxHyst.lineTo(x, y);
+        }
+      }
+      ctxHyst.stroke();
+    }
+
+    // Plot time series data for voltage, current, and resistance
+    function plotTimeSeries() {
+      if (voltageData.length < 2) return;
+      const width = timeSeriesCanvas.width;
+      const height = timeSeriesCanvas.height;
+      const timeRange = 2.0; // seconds
+      const minTime = Math.max(0, time - timeRange);
+      // Filter data for the last 2 seconds
+      const filteredVoltage = voltageData.filter(p => p.time >= minTime);
+      const filteredCurrent = currentData.filter(p => p.time >= minTime);
+      const filteredResistance = resistanceData.filter(p => p.time >= minTime);
+      ctxTime.clearRect(0, 0, width, height);
+      drawTimeSeriesAxes();
+      
+      // Plot Voltage (blue)
+      ctxTime.strokeStyle = '#3498db';
+      ctxTime.lineWidth = 2;
+      ctxTime.beginPath();
+      filteredVoltage.forEach((p, i) => {
+        const x = 30 + ((p.time - minTime) / timeRange) * (width - 40);
+        // Map voltage: assume range [-amplitude, amplitude]
+        const voltageRange = params.amplitude * 2;
+        const y = (height - 30) - ((p.value + params.amplitude) / voltageRange) * (height - 50);
+        if(i === 0) ctxTime.moveTo(x, y);
+        else ctxTime.lineTo(x, y);
+      });
+      ctxTime.stroke();
+      
+      // Plot Current (green)
+      ctxTime.strokeStyle = '#2ecc71';
+      ctxTime.lineWidth = 2;
+      ctxTime.beginPath();
+      // Auto-scale current based on data
+      let currentVals = filteredCurrent.map(p => p.value);
+      let maxCurrent = Math.max(...currentVals.map(Math.abs)) || 1;
+      filteredCurrent.forEach((p, i) => {
+        const x = 30 + ((p.time - minTime) / timeRange) * (width - 40);
+        const y = (height - 30) - (p.value / maxCurrent) * (height - 50);
+        if(i === 0) ctxTime.moveTo(x, y);
+        else ctxTime.lineTo(x, y);
+      });
+      ctxTime.stroke();
+      
+      // Plot Resistance (orange)
+      ctxTime.strokeStyle = '#f39c12';
+      ctxTime.lineWidth = 2;
+      ctxTime.beginPath();
+      let resVals = filteredResistance.map(p => p.value);
+      let minRes = Math.min(...resVals);
+      let maxRes = Math.max(...resVals);
+      if(maxRes === minRes) maxRes = minRes + 1;
+      filteredResistance.forEach((p, i) => {
+        const x = 30 + ((p.time - minTime) / timeRange) * (width - 40);
+        const y = (height - 30) - ((p.value - minRes) / (maxRes - minRes)) * (height - 50);
+        if(i === 0) ctxTime.moveTo(x, y);
+        else ctxTime.lineTo(x, y);
+      });
+      ctxTime.stroke();
+    }
+
+    // Main simulation step
+    function simulationStep() {
+      // Generate input voltage based on waveform
+      const voltage = generateWaveform(time, params.waveform, params.frequency, params.amplitude);
+      // Calculate current using the memristor model
+      const current = calculateCurrent(voltage, stateX, params.rOn, params.rOff);
+      // Update memristor state
+      stateX = updateMemristorState(current, dt, stateX, params.mobility, params.rOn, params.deviceLength);
+      // Calculate instantaneous resistance
+      const resistance = params.rOn * stateX + params.rOff * (1 - stateX);
+      
+      // Record data
+      voltageData.push({ time: time, value: voltage });
+      currentData.push({ time: time, value: current });
+      resistanceData.push({ time: time, value: resistance });
+      ivData.push({ voltage: voltage, current: current });
+      
+      // Limit arrays to maxPoints
+      if (voltageData.length > maxPoints) {
+        voltageData.shift();
+        currentData.shift();
+        resistanceData.shift();
+      }
+      
+      time += dt;
+      
+      clearCanvases();
+      drawHysteresisAxes();
+      drawTimeSeriesAxes();
+      plotIVCurve();
+      plotTimeSeries();
+      
+      animationId = requestAnimationFrame(simulationStep);
+    }
+
+    // Start simulation
+    function startSimulation() {
+      if (!isRunning) {
+        isRunning = true;
+        animationId = requestAnimationFrame(simulationStep);
+      }
+    }
+
+    // Toggle pause/resume
+    function togglePause() {
+      if (isRunning) {
+        isRunning = false;
+        cancelAnimationFrame(animationId);
+        pauseBtn.textContent = "Resume";
+      } else {
+        isRunning = true;
+        pauseBtn.textContent = "Pause";
+        animationId = requestAnimationFrame(simulationStep);
+      }
+    }
+
+    // Reset simulation
+    function resetSimulation() {
+      isRunning = false;
+      cancelAnimationFrame(animationId);
+      time = 0;
+      stateX = params.initialState;
+      voltageData = [];
+      currentData = [];
+      resistanceData = [];
+      ivData = [];
+      clearCanvases();
+      drawHysteresisAxes();
+      drawTimeSeriesAxes();
+      pauseBtn.textContent = "Pause";
+    }
+  </script>
+</body>
+</html>
