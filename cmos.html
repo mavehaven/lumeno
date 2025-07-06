@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transistor-Based Neural Circuit & CMOS Simulation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h2, h3 {
+      color: #333;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ddd;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      background-color: #f1f1f1;
+      border: 1px solid #ddd;
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
+      margin-right: 5px;
+    }
+    .tab.active {
+      background-color: white;
+      border-bottom: 1px solid white;
+      margin-bottom: -1px;
+      font-weight: bold;
+    }
+    .tab-content {
+      display: none;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-top: none;
+      animation: fadeIn 0.5s;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      margin: 10px 0;
+      display: block;
+    }
+    .controls {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: #f9f9f9;
+      border-radius: 5px;
+    }
+    .slider-container {
+      margin: 10px 0;
+    }
+    input[type="range"] {
+      width: 300px;
+      vertical-align: middle;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      text-align: center;
+      font-size: 14px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .info-box {
+      background-color: #e7f3fe;
+      border-left: 6px solid #2196F3;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    .flex-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .flex-item {
+      flex: 1;
+      min-width: 300px;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+      text-align: center;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Transistor-Based Neural Circuit & CMOS Technology Simulation</h1>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="openTab(event, 'transistor')">Transistor Basics</div>
+      <div class="tab" onclick="openTab(event, 'cmos')">CMOS Technology</div>
+      <div class="tab" onclick="openTab(event, 'neuralCircuit')">Neural Circuit</div>
+      <div class="tab" onclick="openTab(event, 'about')">About</div>
+    </div>
+    
+    <!-- Transistor Basics Tab -->
+    <div id="transistor" class="tab-content active">
+      <h2>Transistor Basics</h2>
+      <div class="flex-container">
+        <div class="flex-item">
+          <h3>MOSFET Transistor Operation</h3>
+          <p>A MOSFET (Metal-Oxide-Semiconductor Field-Effect Transistor) has three terminals: Gate, Source, and Drain.</p>
+          <p>The voltage applied to the Gate terminal controls the current flow between Source and Drain.</p>
+          <div class="info-box">
+            <p><strong>Key Points:</strong></p>
+            <ul>
+              <li>When gate voltage is below threshold: Transistor is OFF</li>
+              <li>When gate voltage exceeds threshold: Transistor turns ON</li>
+              <li>N-channel MOSFET: Conducts when gate is positive</li>
+              <li>P-channel MOSFET: Conducts when gate is negative</li>
+            </ul>
+          </div>
+          <div class="controls">
+            <h4>MOSFET Controls</h4>
+            <div class="slider-container">
+              <label for="gateVoltage">Gate Voltage (V<sub>GS</sub>): <span id="gateVoltageValue">0</span>V</label><br>
+              <input type="range" id="gateVoltage" min="0" max="5" step="0.1" value="0" oninput="updateTransistorSimulation()">
+            </div>
+            <div class="slider-container">
+              <label for="drainVoltage">Drain Voltage (V<sub>DS</sub>): <span id="drainVoltageValue">5</span>V</label><br>
+              <input type="range" id="drainVoltage" min="0" max="5" step="0.1" value="5" oninput="updateTransistorSimulation()">
+            </div>
+            <button onclick="resetTransistorSimulation()">Reset</button>
+          </div>
+        </div>
+        <div class="flex-item">
+          <canvas id="transistorCanvas" width="450" height="300"></canvas>
+          <div id="transistorInfo">
+            <p>Current State: <span id="transistorState">OFF</span></p>
+            <p>Drain Current (I<sub>D</sub>): <span id="drainCurrent">0.00</span> mA</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- CMOS Technology Tab -->
+    <div id="cmos" class="tab-content">
+      <h2>CMOS Technology</h2>
+      <div class="flex-container">
+        <div class="flex-item">
+          <h3>CMOS Inverter</h3>
+          <p>CMOS (Complementary Metal-Oxide-Semiconductor) uses both NMOS and PMOS transistors working together. The basic CMOS structure is an inverter that converts a high input to a low output and vice versa.</p>
+          <div class="info-box">
+            <p><strong>Advantages of CMOS:</strong></p>
+            <ul>
+              <li>Low power consumption (only draws power during switching)</li>
+              <li>High noise immunity</li>
+              <li>High density integration</li>
+              <li>Wide supply voltage range</li>
+            </ul>
+          </div>
+          <div class="controls">
+            <h4>CMOS Inverter Controls</h4>
+            <div class="slider-container">
+              <label for="cmosInput">Input Voltage: <span id="cmosInputValue">0</span>V</label><br>
+              <input type="range" id="cmosInput" min="0" max="5" step="0.1" value="0" oninput="updateCMOSSimulation()">
+            </div>
+            <button id="cmosToggle" onclick="toggleCMOSInput()">Toggle Input (0/5V)</button>
+            <button onclick="resetCMOSSimulation()">Reset</button>
+          </div>
+        </div>
+        <div class="flex-item">
+          <canvas id="cmosCanvas" width="450" height="300"></canvas>
+          <div id="cmosInfo">
+            <p>Input Voltage: <span id="cmosInputDisplay">0.00</span>V</p>
+            <p>Output Voltage: <span id="cmosOutputDisplay">5.00</span>V</p>
+            <p>Power Consumption: <span id="cmosPower">0.00</span> μW</p>
+          </div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 30px;">
+        <h3>CMOS Logic Gates</h3>
+        <div class="flex-container">
+          <div class="flex-item">
+            <h4>CMOS NAND Gate</h4>
+            <canvas id="nandCanvas" width="350" height="200"></canvas>
+            <div class="controls">
+              <button onclick="toggleNandA()">Toggle Input A</button>
+              <button onclick="toggleNandB()">Toggle Input B</button>
+            </div>
+            <div id="nandInfo">
+              <p>Input A: <span id="nandInputA">0</span></p>
+              <p>Input B: <span id="nandInputB">0</span></p>
+              <p>Output: <span id="nandOutput">1</span></p>
+            </div>
+          </div>
+          
+          <div class="flex-item">
+            <h4>CMOS NOR Gate</h4>
+            <canvas id="norCanvas" width="350" height="200"></canvas>
+            <div class="controls">
+              <button onclick="toggleNorA()">Toggle Input A</button>
+              <button onclick="toggleNorB()">Toggle Input B</button>
+            </div>
+            <div id="norInfo">
+              <p>Input A: <span id="norInputA">0</span></p>
+              <p>Input B: <span id="norInputB">0</span></p>
+              <p>Output: <span id="norOutput">1</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Neural Circuit Tab -->
+    <div id="neuralCircuit" class="tab-content">
+      <h2>Transistor-Based Neural Circuit</h2>
+      <div class="flex-container">
+        <div class="flex-item">
+          <h3>Simple Neuron Model</h3>
+          <p>This simulation demonstrates how transistors can be used to create artificial neurons—the basic building blocks of neural networks.</p>
+          <div class="info-box">
+            <p><strong>Transistor-Based Neuron:</strong></p>
+            <ul>
+              <li>Multiple inputs (dendrites) with different weights (synapse strengths)</li>
+              <li>Summing junction (soma)</li>
+              <li>Threshold activation function (axon)</li>
+              <li>Output that fires when threshold is reached</li>
+            </ul>
+          </div>
+          <div class="controls">
+            <h4>Neural Circuit Controls</h4>
+            <div class="slider-container">
+              <label for="input1">Input 1: <span id="input1Value">0</span></label><br>
+              <input type="range" id="input1" min="0" max="1" step="0.1" value="0" oninput="updateNeuralCircuit()">
+            </div>
+            <div class="slider-container">
+              <label for="input2">Input 2: <span id="input2Value">0</span></label><br>
+              <input type="range" id="input2" min="0" max="1" step="0.1" value="0" oninput="updateNeuralCircuit()">
+            </div>
+            <div class="slider-container">
+              <label for="weight1">Weight 1: <span id="weight1Value">0.5</span></label><br>
+              <input type="range" id="weight1" min="-1" max="1" step="0.1" value="0.5" oninput="updateNeuralCircuit()">
+            </div>
+            <div class="slider-container">
+              <label for="weight2">Weight 2: <span id="weight2Value">0.5</span></label><br>
+              <input type="range" id="weight2" min="-1" max="1" step="0.1" value="0.5" oninput="updateNeuralCircuit()">
+            </div>
+            <div class="slider-container">
+              <label for="threshold">Neuron Threshold: <span id="thresholdValue">0.5</span></label><br>
+              <input type="range" id="threshold" min="0" max="1" step="0.1" value="0.5" oninput="updateNeuralCircuit()">
+            </div>
+            <button onclick="resetNeuralCircuit()">Reset</button>
+          </div>
+        </div>
+        <div class="flex-item">
+          <canvas id="neuralCanvas" width="450" height="350"></canvas>
+          <div id="neuralInfo">
+            <p>Weighted Sum: <span id="weightedSum">0.00</span></p>
+            <p>Neuron Output: <span id="neuronOutput">0</span></p>
+          </div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 30px;">
+        <h3>Neural Network Example: XOR Problem</h3>
+        <p>XOR (exclusive OR) is a classic problem that cannot be solved by a single neuron but requires a small network.</p>
+        <div class="flex-container">
+          <div class="flex-item">
+            <canvas id="xorCanvas" width="450" height="300"></canvas>
+            <div class="controls">
+              <button onclick="toggleXorInputA()">Toggle Input A</button>
+              <button onclick="toggleXorInputB()">Toggle Input B</button>
+              <button onclick="runXorAnimation()">Run Animation</button>
+            </div>
+          </div>
+          <div class="flex-item">
+            <h4>XOR Truth Table</h4>
+            <table>
+              <tr>
+                <th>Input A</th>
+                <th>Input B</th>
+                <th>Output</th>
+              </tr>
+              <tr>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>0</td>
+                <td>1</td>
+                <td>1</td>
+              </tr>
+              <tr>
+                <td>1</td>
+                <td>0</td>
+                <td>1</td>
+              </tr>
+              <tr>
+                <td>1</td>
+                <td>1</td>
+                <td>0</td>
+              </tr>
+            </table>
+            <div id="xorInfo" style="margin-top: 20px;">
+              <p>Input A: <span id="xorInputA">0</span></p>
+              <p>Input B: <span id="xorInputB">0</span></p>
+              <p>Output: <span id="xorOutput">0</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- About Tab -->
+    <div id="about" class="tab-content">
+      <h2>About This Simulation</h2>
+      <div class="flex-container">
+        <div class="flex-item">
+          <h3>Educational Purpose</h3>
+          <p>This interactive simulation is designed to help students and enthusiasts understand the fundamental principles of:</p>
+          <ul>
+            <li>Transistor operation and characteristics</li>
+            <li>CMOS technology used in modern integrated circuits</li>
+            <li>How transistors can be used to build neural circuits</li>
+            <li>The relationship between electronic components and artificial neurons</li>
+          </ul>
+          <h3>Features</h3>
+          <ul>
+            <li>Interactive visualizations of transistor behavior</li>
+            <li>Real-time CMOS circuit simulation</li>
+            <li>Neural network implementation using transistor-like components</li>
+            <li>Adjustable parameters to explore different scenarios</li>
+          </ul>
+        </div>
+        <div class="flex-item">
+          <h3>Key Takeaways</h3>
+          <p>After exploring this simulation, you should understand:</p>
+          <ul>
+            <li>How transistors function as electronic switches and amplifiers</li>
+            <li>Why CMOS technology is fundamental to modern computing</li>
+            <li>How transistors can implement the mathematical functions needed for neural networks</li>
+            <li>The parallels between electronic circuits and biological neurons</li>
+          </ul>
+          <h3>References</h3>
+          <ul>
+            <li>Sedra, A. S., & Smith, K. C. (2014). Microelectronic Circuits.</li>
+            <li>Mead, C. (1989). Analog VLSI and Neural Systems.</li>
+            <li>Weste, N. H. E., & Harris, D. M. (2010). CMOS VLSI Design.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global variables
+    let transistorThreshold = 1.5; // Gate voltage threshold for transistor
+    let nandInputA = 0, nandInputB = 0;
+    let norInputA = 0, norInputB = 0;
+    let xorInputA = 0, xorInputB = 0;
+
+    // Initialize everything when the window loads
+    window.onload = function() {
+      initTransistorCanvas();
+      initCMOSCanvas();
+      initNANDCanvas();
+      initNORCanvas();
+      initNeuralCanvas();
+      initXORCanvas();
+    };
+
+    // ----- Tab Switching -----
+    function openTab(evt, tabName) {
+      const tabContents = document.getElementsByClassName("tab-content");
+      for (let i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+      }
+      const tabs = document.getElementsByClassName("tab");
+      for (let i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove("active");
+      }
+      document.getElementById(tabName).classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
+
+    // ----- TRANSISTOR SIMULATION -----
+    function initTransistorCanvas() {
+      const canvas = document.getElementById('transistorCanvas');
+      const ctx = canvas.getContext('2d');
+      drawTransistor(ctx, 0, 5);
+      document.getElementById('gateVoltageValue').textContent = '0.0';
+      document.getElementById('drainVoltageValue').textContent = '5.0';
+      document.getElementById('transistorState').textContent = 'OFF';
+      document.getElementById('drainCurrent').textContent = '0.00';
+    }
+
+    function updateTransistorSimulation() {
+      const canvas = document.getElementById('transistorCanvas');
+      const ctx = canvas.getContext('2d');
+      const gateVoltage = parseFloat(document.getElementById('gateVoltage').value);
+      const drainVoltage = parseFloat(document.getElementById('drainVoltage').value);
+      document.getElementById('gateVoltageValue').textContent = gateVoltage.toFixed(1);
+      document.getElementById('drainVoltageValue').textContent = drainVoltage.toFixed(1);
+      let drainCurrent = 0;
+      if (gateVoltage > transistorThreshold) {
+        drainCurrent = 2 * Math.pow(gateVoltage - transistorThreshold, 2);
+        if (drainCurrent > 10) drainCurrent = 10;
+        drainCurrent = drainCurrent * (drainVoltage / 5);
+        document.getElementById('transistorState').textContent = 'ON';
+      } else {
+        document.getElementById('transistorState').textContent = 'OFF';
+      }
+      document.getElementById('drainCurrent').textContent = drainCurrent.toFixed(2);
+      drawTransistor(ctx, gateVoltage, drainVoltage);
+    }
+
+    function drawTransistor(ctx, gateVoltage, drainVoltage) {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      // Draw source line
+      ctx.beginPath();
+      ctx.moveTo(150, 150);
+      ctx.lineTo(200, 150);
+      ctx.stroke();
+      // Draw channel
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = (gateVoltage > transistorThreshold) ? '#0066cc' : '#999999';
+      ctx.beginPath();
+      ctx.moveTo(200, 130);
+      ctx.lineTo(200, 170);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#000000';
+      // Draw gate rectangle
+      ctx.beginPath();
+      ctx.rect(180, 100, 40, 30);
+      ctx.stroke();
+      // Gate connection
+      ctx.beginPath();
+      ctx.moveTo(200, 100);
+      ctx.lineTo(200, 70);
+      ctx.lineTo(150, 70);
+      ctx.stroke();
+      // Drain line
+      ctx.beginPath();
+      ctx.moveTo(200, 150);
+      ctx.lineTo(250, 150);
+      ctx.stroke();
+      // Labels
+      ctx.font = '14px Arial';
+      ctx.fillText('Gate', 120, 75);
+      ctx.fillText('Source', 120, 155);
+      ctx.fillText('Drain', 260, 155);
+      // Draw current flow arrows if transistor is ON
+      if (gateVoltage > transistorThreshold) {
+        const currentStrength = Math.min((gateVoltage - transistorThreshold) * drainVoltage / 5, 1);
+        const numArrows = Math.ceil(currentStrength * 5);
+        ctx.strokeStyle = '#0066cc';
+        for (let i = 0; i < numArrows; i++) {
+          const arrowX = 175 + i * 15;
+          drawArrow(ctx, arrowX, 150, arrowX + 10, 150, 5);
+        }
+        ctx.strokeStyle = '#000000';
+      }
+      // Voltage indicators
+      const gateVoltageHeight = 50 * (gateVoltage / 5);
+      ctx.fillStyle = 'rgba(255, 200, 0, 0.5)';
+      ctx.fillRect(145, 70 - gateVoltageHeight, 10, gateVoltageHeight);
+      ctx.strokeRect(145, 20, 10, 50);
+      const drainVoltageHeight = 50 * (drainVoltage / 5);
+      ctx.fillStyle = 'rgba(0, 200, 255, 0.5)';
+      ctx.fillRect(260, 150 - drainVoltageHeight, 10, drainVoltageHeight);
+      ctx.strokeRect(260, 100, 10, 50);
+      ctx.font = '12px Arial';
+      ctx.fillStyle = '#000000';
+      ctx.fillText('VGS', 140, 15);
+      ctx.fillText('VDS', 255, 95);
+      // Threshold indicator
+      const thresholdHeight = 50 * (transistorThreshold / 5);
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(145, 70 - thresholdHeight);
+      ctx.lineTo(155, 70 - thresholdHeight);
+      ctx.stroke();
+      ctx.fillText('Threshold', 110, 70 - thresholdHeight);
+      ctx.setLineDash([]);
+      // Schematic explanation
+      ctx.font = '16px Arial';
+      ctx.fillText('MOSFET Operation', 300, 50);
+      ctx.font = '12px Arial';
+      if (gateVoltage <= transistorThreshold) {
+        ctx.fillText('• Gate voltage below threshold', 300, 80);
+        ctx.fillText('• No conductive channel formed', 300, 100);
+        ctx.fillText('• Transistor is OFF', 300, 120);
+        ctx.fillText('• No current flows', 300, 140);
+      } else if (drainVoltage < gateVoltage - transistorThreshold) {
+        ctx.fillText('• Gate voltage above threshold', 300, 80);
+        ctx.fillText('• Channel formed, linear region', 300, 100);
+        ctx.fillText('• Current flows proportional to VDS', 300, 120);
+      } else {
+        ctx.fillText('• Transistor in saturation', 300, 80);
+        ctx.fillText('• Current mainly controlled by VGS', 300, 100);
+      }
+    }
+
+    function resetTransistorSimulation() {
+      document.getElementById('gateVoltage').value = 0;
+      document.getElementById('drainVoltage').value = 5;
+      updateTransistorSimulation();
+    }
+
+    function drawArrow(ctx, fromX, fromY, toX, toY, headSize) {
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX, toY);
+      ctx.stroke();
+      const angle = Math.atan2(toY - fromY, toX - fromX);
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - headSize * Math.cos(angle - Math.PI/6), toY - headSize * Math.sin(angle - Math.PI/6));
+      ctx.lineTo(toX - headSize * Math.cos(angle + Math.PI/6), toY - headSize * Math.sin(angle + Math.PI/6));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // ----- CMOS SIMULATION -----
+    function initCMOSCanvas() {
+      const canvas = document.getElementById('cmosCanvas');
+      const ctx = canvas.getContext('2d');
+      drawCMOS(ctx, 0);
+      updateNandGate(nandInputA, nandInputB);
+      updateNorGate(norInputA, norInputB);
+    }
+
+    function updateCMOSSimulation() {
+      const canvas = document.getElementById('cmosCanvas');
+      const ctx = canvas.getContext('2d');
+      const inputVoltage = parseFloat(document.getElementById('cmosInput').value);
+      document.getElementById('cmosInputValue').textContent = inputVoltage.toFixed(1);
+      drawCMOS(ctx, inputVoltage);
+    }
+
+    function toggleCMOSInput() {
+      const slider = document.getElementById('cmosInput');
+      slider.value = (parseFloat(slider.value) < 2.5) ? 5 : 0;
+      updateCMOSSimulation();
+    }
+
+    function resetCMOSSimulation() {
+      document.getElementById('cmosInput').value = 0;
+      updateCMOSSimulation();
+    }
+
+    function drawCMOS(ctx, inputVoltage) {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      let outputVoltage = 5;
+      if (inputVoltage > 2.5) {
+        outputVoltage = (inputVoltage > 3.0) ? 0 : 5 - ((inputVoltage - 2.5) * 10);
+      }
+      let power = 0;
+      if (inputVoltage > 1.5 && inputVoltage < 3.5) {
+        power = 25 * (1 - Math.abs((inputVoltage - 2.5) / 2));
+      }
+      document.getElementById('cmosInputDisplay').textContent = inputVoltage.toFixed(2);
+      document.getElementById('cmosOutputDisplay').textContent = outputVoltage.toFixed(2);
+      document.getElementById('cmosPower').textContent = power.toFixed(2);
+      // Draw simple CMOS inverter schematic
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#333';
+      ctx.fillText('CMOS Inverter', 20, 30);
+      // NMOS transistor
+      ctx.strokeStyle = '#000';
+      ctx.strokeRect(50, 50, 50, 100);
+      ctx.fillText('NMOS', 60, 45);
+      // PMOS transistor
+      ctx.strokeRect(150, 20, 50, 100);
+      ctx.fillText('PMOS', 160, 15);
+      // Output line
+      ctx.beginPath();
+      ctx.moveTo(200, 100);
+      ctx.lineTo(250, 100);
+      ctx.stroke();
+      ctx.fillText('Output: ' + outputVoltage.toFixed(2) + 'V', 260, 105);
+    }
+
+    // ----- NAND Gate Simulation -----
+    function initNANDCanvas() {
+      nandInputA = 0;
+      nandInputB = 0;
+      updateNandGate(nandInputA, nandInputB);
+    }
+
+    function toggleNandA() {
+      nandInputA = (nandInputA === 0) ? 1 : 0;
+      updateNandGate(nandInputA, nandInputB);
+    }
+
+    function toggleNandB() {
+      nandInputB = (nandInputB === 0) ? 1 : 0;
+      updateNandGate(nandInputA, nandInputB);
+    }
+
+    function updateNandGate(a, b) {
+      document.getElementById('nandInputA').textContent = a;
+      document.getElementById('nandInputB').textContent = b;
+      const output = (a === 1 && b === 1) ? 0 : 1;
+      document.getElementById('nandOutput').textContent = output;
+      const canvas = document.getElementById('nandCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#333';
+      ctx.fillText('NAND Gate', 10, 20);
+      ctx.fillText('A: ' + a, 10, 50);
+      ctx.fillText('B: ' + b, 10, 80);
+      ctx.fillText('Output: ' + output, 10, 110);
+    }
+
+    // ----- NOR Gate Simulation -----
+    function initNORCanvas() {
+      norInputA = 0;
+      norInputB = 0;
+      updateNorGate(norInputA, norInputB);
+    }
+
+    function toggleNorA() {
+      norInputA = (norInputA === 0) ? 1 : 0;
+      updateNorGate(norInputA, norInputB);
+    }
+
+    function toggleNorB() {
+      norInputB = (norInputB === 0) ? 1 : 0;
+      updateNorGate(norInputA, norInputB);
+    }
+
+    function updateNorGate(a, b) {
+      document.getElementById('norInputA').textContent = a;
+      document.getElementById('norInputB').textContent = b;
+      const output = (a === 0 && b === 0) ? 1 : 0;
+      document.getElementById('norOutput').textContent = output;
+      const canvas = document.getElementById('norCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#333';
+      ctx.fillText('NOR Gate', 10, 20);
+      ctx.fillText('A: ' + a, 10, 50);
+      ctx.fillText('B: ' + b, 10, 80);
+      ctx.fillText('Output: ' + output, 10, 110);
+    }
+
+    // ----- Neural Circuit Simulation -----
+    function initNeuralCanvas() {
+      resetNeuralCircuit();
+    }
+
+    function updateNeuralCircuit() {
+      const input1 = parseFloat(document.getElementById('input1').value);
+      const input2 = parseFloat(document.getElementById('input2').value);
+      const weight1 = parseFloat(document.getElementById('weight1').value);
+      const weight2 = parseFloat(document.getElementById('weight2').value);
+      const threshold = parseFloat(document.getElementById('threshold').value);
+      document.getElementById('input1Value').textContent = input1.toFixed(1);
+      document.getElementById('input2Value').textContent = input2.toFixed(1);
+      document.getElementById('weight1Value').textContent = weight1.toFixed(1);
+      document.getElementById('weight2Value').textContent = weight2.toFixed(1);
+      document.getElementById('thresholdValue').textContent = threshold.toFixed(1);
+      const sum = input1 * weight1 + input2 * weight2;
+      document.getElementById('weightedSum').textContent = sum.toFixed(2);
+      const output = (sum >= threshold) ? 1 : 0;
+      document.getElementById('neuronOutput').textContent = output;
+      const canvas = document.getElementById('neuralCanvas');
+      const ctx = canvas.getContext('2d');
+      drawNeuralCircuit(ctx, input1, input2, weight1, weight2, threshold, sum, output);
+    }
+
+    function resetNeuralCircuit() {
+      document.getElementById('input1').value = 0;
+      document.getElementById('input2').value = 0;
+      document.getElementById('weight1').value = 0.5;
+      document.getElementById('weight2').value = 0.5;
+      document.getElementById('threshold').value = 0.5;
+      updateNeuralCircuit();
+    }
+
+    function drawNeuralCircuit(ctx, input1, input2, weight1, weight2, threshold, sum, output) {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      // Draw neuron (circle)
+      ctx.beginPath();
+      ctx.arc(225, 175, 50, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.font = '16px Arial';
+      ctx.fillText('Neuron', 200, 175);
+      // Draw input arrows and labels
+      ctx.beginPath();
+      ctx.moveTo(50, 100);
+      ctx.lineTo(175, 175);
+      ctx.stroke();
+      ctx.fillText('Input1: ' + input1, 30, 90);
+      ctx.beginPath();
+      ctx.moveTo(50, 250);
+      ctx.lineTo(175, 175);
+      ctx.stroke();
+      ctx.fillText('Input2: ' + input2, 30, 260);
+      ctx.fillText('w1: ' + weight1.toFixed(1), 110, 140);
+      ctx.fillText('w2: ' + weight2.toFixed(1), 110, 210);
+      // Threshold indicator (dashed line)
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(175, 175 - threshold * 50);
+      ctx.lineTo(275, 175 - threshold * 50);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Output arrow and label
+      ctx.beginPath();
+      ctx.moveTo(275, 175);
+      ctx.lineTo(350, 175);
+      ctx.stroke();
+      ctx.fillText('Output: ' + output, 360, 180);
+    }
+
+    // ----- XOR Simulation -----
+    function initXORCanvas() {
+      updateXorDisplay();
+    }
+
+    function toggleXorInputA() {
+      xorInputA = (xorInputA === 0) ? 1 : 0;
+      updateXorDisplay();
+    }
+
+    function toggleXorInputB() {
+      xorInputB = (xorInputB === 0) ? 1 : 0;
+      updateXorDisplay();
+    }
+
+    function updateXorDisplay() {
+      document.getElementById('xorInputA').textContent = xorInputA;
+      document.getElementById('xorInputB').textContent = xorInputB;
+      const output = ((xorInputA === 1 && xorInputB === 0) || (xorInputA === 0 && xorInputB === 1)) ? 1 : 0;
+      document.getElementById('xorOutput').textContent = output;
+      const canvas = document.getElementById('xorCanvas');
+      const ctx = canvas.getContext('2d');
+      drawXOR(ctx, xorInputA, xorInputB, output);
+    }
+
+    function drawXOR(ctx, a, b, output) {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#333';
+      ctx.fillText('XOR Simulation', 10, 20);
+      ctx.fillText('Input A: ' + a, 10, 50);
+      ctx.fillText('Input B: ' + b, 10, 80);
+      ctx.fillText('Output: ' + output, 10, 110);
+      // Draw a simple XOR gate outline
+      ctx.beginPath();
+      ctx.moveTo(150, 30);
+      ctx.lineTo(200, 30);
+      ctx.quadraticCurveTo(250, 60, 200, 90);
+      ctx.lineTo(150, 90);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    function runXorAnimation() {
+      const steps = [
+        {a:0, b:0},
+        {a:0, b:1},
+        {a:1, b:0},
+        {a:1, b:1}
+      ];
+      let i = 0;
+      const interval = setInterval(function() {
+        xorInputA = steps[i].a;
+        xorInputB = steps[i].b;
+        updateXorDisplay();
+        i++;
+        if (i >= steps.length) {
+          clearInterval(interval);
+        }
+      }, 1000);
+    }
+  </script>
+</body>
+</html>
