@@ -3,20 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced 3D Audio Visualizer - VR Ready</title>
+    <title>Enhanced 3D Audio Visualizer - Fixed Recording</title>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
-            background: #000;
-            font-family: Arial, sans-serif;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
+            color: #e6e6e6;
+            height: 100vh;
+            width: 100vw;
         }
         
         #container {
-            width: 100vw;
-            height: 100vh;
             position: relative;
+            width: 100%;
+            height: 100%;
         }
         
         #controls {
@@ -24,12 +31,20 @@
             top: 20px;
             left: 20px;
             z-index: 100;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(10, 15, 30, 0.85);
             padding: 20px;
             border-radius: 15px;
-            border: 1px solid #333;
+            border: 1px solid rgba(100, 100, 255, 0.3);
             max-width: 350px;
             backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: transform 0.4s ease, opacity 0.4s ease;
+        }
+        
+        #controls.hidden {
+            transform: translateX(-400px);
+            opacity: 0;
+            pointer-events: none;
         }
         
         #fileInput {
@@ -47,6 +62,7 @@
             font-size: 14px;
             transition: all 0.3s ease;
             display: inline-block;
+            font-weight: 600;
         }
         
         .btn:hover {
@@ -84,6 +100,32 @@
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
         }
         
+        #toggleMenuBtn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 200;
+            background: rgba(10, 15, 30, 0.85);
+            border: 1px solid rgba(100, 100, 255, 0.3);
+            color: #fff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            font-size: 24px;
+        }
+        
+        #toggleMenuBtn:hover {
+            background: rgba(30, 40, 80, 0.9);
+            transform: scale(1.1);
+        }
+        
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -93,10 +135,25 @@
         #playlist {
             max-height: 150px;
             overflow-y: auto;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.3);
             border-radius: 8px;
             padding: 10px;
             margin: 10px 0;
+            scrollbar-width: thin;
+            scrollbar-color: #667eea rgba(0,0,0,0.3);
+        }
+        
+        #playlist::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #playlist::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        
+        #playlist::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 3px;
         }
         
         .playlist-item {
@@ -130,11 +187,19 @@
             left: 20px;
             color: #fff;
             font-size: 12px;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.7);
             padding: 15px;
             border-radius: 10px;
             max-width: 450px;
             backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 100, 255, 0.3);
+            transition: transform 0.4s ease, opacity 0.4s ease;
+        }
+        
+        #info.hidden {
+            transform: translateX(-500px);
+            opacity: 0;
+            pointer-events: none;
         }
         
         .control-group {
@@ -149,15 +214,29 @@
         }
         
         input[type="range"] {
-            width: 200px;
+            width: 100%;
+            height: 5px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
         }
         
         select {
             background: rgba(255, 255, 255, 0.1);
             color: white;
-            border: 1px solid #333;
+            border: 1px solid rgba(100, 100, 255, 0.3);
             border-radius: 5px;
-            padding: 5px;
+            padding: 8px;
             width: 100%;
         }
         
@@ -177,7 +256,7 @@
         #downloadSection {
             margin-top: 15px;
             padding-top: 15px;
-            border-top: 1px solid #333;
+            border-top: 1px solid rgba(100, 100, 255, 0.3);
         }
         
         .download-link {
@@ -189,6 +268,7 @@
             padding: 5px;
             background: rgba(78, 205, 196, 0.1);
             border-radius: 3px;
+            transition: background 0.3s;
         }
         
         .download-link:hover {
@@ -203,6 +283,8 @@
         
         .checkbox-group input[type="checkbox"] {
             margin-right: 8px;
+            width: 16px;
+            height: 16px;
         }
         
         .checkbox-group label {
@@ -246,7 +328,7 @@
             border-radius: 15px;
             background: rgba(255, 255, 255, 0.1);
             color: white;
-            border: 1px solid #333;
+            border: 1px solid rgba(100, 100, 255, 0.3);
             cursor: pointer;
             transition: all 0.3s ease;
         }
@@ -255,11 +337,141 @@
             background: linear-gradient(45deg, #4facfe 0%, #00f2fe 100%);
             border-color: #4facfe;
         }
+        
+        .section-title {
+            color: #4facfe;
+            font-size: 12px;
+            margin: 10px 0 5px;
+            font-weight: bold;
+            border-bottom: 1px solid rgba(100, 100, 255, 0.3);
+            padding-bottom: 5px;
+        }
+        
+        #recordingQualitySection {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #recordingQualitySection label {
+            margin-bottom: 0;
+        }
+        
+        /* Floating controls for when menu is hidden */
+        .floating-control {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            z-index: 200;
+            background: rgba(10, 15, 30, 0.85);
+            border: 1px solid rgba(100, 100, 255, 0.3);
+            color: #fff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+            font-size: 16px;
+        }
+        
+        .floating-control.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .floating-control:hover {
+            background: rgba(30, 40, 80, 0.9);
+            transform: scale(1.1);
+        }
+        
+        #playBtnFloating {
+            top: 80px;
+        }
+        
+        #pauseBtnFloating {
+            top: 130px;
+        }
+        
+        #nextBtnFloating {
+            top: 180px;
+        }
+        
+        #prevBtnFloating {
+            top: 230px;
+        }
+        
+        #recordBtnFloating {
+            top: 280px;
+            background: linear-gradient(45deg, #ff6b6b 0%, #ee5a52 100%);
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            #controls {
+                max-width: 300px;
+                left: 10px;
+                top: 10px;
+            }
+        }
+        
+        /* Visualization styles */
+        .visualizer-title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 24px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            z-index: 50;
+            text-align: center;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            backdrop-filter: blur(10px);
+        }
+        
+        .recording-indicator {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff5555;
+            font-size: 16px;
+            z-index: 50;
+            text-align: center;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div id="container">
+        <div class="visualizer-title">3D AUDIO VISUALIZER</div>
+        <div class="recording-indicator">● RECORDING</div>
+        
+        <button id="toggleMenuBtn">☰</button>
+        
+        <!-- Floating controls for when menu is hidden -->
+        <div class="floating-control" id="playBtnFloating">▶</div>
+        <div class="floating-control" id="pauseBtnFloating">⏸</div>
+        <div class="floating-control" id="nextBtnFloating">⏭</div>
+        <div class="floating-control" id="prevBtnFloating">⏮</div>
+        <div class="floating-control" id="recordBtnFloating">●</div>
+        
         <div id="controls">
+            <div class="section-title">PLAYLIST</div>
             <div class="control-group">
                 <input type="file" id="fileInput" accept="audio/*" multiple>
                 <button class="btn" onclick="document.getElementById('fileInput').click()">Add Audio Files</button>
@@ -290,21 +502,33 @@
                     <input type="checkbox" id="loopMode">
                     <label for="loopMode">Loop Playlist</label>
                 </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="autoplayMode" checked>
+                    <label for="autoplayMode">Autoplay</label>
+                </div>
             </div>
             
+            <div class="section-title">RECORDING</div>
             <div class="control-group">
                 <label for="recordingMode">Recording Mode:</label>
                 <div class="recording-modes">
                     <div class="mode-btn active" data-mode="standard">Standard</div>
                     <div class="mode-btn" data-mode="360">360° VR</div>
-                    <div class="mode-btn" data-mode="multi">Multi-Angle</div>
-                    <div class="mode-btn" data-mode="stereoscopic">Stereoscopic</div>
                 </div>
             </div>
             
             <div class="control-group">
                 <button class="btn record" id="recordBtn" disabled>Start Recording</button>
                 <button class="btn" id="stopRecordBtn" disabled>Stop Recording</button>
+            </div>
+            
+            <div class="control-group" id="recordingQualitySection">
+                <label for="recordQuality">Quality:</label>
+                <select id="recordQuality">
+                    <option value="480">480p</option>
+                    <option value="720">720p</option>
+                    <option value="1080" selected>1080p</option>
+                </select>
             </div>
             
             <div class="control-group">
@@ -317,17 +541,8 @@
                 <input type="range" id="smoothing" min="0" max="0.9" value="0.7" step="0.1">
             </div>
             
-            <div class="control-group">
-                <label for="recordQuality">Recording Quality:</label>
-                <select id="recordQuality">
-                    <option value="720">720p</option>
-                    <option value="1080" selected>1080p</option>
-                    <option value="1440">1440p</option>
-                    <option value="2160">4K</option>
-                </select>
-            </div>
-            
             <div id="downloadSection">
+                <div class="section-title">DOWNLOADS</div>
                 <div id="downloadLinks"></div>
             </div>
             
@@ -336,11 +551,11 @@
         </div>
         
         <div id="info">
-            Enhanced 3D Audio Visualizer with VR Recording<br>
-            <small>• Add multiple audio files for playlist<br>
-            • Record in 360° VR, multi-angle, or stereoscopic formats<br>
-            • Shuffle and loop functionality<br>
-            • Export 3D data for VR experiences</small>
+            <strong>Enhanced 3D Audio Visualizer</strong><br>
+            <small>• Press <kbd>H</kbd> to hide/show menu<br>
+            • Autoplay enabled by default<br>
+            • Free viewing when menu is hidden<br>
+            • Fixed recording support for all browsers</small>
         </div>
         
         <canvas id="canvas"></canvas>
@@ -361,6 +576,8 @@
                 this.mesh = null;
                 this.wireframeMesh = null;
                 this.isPlaying = false;
+                this.menuVisible = true;
+                this.autoplayMode = true;
                 
                 // Playlist properties
                 this.playlist = [];
@@ -375,8 +592,9 @@
                 this.isRecording = false;
                 this.recordingMode = 'standard';
                 this.vrCameras = [];
-                this.multiAngleData = [];
-                this.specialRecordingStream = null;
+                this.recordingAnimationId = null;
+                this.audioDestination = null;
+                this.recordingMimeType = null;
                 
                 this.gridSize = 64;
                 this.sensitivity = 1.5;
@@ -510,7 +728,7 @@
             }
             
             createParticles() {
-                const particleCount = 500;
+                const particleCount = 800;
                 const particles = new THREE.BufferGeometry();
                 const positions = [];
                 const colors = [];
@@ -522,9 +740,9 @@
                         (Math.random() - 0.5) * 300
                     );
                     colors.push(
-                        Math.random(),
-                        Math.random(),
-                        Math.random()
+                        Math.random() * 0.5 + 0.5,
+                        Math.random() * 0.3 + 0.5,
+                        Math.random() * 0.7 + 0.3
                     );
                 }
                 
@@ -532,10 +750,11 @@
                 particles.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
                 
                 const particleMaterial = new THREE.PointsMaterial({
-                    size: 2,
+                    size: 3,
                     transparent: true,
-                    opacity: 0.6,
-                    vertexColors: true
+                    opacity: 0.7,
+                    vertexColors: true,
+                    sizeAttenuation: true
                 });
                 
                 this.particles = new THREE.Points(particles, particleMaterial);
@@ -625,6 +844,10 @@
                     this.loopMode = e.target.checked;
                 });
                 
+                document.getElementById('autoplayMode').addEventListener('change', (e) => {
+                    this.autoplayMode = e.target.checked;
+                });
+                
                 document.getElementById('sensitivity').addEventListener('input', (e) => {
                     this.sensitivity = parseFloat(e.target.value);
                 });
@@ -655,6 +878,67 @@
                     this.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
                     this.mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
                 });
+                
+                // Toggle menu button
+                document.getElementById('toggleMenuBtn').addEventListener('click', () => {
+                    this.toggleMenu();
+                });
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'h' || e.key === 'H') {
+                        this.toggleMenu();
+                    }
+                });
+                
+                // Floating controls
+                document.getElementById('playBtnFloating').addEventListener('click', () => {
+                    this.playAudio();
+                });
+                
+                document.getElementById('pauseBtnFloating').addEventListener('click', () => {
+                    this.pauseAudio();
+                });
+                
+                document.getElementById('nextBtnFloating').addEventListener('click', () => {
+                    this.nextTrack();
+                });
+                
+                document.getElementById('prevBtnFloating').addEventListener('click', () => {
+                    this.previousTrack();
+                });
+                
+                document.getElementById('recordBtnFloating').addEventListener('click', () => {
+                    this.startRecording();
+                });
+            }
+            
+            toggleMenu() {
+                this.menuVisible = !this.menuVisible;
+                
+                const controls = document.getElementById('controls');
+                const info = document.getElementById('info');
+                const toggleBtn = document.getElementById('toggleMenuBtn');
+                
+                if (this.menuVisible) {
+                    controls.classList.remove('hidden');
+                    info.classList.remove('hidden');
+                    toggleBtn.textContent = '☰';
+                    
+                    // Hide floating controls
+                    document.querySelectorAll('.floating-control').forEach(ctrl => {
+                        ctrl.classList.remove('active');
+                    });
+                } else {
+                    controls.classList.add('hidden');
+                    info.classList.add('hidden');
+                    toggleBtn.textContent = '☰';
+                    
+                    // Show floating controls
+                    document.querySelectorAll('.floating-control').forEach(ctrl => {
+                        ctrl.classList.add('active');
+                    });
+                }
             }
             
             async loadAudioFiles(files) {
@@ -779,6 +1063,14 @@
                     
                     document.getElementById('status').textContent = `Ready: ${track.name}`;
                     
+                    // Autoplay if enabled
+                    if (this.autoplayMode) {
+                        this.playAudio().catch(error => {
+                            console.error('Autoplay blocked:', error);
+                            document.getElementById('status').textContent = 'Autoplay blocked. Click play manually.';
+                        });
+                    }
+                    
                 } catch (error) {
                     console.error('Error loading track:', error);
                     document.getElementById('status').textContent = `Error loading: ${track.name}`;
@@ -882,29 +1174,64 @@
                 }
             }
             
+            // Fixed recording function with browser compatibility
             async startRecording() {
                 if (this.isRecording) return;
                 
                 try {
                     const quality = document.getElementById('recordQuality').value;
+                    
+                    // Get the video stream from the canvas
+                    let stream = this.renderer.domElement.captureStream(30);
+                    
+                    // Add audio to the stream
+                    if (this.audioContext && this.source) {
+                        // Create an audio destination node
+                        this.audioDestination = this.audioContext.createMediaStreamDestination();
+                        
+                        // Connect the audio source to the destination
+                        this.source.connect(this.audioDestination);
+                        
+                        // Add audio track to the stream
+                        stream.addTrack(this.audioDestination.stream.getAudioTracks()[0]);
+                    }
+                    
+                    // Find supported mimeType for current browser
+                    const mimeTypes = [
+                        'video/webm;codecs=vp9,opus',
+                        'video/webm;codecs=vp8,opus',
+                        'video/webm;codecs=h264,opus',
+                        'video/webm;codecs=avc1,opus',
+                        'video/mp4;codecs=h264,aac',
+                        'video/webm',
+                        'video/mp4'
+                    ];
+                    
+                    let supportedMimeType = null;
+                    for (const mimeType of mimeTypes) {
+                        if (MediaRecorder.isTypeSupported(mimeType)) {
+                            supportedMimeType = mimeType;
+                            break;
+                        }
+                    }
+                    
+                    if (!supportedMimeType) {
+                        throw new Error('No supported recording format found');
+                    }
+                    
+                    this.recordingMimeType = supportedMimeType;
+                    
+                    // Create media recorder
                     const options = {
-                        videoBitsPerSecond: this.getVideoBitrate(quality),
-                        mimeType: 'video/webm;codecs=vp9'
+                        videoBitsPerSecond: this.getVideoBitrate(quality)
                     };
                     
-                    // Setup canvas stream based on recording mode
-                    let stream;
-                    if (this.recordingMode === '360') {
-                        stream = await this.setup360Recording(quality);
-                    } else if (this.recordingMode === 'multi') {
-                        stream = await this.setupMultiAngleRecording(quality);
-                    } else if (this.recordingMode === 'stereoscopic') {
-                        stream = await this.setupStereoscopicRecording(quality);
-                    } else {
-                        stream = this.renderer.domElement.captureStream(60);
+                    if (supportedMimeType) {
+                        options.mimeType = supportedMimeType;
                     }
                     
                     this.mediaRecorder = new MediaRecorder(stream, options);
+                    
                     this.recordedChunks = [];
                     
                     this.mediaRecorder.ondataavailable = (event) => {
@@ -923,149 +1250,21 @@
                     document.getElementById('recordBtn').classList.add('recording');
                     document.getElementById('stopRecordBtn').disabled = false;
                     document.getElementById('recordingStatus').style.display = 'block';
+                    document.querySelector('.recording-indicator').style.display = 'block';
+                    
+                    document.getElementById('status').textContent = 'Recording started';
                     
                 } catch (error) {
                     console.error('Error starting recording:', error);
-                    document.getElementById('status').textContent = 'Error starting recording';
+                    document.getElementById('status').textContent = 'Error: ' + error.message;
                 }
-            }
-            
-            async setup360Recording(quality) {
-                // Create a larger canvas for 360° recording
-                const canvas = document.createElement('canvas');
-                const size = parseInt(quality);
-                canvas.width = size * 2;
-                canvas.height = size;
-                
-                const ctx = canvas.getContext('2d');
-                const tempRenderer = new THREE.WebGLRenderer({ canvas: canvas, preserveDrawingBuffer: true });
-                tempRenderer.setSize(canvas.width, canvas.height);
-                
-                // Render 360° view by combining multiple camera angles
-                const renderLoop = () => {
-                    if (!this.isRecording) return;
-                    
-                    // Render panoramic view
-                    this.render360View(tempRenderer, ctx, size);
-                    requestAnimationFrame(renderLoop);
-                };
-                
-                renderLoop();
-                return canvas.captureStream(60);
-            }
-            
-            async setupMultiAngleRecording(quality) {
-                // Create grid canvas with multiple angles
-                const canvas = document.createElement('canvas');
-                const size = parseInt(quality);
-                canvas.width = size * 2;
-                canvas.height = size * 2;
-                
-                const ctx = canvas.getContext('2d');
-                const tempRenderers = [];
-                
-                // Create 4 different camera angles
-                const angles = [
-                    { pos: [0, 80, 120], target: [0, 0, 0] },
-                    { pos: [120, 80, 0], target: [0, 0, 0] },
-                    { pos: [0, 150, 0], target: [0, 0, 0] },
-                    { pos: [-120, 80, 0], target: [0, 0, 0] }
-                ];
-                
-                angles.forEach((angle, index) => {
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = size;
-                    tempCanvas.height = size;
-                    
-                    const renderer = new THREE.WebGLRenderer({ canvas: tempCanvas, preserveDrawingBuffer: true });
-                    renderer.setSize(size, size);
-                    
-                    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-                    camera.position.set(...angle.pos);
-                    camera.lookAt(...angle.target);
-                    
-                    tempRenderers.push({ renderer, camera, canvas: tempCanvas });
-                });
-                
-                const renderLoop = () => {
-                    if (!this.isRecording) return;
-                    
-                    // Render each angle and composite
-                    tempRenderers.forEach(({ renderer, camera, canvas }, index) => {
-                        renderer.render(this.scene, camera);
-                        
-                        const x = (index % 2) * size;
-                        const y = Math.floor(index / 2) * size;
-                        ctx.drawImage(canvas, x, y);
-                    });
-                    
-                    requestAnimationFrame(renderLoop);
-                };
-                
-                renderLoop();
-                return canvas.captureStream(60);
-            }
-            
-            async setupStereoscopicRecording(quality) {
-                // Create side-by-side stereoscopic view
-                const canvas = document.createElement('canvas');
-                const size = parseInt(quality);
-                canvas.width = size * 2;
-                canvas.height = size;
-                
-                const ctx = canvas.getContext('2d');
-                
-                // Create left and right eye cameras
-                const leftCamera = this.camera.clone();
-                const rightCamera = this.camera.clone();
-                
-                const eyeSeparation = 2;
-                leftCamera.position.x -= eyeSeparation;
-                rightCamera.position.x += eyeSeparation;
-                
-                const leftRenderer = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
-                const rightRenderer = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
-                
-                leftRenderer.setSize(size, size);
-                rightRenderer.setSize(size, size);
-                
-                const renderLoop = () => {
-                    if (!this.isRecording) return;
-                    
-                    // Render left eye
-                    leftRenderer.render(this.scene, leftCamera);
-                    ctx.drawImage(leftRenderer.domElement, 0, 0);
-                    
-                    // Render right eye
-                    rightRenderer.render(this.scene, rightCamera);
-                    ctx.drawImage(rightRenderer.domElement, size, 0);
-                    
-                    requestAnimationFrame(renderLoop);
-                };
-                
-                renderLoop();
-                return canvas.captureStream(60);
-            }
-            
-            render360View(renderer, ctx, size) {
-                // Render panoramic view using multiple cameras
-                this.vrCameras.forEach((camera, index) => {
-                    renderer.render(this.scene, camera);
-                    
-                    // Position each face in the panoramic layout
-                    const x = (index % 3) * (size / 3);
-                    const y = Math.floor(index / 3) * (size / 2);
-                    
-                    ctx.drawImage(renderer.domElement, x, y, size / 3, size / 2);
-                });
             }
             
             getVideoBitrate(quality) {
                 const bitrates = {
+                    '480': 1500000,
                     '720': 2500000,
-                    '1080': 5000000,
-                    '1440': 10000000,
-                    '2160': 20000000
+                    '1080': 5000000
                 };
                 return bitrates[quality] || 5000000;
             }
@@ -1076,19 +1275,29 @@
                 this.mediaRecorder.stop();
                 this.isRecording = false;
                 
+                // Cleanup audio destination
+                if (this.audioDestination) {
+                    this.source.disconnect(this.audioDestination);
+                    this.audioDestination = null;
+                }
+                
                 document.getElementById('recordBtn').classList.remove('recording');
                 document.getElementById('stopRecordBtn').disabled = true;
                 document.getElementById('recordingStatus').style.display = 'none';
+                document.querySelector('.recording-indicator').style.display = 'none';
+                
+                document.getElementById('status').textContent = 'Processing recording...';
             }
             
             saveRecording() {
                 if (this.recordedChunks.length === 0) return;
                 
-                const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
+                const blob = new Blob(this.recordedChunks, { type: this.recordingMimeType });
                 const url = URL.createObjectURL(blob);
                 
                 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                const filename = `visualizer_${this.recordingMode}_${timestamp}.webm`;
+                const extension = this.recordingMimeType.includes('mp4') ? 'mp4' : 'webm';
+                const filename = `visualizer_${timestamp}.${extension}`;
                 
                 const downloadLink = document.createElement('a');
                 downloadLink.href = url;
@@ -1098,38 +1307,7 @@
                 
                 document.getElementById('downloadLinks').appendChild(downloadLink);
                 
-                // Also create metadata file for VR recordings
-                if (this.recordingMode !== 'standard') {
-                    this.saveRecordingMetadata(filename);
-                }
-                
-                document.getElementById('status').textContent = 'Recording saved!';
-            }
-            
-            saveRecordingMetadata(videoFilename) {
-                const metadata = {
-                    recordingMode: this.recordingMode,
-                    timestamp: new Date().toISOString(),
-                    audioTrack: this.playlist[this.currentTrackIndex]?.name || 'Unknown',
-                    quality: document.getElementById('recordQuality').value,
-                    settings: {
-                        sensitivity: this.sensitivity,
-                        smoothing: this.smoothing,
-                        gridSize: this.gridSize
-                    }
-                };
-                
-                const metadataBlob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(metadataBlob);
-                
-                const metadataFilename = videoFilename.replace('.webm', '_metadata.json');
-                const downloadLink = document.createElement('a');
-                downloadLink.href = url;
-                downloadLink.download = metadataFilename;
-                downloadLink.className = 'download-link';
-                downloadLink.textContent = `Download ${metadataFilename}`;
-                
-                document.getElementById('downloadLinks').appendChild(downloadLink);
+                document.getElementById('status').textContent = 'Recording saved! Click download link';
             }
             
             updateVisualization() {
