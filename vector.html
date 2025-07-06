@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vector Calculus Visualization</title>
+  <!-- Load Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <!-- MathJax for LaTeX rendering -->
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+  <style>
+    :root {
+      --primary-color: #4CAF50;
+      --secondary-color: #333;
+      --accent-color: #2196F3;
+      --background-color: #f5f5f5;
+      --card-bg: #ffffff;
+      --control-bg: #f0f7ff;
+      --info-bg: #e7f3fe;
+      --transition-speed: 0.3s;
+    }
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: var(--background-color);
+      color: var(--secondary-color);
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      color: var(--secondary-color);
+      text-align: center;
+      margin-bottom: 30px;
+      font-weight: 500;
+    }
+    .nav-tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #ddd;
+    }
+    .nav-tab {
+      padding: 12px 25px;
+      cursor: pointer;
+      background-color: #eee;
+      border: none;
+      border-radius: 8px 8px 0 0;
+      margin-right: 10px;
+      transition: background-color var(--transition-speed), color var(--transition-speed);
+      font-weight: 500;
+    }
+    .nav-tab:hover {
+      background-color: #ddd;
+    }
+    .nav-tab.active {
+      background-color: var(--primary-color);
+      color: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .tab-content {
+      display: none;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-top: none;
+      border-radius: 0 8px 8px 8px;
+      animation: fadeIn 0.5s;
+      background-color: #fafafa;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    canvas {
+      display: block;
+      margin: 20px auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background-color: #fff;
+    }
+    .controls {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: var(--control-bg);
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .control-group {
+      margin-bottom: 15px;
+    }
+    select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      transition: border var(--transition-speed);
+    }
+    select:focus {
+      border-color: var(--accent-color);
+      outline: none;
+    }
+    /* Enhanced slider styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #ddd;
+      border-radius: 5px;
+      outline: none;
+      transition: background var(--transition-speed);
+    }
+    input[type="range"]:hover {
+      background: #ccc;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary-color);
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transition: background var(--transition-speed);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary-color);
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      transition: background var(--transition-speed);
+    }
+    .info-section {
+      margin-top: 20px;
+      padding: 20px;
+      background-color: var(--info-bg);
+      border-left: 5px solid var(--accent-color);
+      border-radius: 4px;
+      line-height: 1.6;
+    }
+    .formula {
+      font-family: monospace;
+      background-color: #f0f0f0;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+    .legend {
+      display: flex;
+      justify-content: center;
+      margin: 15px 0;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 0 10px;
+      font-size: 0.9em;
+    }
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      margin-right: 5px;
+      border-radius: 3px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: var(--primary-color);
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      margin-right: 10px;
+      transition: background-color var(--transition-speed);
+    }
+    button:hover {
+      background-color: #43a047;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Vector Calculus Interactive Simulation</h1>
+    
+    <div class="nav-tabs">
+      <div class="nav-tab active" data-tab="gradient">Gradient</div>
+      <div class="nav-tab" data-tab="divergence">Divergence</div>
+      <div class="nav-tab" data-tab="curl">Curl</div>
+      <div class="nav-tab" data-tab="applications">Applications</div>
+    </div>
+    
+    <!-- Gradient Tab -->
+    <div class="tab-content active" id="gradient">
+      <h2>Gradient ($$\nabla f$$)</h2>
+      <p>The gradient of a scalar field produces a vector field that points in the direction of steepest ascent.</p>
+      
+      <div class="controls">
+        <div class="control-group">
+          <label for="gradient-function">Select a scalar function:</label>
+          <select id="gradient-function">
+            <option value="paraboloid">Paraboloid ($$x^2+y^2$$)</option>
+            <option value="cone">Cone ($$\sqrt{x^2+y^2}$$)</option>
+            <option value="sinusoidal">Sinusoidal ($$\sin(x)+\sin(y)$$)</option>
+            <option value="gaussian">Gaussian ($$e^{-(x^2+y^2)/5}$$)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="gradient-density">Vector Density: <span id="gradient-density-value">20</span></label>
+          <input type="range" id="gradient-density" min="5" max="40" value="20">
+        </div>
+        <div class="control-group">
+          <label for="gradient-scale">Vector Scale: <span id="gradient-scale-value">0.5</span></label>
+          <input type="range" id="gradient-scale" min="0.1" max="1" step="0.1" value="0.5">
+        </div>
+      </div>
+      
+      <canvas id="gradient-canvas" width="600" height="600"></canvas>
+      
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: hsl(240, 100%, 80%);"></div>
+          <span>Low Value</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: hsl(0, 100%, 80%);"></div>
+          <span>High Value</span>
+        </div>
+        <div class="legend-item">
+          <span>&rarr;</span>
+          <span>Gradient Vector</span>
+        </div>
+      </div>
+      
+      <div class="info-section">
+        <h3>Mathematics of Gradient</h3>
+        <p>For a scalar function $$f(x,y)$$, the gradient is defined as:</p>
+        <div class="formula">$$\nabla f = \left(\frac{\partial f}{\partial x}, \frac{\partial f}{\partial y}\right)$$</div>
+        <p>This vector points in the direction of the steepest increase of the function.</p>
+        <h3>Applications</h3>
+        <p>In electrical fields, the gradient of the electric potential gives us the electric field: $$\mathbf{E} = -\nabla V$$.</p>
+        <p>In neural networks, gradient descent minimizes the loss function by moving opposite to the gradient.</p>
+      </div>
+    </div>
+    
+    <!-- Divergence Tab -->
+    <div class="tab-content" id="divergence">
+      <h2>Divergence ($$\nabla\cdot\mathbf{F}$$)</h2>
+      <p>Divergence measures how much a vector field “spreads out” from a point.</p>
+      
+      <div class="controls">
+        <div class="control-group">
+          <label for="divergence-function">Select a vector field:</label>
+          <select id="divergence-function">
+            <option value="radial">Radial Field ($$(x,y)$$)</option>
+            <option value="sink">Sink/Source ($$(-x,-y)$$)</option>
+            <option value="rotational">Rotational Field ($$(-y,x)$$)</option>
+            <option value="custom">Custom ($$(x^2-y^2,xy)$$)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="divergence-density">Vector Density: <span id="divergence-density-value">20</span></label>
+          <input type="range" id="divergence-density" min="5" max="40" value="20">
+        </div>
+        <div class="control-group">
+          <label for="divergence-scale">Vector Scale: <span id="divergence-scale-value">0.5</span></label>
+          <input type="range" id="divergence-scale" min="0.1" max="1" step="0.1" value="0.5">
+        </div>
+      </div>
+      
+      <canvas id="divergence-canvas" width="600" height="600"></canvas>
+      
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: blue;"></div>
+          <span>Negative Divergence (Sink)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: white;"></div>
+          <span>Zero Divergence</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: red;"></div>
+          <span>Positive Divergence (Source)</span>
+        </div>
+      </div>
+      
+      <div class="info-section">
+        <h3>Mathematics of Divergence</h3>
+        <p>For a vector field $$\mathbf{F} = (P, Q)$$, divergence is defined as:</p>
+        <div class="formula">$$\nabla\cdot\mathbf{F} = \frac{\partial P}{\partial x} + \frac{\partial Q}{\partial y}$$</div>
+        <p>Positive divergence indicates a source; negative divergence indicates a sink.</p>
+        <h3>Applications</h3>
+        <p>Gauss's law in electromagnetics and fluid expansion in fluid dynamics both use divergence.</p>
+      </div>
+    </div>
+    
+    <!-- Curl Tab -->
+    <div class="tab-content" id="curl">
+      <h2>Curl ($$\nabla\times\mathbf{F}$$)</h2>
+      <p>Curl measures the rotation or circulation of a vector field around a point.</p>
+      
+      <div class="controls">
+        <div class="control-group">
+          <label for="curl-function">Select a vector field:</label>
+          <select id="curl-function">
+            <option value="rotational">Rotational Field ($$(-y,x)$$)</option>
+            <option value="radial">Radial Field ($$(x,y)$$)</option>
+            <option value="shear">Shear Field ($$(y,0)$$)</option>
+            <option value="custom">Custom ($$(y^2,-x^2)$$)</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="curl-density">Vector Density: <span id="curl-density-value">20</span></label>
+          <input type="range" id="curl-density" min="5" max="40" value="20">
+        </div>
+        <div class="control-group">
+          <label for="curl-scale">Vector Scale: <span id="curl-scale-value">0.5</span></label>
+          <input type="range" id="curl-scale" min="0.1" max="1" step="0.1" value="0.5">
+        </div>
+        <div class="control-group">
+          <label for="curl-particle">Show Particles</label>
+          <input type="checkbox" id="curl-particle" checked>
+        </div>
+      </div>
+      
+      <canvas id="curl-canvas" width="600" height="600"></canvas>
+      
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: blue;"></div>
+          <span>Negative Curl (Clockwise)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: white;"></div>
+          <span>Zero Curl</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: red;"></div>
+          <span>Positive Curl (Counter-Clockwise)</span>
+        </div>
+      </div>
+      
+      <div class="info-section">
+        <h3>Mathematics of Curl</h3>
+        <p>For a 2D vector field $$\mathbf{F} = (P, Q)$$, the curl (in the $$\mathbf{k}$$ direction) is defined as:</p>
+        <div class="formula">$$\nabla\times\mathbf{F} = \left(\frac{\partial Q}{\partial x} - \frac{\partial P}{\partial y}\right)\mathbf{k}$$</div>
+        <p>The magnitude indicates the intensity of rotation, while the sign shows the direction.</p>
+        <h3>Applications</h3>
+        <p>Faraday's law and fluid vorticity use curl to quantify rotational behavior.</p>
+      </div>
+    </div>
+    
+    <!-- Applications Tab -->
+    <div class="tab-content" id="applications">
+      <h2>Applications in Electrical Fields & Neural Computations</h2>
+      
+      <div class="controls">
+        <div class="control-group">
+          <label for="app-selector">Select Application:</label>
+          <select id="app-selector">
+            <option value="electric">Electric Field from Point Charges</option>
+            <option value="neuron">Neural Network Gradient Descent</option>
+          </select>
+        </div>
+        <div id="electric-controls">
+          <div class="control-group">
+            <label for="charge-count">Number of Charges: <span id="charge-count-value">3</span></label>
+            <input type="range" id="charge-count" min="1" max="8" value="3">
+          </div>
+        </div>
+        <div id="neuron-controls" style="display: none;">
+          <div class="control-group">
+            <label for="learning-rate">Learning Rate: <span id="learning-rate-value">0.1</span></label>
+            <input type="range" id="learning-rate" min="0.01" max="0.5" step="0.01" value="0.1">
+          </div>
+        </div>
+      </div>
+      
+      <canvas id="application-canvas" width="600" height="600"></canvas>
+      
+      <div id="electric-info" class="info-section">
+        <h3>Electric Fields and Vector Calculus</h3>
+        <p>Electric fields can be represented as vector fields. Recall:</p>
+        <ul>
+          <li><strong>Gradient:</strong> $$\mathbf{E} = -\nabla V$$</li>
+          <li><strong>Divergence:</strong> Gauss's law: $$\nabla\cdot\mathbf{E} = \frac{\rho}{\varepsilon_0}$$</li>
+          <li><strong>Curl:</strong> For static fields: $$\nabla\times\mathbf{E} = 0$$</li>
+        </ul>
+        <p>This simulation shows the electric field produced by a configurable number of point charges. Positive charges are shown in red; negative in blue.</p>
+      </div>
+      
+      <div id="neuron-info" class="info-section" style="display: none;">
+        <h3>Neural Networks and Gradient Descent</h3>
+        <p>Neural networks minimize loss using gradient descent:</p>
+        <ul>
+          <li><strong>Gradient:</strong> Direction of steepest increase in loss</li>
+          <li><strong>Gradient Descent:</strong> Update weights in the opposite direction</li>
+          <li><strong>Learning Rate:</strong> Step size in the update</li>
+        </ul>
+        <p>This simulation illustrates a simplified 2D loss landscape with gradient vectors and an optimization path.</p>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Utility: Map a value from one range to another
+    function mapRange(value, fromLow, fromHigh, toLow, toHigh) {
+      return toLow + ((toHigh - toLow) * (value - fromLow)) / (fromHigh - fromLow);
+    }
+    // Utility: Convert HSL to RGB
+    function HSLToRGB(h, s, l) {
+      h /= 360;
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = function(p, q, t) {
+          if(t < 0) t += 1;
+          if(t > 1) t -= 1;
+          if(t < 1/6) return p + (q - p) * 6 * t;
+          if(t < 1/2) return q;
+          if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+    // Utility: Draw an arrow on canvas
+    function drawArrow(ctx, x, y, dx, dy, headLength = 10) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + dx, y + dy);
+      ctx.stroke();
+      const angle = Math.atan2(dy, dx);
+      if (Math.sqrt(dx * dx + dy * dy) > headLength) {
+        ctx.beginPath();
+        ctx.moveTo(x + dx, y + dy);
+        ctx.lineTo(x + dx - headLength * Math.cos(angle - Math.PI/6),
+                   y + dy - headLength * Math.sin(angle - Math.PI/6));
+        ctx.lineTo(x + dx - headLength * Math.cos(angle + Math.PI/6),
+                   y + dy - headLength * Math.sin(angle + Math.PI/6));
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    
+    // Responsive canvas resize
+    function resizeCanvas(canvas) {
+      canvas.width = canvas.parentElement.clientWidth;
+    }
+    window.addEventListener('resize', () => {
+      resizeCanvas(gradientCanvas);
+      resizeCanvas(divergenceCanvas);
+      resizeCanvas(curlCanvas);
+      resizeCanvas(applicationCanvas);
+      // Redraw active tab's canvas
+      const activeTab = document.querySelector('.nav-tab.active').getAttribute('data-tab');
+      if (activeTab === 'gradient') drawGradient();
+      if (activeTab === 'divergence') drawDivergence();
+      if (activeTab === 'curl') drawCurl();
+      if (activeTab === 'applications') drawApplication();
+    });
+    
+    // Tab switching
+    const tabs = document.querySelectorAll('.nav-tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetId = tab.getAttribute('data-tab');
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        tabContents.forEach(content => {
+          content.classList.remove('active');
+          if(content.id === targetId) content.classList.add('active');
+        });
+        if(targetId === 'gradient') drawGradient();
+        if(targetId === 'divergence') drawDivergence();
+        if(targetId === 'curl') drawCurl();
+        if(targetId === 'applications') drawApplication();
+      });
+    });
+    
+    // =================== GRADIENT SIMULATION ===================
+    const gradientCanvas = document.getElementById('gradient-canvas');
+    const gradientCtx = gradientCanvas.getContext('2d');
+    const gradientFunctionSelect = document.getElementById('gradient-function');
+    const gradientDensitySlider = document.getElementById('gradient-density');
+    const gradientScaleSlider = document.getElementById('gradient-scale');
+    const gradientDensityValue = document.getElementById('gradient-density-value');
+    const gradientScaleValue = document.getElementById('gradient-scale-value');
+    
+    gradientFunctionSelect.addEventListener('change', drawGradient);
+    gradientDensitySlider.addEventListener('input', () => {
+      gradientDensityValue.textContent = gradientDensitySlider.value;
+      drawGradient();
+    });
+    gradientScaleSlider.addEventListener('input', () => {
+      gradientScaleValue.textContent = gradientScaleSlider.value;
+      drawGradient();
+    });
+    
+    function drawGradient() {
+      resizeCanvas(gradientCanvas);
+      const width = gradientCanvas.width;
+      const height = gradientCanvas.height;
+      const density = parseInt(gradientDensitySlider.value);
+      const scale = parseFloat(gradientScaleSlider.value);
+      const functionType = gradientFunctionSelect.value;
+      
+      const functions = {
+        paraboloid: {
+          f: (x, y) => x*x + y*y,
+          gradient: (x, y) => [2*x, 2*y]
+        },
+        cone: {
+          f: (x, y) => Math.sqrt(x*x + y*y),
+          gradient: (x, y) => {
+            const r = Math.sqrt(x*x + y*y);
+            return r < 0.001 ? [0, 0] : [x/r, y/r];
+          }
+        },
+        sinusoidal: {
+          f: (x, y) => Math.sin(x) + Math.sin(y),
+          gradient: (x, y) => [Math.cos(x), Math.cos(y)]
+        },
+        gaussian: {
+          f: (x, y) => Math.exp(-(x*x+y*y)/5),
+          gradient: (x, y) => [
+            -2*x/5 * Math.exp(-(x*x+y*y)/5),
+            -2*y/5 * Math.exp(-(x*x+y*y)/5)
+          ]
+        }
+      };
+      const func = functions[functionType];
+      
+      const imageData = gradientCtx.createImageData(width, height);
+      let min = Infinity, max = -Infinity;
+      for(let i = 0; i < width; i++){
+        for(let j = 0; j < height; j++){
+          const x = mapRange(i, 0, width, -5, 5);
+          const y = mapRange(j, 0, height, -5, 5);
+          const val = func.f(x, y);
+          min = Math.min(min, val);
+          max = Math.max(max, val);
+        }
+      }
+      for(let i = 0; i < width; i++){
+        for(let j = 0; j < height; j++){
+          const idx = (j * width + i) * 4;
+          const x = mapRange(i, 0, width, -5, 5);
+          const y = mapRange(j, 0, height, -5, 5);
+          const val = func.f(x, y);
+          const normalizedVal = (val - min) / (max - min);
+          const hue = mapRange(normalizedVal, 0, 1, 240, 0);
+          const [r, g, b] = HSLToRGB(hue, 1, 0.8);
+          imageData.data[idx] = r;
+          imageData.data[idx+1] = g;
+          imageData.data[idx+2] = b;
+          imageData.data[idx+3] = 255;
+        }
+      }
+      gradientCtx.putImageData(imageData, 0, 0);
+      
+      gradientCtx.strokeStyle = 'black';
+      gradientCtx.fillStyle = 'black';
+      gradientCtx.lineWidth = 1.5;
+      const spacing = width / density;
+      for(let i = 0; i < density; i++){
+        for(let j = 0; j < density; j++){
+          const canvasX = (i + 0.5) * spacing;
+          const canvasY = (j + 0.5) * spacing;
+          const x = mapRange(canvasX, 0, width, -5, 5);
+          const y = mapRange(canvasY, 0, height, -5, 5);
+          const [dx, dy] = func.gradient(x, y);
+          const mag = Math.sqrt(dx*dx+dy*dy);
+          if(mag < 0.001) continue;
+          const normDx = (dx / mag) * spacing * scale;
+          const normDy = (dy / mag) * spacing * scale;
+          drawArrow(gradientCtx, canvasX, canvasY, normDx, normDy);
+        }
+      }
+    }
+    
+    // =================== DIVERGENCE SIMULATION ===================
+    const divergenceCanvas = document.getElementById('divergence-canvas');
+    const divergenceCtx = divergenceCanvas.getContext('2d');
+    const divergenceFunctionSelect = document.getElementById('divergence-function');
+    const divergenceDensitySlider = document.getElementById('divergence-density');
+    const divergenceScaleSlider = document.getElementById('divergence-scale');
+    const divergenceDensityValue = document.getElementById('divergence-density-value');
+    const divergenceScaleValue = document.getElementById('divergence-scale-value');
+    
+    divergenceFunctionSelect.addEventListener('change', drawDivergence);
+    divergenceDensitySlider.addEventListener('input', () => {
+      divergenceDensityValue.textContent = divergenceDensitySlider.value;
+      drawDivergence();
+    });
+    divergenceScaleSlider.addEventListener('input', () => {
+      divergenceScaleValue.textContent = divergenceScaleSlider.value;
+      drawDivergence();
+    });
+    
+    function drawDivergence() {
+      resizeCanvas(divergenceCanvas);
+      const width = divergenceCanvas.width;
+      const height = divergenceCanvas.height;
+      const density = parseInt(divergenceDensitySlider.value);
+      const scale = parseFloat(divergenceScaleSlider.value);
+      const functionType = divergenceFunctionSelect.value;
+      
+      const vectorFields = {
+        radial: {
+          field: (x, y) => [x, y],
+          divergence: (x, y) => 2
+        },
+        sink: {
+          field: (x, y) => [-x, -y],
+          divergence: (x, y) => -2
+        },
+        rotational: {
+          field: (x, y) => [-y, x],
+          divergence: (x, y) => 0
+        },
+        custom: {
+          field: (x, y) => [x*x - y*y, x*y],
+          divergence: (x, y) => 3*x
+        }
+      };
+      const vf = vectorFields[functionType];
+      
+      const imageData = divergenceCtx.createImageData(width, height);
+      let min = Infinity, max = -Infinity;
+      for(let i = 0; i < width; i++){
+        for(let j = 0; j < height; j++){
+          const x = mapRange(i, 0, width, -5, 5);
+          const y = mapRange(j, 0, height, -5, 5);
+          const div = vf.divergence(x, y);
+          min = Math.min(min, div);
+          max = Math.max(max, div);
+        }
+      }
+      for(let i = 0; i < width; i++){
+        for(let j = 0; j < height; j++){
+          const idx = (j * width + i) * 4;
+          const x = mapRange(i, 0, width, -5, 5);
+          const y = mapRange(j, 0, height, -5, 5);
+          const div = vf.divergence(x, y);
+          let r, g, b;
+          if(div < 0){
+            const intensity = Math.min(1, Math.abs(div / min));
+            r = Math.round(255 * (1 - intensity));
+            g = Math.round(255 * (1 - intensity));
+            b = 255;
+          } else {
+            const intensity = Math.min(1, div / max);
+            r = 255;
+            g = Math.round(255 * (1 - intensity));
+            b = Math.round(255 * (1 - intensity));
+          }
+          imageData.data[idx] = r;
+          imageData.data[idx+1] = g;
+          imageData.data[idx+2] = b;
+          imageData.data[idx+3] = 255;
+        }
+      }
+      divergenceCtx.putImageData(imageData, 0, 0);
+      
+      divergenceCtx.strokeStyle = 'rgba(0,0,0,0.7)';
+      divergenceCtx.fillStyle = 'rgba(0,0,0,0.7)';
+      divergenceCtx.lineWidth = 1.5;
+      const spacing = width / density;
+      for(let i = 0; i < density; i++){
+        for(let j = 0; j < density; j++){
+          const canvasX = (i + 0.5) * spacing;
+          const canvasY = (j + 0.5) * spacing;
+          const x = mapRange(canvasX, 0, width, -5, 5);
+          const y = mapRange(canvasY, 0, height, -5, 5);
+          const [vx, vy] = vf.field(x, y);
+          const mag = Math.sqrt(vx*vx + vy*vy);
+          if(mag < 0.001) continue;
+          const normVx = (vx / mag) * spacing * scale;
+          const normVy = (vy / mag) * spacing * scale;
+          drawArrow(divergenceCtx, canvasX, canvasY, normVx, normVy);
+        }
+      }
+    }
+    
+    // =================== CURL SIMULATION ===================
+    const curlCanvas = document.getElementById('curl-canvas');
+    const curlCtx = curlCanvas.getContext('2d');
+    const curlFunctionSelect = document.getElementById('curl-function');
+    const curlDensitySlider = document.getElementById('curl-density');
+    const curlScaleSlider = document.getElementById('curl-scale');
+    const curlParticleCheckbox = document.getElementById('curl-particle');
+    const curlDensityValue = document.getElementById('curl-density-value');
+    const curlScaleValue = document.getElementById('curl-scale-value');
+    
+    curlFunctionSelect.addEventListener('change', drawCurl);
+    curlDensitySlider.addEventListener('input', () => {
+      curlDensityValue.textContent = curlDensitySlider.value;
+      drawCurl();
+    });
+    curlScaleSlider.addEventListener('input', () => {
+      curlScaleValue.textContent = curlScaleSlider.value;
+      drawCurl();
+    });
+    
+    let curlParticles = [];
+    function initCurlParticles(count, width, height) {
+      curlParticles = [];
+      for(let i = 0; i < count; i++){
+        curlParticles.push({ x: Math.random()*width, y: Math.random()*height });
+      }
+    }
+    
+    function updateCurlParticles(vFieldFunc, dt, width, height) {
+      curlParticles.forEach(p => {
+        const xVal = mapRange(p.x, 0, width, -5, 5);
+        const yVal = mapRange(p.y, 0, height, -5, 5);
+        const [vx, vy] = vFieldFunc(xVal, yVal);
+        p.x += vx * dt * 10;
+        p.y += vy * dt * 10;
+        if(p.x < 0) p.x += width;
+        if(p.x > width) p.x -= width;
+        if(p.y < 0) p.y += height;
+        if(p.y > height) p.y -= height;
+      });
+    }
+    
+    function drawCurl() {
+      resizeCanvas(curlCanvas);
+      const width = curlCanvas.width;
+      const height = curlCanvas.height;
+      const density = parseInt(curlDensitySlider.value);
+      const scale = parseFloat(curlScaleSlider.value);
+      const functionType = curlFunctionSelect.value;
+      
+      const vectorFields = {
+        rotational: {
+          field: (x, y) => [-y, x],
+          curl: (x, y) => 2
+        },
+        radial: {
+          field: (x, y) => [x, y],
+          curl: (x, y) => 0
+        },
+        shear: {
+          field: (x, y) => [y, 0],
+          curl: (x, y) => -1
+        },
+        custom: {
+          field: (x, y) => [y*y, -x*x],
+          curl: (x, y) => -2*x - 2*y
+        }
+      };
+      const vf = vectorFields[functionType];
+      
+      const imageData = curlCtx.createImageData(width, height);
+      let min = Infinity, max = -Infinity;
+      for(let i = 0; i < width; i++){
+        for(let j = 0; j < height; j++){
+          const x = mapRange(i, 0, width, -5, 5);
+          const y = mapRange(j, 0, height, -5, 5);
+          const curlVal = vf.curl(x, y);
+          min = Math.min(min, curlVal);
+          max = Math.max(max, curlVal);
+        }
+      }
+      for(let i = 0; i < width; i++){
+        for(let j = 0; j < height; j++){
+          const idx = (j * width + i) * 4;
+          const x = mapRange(i, 0, width, -5, 5);
+          const y = mapRange(j, 0, height, -5, 5);
+          const curlVal = vf.curl(x, y);
+          let r, g, b;
+          if(curlVal < 0){
+            const intensity = Math.min(1, Math.abs(curlVal/min));
+            r = Math.round(255 * (1 - intensity));
+            g = Math.round(255 * (1 - intensity));
+            b = 255;
+          } else {
+            const intensity = Math.min(1, curlVal/max);
+            r = 255;
+            g = Math.round(255 * (1 - intensity));
+            b = Math.round(255 * (1 - intensity));
+          }
+          imageData.data[idx] = r;
+          imageData.data[idx+1] = g;
+          imageData.data[idx+2] = b;
+          imageData.data[idx+3] = 255;
+        }
+      }
+      curlCtx.putImageData(imageData, 0, 0);
+      
+      curlCtx.strokeStyle = 'rgba(0,0,0,0.7)';
+      curlCtx.fillStyle = 'rgba(0,0,0,0.7)';
+      curlCtx.lineWidth = 1.5;
+      const spacing = width / density;
+      for(let i = 0; i < density; i++){
+        for(let j = 0; j < density; j++){
+          const canvasX = (i + 0.5) * spacing;
+          const canvasY = (j + 0.5) * spacing;
+          const x = mapRange(canvasX, 0, width, -5, 5);
+          const y = mapRange(canvasY, 0, height, -5, 5);
+          const [vx, vy] = vf.field(x, y);
+          const mag = Math.sqrt(vx*vx + vy*vy);
+          if(mag < 0.001) continue;
+          const normVx = (vx / mag) * spacing * scale;
+          const normVy = (vy / mag) * spacing * scale;
+          drawArrow(curlCtx, canvasX, canvasY, normVx, normVy);
+        }
+      }
+      
+      if(curlParticleCheckbox.checked){
+        if(curlParticles.length === 0) initCurlParticles(density*density, width, height);
+        updateCurlParticles(vf.field, 0.02, width, height);
+        curlCtx.fillStyle = 'black';
+        curlParticles.forEach(p => {
+          curlCtx.beginPath();
+          curlCtx.arc(p.x, p.y, 2, 0, 2*Math.PI);
+          curlCtx.fill();
+        });
+      } else {
+        curlParticles = [];
+      }
+    }
+    
+    // =================== APPLICATIONS SIMULATION ===================
+    const applicationCanvas = document.getElementById('application-canvas');
+    const applicationCtx = applicationCanvas.getContext('2d');
+    const appSelector = document.getElementById('app-selector');
+    const electricControls = document.getElementById('electric-controls');
+    const neuronControls = document.getElementById('neuron-controls');
+    const chargeCountSlider = document.getElementById('charge-count');
+    const chargeCountValue = document.getElementById('charge-count-value');
+    const learningRateSlider = document.getElementById('learning-rate');
+    const learningRateValue = document.getElementById('learning-rate-value');
+    const electricInfo = document.getElementById('electric-info');
+    const neuronInfo = document.getElementById('neuron-info');
+    
+    appSelector.addEventListener('change', () => {
+      if(appSelector.value === 'electric'){
+        electricControls.style.display = 'block';
+        neuronControls.style.display = 'none';
+      } else {
+        electricControls.style.display = 'none';
+        neuronControls.style.display = 'block';
+      }
+      drawApplication();
+    });
+    chargeCountSlider.addEventListener('input', () => {
+      chargeCountValue.textContent = chargeCountSlider.value;
+      drawApplication();
+    });
+    learningRateSlider.addEventListener('input', () => {
+      learningRateValue.textContent = learningRateSlider.value;
+      drawApplication();
+    });
+    
+    function drawApplication() {
+      resizeCanvas(applicationCanvas);
+      const width = applicationCanvas.width;
+      const height = applicationCanvas.height;
+      applicationCtx.clearRect(0, 0, width, height);
+      if(appSelector.value === 'electric'){
+        electricInfo.style.display = 'block';
+        neuronInfo.style.display = 'none';
+        const numCharges = parseInt(chargeCountSlider.value);
+        const charges = [];
+        for(let i = 0; i < numCharges; i++){
+          charges.push({
+            x: Math.random()*width,
+            y: Math.random()*height,
+            q: Math.random() > 0.5 ? 1 : -1
+          });
+        }
+        charges.forEach(charge => {
+          applicationCtx.beginPath();
+          applicationCtx.arc(charge.x, charge.y, 10, 0, 2*Math.PI);
+          applicationCtx.fillStyle = charge.q > 0 ? 'red' : 'blue';
+          applicationCtx.fill();
+          applicationCtx.stroke();
+        });
+        const spacing = width / 20;
+        applicationCtx.strokeStyle = 'black';
+        applicationCtx.lineWidth = 1;
+        for(let i = spacing/2; i < width; i += spacing){
+          for(let j = spacing/2; j < height; j += spacing){
+            let Ex = 0, Ey = 0;
+            charges.forEach(charge => {
+              const dx = i - charge.x;
+              const dy = j - charge.y;
+              const rSquared = dx*dx + dy*dy + 25;
+              const fieldMag = charge.q / rSquared;
+              Ex += fieldMag * (dx/Math.sqrt(rSquared));
+              Ey += fieldMag * (dy/Math.sqrt(rSquared));
+            });
+            const mag = Math.sqrt(Ex*Ex+Ey*Ey);
+            if(mag > 0.001){
+              const normEx = (Ex/mag)*spacing*0.4;
+              const normEy = (Ey/mag)*spacing*0.4;
+              drawArrow(applicationCtx, i, j, normEx, normEy);
+            }
+          }
+        }
+      } else {
+        electricInfo.style.display = 'none';
+        neuronInfo.style.display = 'block';
+        const gradient = applicationCtx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, '#f39c12');
+        gradient.addColorStop(1, '#3498db');
+        applicationCtx.fillStyle = gradient;
+        applicationCtx.fillRect(0, 0, width, height);
+        applicationCtx.strokeStyle = 'white';
+        for(let i = 0; i < 10; i++){
+          applicationCtx.beginPath();
+          applicationCtx.arc(width/2, height/2, (i+1)*(Math.min(width,height)/20), 0, 2*Math.PI);
+          applicationCtx.stroke();
+        }
+        applicationCtx.strokeStyle = 'black';
+        applicationCtx.lineWidth = 2;
+        applicationCtx.beginPath();
+        applicationCtx.moveTo(width*0.8, height*0.2);
+        applicationCtx.lineTo(width*0.65, height*0.35);
+        applicationCtx.lineTo(width*0.55, height*0.5);
+        applicationCtx.lineTo(width*0.5, height*0.6);
+        applicationCtx.lineTo(width*0.45, height*0.68);
+        applicationCtx.stroke();
+      }
+    }
+    
+    // Initial draw on load
+    drawGradient();
+    drawDivergence();
+    drawCurl();
+    drawApplication();
+  </script>
+</body>
+</html>
