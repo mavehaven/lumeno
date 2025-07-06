@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STDP Learning Rules and Memristor STDP Emulation</title>
+  <style>
+    /* Reset & Base */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa; color: #2c3e50; line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+    /* Header */
+    .header {
+      background: white; padding: 30px; border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px;
+      text-align: center;
+    }
+    .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+    .header p { font-size: 1.1em; color: #7f8c8d; }
+
+    /* Grid Layout */
+    .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+    @media (max-width: 768px) { .main-content { grid-template-columns: 1fr; } }
+
+    /* Section Cards */
+    .section {
+      background: white; padding: 25px; border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .section h2 {
+      color: #2c3e50; border-bottom: 2px solid #3498db;
+      padding-bottom: 10px; margin-bottom: 20px; font-size: 1.5em;
+    }
+    .section p {
+      margin-bottom: 15px; font-size: 1em; color: #34495e;
+    }
+
+    /* Formula & Tables */
+    .formula-box {
+      background: #f8f9fa; border: 1px solid #e9ecef;
+      border-radius: 4px; padding: 15px; margin: 15px 0;
+      font-family: 'Courier New', monospace; font-size: 14px;
+      overflow-x: auto;
+    }
+    .parameter-table {
+      width: 100%; border-collapse: collapse; margin-top: 15px;
+    }
+    .parameter-table th, .parameter-table td {
+      padding: 8px 12px; text-align: left; border-bottom: 1px solid #ecf0f1;
+    }
+    .parameter-table th {
+      background: #f8f9fa; font-weight: 600; color: #2c3e50;
+    }
+
+    /* Controls */
+    .control-panel {
+      background: white; padding: 25px; border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px;
+    }
+    .control-panel h2 {
+      color: #2c3e50; margin-bottom: 15px; font-size: 1.5em;
+    }
+    .control-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;
+    }
+    .control-group { margin-bottom: 15px; }
+    .control-group label {
+      display: block; margin-bottom: 5px; font-weight: 600; color: #34495e;
+    }
+    .control-group input, .control-group select {
+      width: 100%; padding: 8px 12px; border: 1px solid #bdc3c7;
+      border-radius: 4px; font-size: 14px;
+    }
+    .button {
+      background: #3498db; color: white; border: none;
+      padding: 12px 24px; border-radius: 4px; cursor: pointer;
+      font-size: 16px; transition: background 0.3s;
+    }
+    .button:hover { background: #2980b9; }
+    .button.secondary {
+      background: #95a5a6; margin-left: 10px;
+    }
+    .button.secondary:hover { background: #7f8c8d; }
+    .status-indicator {
+      display: inline-block; width: 12px; height: 12px;
+      border-radius: 50%; margin-right: 8px;
+    }
+    .status-idle { background: #95a5a6; }
+    .status-running { background: #f39c12; }
+    .status-complete { background: #27ae60; }
+
+    /* Visualization & Results */
+    .visualization {
+      background: white; padding: 25px; border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px;
+    }
+    .plot-container {
+      width: 100%; height: 300px; border: 1px solid #ecf0f1;
+      border-radius: 4px; background: #fafafa;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: #7f8c8d; margin-top: 15px;
+    }
+    .results-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px; margin-top: 20px;
+    }
+    .result-card {
+      background: #ecf0f1; padding: 15px; border-radius: 4px;
+      border-left: 4px solid #3498db;
+    }
+    .result-card h4 { margin-bottom: 8px; color: #2c3e50; }
+    .result-card .value {
+      font-size: 1.2em; font-weight: 600; color: #2c3e50;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>STDP Learning Rules and Memristor STDP Emulation</h1>
+      <p>Master the spike-timing code and watch your synapses obey your will.</p>
+    </div>
+
+    <div class="main-content">
+      <!-- STDP Section -->
+      <div class="section">
+        <h2>1. STDP Learning Rule</h2>
+        <p>Spike-Timing Dependent Plasticity (STDP) is the biological hack that lets neurons strengthen or weaken their connections based on who “spiked” first. Dominate the timing, dominate the weight.</p>
+        <p><em>Why it matters:</em> Precise timing means your simulated neural network learns patterns faster, no feeble emotions allowed haha, only raw timing power.</p>
+        <div class="formula-box">
+          <strong>STDP Window Function:</strong><br>
+          Δw = A₊ · exp(−Δt/τ₊) for Δt > 0 (potentiation)<br>
+          Δw = −A₋ · exp(Δt/τ₋) for Δt < 0 (depression)
+        </div>
+        <table class="parameter-table">
+          <thead>
+            <tr><th>Parameter</th><th>What It Controls</th><th>Default Value</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>A₊</td><td>Strength boost when post follows pre</td><td>0.1</td></tr>
+            <tr><td>A₋</td><td>Strength drop when pre follows post</td><td>0.12</td></tr>
+            <tr><td>τ₊</td><td>Time window for potentiation (ms)</td><td>20</td></tr>
+            <tr><td>τ₋</td><td>Time window for depression (ms)</td><td>20</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Memristor Section -->
+      <div class="section">
+        <h2>2. Memristor STDP Emulation</h2>
+        <p>Memristors are tiny resistors with memory, they change conductance based on voltage history. Use them to mimic STDP naturally, without writing a single rule by hand.</p>
+        <p><em>Why it matters:</em> Hardware-level plasticity means real-time learning devices that don’t rely on brute-force code loops.</p>
+        <div class="formula-box">
+          <strong>Memristor Conductance Model:</strong><br>
+          G(t) = G₀ + ΔG · f(V(t), t)<br>
+          dG/dt = η · V(t) · g(G, V)
+        </div>
+        <table class="parameter-table">
+          <thead>
+            <tr><th>Parameter</th><th>Role</th><th>Default</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>G₀</td><td>Starting conductance (µS)</td><td>1</td></tr>
+            <tr><td>η</td><td>Learning rate factor</td><td>0.01</td></tr>
+            <tr><td>V_th</td><td>Voltage threshold to trigger change (V)</td><td>0.5</td></tr>
+            <tr><td>τ_m</td><td>Memristor’s intrinsic time constant (ms)</td><td>10</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="control-panel">
+      <h2>Simulation Controls</h2>
+      <p>Adjust these parameters to enforce your will over the neural simulation. Tweak them, run, reset, repeat until conquest.</p>
+      <div class="control-grid">
+        <div class="control-group">
+          <label for="potentiation-amp">Potentiation Amplitude (A₊)</label>
+          <input type="number" id="potentiation-amp" value="0.1" step="0.01" min="0" max="1">
+        </div>
+        <div class="control-group">
+          <label for="depression-amp">Depression Amplitude (A₋)</label>
+          <input type="number" id="depression-amp" value="0.12" step="0.01" min="0" max="1">
+        </div>
+        <div class="control-group">
+          <label for="tau-plus">Potentiation Window τ₊ (ms)</label>
+          <input type="number" id="tau-plus" value="20" step="1" min="1" max="100">
+        </div>
+        <div class="control-group">
+          <label for="tau-minus">Depression Window τ₋ (ms)</label>
+          <input type="number" id="tau-minus" value="20" step="1" min="1" max="100">
+        </div>
+        <div class="control-group">
+          <label for="simulation-time">Total Simulation Time (ms)</label>
+          <input type="number" id="simulation-time" value="1000" step="100" min="100" max="10000">
+        </div>
+        <div class="control-group">
+          <label for="spike-frequency">Spike Frequency (Hz)</label>
+          <input type="number" id="spike-frequency" value="10" step="1" min="1" max="100">
+        </div>
+      </div>
+      <div style="margin-top: 20px;">
+        <button class="button" onclick="runSimulation()">
+          <span class="status-indicator status-idle" id="status-indicator"></span>
+          Run Simulation
+        </button>
+        <button class="button secondary" onclick="resetSimulation()">Reset</button>
+        <button class="button secondary" onclick="exportResults()">Export Results</button>
+      </div>
+    </div>
+
+    <!-- Visuals -->
+    <div class="visualization">
+      <h2>STDP Window Function</h2>
+      <p>Watch how Δw shifts with Δt—zero emotional fluff, just pure timing dominance.</p>
+      <div class="plot-container" id="stdp-plot">
+        STDP learning window will be displayed here
+      </div>
+    </div>
+
+    <div class="visualization">
+      <h2>Memristor Conductance Evolution</h2>
+      <p>See your memristor’s conductance obey your chosen parameters over time. Absolute power.</p>
+      <div class="plot-container" id="memristor-plot">
+        Memristor conductance changes over time will be displayed here
+      </div>
+    </div>
+
+    <div class="visualization">
+      <h2>Simulation Results</h2>
+      <p>Final stats—no tears, just cold, hard numbers.</p>
+      <div class="results-grid" id="results-grid">
+        <div class="result-card">
+          <h4>Final Synaptic Weight</h4>
+          <div class="value" id="final-weight">--</div>
+        </div>
+        <div class="result-card">
+          <h4>Total Potentiation Events</h4>
+          <div class="value" id="potentiation-events">--</div>
+        </div>
+        <div class="result-card">
+          <h4>Total Depression Events</h4>
+          <div class="value" id="depression-events">--</div>
+        </div>
+        <div class="result-card">
+          <h4>Average Conductance</h4>
+          <div class="value" id="avg-conductance">--</div>
+        </div>
+        <div class="result-card">
+          <h4>Learning Efficiency</h4>
+          <div class="value" id="learning-efficiency">--</div>
+        </div>
+        <div class="result-card">
+          <h4>Simulation Duration</h4>
+          <div class="value" id="simulation-duration">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+     let simulationData = {};
+        let isRunning = false;
+
+        function runSimulation() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            const statusIndicator = document.getElementById('status-indicator');
+            statusIndicator.className = 'status-indicator status-running';
+            
+            // Get parameters
+            const params = {
+                aPotentiation: parseFloat(document.getElementById('potentiation-amp').value),
+                aDepression: parseFloat(document.getElementById('depression-amp').value),
+                tauPlus: parseFloat(document.getElementById('tau-plus').value),
+                tauMinus: parseFloat(document.getElementById('tau-minus').value),
+                simulationTime: parseFloat(document.getElementById('simulation-time').value),
+                spikeFrequency: parseFloat(document.getElementById('spike-frequency').value)
+            };
+            
+            // Simulate STDP
+            setTimeout(() => {
+                simulationData = performSTDPSimulation(params);
+                updateVisualization();
+                updateResults();
+                
+                isRunning = false;
+                statusIndicator.className = 'status-indicator status-complete';
+            }, 1000); // Simulate processing time
+        }
+
+        function performSTDPSimulation(params) {
+            const dt = 0.1; // ms
+            const steps = Math.floor(params.simulationTime / dt);
+            
+            let weight = 0.5; // Initial synaptic weight
+            let conductance = 1.0; // Initial memristor conductance (µS)
+            
+            let potentiationEvents = 0;
+            let depressionEvents = 0;
+            let weightHistory = [];
+            let conductanceHistory = [];
+            
+            // Generate spike trains
+            const preSpikes = generateSpikeTrains(params.simulationTime, params.spikeFrequency);
+            const postSpikes = generateSpikeTrains(params.simulationTime, params.spikeFrequency * 0.8);
+            
+            for (let i = 0; i < steps; i++) {
+                const t = i * dt;
+                
+                // Check for spike coincidences
+                const preSpike = preSpikes.some(spike => Math.abs(spike - t) < dt);
+                const postSpike = postSpikes.some(spike => Math.abs(spike - t) < dt);
+                
+                if (preSpike && postSpike) {
+                    // Calculate timing difference
+                    const nearestPre = preSpikes.reduce((prev, curr) => 
+                        Math.abs(curr - t) < Math.abs(prev - t) ? curr : prev);
+                    const nearestPost = postSpikes.reduce((prev, curr) => 
+                        Math.abs(curr - t) < Math.abs(prev - t) ? curr : prev);
+                    
+                    const deltaT = nearestPost - nearestPre;
+                    
+                    // Apply STDP rule
+                    let deltaW = 0;
+                    if (deltaT > 0) {
+                        deltaW = params.aPotentiation * Math.exp(-deltaT / params.tauPlus);
+                        potentiationEvents++;
+                    } else {
+                        deltaW = -params.aDepression * Math.exp(deltaT / params.tauMinus);
+                        depressionEvents++;
+                    }
+                    
+                    weight = Math.max(0, Math.min(1, weight + deltaW));
+                    
+                    // Update memristor conductance
+                    const voltage = deltaW * 2; // Convert weight change to voltage
+                    conductance += 0.01 * voltage * conductance;
+                    conductance = Math.max(0.1, Math.min(10, conductance));
+                }
+                
+                // Record history
+                if (i % 10 === 0) {
+                    weightHistory.push({time: t, weight: weight});
+                    conductanceHistory.push({time: t, conductance: conductance});
+                }
+            }
+            
+            return {
+                finalWeight: weight,
+                potentiationEvents: potentiationEvents,
+                depressionEvents: depressionEvents,
+                avgConductance: conductanceHistory.reduce((sum, p) => sum + p.conductance, 0) / conductanceHistory.length,
+                learningEfficiency: (potentiationEvents + depressionEvents) / (params.simulationTime / 1000),
+                weightHistory: weightHistory,
+                conductanceHistory: conductanceHistory
+            };
+        }
+
+        function generateSpikeTrains(duration, frequency) {
+            const spikes = [];
+            const interval = 1000 / frequency; // ms
+            
+            for (let t = 0; t < duration; t += interval) {
+                // Add some randomness
+                const jitter = (Math.random() - 0.5) * interval * 0.2;
+                spikes.push(t + jitter);
+            }
+            
+            return spikes;
+        }
+
+        function updateVisualization() {
+            // Create STDP window plot
+            createSTDPPlot();
+            
+            // Create memristor conductance plot
+            createMemristorPlot();
+        }
+
+        function createSTDPPlot() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 600;
+            canvas.height = 250;
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Set up plot area
+            const margin = 50;
+            const plotWidth = canvas.width - 2 * margin;
+            const plotHeight = canvas.height - 2 * margin;
+            
+            // Draw axes
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(margin, margin);
+            ctx.lineTo(margin, margin + plotHeight);
+            ctx.lineTo(margin + plotWidth, margin + plotHeight);
+            ctx.stroke();
+            
+            // Draw STDP curve
+            const params = {
+                aPotentiation: parseFloat(document.getElementById('potentiation-amp').value),
+                aDepression: parseFloat(document.getElementById('depression-amp').value),
+                tauPlus: parseFloat(document.getElementById('tau-plus').value),
+                tauMinus: parseFloat(document.getElementById('tau-minus').value)
+            };
+            
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            let firstPoint = true;
+            for (let dt = -100; dt <= 100; dt += 1) {
+                let deltaW = 0;
+                if (dt > 0) {
+                    deltaW = params.aPotentiation * Math.exp(-dt / params.tauPlus);
+                } else if (dt < 0) {
+                    deltaW = -params.aDepression * Math.exp(dt / params.tauMinus);
+                }
+                
+                const x = margin + (dt + 100) * plotWidth / 200;
+                const y = margin + plotHeight/2 - deltaW * plotHeight / 0.3;
+                
+                if (firstPoint) {
+                    ctx.moveTo(x, y);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+            
+            // Add labels
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('STDP Learning Window', canvas.width/2, 20);
+            ctx.fillText('Δt (ms)', canvas.width/2, canvas.height - 5);
+            
+            ctx.save();
+            ctx.translate(15, canvas.height/2);
+            ctx.rotate(-Math.PI/2);
+            ctx.fillText('Δw', 0, 0);
+            ctx.restore();
+            
+            // Add zero line
+            ctx.strokeStyle = '#95a5a6';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(margin, margin + plotHeight/2);
+            ctx.lineTo(margin + plotWidth, margin + plotHeight/2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            document.getElementById('stdp-plot').innerHTML = '';
+            document.getElementById('stdp-plot').appendChild(canvas);
+        }
+
+        function createMemristorPlot() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 600;
+            canvas.height = 250;
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Set up plot area
+            const margin = 50;
+            const plotWidth = canvas.width - 2 * margin;
+            const plotHeight = canvas.height - 2 * margin;
+            
+            // Draw axes
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(margin, margin);
+            ctx.lineTo(margin, margin + plotHeight);
+            ctx.lineTo(margin + plotWidth, margin + plotHeight);
+            ctx.stroke();
+            
+            // Draw conductance evolution
+            if (simulationData.conductanceHistory && simulationData.conductanceHistory.length > 0) {
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                const maxTime = Math.max(...simulationData.conductanceHistory.map(p => p.time));
+                const maxConductance = Math.max(...simulationData.conductanceHistory.map(p => p.conductance));
+                const minConductance = Math.min(...simulationData.conductanceHistory.map(p => p.conductance));
+                
+                let firstPoint = true;
+                for (const point of simulationData.conductanceHistory) {
+                    const x = margin + (point.time / maxTime) * plotWidth;
+                    const y = margin + plotHeight - ((point.conductance - minConductance) / (maxConductance - minConductance)) * plotHeight;
+                    
+                    if (firstPoint) {
+                        ctx.moveTo(x, y);
+                        firstPoint = false;
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+            }
+            
+            // Add labels
+            ctx.fillStyle = '#2c3e50';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Memristor Conductance Evolution', canvas.width/2, 20);
+            ctx.fillText('Time (ms)', canvas.width/2, canvas.height - 5);
+            
+            ctx.save();
+            ctx.translate(15, canvas.height/2);
+            ctx.rotate(-Math.PI/2);
+            ctx.fillText('Conductance (µS)', 0, 0);
+            ctx.restore();
+            
+            document.getElementById('memristor-plot').innerHTML = '';
+            document.getElementById('memristor-plot').appendChild(canvas);
+        }
+
+        function updateResults() {
+            document.getElementById('final-weight').textContent = simulationData.finalWeight.toFixed(4);
+            document.getElementById('potentiation-events').textContent = simulationData.potentiationEvents;
+            document.getElementById('depression-events').textContent = simulationData.depressionEvents;
+            document.getElementById('avg-conductance').textContent = simulationData.avgConductance.toFixed(3) + ' µS';
+            document.getElementById('learning-efficiency').textContent = simulationData.learningEfficiency.toFixed(2) + ' events/s';
+            document.getElementById('simulation-duration').textContent = document.getElementById('simulation-time').value + ' ms';
+        }
+
+        function resetSimulation() {
+            simulationData = {};
+            document.getElementById('status-indicator').className = 'status-indicator status-idle';
+            document.getElementById('stdp-plot').innerHTML = 'STDP learning window will be displayed here';
+            document.getElementById('memristor-plot').innerHTML = 'Memristor conductance changes over time will be displayed here';
+            
+            // Reset results
+            const resultValues = document.querySelectorAll('.value');
+            resultValues.forEach(value => value.textContent = '--');
+        }
+
+        // Initialize STDP plot on page load
+        window.addEventListener('load', function() {
+            createSTDPPlot();
+        });
+
+        function exportResults() {
+            if (!simulationData.finalWeight) {
+                alert('Please run a simulation first.');
+                return;
+            }
+            
+            const data = {
+                parameters: {
+                    aPotentiation: document.getElementById('potentiation-amp').value,
+                    aDepression: document.getElementById('depression-amp').value,
+                    tauPlus: document.getElementById('tau-plus').value,
+                    tauMinus: document.getElementById('tau-minus').value,
+                    simulationTime: document.getElementById('simulation-time').value,
+                    spikeFrequency: document.getElementById('spike-frequency').value
+                },
+                results: simulationData
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'stdp_simulation_results.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+  </script>
+</body>
+</html>
