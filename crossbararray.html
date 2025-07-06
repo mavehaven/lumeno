@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memristor Crossbar Array Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+                margin: 10px;
+            }
+        }
+        
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+                margin-bottom: 20px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.8em;
+                margin-bottom: 15px;
+            }
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+        
+        .simulator-section {
+            background: #ffffff;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+        
+        .controls {
+            background: #f7f7f7;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        
+        .crossbar-container {
+            text-align: center;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding: 10px;
+        }
+        
+        .crossbar-grid {
+            display: inline-block;
+            background: white;
+            padding: 20px;
+            border: 2px solid #333;
+            border-radius: 4px;
+            position: relative;
+            min-width: fit-content;
+        }
+        
+        @media (max-width: 768px) {
+            .crossbar-container {
+                overflow-x: auto;
+                padding: 5px;
+            }
+            
+            .crossbar-grid {
+                padding: 10px;
+            }
+        }
+        
+        .memristor {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #666;
+            display: inline-block;
+            margin: 2px;
+            background: #fff;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        @media (max-width: 768px) {
+            .memristor {
+                width: 30px;
+                height: 30px;
+                margin: 1px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .memristor {
+                width: 25px;
+                height: 25px;
+                margin: 1px;
+            }
+        }
+        
+        .memristor:hover {
+            border-color: #007bff;
+            transform: scale(1.1);
+        }
+        
+        .memristor.selected {
+            border-color: #007bff;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+        }
+        
+        .memristor-resistance {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+        
+        @media (max-width: 768px) {
+            .memristor-resistance {
+                font-size: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .memristor-resistance {
+                font-size: 7px;
+            }
+        }
+        
+        .wire {
+            position: absolute;
+            background: #333;
+        }
+        
+        .wire.horizontal {
+            height: 2px;
+            width: 100%;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+        }
+        
+        .wire.vertical {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+        }
+        
+        .wire.wordline {
+            background: #e74c3c;
+        }
+        
+        .wire.bitline {
+            background: #3498db;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .control-group input, .control-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: background 0.3s;
+            width: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .button {
+                padding: 8px 16px;
+                font-size: 13px;
+                margin: 3px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .button {
+                width: 100%;
+                margin: 3px 0;
+                padding: 10px;
+            }
+        }
+        
+        .button:hover {
+            background: #0056b3;
+        }
+        
+        .button.secondary {
+            background: #6c757d;
+        }
+        
+        .button.secondary:hover {
+            background: #545b62;
+        }
+        
+        .info-panel {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        
+        .info-panel h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        
+        .voltage-display {
+            font-family: monospace;
+            font-size: 14px;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        
+        .legend {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 480px) {
+            .legend {
+                padding: 10px;
+            }
+            
+            .legend-item {
+                font-size: 14px;
+            }
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border: 1px solid #333;
+        }
+        
+        .theory-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .theory-section h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .resistance-low { background-color: #90EE90; }
+        .resistance-medium { background-color: #FFD700; }
+        .resistance-high { background-color: #FFB6C1; }
+        .resistance-very-high { background-color: #FFA07A; }
+        
+        .grid-labels {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            right: 0;
+            height: 20px;
+            pointer-events: none;
+        }
+        
+        .grid-labels-left {
+            position: absolute;
+            left: -25px;
+            top: 0;
+            bottom: 0;
+            width: 20px;
+            pointer-events: none;
+        }
+        
+        .label {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .current-display {
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            background: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Memristor Crossbar Array Simulator</h1>
+        
+        <div class="main-content">
+            <div class="simulator-section">
+                <h2>Interactive Crossbar Array</h2>
+                <div class="crossbar-container">
+                    <div class="crossbar-grid" id="crossbar">
+                        <!-- Grid will be generated by JavaScript -->
+                    </div>
+                </div>
+                
+                <div class="legend">
+                    <h3>Resistance States</h3>
+                    <div class="legend-item">
+                        <div class="legend-color resistance-low"></div>
+                        <span>Low Resistance (1-10 kΩ) - Logic '1'</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color resistance-medium"></div>
+                        <span>Medium Resistance (10-100 kΩ)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color resistance-high"></div>
+                        <span>High Resistance (100-1000 kΩ) - Logic '0'</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color resistance-very-high"></div>
+                        <span>Very High Resistance (>1000 kΩ)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <h3>Control Panel</h3>
+                
+                <div class="control-group">
+                    <label>Array Size:</label>
+                    <select id="arraySize">
+                        <option value="4">4×4</option>
+                        <option value="6">6×6</option>
+                        <option value="8">8×8</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Selected Word Line:</label>
+                    <select id="wordLine">
+                        <option value="0">WL0</option>
+                        <option value="1">WL1</option>
+                        <option value="2">WL2</option>
+                        <option value="3">WL3</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Selected Bit Line:</label>
+                    <select id="bitLine">
+                        <option value="0">BL0</option>
+                        <option value="1">BL1</option>
+                        <option value="2">BL2</option>
+                        <option value="3">BL3</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Applied Voltage (V):</label>
+                    <input type="range" id="voltage" min="-3" max="3" step="0.1" value="0">
+                    <span id="voltageValue">0V</span>
+                </div>
+                
+                <button class="button" onclick="applyVoltage()">Apply Voltage</button>
+                <button class="button secondary" onclick="resetArray()">Reset Array</button>
+                <button class="button" onclick="randomizeArray()">Randomize</button>
+                
+                <div class="info-panel">
+                    <h3>Selected Memristor</h3>
+                    <div id="selectedInfo">Click on a memristor to see details</div>
+                    <div class="voltage-display" id="voltageDisplay"></div>
+                    <div class="current-display" id="currentDisplay"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="theory-section">
+            <h2>How Memristor Crossbar Arrays Work</h2>
+            
+            <h3>Basic Principles</h3>
+            <p>A memristor crossbar array consists of horizontal word lines (WL) and vertical bit lines (BL) with memristors at each intersection. Each memristor can store information by changing its resistance state when voltage is applied.</p>
+            
+            <h3>Memory Operation</h3>
+            <p><strong>Writing:</strong> To write data, select a word line and bit line, then apply a voltage. Positive voltage typically decreases resistance (SET operation), while negative voltage increases resistance (RESET operation).</p>
+            
+            <p><strong>Reading:</strong> Apply a small voltage and measure the current. High current indicates low resistance (logic '1'), while low current indicates high resistance (logic '0').</p>
+            
+            <h3>Key Advantages</h3>
+            <ul>
+                <li>High density storage - memristors can be scaled to very small sizes</li>
+                <li>Non-volatile - data persists without power</li>
+                <li>Fast switching speeds</li>
+                <li>Low power consumption</li>
+                <li>Analog computing capabilities</li>
+            </ul>
+            
+            <h3>Sneak Path Problem</h3>
+            <p>In large arrays, current can flow through unintended paths (sneak paths) through neighboring memristors. This is mitigated using:</p>
+            <ul>
+                <li>Selector devices (diodes, transistors)</li>
+                <li>Proper voltage biasing schemes</li>
+                <li>Advanced reading circuits</li>
+            </ul>
+            
+            <h3>Applications</h3>
+            <ul>
+                <li>Neuromorphic computing</li>
+                <li>In-memory computing</li>
+                <li>Non-volatile memory (ReRAM)</li>
+                <li>Analog signal processing</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let arraySize = 4;
+        let memristorArray = [];
+        let selectedMemristor = null;
+        
+        // Initialize the simulator
+        function init() {
+            updateArraySize();
+            generateArray();
+            updateControls();
+        }
+        
+        function updateArraySize() {
+            arraySize = parseInt(document.getElementById('arraySize').value);
+            generateArray();
+            updateControls();
+        }
+        
+        function updateControls() {
+            const wordLineSelect = document.getElementById('wordLine');
+            const bitLineSelect = document.getElementById('bitLine');
+            
+            // Clear existing options
+            wordLineSelect.innerHTML = '';
+            bitLineSelect.innerHTML = '';
+            
+            // Add new options
+            for (let i = 0; i < arraySize; i++) {
+                wordLineSelect.innerHTML += `<option value="${i}">WL${i}</option>`;
+                bitLineSelect.innerHTML += `<option value="${i}">BL${i}</option>`;
+            }
+        }
+        
+        // Create grid
+        function generateArray() {
+            const crossbar = document.getElementById('crossbar');
+            crossbar.innerHTML = '';
+            
+            // Initialize memristor data
+            memristorArray = [];
+            for (let i = 0; i < arraySize; i++) {
+                memristorArray[i] = [];
+                for (let j = 0; j < arraySize; j++) {
+                    memristorArray[i][j] = {
+                        resistance: 100 + Math.random() * 900, // Random resistance 100-1000 kΩ
+                        row: i,
+                        col: j
+                    };
+                }
+            }
+            
+            // Responsive cell size calculation
+            const isMobile = window.innerWidth <= 768;
+            const isSmallMobile = window.innerWidth <= 480;
+            const cellSize = isSmallMobile ? 27 : isMobile ? 32 : 44;
+            const cellSpacing = isSmallMobile ? 2 : isMobile ? 3 : 4;
+            
+            // Create grid
+            const gridSize = arraySize * cellSize + 20; // cellSize per cell + padding
+            crossbar.style.width = gridSize + 'px';
+            crossbar.style.height = gridSize + 'px';
+            
+            // Create memristors
+            for (let i = 0; i < arraySize; i++) {
+                for (let j = 0; j < arraySize; j++) {
+                    const memristor = document.createElement('div');
+                    memristor.className = 'memristor';
+                    memristor.style.position = 'absolute';
+                    memristor.style.left = (j * cellSize + 10) + 'px';
+                    memristor.style.top = (i * cellSize + 10) + 'px';
+                    memristor.onclick = () => selectMemristor(i, j);
+                    
+                    const resistanceDisplay = document.createElement('div');
+                    resistanceDisplay.className = 'memristor-resistance';
+                    resistanceDisplay.textContent = Math.round(memristorArray[i][j].resistance) + 'k';
+                    memristor.appendChild(resistanceDisplay);
+                    
+                    crossbar.appendChild(memristor);
+                    updateMemristorAppearance(i, j);
+                }
+            }
+            
+            // Create word lines (horizontal)
+            for (let i = 0; i < arraySize; i++) {
+                const wordline = document.createElement('div');
+                wordline.className = 'wire horizontal wordline';
+                wordline.style.top = (i * cellSize + cellSize/2 + 10) + 'px';
+                wordline.style.left = '10px';
+                wordline.style.width = (arraySize * cellSize) + 'px';
+                wordline.style.zIndex = '-1';
+                crossbar.appendChild(wordline);
+            }
+            
+            // Create bit lines (vertical)
+            for (let j = 0; j < arraySize; j++) {
+                const bitline = document.createElement('div');
+                bitline.className = 'wire vertical bitline';
+                bitline.style.left = (j * cellSize + cellSize/2 + 10) + 'px';
+                bitline.style.top = '10px';
+                bitline.style.height = (arraySize * cellSize) + 'px';
+                bitline.style.zIndex = '-1';
+                crossbar.appendChild(bitline);
+            }
+        }
+        
+        function updateMemristorAppearance(row, col) {
+            // Calculate responsive cell size
+            const isMobile = window.innerWidth <= 768;
+            const isSmallMobile = window.innerWidth <= 480;
+            const cellSize = isSmallMobile ? 27 : isMobile ? 32 : 44;
+            
+            const memristor = document.querySelector(`[style*="top: ${row * cellSize + 10}px"][style*="left: ${col * cellSize + 10}px"]`);
+            if (!memristor) return;
+            
+            const resistance = memristorArray[row][col].resistance;
+            
+            // Remove existing resistance classes
+            memristor.classList.remove('resistance-low', 'resistance-medium', 'resistance-high', 'resistance-very-high');
+            
+            // Add appropriate resistance class
+            if (resistance < 10) {
+                memristor.classList.add('resistance-low');
+            } else if (resistance < 100) {
+                memristor.classList.add('resistance-medium');
+            } else if (resistance < 1000) {
+                memristor.classList.add('resistance-high');
+            } else {
+                memristor.classList.add('resistance-very-high');
+            }
+            
+            // Update resistance display
+            const resistanceDisplay = memristor.querySelector('.memristor-resistance');
+            resistanceDisplay.textContent = Math.round(resistance) + 'k';
+        }
+        
+        function selectMemristor(row, col) {
+            // Remove previous selection
+            const previousSelected = document.querySelector('.memristor.selected');
+            if (previousSelected) {
+                previousSelected.classList.remove('selected');
+            }
+            
+            // Calculate responsive cell size
+            const isMobile = window.innerWidth <= 768;
+            const isSmallMobile = window.innerWidth <= 480;
+            const cellSize = isSmallMobile ? 27 : isMobile ? 32 : 44;
+            
+            // Select new memristor
+            const memristor = document.querySelector(`[style*="top: ${row * cellSize + 10}px"][style*="left: ${col * cellSize + 10}px"]`);
+            if (memristor) {
+                memristor.classList.add('selected');
+            }
+            
+            selectedMemristor = { row, col };
+            updateSelectedInfo();
+        }
+        
+        function updateSelectedInfo() {
+            const info = document.getElementById('selectedInfo');
+            const voltageDisplay = document.getElementById('voltageDisplay');
+            const currentDisplay = document.getElementById('currentDisplay');
+            
+            if (selectedMemristor) {
+                const { row, col } = selectedMemristor;
+                const resistance = memristorArray[row][col].resistance;
+                const voltage = parseFloat(document.getElementById('voltage').value);
+                const current = voltage / resistance; // Ohm's law: I = V/R (in mA)
+                
+                info.innerHTML = `
+                    <strong>Position:</strong> WL${row}, BL${col}<br>
+                    <strong>Resistance:</strong> ${Math.round(resistance)} kΩ<br>
+                    <strong>State:</strong> ${resistance < 100 ? 'Low (Logic 1)' : 'High (Logic 0)'}
+                `;
+                
+                voltageDisplay.innerHTML = `Applied Voltage: ${voltage.toFixed(1)}V`;
+                currentDisplay.innerHTML = `Current: ${(current * 1000).toFixed(2)} μA`;
+            } else {
+                info.innerHTML = 'Click on a memristor to see details';
+                voltageDisplay.innerHTML = '';
+                currentDisplay.innerHTML = '';
+            }
+        }
+        
+        function applyVoltage() {
+            const wordLine = parseInt(document.getElementById('wordLine').value);
+            const bitLine = parseInt(document.getElementById('bitLine').value);
+            const voltage = parseFloat(document.getElementById('voltage').value);
+            
+            if (Math.abs(voltage) > 0.1) {
+                // Simulate memristor switching
+                const memristor = memristorArray[wordLine][bitLine];
+                
+                if (voltage > 1.5) {
+                    // SET operation - decrease resistance
+                    memristor.resistance = Math.max(1, memristor.resistance * 0.3);
+                } else if (voltage < -1.5) {
+                    // RESET operation - increase resistance
+                    memristor.resistance = Math.min(2000, memristor.resistance * 3);
+                }
+                
+                updateMemristorAppearance(wordLine, bitLine);
+                
+                // Auto-select the operated memristor
+                selectMemristor(wordLine, bitLine);
+            }
+        }
+        
+        function resetArray() {
+            for (let i = 0; i < arraySize; i++) {
+                for (let j = 0; j < arraySize; j++) {
+                    memristorArray[i][j].resistance = 500; // Reset to medium resistance
+                    updateMemristorAppearance(i, j);
+                }
+            }
+            updateSelectedInfo();
+        }
+        
+        function randomizeArray() {
+            for (let i = 0; i < arraySize; i++) {
+                for (let j = 0; j < arraySize; j++) {
+                    memristorArray[i][j].resistance = 10 + Math.random() * 1990; // Random 10-2000 kΩ
+                    updateMemristorAppearance(i, j);
+                }
+            }
+            updateSelectedInfo();
+        }
+        
+        // Event listeners
+        document.getElementById('arraySize').addEventListener('change', updateArraySize);
+        document.getElementById('voltage').addEventListener('input', function() {
+            document.getElementById('voltageValue').textContent = this.value + 'V';
+            updateSelectedInfo();
+        });
+        document.getElementById('wordLine').addEventListener('change', updateSelectedInfo);
+        document.getElementById('bitLine').addEventListener('change', updateSelectedInfo);
+        
+        // Handle window resize for responsive layout
+        window.addEventListener('resize', function() {
+            // Regenerate array with new responsive sizes
+            generateArray();
+            // Clear selection as positions will have changed
+            selectedMemristor = null;
+            updateSelectedInfo();
+        });
+        
+        // Initialize the simulator
+        init();
+    </script>
+</body>
+</html>
