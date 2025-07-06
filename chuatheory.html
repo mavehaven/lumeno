@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memristor Theory Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.0/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .theory-section, .simulation-section {
+            flex: 1;
+            min-width: 300px;
+        }
+        .control-panel {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 200px;
+            margin-right: 10px;
+        }
+        input[type="range"] {
+            width: 200px;
+            vertical-align: middle;
+        }
+        .value-display {
+            display: inline-block;
+            width: 50px;
+            text-align: right;
+        }
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .math-block {
+            margin: 15px 0;
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        .memristor-diagram {
+            max-width: 300px;
+            margin: 20px auto;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chua's Memristor Theory Simulation</h1>
+    
+    <div class="container">
+        <div class="theory-section">
+            <h2>Memristor Theory</h2>
+            
+            <p>In 1971, Leon Chua theorized the existence of the fourth fundamental passive circuit element, which he called the "memristor" (memory + resistor). The memristor completes the symmetry between the four fundamental circuit variables: current (i), voltage (v), charge (q), and magnetic flux (φ).</p>
+            
+            <div class="math-block">
+                <h3>The Fundamental Memristor Equation</h3>
+                <p>The memristor is defined by a relationship between charge and magnetic flux:</p>
+                <p>\[M(q) = \frac{d\phi}{dq}\]</p>
+                <p>Where \(M(q)\) is the memristance (measured in ohms, Ω), which depends on the charge \(q\) that has flowed through the device.</p>
+                
+                <p>Since flux linkage is related to voltage by:</p>
+                <p>\[\phi(t) = \int_{-\infty}^{t} v(\tau) \, d\tau\]</p>
+                
+                <p>And charge is related to current by:</p>
+                <p>\[q(t) = \int_{-\infty}^{t} i(\tau) \, d\tau\]</p>
+                
+                <p>We can also express the memristor relation as:</p>
+                <p>\[v(t) = M(q(t)) \cdot i(t)\]</p>
+                
+                <p>This shows that the memristor acts like a resistor whose resistance varies according to the history of current that has flowed through it.</p>
+            </div>
+            
+            <div class="math-block">
+                <h3>HP Labs' Memristor Model</h3>
+                <p>In 2008, HP Labs announced the first physical implementation of a memristor. Their model can be described by:</p>
+                <p>\[M(w) = R_{OFF}(1-\frac{w}{D}) + R_{ON}\frac{w}{D}\]</p>
+                <p>Where \(w\) is the state variable representing the width of the doped region, \(D\) is the total thickness, and \(R_{ON}\) and \(R_{OFF}\) are the resistance values when the device is fully ON or OFF.</p>
+                
+                <p>The state variable evolves according to:</p>
+                <p>\[\frac{dw}{dt} = \mu_v \frac{R_{ON}}{D} i(t) \cdot f(w)\]</p>
+                <p>Where \(\mu_v\) is the mobility of oxygen vacancies and \(f(w)\) is a window function that ensures \(w\) stays within physical boundaries.</p>
+            </div>
+        </div>
+        
+        <div class="simulation-section">
+            <h2>Interactive Simulation</h2>
+            
+            <svg class="memristor-diagram" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+                <!-- Memristor symbol -->
+                <line x1="20" y1="50" x2="60" y2="50" stroke="black" stroke-width="2"/>
+                <rect x="60" y="40" width="80" height="20" fill="none" stroke="black" stroke-width="2"/>
+                <text x="100" y="55" text-anchor="middle" font-size="12">M</text>
+                <line x1="140" y1="50" x2="180" y2="50" stroke="black" stroke-width="2"/>
+                
+                <!-- Doped/undoped regions representation -->
+                <rect id="doped-region" x="60" y="40" width="40" height="20" fill="rgba(0,0,255,0.3)"/>
+            </svg>
+            
+            <div class="control-panel">
+                <div class="control-group">
+                    <label for="input-signal">Input Signal Type:</label>
+                    <select id="input-signal">
+                        <option value="sinusoidal">Sinusoidal</option>
+                        <option value="square">Square</option>
+                        <option value="triangular">Triangular</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="frequency">Frequency (Hz):</label>
+                    <input type="range" id="frequency" min="0.1" max="10" step="0.1" value="1">
+                    <span id="frequency-value" class="value-display">1.0</span>
+                </div>
+                
+                <div class="control-group">
+                    <label for="amplitude">Amplitude (V):</label>
+                    <input type="range" id="amplitude" min="0.1" max="5" step="0.1" value="1">
+                    <span id="amplitude-value" class="value-display">1.0</span>
+                </div>
+                
+                <div class="control-group">
+                    <label for="ron">R<sub>ON</sub> (Ω):</label>
+                    <input type="range" id="ron" min="100" max="1000" step="10" value="100">
+                    <span id="ron-value" class="value-display">100</span>
+                </div>
+                
+                <div class="control-group">
+                    <label for="roff">R<sub>OFF</sub> (Ω):</label>
+                    <input type="range" id="roff" min="1000" max="10000" step="100" value="16000">
+                    <span id="roff-value" class="value-display">16000</span>
+                </div>
+                
+                <div class="control-group">
+                    <label for="mobility">Mobility (μ<sub>v</sub>):</label>
+                    <input type="range" id="mobility" min="0.1" max="10" step="0.1" value="1">
+                    <span id="mobility-value" class="value-display">1.0</span>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="voltageCurrentChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="timeSeriesChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Simulation parameters
+        const params = {
+            inputSignalType: 'sinusoidal',
+            frequency: 1.0,
+            amplitude: 1.0,
+            rOn: 100,
+            rOff: 16000,
+            mobility: 1.0,
+            deviceThickness: 10e-9, // 10 nm
+            timeStep: 0.001,
+            simulationTime: 10.0
+        };
+        
+        // State variables
+        let w = params.deviceThickness / 2; // Initial state (doped region width)
+        let time = 0;
+        
+        // Data arrays for plotting
+        const voltageData = [];
+        const currentData = [];
+        const resistanceData = [];
+        const wData = [];
+        const timeData = [];
+        
+        // Create charts
+        const vcContext = document.getElementById('voltageCurrentChart').getContext('2d');
+        const vcChart = new Chart(vcContext, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'V-I Characteristic',
+                    data: [],
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    showLine: true,
+                    pointRadius: 1,
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Voltage (V)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Current (mA)'
+                        }
+                    }
+                },
+                animation: false,
+                aspectRatio: 1.5
+            }
+        });
+        
+        const tsContext = document.getElementById('timeSeriesChart').getContext('2d');
+        const tsChart = new Chart(tsContext, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'Voltage (V)',
+                        data: [],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        yAxisID: 'y1',
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Current (mA)',
+                        data: [],
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        yAxisID: 'y1',
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Memristance (kΩ)',
+                        data: [],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        yAxisID: 'y2',
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: {
+                            display: true,
+                            text: 'Time (s)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Voltage (V) / Current (mA)'
+                        }
+                    },
+                    y2: {
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Memristance (kΩ)'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    }
+                },
+                animation: false
+            }
+        });
+        
+        // UI Controls
+        document.getElementById('input-signal').addEventListener('change', function(e) {
+            params.inputSignalType = e.target.value;
+            resetSimulation();
+        });
+        
+        document.getElementById('frequency').addEventListener('input', function(e) {
+            params.frequency = parseFloat(e.target.value);
+            document.getElementById('frequency-value').textContent = params.frequency.toFixed(1);
+            resetSimulation();
+        });
+        
+        document.getElementById('amplitude').addEventListener('input', function(e) {
+            params.amplitude = parseFloat(e.target.value);
+            document.getElementById('amplitude-value').textContent = params.amplitude.toFixed(1);
+            resetSimulation();
+        });
+        
+        document.getElementById('ron').addEventListener('input', function(e) {
+            params.rOn = parseFloat(e.target.value);
+            document.getElementById('ron-value').textContent = params.rOn.toFixed(0);
+            resetSimulation();
+        });
+        
+        document.getElementById('roff').addEventListener('input', function(e) {
+            params.rOff = parseFloat(e.target.value);
+            document.getElementById('roff-value').textContent = params.rOff.toFixed(0);
+            resetSimulation();
+        });
+        
+        document.getElementById('mobility').addEventListener('input', function(e) {
+            params.mobility = parseFloat(e.target.value);
+            document.getElementById('mobility-value').textContent = params.mobility.toFixed(1);
+            resetSimulation();
+        });
+        
+        // Window function to ensure w stays within physical boundaries
+        function windowFunction(w, D) {
+            if (w < 0) return 0;
+            if (w > D) return 0;
+            return 1 - (2*w/D - 1)**2;
+        }
+        
+        // Calculate input voltage based on time and settings
+        function calculateVoltage(t) {
+            const omega = 2 * Math.PI * params.frequency;
+            
+            switch(params.inputSignalType) {
+                case 'sinusoidal':
+                    return params.amplitude * Math.sin(omega * t);
+                case 'square':
+                    return params.amplitude * Math.sign(Math.sin(omega * t));
+                case 'triangular':
+                    return params.amplitude * (1 - 2 * Math.acos(Math.sin(omega * t)) / Math.PI);
+                default:
+                    return 0;
+            }
+        }
+        
+        // Calculate memristance based on state
+        function calculateMemristance(w) {
+            return params.rOff * (1 - w / params.deviceThickness) + params.rOn * (w / params.deviceThickness);
+        }
+        
+        // Update memristor state based on current
+        function updateState(w, i, dt) {
+            const mu = params.mobility * 1e-14; // Mobility in m²/(V·s)
+            const dw = mu * (params.rOn / params.deviceThickness) * i * windowFunction(w, params.deviceThickness) * dt;
+            return Math.max(0, Math.min(params.deviceThickness, w + dw));
+        }
+        
+        // Reset and run simulation
+        function resetSimulation() {
+            // Reset state and data
+            w = params.deviceThickness / 2;
+            time = 0;
+            voltageData.length = 0;
+            currentData.length = 0;
+            resistanceData.length = 0;
+            wData.length = 0;
+            timeData.length = 0;
+            
+            // Run simulation
+            runSimulation();
+        }
+        
+        // Run the memristor simulation
+        function runSimulation() {
+            while (time <= params.simulationTime) {
+                // Calculate voltage at current time
+                const voltage = calculateVoltage(time);
+                
+                // Calculate memristance and current
+                const memristance = calculateMemristance(w);
+                const current = voltage / memristance * 1000; // Convert to mA
+                
+                // Store data for plotting
+                if (timeData.length < 1000) { // Limit data points for performance
+                    voltageData.push(voltage);
+                    currentData.push(current);
+                    resistanceData.push(memristance / 1000); // Convert to kΩ
+                    wData.push(w / params.deviceThickness); // Normalized doped region width
+                    timeData.push(time);
+                }
+                
+                // Update memristor state
+                w = updateState(w, current / 1000, params.timeStep); // Convert back to A
+                
+                // Increment time
+                time += params.timeStep;
+            }
+            
+            // Update V-I characteristic chart
+            vcChart.data.datasets[0].data = voltageData.map((v, i) => ({x: v, y: currentData[i]}));
+            vcChart.update();
+            
+            // Update time series chart
+            tsChart.data.datasets[0].data = timeData.map((t, i) => ({x: t, y: voltageData[i]}));
+            tsChart.data.datasets[1].data = timeData.map((t, i) => ({x: t, y: currentData[i]}));
+            tsChart.data.datasets[2].data = timeData.map((t, i) => ({x: t, y: resistanceData[i]}));
+            tsChart.update();
+            
+            // Update memristor diagram
+            const dopedRegion = document.getElementById('doped-region');
+            const normalizedW = wData[wData.length - 1];
+            dopedRegion.setAttribute('width', normalizedW * 80);
+        }
+        
+        // Initialize simulation on page load
+        window.addEventListener('load', function() {
+            // Initialize value displays
+            document.getElementById('frequency-value').textContent = params.frequency.toFixed(1);
+            document.getElementById('amplitude-value').textContent = params.amplitude.toFixed(1);
+            document.getElementById('ron-value').textContent = params.rOn.toFixed(0);
+            document.getElementById('roff-value').textContent = params.rOff.toFixed(0);
+            document.getElementById('mobility-value').textContent = params.mobility.toFixed(1);
+            
+            // Run initial simulation
+            resetSimulation();
+        });
+    </script>
+</body>
+</html>
