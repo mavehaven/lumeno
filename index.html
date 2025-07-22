@@ -1357,10 +1357,18 @@
         
         /* Qubit Visualization */
         .qubit-container {
-            position: relative;
+            position: absolute;
             width: 100%;
-            height: 400px;
-            z-index: 2;
+            height: 100%;
+            z-index: 1;
+            opacity: 0;
+            transform: scale(0.2) translateZ(-500px);
+            transition: transform 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 1.2s ease;
+        }
+        
+        .qubit-container.active {
+            opacity: 1;
+            transform: scale(1) translateZ(0);
         }
         
         #qubitCanvas {
@@ -1369,6 +1377,25 @@
             left: 0;
             width: 100%;
             height: 100%;
+        }
+        
+        .quantum-overlay-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4rem;
+            font-weight: 700;
+            color: rgba(0, 230, 246, 0.15);
+            z-index: 2;
+            white-space: nowrap;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            opacity: 0;
+        }
+        
+        .quantum-overlay-text.show {
+            opacity: 1;
         }
     </style>
 </head>
@@ -1602,6 +1629,7 @@
             <div class="pillar-panel" style="z-index: 1;">
                 <div class="qubit-container" id="qubitContainer">
                     <canvas id="qubitCanvas"></canvas>
+                    <div class="quantum-overlay-text" id="quantumOverlayText">QUANTUM COMPUTING</div>
                 </div>
                 <div class="pillar-background" style="background: linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1740&q=80');"></div>
                 <div class="pillar-title">Quantum Computing</div>
@@ -2173,6 +2201,23 @@
                             content.classList.remove('active');
                         }
                     });
+                    
+                    // Quantum section specific effects
+                    if (pillarIndex === 2) {
+                        // Activate quantum section
+                        const quantumContainer = document.getElementById('qubitContainer');
+                        quantumContainer.classList.add('active');
+                        
+                        // Show quantum text overlay
+                        const quantumText = document.getElementById('quantumOverlayText');
+                        setTimeout(() => {
+                            quantumText.classList.add('show');
+                        }, 800);
+                    } else {
+                        // Deactivate quantum section if not active
+                        document.getElementById('qubitContainer').classList.remove('active');
+                        document.getElementById('quantumOverlayText').classList.remove('show');
+                    }
                 }
                 
                 // Apply parallax effect to backgrounds
@@ -2186,6 +2231,17 @@
                         bg.style.transform = `translate3d(0, ${parallaxOffset}px, 0)`;
                     }
                 });
+                
+                // Quantum section scroll effect
+                if (currentPillar === 2) {
+                    const quantumPanel = pillarPanels[2];
+                    const panelTop = quantumPanel.getBoundingClientRect().top;
+                    const panelHeight = quantumPanel.offsetHeight;
+                    const scrollProgress = Math.max(0, Math.min(1, -panelTop / panelHeight));
+                    
+                    // Update quantum visualization based on scroll
+                    updateQuantumVisualization(scrollProgress);
+                }
             }
             
             // Handle dot navigation
@@ -2542,55 +2598,65 @@
         arrow.rotation.x = Math.PI / 2;
         qubitScene.add(arrow);
         
-        // Create sphere points
-        const points = [];
-        const pointMaterial = new THREE.PointsMaterial({
-            color: 0xffffff,
-            size: 0.05,
+        // Create quantum state particles
+        const particles = [];
+        const particleGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+        const particleMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00e6f6,
             transparent: true,
-            opacity: 0.5
+            opacity: 0.8
         });
         
-        for (let i = 0; i < 500; i++) {
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            const x = 2 * Math.sin(phi) * Math.cos(theta);
-            const y = 2 * Math.sin(phi) * Math.sin(theta);
-            const z = 2 * Math.cos(phi);
-            
-            points.push(new THREE.Vector3(x, y, z));
-        }
+        // Create entanglement lines
+        const entanglementLines = [];
+        const lineMaterial = new THREE.LineBasicMaterial({
+            color: 0x00e6f6,
+            transparent: true,
+            opacity: 0.4
+        });
         
-        const pointGeometry = new THREE.BufferGeometry().setFromPoints(points);
-        const pointCloud = new THREE.Points(pointGeometry, pointMaterial);
-        qubitScene.add(pointCloud);
+        // Create quantum state particles
+        for (let i = 0; i < 100; i++) {
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+            
+            // Position particles randomly on the sphere
+            const phi = Math.acos(2 * Math.random() - 1);
+            const theta = Math.random() * Math.PI * 2;
+            const radius = 2.05;
+            
+            particle.position.x = radius * Math.sin(phi) * Math.cos(theta);
+            particle.position.y = radius * Math.sin(phi) * Math.sin(theta);
+            particle.position.z = radius * Math.cos(phi);
+            
+            // Store initial position and rotation speed
+            particle.userData = {
+                initialPosition: particle.position.clone(),
+                rotationSpeed: new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.02,
+                    (Math.random() - 0.5) * 0.02,
+                    (Math.random() - 0.5) * 0.02
+                )
+            };
+            
+            qubitScene.add(particle);
+            particles.push(particle);
+            
+            // Create entanglement lines
+            if (i > 0) {
+                const points = [];
+                points.push(particles[i-1].position.clone());
+                points.push(particle.position.clone());
+                
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+                const line = new THREE.Line(lineGeometry, lineMaterial);
+                qubitScene.add(line);
+                entanglementLines.push(line);
+            }
+        }
         
         // Create axes
         const axesHelper = new THREE.AxesHelper(3);
         qubitScene.add(axesHelper);
-        
-        // Create labels
-        const createLabel = (text, position) => {
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = 128;
-            canvas.height = 64;
-            context.fillStyle = '#00e6f6';
-            context.font = '24px Eurostile';
-            context.fillText(text, 10, 40);
-            
-            const texture = new THREE.CanvasTexture(canvas);
-            const material = new THREE.SpriteMaterial({ map: texture });
-            const sprite = new THREE.Sprite(material);
-            sprite.scale.set(1, 0.5, 1);
-            sprite.position.copy(position);
-            qubitScene.add(sprite);
-        };
-        
-        createLabel('|0>', new THREE.Vector3(0, 0, 2.5));
-        createLabel('|1>', new THREE.Vector3(0, 0, -2.5));
-        createLabel('X', new THREE.Vector3(2.5, 0, 0));
-        createLabel('Y', new THREE.Vector3(0, 2.5, 0));
         
         // Add lighting
         const pointLight = new THREE.PointLight(0xffffff, 1);
@@ -2603,6 +2669,7 @@
         // Animation variables
         let time = 0;
         let rotationSpeed = 0.01;
+        let quantumActive = false;
         
         // Handle window resize for qubit
         window.addEventListener('resize', () => {
@@ -2611,25 +2678,79 @@
             qubitRenderer.setSize(qubitContainer.clientWidth, qubitContainer.clientHeight);
         });
         
+        // Function to update quantum visualization based on scroll progress
+        function updateQuantumVisualization(progress) {
+            // Adjust particle movement intensity based on scroll progress
+            const intensity = progress * 2;
+            
+            // Update particles
+            particles.forEach(particle => {
+                // Oscillate around initial position
+                const offset = Math.sin(time * 2 + particle.userData.initialPosition.x) * 0.2 * intensity;
+                particle.position.copy(particle.userData.initialPosition);
+                particle.position.multiplyScalar(1 + offset * 0.1);
+                
+                // Rotate particle
+                particle.rotation.x += particle.userData.rotationSpeed.x * intensity;
+                particle.rotation.y += particle.userData.rotationSpeed.y * intensity;
+                particle.rotation.z += particle.userData.rotationSpeed.z * intensity;
+            });
+            
+            // Update entanglement lines
+            entanglementLines.forEach((line, index) => {
+                const positions = line.geometry.attributes.position;
+                positions.setXYZ(0, particles[index].position.x, particles[index].position.y, particles[index].position.z);
+                positions.setXYZ(1, particles[index+1].position.x, particles[index+1].position.y, particles[index+1].position.z);
+                positions.needsUpdate = true;
+            });
+            
+            // Rotate the entire visualization
+            sphere.rotation.y += 0.002 * intensity;
+        }
+        
         // Animation function for qubit
         function animateQubit() {
             requestAnimationFrame(animateQubit);
             
             time += rotationSpeed;
             
-            // Rotate the state vector
-            arrow.rotation.z = time;
-            arrow.position.x = 1.5 * Math.sin(time);
-            arrow.position.z = 1.5 * Math.cos(time);
-            
-            // Rotate the entire scene
-            sphere.rotation.y += 0.002;
-            pointCloud.rotation.y += 0.002;
+            // Only animate if quantum section is active
+            if (quantumActive) {
+                // Rotate the state vector
+                arrow.rotation.z = time;
+                arrow.position.x = 1.5 * Math.sin(time);
+                arrow.position.z = 1.5 * Math.cos(time);
+                
+                // Rotate particles
+                particles.forEach(particle => {
+                    particle.rotation.x += particle.userData.rotationSpeed.x;
+                    particle.rotation.y += particle.userData.rotationSpeed.y;
+                    particle.rotation.z += particle.userData.rotationSpeed.z;
+                });
+                
+                // Update entanglement lines
+                entanglementLines.forEach((line, index) => {
+                    const positions = line.geometry.attributes.position;
+                    positions.setXYZ(0, particles[index].position.x, particles[index].position.y, particles[index].position.z);
+                    positions.setXYZ(1, particles[index+1].position.x, particles[index+1].position.y, particles[index+1].position.z);
+                    positions.needsUpdate = true;
+                });
+            }
             
             qubitRenderer.render(qubitScene, qubitCamera);
         }
         
         animateQubit();
+        
+        // Function to activate quantum visualization
+        function activateQuantum() {
+            quantumActive = true;
+        }
+        
+        // Function to deactivate quantum visualization
+        function deactivateQuantum() {
+            quantumActive = false;
+        }
     </script>
 </body>
 </html>
