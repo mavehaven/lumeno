@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisionOS Virtual Office | Enhanced Experience</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f1c4a, #1d3557);
+            overflow: hidden;
+            height: 100vh;
+            user-select: none;
+            color: #e0e0e0;
+        }
+        
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+        }
+        
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
+        
+        .spatial-window {
+            position: absolute;
+            background: rgba(30, 40, 60, 0.7);
+            backdrop-filter: blur(25px) saturate(180%);
+            border: 1px solid rgba(100, 180, 255, 0.3);
+            border-radius: 18px;
+            padding: 20px;
+            pointer-events: auto;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+            overflow: hidden;
+        }
+        
+        .spatial-window:hover {
+            transform: scale(1.03);
+            box-shadow: 0 16px 50px rgba(0, 100, 255, 0.3);
+        }
+        
+        .spatial-window::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #4cc9f0, #4361ee);
+            border-radius: 18px 18px 0 0;
+        }
+        
+        .window-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            color: #f0f0f0;
+            font-weight: 600;
+            cursor: move;
+            font-size: 16px;
+        }
+        
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .control-btn {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .control-btn:hover {
+            transform: scale(1.2);
+        }
+        
+        .close { background: #ff5f57; }
+        .minimize { background: #ffbd2e; }
+        .maximize { background: #28ca42; }
+        
+        .calendar-window {
+            top: 50px;
+            left: 50px;
+            width: 320px;
+            height: 220px;
+        }
+        
+        .notes-window {
+            top: 100px;
+            right: 50px;
+            width: 280px;
+            height: 200px;
+        }
+        
+        .video-window {
+            bottom: 50px;
+            left: 50px;
+            width: 420px;
+            height: 280px;
+        }
+        
+        .controls-panel {
+            bottom: 30px;
+            right: 30px;
+            width: 220px;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .control-group {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .control-button {
+            flex: 1;
+            background: rgba(50, 70, 120, 0.5);
+            border: none;
+            border-radius: 14px;
+            padding: 14px;
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .control-button:hover {
+            background: rgba(70, 100, 180, 0.6);
+            transform: translateY(-3px);
+        }
+        
+        .control-button.active {
+            background: rgba(0, 122, 255, 0.8);
+            box-shadow: 0 0 15px rgba(0, 122, 255, 0.5);
+        }
+        
+        .immersive-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+        }
+        
+        .immersive-btn {
+            background: rgba(20, 30, 60, 0.8);
+            border: 2px solid rgba(100, 180, 255, 0.4);
+            border-radius: 50%;
+            width: 70px;
+            height: 70px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            backdrop-filter: blur(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .immersive-btn:hover {
+            background: rgba(40, 80, 180, 0.9);
+            transform: scale(1.15);
+            border-color: rgba(150, 220, 255, 0.6);
+        }
+        
+        .window-content {
+            color: rgba(240, 240, 240, 0.95);
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        
+        .video-placeholder {
+            width: 100%;
+            height: 180px;
+            background: linear-gradient(45deg, #1a1a2e, #16213e);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .video-placeholder::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, rgba(67, 97, 238, 0.3), rgba(76, 201, 240, 0.3));
+            opacity: 0.6;
+        }
+        
+        .participant-list {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .participant {
+            background: rgba(60, 100, 200, 0.4);
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .participant::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+        }
+        
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 30, 50, 0.8);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 15px;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: opacity 0.3s;
+            border: 1px solid rgba(100, 180, 255, 0.3);
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .gesture-hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 18px;
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            background: rgba(20, 30, 50, 0.9);
+            padding: 25px 35px;
+            border-radius: 20px;
+            max-width: 350px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(100, 180, 255, 0.3);
+        }
+        
+        .gesture-hint.show {
+            opacity: 1;
+        }
+        
+        .controls-guide {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 30, 50, 0.9);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 18px;
+            font-size: 15px;
+            pointer-events: none;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            backdrop-filter: blur(15px);
+            opacity: 0.95;
+            transition: opacity 0.3s;
+            border: 1px solid rgba(100, 180, 255, 0.3);
+        }
+        
+        .key {
+            background: rgba(60, 100, 200, 0.6);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: inline-block;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        .highlight {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.6); }
+            50% { box-shadow: 0 0 0 12px rgba(76, 201, 240, 0); }
+        }
+        
+        .interactable {
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .interactable:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(100, 200, 255, 0.7);
+        }
+        
+        .collision-marker {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 500;
+        }
+        
+        .collision-alert {
+            position: absolute;
+            background: rgba(255, 50, 50, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .collision-alert.show {
+            opacity: 1;
+        }
+        
+        .office-title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            color: white;
+            z-index: 1000;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        
+        .office-title h1 {
+            font-size: 2.8rem;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 15px rgba(0, 0, 0, 0.6);
+            background: linear-gradient(90deg, #4cc9f0, #4361ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+        
+        .office-title p {
+            font-size: 1.3rem;
+            opacity: 0.9;
+            max-width: 600px;
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .design-label {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(180, 220, 255, 0.8);
+            font-size: 1.3rem;
+            text-align: center;
+            z-index: 1000;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            max-width: 800px;
+            line-height: 1.5;
+        }
+        
+        .ui-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(30, 50, 90, 0.8);
+            color: white;
+            border: 1px solid rgba(100, 180, 255, 0.3);
+            border-radius: 25px;
+            padding: 12px 25px;
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 1100;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+            font-weight: 500;
+            font-size: 16px;
+        }
+        
+        .ui-toggle:hover {
+            background: rgba(40, 80, 160, 0.9);
+            transform: translateY(-2px);
+        }
+        
+        .ui-hidden .ui-overlay-element {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .ui-hidden .status-indicator,
+        .ui-hidden .office-title,
+        .ui-hidden .design-label {
+            opacity: 0;
+        }
+        
+        .ui-toggle.hidden {
+            opacity: 0.5;
+        }
+        
+        .ui-toggle.hidden:hover {
+            opacity: 1;
+        }
+        
+        .sit-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 30, 50, 0.9);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 35px;
+            font-size: 18px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(100, 180, 255, 0.3);
+        }
+        
+        .sit-indicator.show {
+            opacity: 1;
+        }
+        
+        .sit-indicator .key {
+            background: rgba(0, 122, 255, 0.8);
+            padding: 8px 16px;
+            font-size: 16px;
+        }
+        
+        .sit-indicator .action {
+            font-weight: bold;
+            color: #4dabf7;
+        }
+        
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #4cc9f0, #4361ee);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .notification {
+            position: absolute;
+            top: 20px;
+            right: 100px;
+            background: rgba(20, 30, 50, 0.9);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 15px;
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(100, 180, 255, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #4cc9f0, #4361ee);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .window-content ul {
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+        
+        .window-content li {
+            margin-bottom: 8px;
+            position: relative;
+        }
+        
+        .window-content li::before {
+            content: '•';
+            position: absolute;
+            left: -15px;
+            color: #4cc9f0;
+        }
+        
+        .ui-footer {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: rgba(200, 220, 255, 0.7);
+            font-size: 14px;
+            pointer-events: none;
+        }
+        
+        .app-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(60, 100, 200, 0.4);
+            margin-right: 10px;
+        }
+        
+        .app-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .window-content strong {
+            color: #4cc9f0;
+        }
+        
+        .floating-logo {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(30, 50, 90, 0.8);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 180, 255, 0.3);
+        }
+        
+        .floating-logo i {
+            font-size: 24px;
+            background: linear-gradient(45deg, #4cc9f0, #4361ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .time-display {
+            position: absolute;
+            top: 20px;
+            left: 90px;
+            color: white;
+            font-size: 18px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .floating-logo-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 1000;
+        }
+        
+        /* Text toggle feature */
+        .text-hidden .text-content {
+            color: transparent !important;
+        }
+        .text-hidden .text-content * {
+            color: transparent !important;
+        }
+        .text-hidden .progress-bar {
+            background: transparent !important;
+        }
+        .text-hidden .participant::before {
+            background: transparent !important;
+        }
+        .text-hidden .status-dot {
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            .calendar-window, .notes-window, .video-window, .controls-panel {
+                transform: scale(0.9);
+            }
+            
+            .controls-guide {
+                grid-template-columns: repeat(2, 1fr);
+                max-width: 80%;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .spatial-window {
+                position: static;
+                width: 90% !important;
+                margin: 15px auto;
+                transform: scale(1) !important;
+            }
+            
+            .immersive-controls {
+                flex-wrap: wrap;
+                justify-content: center;
+                width: 90%;
+            }
+            
+            .controls-guide {
+                display: none;
+            }
+            
+            .office-title h1 {
+                font-size: 2rem;
+            }
+            
+            .office-title p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div class="floating-logo-container">
+            <div class="floating-logo">
+                <i class="fas fa-vr-cardboard"></i>
+            </div>
+            <div class="time-display" id="timeDisplay">10:30 AM</div>
+        </div>
+        
+        <button id="uiToggle" class="ui-toggle">
+            <i class="fas fa-eye"></i>
+            Toggle UI
+        </button>
+    
+        <div class="design-label">Press 'E' to sit/stand • Press 'U' to toggle UI • Use mouse to look around</div>
+        
+        <div class="sit-indicator" id="sitIndicator">
+            <span class="action">Press <span class="key">E</span> to sit down</span>
+        </div>
+        
+        <div id="ui-overlay">
+            <div class="notification" id="notification">
+                <div class="avatar">JS</div>
+                <div>John Smith joined the meeting</div>
+            </div>
+            
+            <div class="status-indicator ui-overlay-element">
+                <div class="status-dot"></div>
+                VisionOS Virtual Office • Connected • 45ms Latency
+            </div>
+            
+            <div class="spatial-window calendar-window ui-overlay-element">
+                <div class="progress-bar"></div>
+                <div class="window-header">
+                    <span class="app-title"><i class="fas fa-calendar"></i> Calendar</span>
+                    <div class="window-controls">
+                        <div class="control-btn close"></div>
+                        <div class="control-btn minimize"></div>
+                        <div class="control-btn maximize"></div>
+                    </div>
+                </div>
+                <div class="window-content text-content">
+                    <strong>Today's Schedule:</strong>
+                    <ul>
+                        <li>9:00 AM - Team Standup</li>
+                        <li>11:00 AM - Client Review</li>
+                        <li>2:00 PM - Design Sprint</li>
+                        <li>4:00 PM - VR Demo Session</li>
+                        <li>5:30 PM - Project Wrap-up</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="spatial-window notes-window ui-overlay-element">
+                <div class="progress-bar"></div>
+                <div class="window-header">
+                    <span class="app-title"><i class="fas fa-sticky-note"></i> Notes</span>
+                    <div class="window-controls">
+                        <div class="control-btn close"></div>
+                        <div class="control-btn minimize"></div>
+                        <div class="control-btn maximize"></div>
+                    </div>
+                </div>
+                <div class="window-content text-content">
+                    <strong>Meeting Notes:</strong>
+                    <ul>
+                        <li>Spatial computing integration</li>
+                        <li>Office layout optimization</li>
+                        <li>New furniture placement</li>
+                        <li>Team collaboration spaces</li>
+                        <li>VR onboarding process</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="spatial-window video-window ui-overlay-element">
+                <div class="progress-bar"></div>
+                <div class="window-header">
+                    <span class="app-title"><i class="fas fa-video"></i> Team Meeting</span>
+                    <div class="window-controls">
+                        <div class="control-btn close"></div>
+                        <div class="control-btn minimize"></div>
+                        <div class="control-btn maximize"></div>
+                    </div>
+                </div>
+                <div class="window-content">
+                    <div class="video-placeholder">
+                        <i class="fas fa-users"></i> Virtual Conference
+                    </div>
+                    <div class="participant-list text-content">
+                        <div class="participant">Alex</div>
+                        <div class="participant">Sarah</div>
+                        <div class="participant">Mike</div>
+                        <div class="participant">You</div>
+                        <div class="participant">Emma</div>
+                        <div class="participant">David</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="spatial-window controls-panel ui-overlay-element">
+                <div class="progress-bar"></div>
+                <div class="window-header">
+                    <span class="app-title"><i class="fas fa-sliders-h"></i> Controls</span>
+                    <div class="window-controls">
+                        <div class="control-btn close"></div>
+                        <div class="control-btn minimize"></div>
+                        <div class="control-btn maximize"></div>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <button class="control-button active" id="lightToggle">
+                        <i class="fas fa-lightbulb"></i> Lights
+                    </button>
+                    <button class="control-button" id="musicToggle">
+                        <i class="fas fa-music"></i> Music
+                    </button>
+                </div>
+                <div class="control-group">
+                    <button class="control-button" id="focusMode">
+                        <i class="fas fa-bullseye"></i> Focus
+                    </button>
+                    <button class="control-button" id="shareScreen">
+                        <i class="fas fa-share-alt"></i> Share
+                    </button>
+                </div>
+                <!-- Added text toggle button -->
+                <div class="control-group">
+                    <button class="control-button" id="textToggle">
+                        <i class="fas fa-font"></i> Text
+                    </button>
+                </div>
+            </div>
+            
+            <div class="immersive-controls ui-overlay-element">
+                <button class="immersive-btn" id="handGesture" title="Hand Gestures">
+                    <i class="fas fa-hand-pointer"></i>
+                </button>
+                <button class="immersive-btn" id="eyeTracking" title="Eye Tracking">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="immersive-btn" id="voiceControl" title="Voice Control">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="immersive-btn" id="immersiveMode" title="Immersive Mode">
+                    <i class="fas fa-vr-cardboard"></i>
+                </button>
+            </div>
+            
+            <div class="gesture-hint ui-overlay-element" id="gestureHint">
+                <i class="fas fa-gesture" style="font-size: 36px; margin-bottom: 15px;"></i><br>
+                Use hand gestures to interact with objects<br>
+                Look around to navigate the space
+            </div>
+            
+            <div class="controls-guide ui-overlay-element" id="controlsGuide">
+                <div><span class="key">W</span> Move Forward</div>
+                <div><span class="key">S</span> Move Back</div>
+                <div><span class="key">A</span> Strafe Left</div>
+                <div><span class="key">D</span> Strafe Right</div>
+                <div><span class="key">Space</span> Move Up</div>
+                <div><span class="key">Shift</span> Move Down</div>
+                <div><span class="key">U</span> Toggle UI</div>
+                <div><span class="key">E</span> Sit/Stand</div>
+                <div><span class="key">T</span> Toggle Text</div>
+            </div>
+            
+            <div class="ui-footer ui-overlay-element">
+                <i class="fas fa-sync-alt"></i> Connected to VisionOS Cloud • v2.1.5
+            </div>
+        </div>
+        
+        <div class="collision-marker" id="collisionMarker"></div>
+    </div>
+
+    <script>
+        // Initialize Three.js scene
+        let scene, camera, renderer, desk, room;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let moveUp = false, moveDown = false;
+        let isMouseDown = false;
+        let prevMouseX = 0, prevMouseY = 0;
+        let yaw = 0, pitch = 0;
+        let isImmersiveMode = false;
+        let lightIntensity = 1;
+        let collidableObjects = [];
+        let playerRadius = 0.5;
+        let activeWindow = null;
+        let offsetX = 0, offsetY = 0;
+        let uiVisible = true;
+        let isSitting = false;
+        let currentChair = null;
+        let chairs = [];
+        let originalCameraHeight = 1.8;
+        let sittingCameraHeight = 1.0;
+        let textVisible = true;
+        
+        // Time display
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const displayHours = hours % 12 || 12;
+            document.getElementById('timeDisplay').textContent = `${displayHours}:${minutes} ${ampm}`;
+        }
+        
+        // Show notification
+        function showNotification() {
+            const notification = document.getElementById('notification');
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a192f);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, lightIntensity);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 1024;
+            directionalLight.shadow.mapSize.height = 1024;
+            scene.add(directionalLight);
+            
+            // Add point lights for better illumination
+            const pointLight1 = new THREE.PointLight(0x4cc9f0, 0.8, 25);
+            pointLight1.position.set(0, 8, 0);
+            pointLight1.castShadow = true;
+            scene.add(pointLight1);
+            
+            const pointLight2 = new THREE.PointLight(0x4361ee, 0.7, 20);
+            pointLight2.position.set(-8, 5, -8);
+            pointLight2.castShadow = true;
+            scene.add(pointLight2);
+            
+            const pointLight3 = new THREE.PointLight(0x4cc9f0, 0.7, 20);
+            pointLight3.position.set(8, 5, 8);
+            pointLight3.castShadow = true;
+            scene.add(pointLight3);
+            
+            // Room environment
+            createRoom();
+            createDesk();
+            
+            // Camera position for better office view
+            camera.position.set(0, originalCameraHeight, 12);
+            camera.lookAt(0, 0, 0);
+            
+            // Set initial rotation
+            camera.rotation.order = 'YXZ';
+            
+            // Event listeners
+            setupEventListeners();
+            
+            // Start animation loop
+            animate();
+            
+            // Show controls guide
+            document.getElementById('controlsGuide').classList.add('highlight');
+            setTimeout(() => {
+                document.getElementById('controlsGuide').classList.remove('highlight');
+            }, 5000);
+            
+            // Set up time display
+            updateTime();
+            setInterval(updateTime, 60000);
+            
+            // Show welcome notification
+            setTimeout(showNotification, 2000);
+        }
+        
+        function createRoom() {
+            // Expanded floor for larger office
+            const floorGeometry = new THREE.PlaneGeometry(50, 50);
+            const floorMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x1d2d44,
+                transparent: true,
+                opacity: 0.9
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            collidableObjects.push(floor);
+            
+            // Office walls
+            const wallGeometry = new THREE.PlaneGeometry(50, 10);
+            const wallMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x2d3a52,
+                transparent: true,
+                opacity: 0.5
+            });
+            
+            // Back wall
+            const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
+            backWall.position.set(0, 5, -25);
+            scene.add(backWall);
+            collidableObjects.push(backWall);
+            
+            // Front wall (reception area)
+            const frontWall = new THREE.Mesh(wallGeometry, wallMaterial);
+            frontWall.position.set(0, 5, 25);
+            frontWall.rotation.y = Math.PI;
+            scene.add(frontWall);
+            collidableObjects.push(frontWall);
+            
+            // Side walls
+            const leftWall = new THREE.Mesh(wallGeometry, wallMaterial);
+            leftWall.rotation.y = Math.PI / 2;
+            leftWall.position.set(-25, 5, 0);
+            scene.add(leftWall);
+            collidableObjects.push(leftWall);
+            
+            const rightWall = new THREE.Mesh(wallGeometry, wallMaterial);
+            rightWall.rotation.y = -Math.PI / 2;
+            rightWall.position.set(25, 5, 0);
+            scene.add(rightWall);
+            collidableObjects.push(rightWall);
+            
+            // Ceiling
+            const ceilingGeometry = new THREE.PlaneGeometry(50, 50);
+            const ceilingMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x2a3a5c,
+                transparent: true,
+                opacity: 0.4
+            });
+            const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.set(0, 10, 0);
+            ceiling.receiveShadow = true;
+            scene.add(ceiling);
+        }
+        
+        function createDesk() {
+            // Create multiple cubicles surrounding the central area
+            createCubicles();
+            
+            // Create shared conference area at the center
+            createSharedSpace();
+            
+            // Create reception area
+            createReceptionArea();
+            
+            // Add decorative plants
+            createPlants();
+        }
+        
+        function createCubicles() {
+            const cubiclePositions = [
+                // Left side
+                { x: -12, z: -4, ry: Math.PI/2 },
+                { x: -12, z: 0, ry: Math.PI/2 },
+                { x: -12, z: 4, ry: Math.PI/2 },
+                
+                // Right side
+                { x: 12, z: -4, ry: -Math.PI/2 },
+                { x: 12, z: 0, ry: -Math.PI/2 },
+                { x: 12, z: 4, ry: -Math.PI/2 },
+                
+                // Back
+                { x: -4, z: -12, ry: 0 },
+                { x: 0, z: -12, ry: 0 },
+                { x: 4, z: -12, ry: 0 },
+                
+                // Front (with opening for entrance)
+                { x: -4, z: 12, ry: Math.PI },
+                { x: 4, z: 12, ry: Math.PI }
+            ];
+            
+            cubiclePositions.forEach((pos, index) => {
+                // Cubicle desk
+                const deskGeometry = new THREE.BoxGeometry(3, 0.1, 1.5);
+                const deskMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x5d4037,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const desk = new THREE.Mesh(deskGeometry, deskMaterial);
+                desk.position.set(pos.x, 1, pos.z);
+                desk.rotation.y = pos.ry;
+                desk.castShadow = true;
+                desk.userData = { type: 'desk', interactable: true };
+                scene.add(desk);
+                collidableObjects.push(desk);
+                
+                // Desk legs
+                const legGeometry = new THREE.BoxGeometry(0.1, 1, 0.1);
+                const legMaterial = new THREE.MeshLambertMaterial({ color: 0x4e342e });
+                
+                for (let i = 0; i < 4; i++) {
+                    const leg = new THREE.Mesh(legGeometry, legMaterial);
+                    const x = (i < 2 ? -1.3 : 1.3);
+                    const z = (i % 2 === 0 ? -0.6 : 0.6);
+                    
+                    // Apply rotation
+                    const rotatedX = x * Math.cos(pos.ry) - z * Math.sin(pos.ry);
+                    const rotatedZ = x * Math.sin(pos.ry) + z * Math.cos(pos.ry);
+                    
+                    leg.position.set(pos.x + rotatedX, 0.5, pos.z + rotatedZ);
+                    leg.castShadow = true;
+                    scene.add(leg);
+                    collidableObjects.push(leg);
+                }
+                
+                // Monitor
+                const monitorGeometry = new THREE.BoxGeometry(1, 0.6, 0.1);
+                const monitorMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x111111,
+                    transparent: true,
+                    opacity: 0.95
+                });
+                const monitor = new THREE.Mesh(monitorGeometry, monitorMaterial);
+                
+                // Position monitor facing the center
+                const monitorX = pos.x + 0.8 * Math.sin(pos.ry);
+                const monitorZ = pos.z + 0.8 * Math.cos(pos.ry);
+                
+                monitor.position.set(monitorX, 1.6, monitorZ);
+                monitor.rotation.y = pos.ry;
+                monitor.castShadow = true;
+                monitor.userData = { type: 'monitor', interactable: true };
+                scene.add(monitor);
+                collidableObjects.push(monitor);
+                
+                // Screen glow
+                const screenGeometry = new THREE.PlaneGeometry(0.8, 0.5);
+                const screenMaterial = new THREE.MeshBasicMaterial({ 
+                    color: index % 2 === 0 ? 0x4cc9f0 : 0x4361ee,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+                screen.position.set(monitorX, 1.6, monitorZ);
+                screen.rotation.y = pos.ry;
+                scene.add(screen);
+                
+                // Cubicle walls
+                const wallGeometry = new THREE.BoxGeometry(3.2, 1.8, 0.1);
+                const wallMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x3d5a80,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                
+                // Back wall
+                const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
+                backWall.position.set(
+                    pos.x + 0.8 * Math.sin(pos.ry - Math.PI/2),
+                    1.9,
+                    pos.z + 0.8 * Math.cos(pos.ry - Math.PI/2)
+                );
+                backWall.rotation.y = pos.ry;
+                scene.add(backWall);
+                collidableObjects.push(backWall);
+                
+                // Side walls
+                const sideWallGeometry = new THREE.BoxGeometry(0.1, 1.8, 1.6);
+                
+                // Left wall
+                const leftWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+                leftWall.position.set(
+                    pos.x + 1.6 * Math.sin(pos.ry - Math.PI/2),
+                    1.9,
+                    pos.z + 1.6 * Math.cos(pos.ry - Math.PI/2)
+                );
+                leftWall.rotation.y = pos.ry;
+                scene.add(leftWall);
+                collidableObjects.push(leftWall);
+                
+                // Right wall
+                const rightWall = new THREE.Mesh(sideWallGeometry, wallMaterial);
+                rightWall.position.set(
+                    pos.x + 1.6 * Math.sin(pos.ry + Math.PI/2),
+                    1.9,
+                    pos.z + 1.6 * Math.cos(pos.ry + Math.PI/2)
+                );
+                rightWall.rotation.y = pos.ry;
+                scene.add(rightWall);
+                collidableObjects.push(rightWall);
+                
+                // Chair placed on the other side of the desk and turned around
+                const chairOffset = 1.2;
+                const chairX = pos.x + chairOffset * Math.sin(pos.ry);
+                const chairZ = pos.z + chairOffset * Math.cos(pos.ry);
+                const chairRotation = pos.ry + Math.PI;
+                
+                createOfficeChair(chairX, 0.6, chairZ, chairRotation, true);
+            });
+        }
+        
+        function createSharedSpace() {
+            // Conference table
+            const tableGeometry = new THREE.CylinderGeometry(3, 3, 0.15, 32);
+            const tableMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x5d4037,
+                transparent: true,
+                opacity: 0.95
+            });
+            const table = new THREE.Mesh(tableGeometry, tableMaterial);
+            table.position.set(0, 1, 0);
+            table.castShadow = true;
+            table.userData = { type: 'table', interactable: true };
+            scene.add(table);
+            collidableObjects.push(table);
+            
+            // Table legs
+            const legGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1, 16);
+            const legMaterial = new THREE.MeshLambertMaterial({ color: 0x4e342e });
+            
+            const legPositions = [
+                { x: -2.0, z: -2.0 },
+                { x: -2.0, z: 2.0 },
+                { x: 2.0, z: -2.0 },
+                { x: 2.0, z: 2.0 }
+            ];
+            
+            legPositions.forEach(pos => {
+                const leg = new THREE.Mesh(legGeometry, legMaterial);
+                leg.position.set(pos.x, 0.5, pos.z);
+                leg.castShadow = true;
+                scene.add(leg);
+                collidableObjects.push(leg);
+            });
+            
+            // Conference chairs (facing the table)
+            const chairPositions = [
+                // Top side
+                { x: -2.0, z: -3.5, ry: 0 },
+                { x: 0, z: -3.5, ry: 0 },
+                { x: 2.0, z: -3.5, ry: 0 },
+                
+                // Bottom side
+                { x: -2.0, z: 3.5, ry: Math.PI },
+                { x: 0, z: 3.5, ry: Math.PI },
+                { x: 2.0, z: 3.5, ry: Math.PI },
+                
+                // Left side
+                { x: -3.5, z: -2.0, ry: Math.PI/2 },
+                { x: -3.5, z: 0, ry: Math.PI/2 },
+                { x: -3.5, z: 2.0, ry: Math.PI/2 },
+                
+                // Right side
+                { x: 3.5, z: -2.0, ry: -Math.PI/2 },
+                { x: 3.5, z: 0, ry: -Math.PI/2 },
+                { x: 3.5, z: 2.0, ry: -Math.PI/2 }
+            ];
+            
+            chairPositions.forEach(pos => {
+                createOfficeChair(pos.x, 0.6, pos.z, pos.ry, false);
+            });
+            
+            // Overhead projector screen
+            const screenGeometry = new THREE.PlaneGeometry(5, 3);
+            const screenMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xf0f0f0,
+                transparent: true,
+                opacity: 0.95
+            });
+            const projectorScreen = new THREE.Mesh(screenGeometry, screenMaterial);
+            projectorScreen.position.set(0, 4, -5);
+            projectorScreen.rotation.x = -Math.PI/6;
+            projectorScreen.userData = { type: 'screen', interactable: true };
+            scene.add(projectorScreen);
+            
+            // Projector
+            const projectorGeometry = new THREE.BoxGeometry(0.5, 0.3, 0.3);
+            const projectorMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            const projector = new THREE.Mesh(projectorGeometry, projectorMaterial);
+            projector.position.set(0, 6, 0);
+            scene.add(projector);
+        }
+        
+        function createReceptionArea() {
+            // Reception desk
+            const receptionGeometry = new THREE.BoxGeometry(6, 0.15, 2);
+            const receptionMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x34495e,
+                transparent: true,
+                opacity: 0.95
+            });
+            const reception = new THREE.Mesh(receptionGeometry, receptionMaterial);
+            reception.position.set(0, 1.2, 18);
+            reception.castShadow = true;
+            reception.userData = { type: 'desk', interactable: true };
+            scene.add(reception);
+            collidableObjects.push(reception);
+            
+            // Reception front panel
+            const frontPanelGeometry = new THREE.BoxGeometry(6, 1, 0.1);
+            const frontPanel = new THREE.Mesh(frontPanelGeometry, receptionMaterial);
+            frontPanel.position.set(0, 0.7, 18.95);
+            scene.add(frontPanel);
+            collidableObjects.push(frontPanel);
+            
+            // Waiting area chairs
+            const waitingChairPositions = [
+                { x: -4, z: 16.5 },
+                { x: -1.5, z: 16.5 },
+                { x: 1.5, z: 16.5 },
+                { x: 4, z: 16.5 }
+            ];
+            
+            waitingChairPositions.forEach(pos => {
+                createOfficeChair(pos.x, 0.6, pos.z, Math.PI, true);
+            });
+            
+            // Coffee table
+            const coffeeTableGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.1, 32);
+            const coffeeTableMaterial = new THREE.MeshLambertMaterial({ color: 0x6d4c41 });
+            const coffeeTable = new THREE.Mesh(coffeeTableGeometry, coffeeTableMaterial);
+            coffeeTable.position.set(0, 0.4, 16);
+            coffeeTable.castShadow = true;
+            coffeeTable.userData = { type: 'table', interactable: true };
+            scene.add(coffeeTable);
+            collidableObjects.push(coffeeTable);
+        }
+        
+        function createPlants() {
+            // Function to create a plant
+            const createPlant = (x, z) => {
+                // Pot
+                const potGeometry = new THREE.CylinderGeometry(0.5, 0.6, 0.6, 16);
+                const potMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                const pot = new THREE.Mesh(potGeometry, potMaterial);
+                pot.position.set(x, 0.3, z);
+                scene.add(pot);
+                
+                // Leaves
+                const leavesGeometry = new THREE.SphereGeometry(1, 16, 16);
+                const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
+                const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+                leaves.position.set(x, 1.5, z);
+                scene.add(leaves);
+            };
+            
+            // Place plants in corners and near reception
+            createPlant(-22, -22);
+            createPlant(22, -22);
+            createPlant(-22, 22);
+            createPlant(22, 22);
+            createPlant(-10, 18);
+            createPlant(10, 18);
+        }
+        
+        // Enhanced office chair design with sitting capability
+        function createOfficeChair(x, y, z, rotationY, isDeskChair) {
+            const chairGroup = new THREE.Group();
+            chairGroup.position.set(x, y, z);
+            chairGroup.rotation.y = rotationY;
+            
+            // Seat base (cushion)
+            const seatGeometry = new THREE.BoxGeometry(0.6, 0.15, 0.6);
+            const seatMaterial = new THREE.MeshLambertMaterial({ 
+                color: isDeskChair ? 0x37474f : 0x2c3e50 
+            });
+            const seat = new THREE.Mesh(seatGeometry, seatMaterial);
+            seat.position.set(0, 0, 0);
+            seat.castShadow = true;
+            seat.receiveShadow = true;
+            chairGroup.add(seat);
+            
+            // Seat cushion (more comfortable)
+            const cushionGeometry = new THREE.BoxGeometry(0.55, 0.1, 0.55);
+            const cushionMaterial = new THREE.MeshLambertMaterial({ 
+                color: isDeskChair ? 0x455a64 : 0x3a506b,
+                emissive: isDeskChair ? 0x111111 : 0x1c2541,
+                emissiveIntensity: 0.1
+            });
+            const cushion = new THREE.Mesh(cushionGeometry, cushionMaterial);
+            cushion.position.set(0, 0.125, 0);
+            cushion.castShadow = true;
+            cushion.receiveShadow = true;
+            chairGroup.add(cushion);
+            
+            // Chair back (ergonomic curve)
+            const backGeometry = new THREE.BoxGeometry(0.55, 0.8, 0.1);
+            const backMaterial = new THREE.MeshLambertMaterial({ 
+                color: isDeskChair ? 0x37474f : 0x2c3e50 
+            });
+            const back = new THREE.Mesh(backGeometry, backMaterial);
+            back.position.set(0, 0.4, -0.3);
+            back.rotation.x = -Math.PI/12; // Slight tilt for comfort
+            back.castShadow = true;
+            chairGroup.add(back);
+            
+            // Back cushion
+            const backCushionGeometry = new THREE.BoxGeometry(0.5, 0.75, 0.1);
+            const backCushionMaterial = new THREE.MeshLambertMaterial({ 
+                color: isDeskChair ? 0x455a64 : 0x3a506b,
+                emissive: isDeskChair ? 0x111111 : 0x1c2541,
+                emissiveIntensity: 0.1
+            });
+            const backCushion = new THREE.Mesh(backCushionGeometry, backCushionMaterial);
+            backCushion.position.set(0, 0.4, -0.35);
+            backCushion.rotation.x = -Math.PI/12;
+            backCushion.castShadow = true;
+            chairGroup.add(backCushion);
+            
+            // Chair legs
+            const legGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.5, 16);
+            const legMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x37474f,
+                metalness: 0.7,
+                roughness: 0.2
+            });
+            
+            const legPositions = [
+                { x: -0.25, z: -0.25 },
+                { x: -0.25, z: 0.25 },
+                { x: 0.25, z: -0.25 },
+                { x: 0.25, z: 0.25 }
+            ];
+            
+            legPositions.forEach(legPos => {
+                const leg = new THREE.Mesh(legGeometry, legMaterial);
+                leg.position.set(legPos.x, -0.25, legPos.z);
+                leg.castShadow = true;
+                chairGroup.add(leg);
+            });
+            
+            // Casters (wheels)
+            const casterGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+            const casterMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x212121,
+                metalness: 0.9,
+                roughness: 0.1
+            });
+            
+            legPositions.forEach(legPos => {
+                const caster = new THREE.Mesh(casterGeometry, casterMaterial);
+                caster.position.set(legPos.x, -0.5, legPos.z);
+                caster.castShadow = true;
+                chairGroup.add(caster);
+            });
+            
+            scene.add(chairGroup);
+            
+            // Store chair information for sitting interaction
+            const chairInfo = {
+                group: chairGroup,
+                seat: seat,
+                position: new THREE.Vector3(x, y, z),
+                rotation: rotationY,
+                sittingPosition: new THREE.Vector3(x, y + sittingCameraHeight, z - 0.1),
+                sittingLookAt: new THREE.Vector3(x, y + sittingCameraHeight, z - 1),
+                isDeskChair: isDeskChair
+            };
+            
+            chairs.push(chairInfo);
+            seat.userData = { type: 'chair', interactable: true, chairInfo: chairInfo };
+            collidableObjects.push(seat);
+        }
+        
+        function setupEventListeners() {
+            // Mouse movement for camera control
+            document.addEventListener('mousemove', (event) => {
+                if (isMouseDown) {
+                    const deltaX = event.clientX - prevMouseX;
+                    const deltaY = event.clientY - prevMouseY;
+                    
+                    yaw -= deltaX * 0.005;
+                    pitch -= deltaY * 0.005;
+                    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+                    
+                    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+                }
+                
+                prevMouseX = event.clientX;
+                prevMouseY = event.clientY;
+            });
+            
+            document.addEventListener('mousedown', (event) => {
+                isMouseDown = true;
+                prevMouseX = event.clientX;
+                prevMouseY = event.clientY;
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+            
+            // Touch events for mobile
+            document.addEventListener('touchstart', (event) => {
+                if (event.touches.length === 1) {
+                    isMouseDown = true;
+                    prevMouseX = event.touches[0].clientX;
+                    prevMouseY = event.touches[0].clientY;
+                    event.preventDefault();
+                }
+            });
+            
+            document.addEventListener('touchmove', (event) => {
+                if (event.touches.length === 1 && isMouseDown) {
+                    const deltaX = event.touches[0].clientX - prevMouseX;
+                    const deltaY = event.touches[0].clientY - prevMouseY;
+                    
+                    yaw -= deltaX * 0.005;
+                    pitch -= deltaY * 0.005;
+                    pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+                    
+                    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+                    
+                    prevMouseX = event.touches[0].clientX;
+                    prevMouseY = event.touches[0].clientY;
+                    event.preventDefault();
+                }
+            });
+            
+            document.addEventListener('touchend', () => {
+                isMouseDown = false;
+            });
+            
+            // Keyboard movement
+            document.addEventListener('keydown', (event) => {
+                switch (event.key.toLowerCase()) {
+                    case 'w':
+                    case 'arrowup':
+                        moveForward = true;
+                        break;
+                    case 's':
+                    case 'arrowdown':
+                        moveBackward = true;
+                        break;
+                    case 'a':
+                    case 'arrowleft':
+                        moveLeft = true;
+                        break;
+                    case 'd':
+                    case 'arrowright':
+                        moveRight = true;
+                        break;
+                    case ' ':
+                        moveUp = true;
+                        break;
+                    case 'shift':
+                        moveDown = true;
+                        break;
+                    case 'u':
+                        toggleUI();
+                        break;
+                    case 'e':
+                        toggleSitting();
+                        break;
+                    case 't':
+                        toggleTextVisibility();
+                        break;
+                }
+            });
+            
+            document.addEventListener('keyup', (event) => {
+                switch (event.key.toLowerCase()) {
+                    case 'w':
+                    case 'arrowup':
+                        moveForward = false;
+                        break;
+                    case 's':
+                    case 'arrowdown':
+                        moveBackward = false;
+                        break;
+                    case 'a':
+                    case 'arrowleft':
+                        moveLeft = false;
+                        break;
+                    case 'd':
+                    case 'arrowright':
+                        moveRight = false;
+                        break;
+                    case ' ':
+                        moveUp = false;
+                        break;
+                    case 'shift':
+                        moveDown = false;
+                        break;
+                }
+            });
+            
+            // Window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            // Control buttons
+            document.getElementById('lightToggle').addEventListener('click', toggleLights);
+            document.getElementById('musicToggle').addEventListener('click', toggleMusic);
+            document.getElementById('focusMode').addEventListener('click', toggleFocusMode);
+            document.getElementById('shareScreen').addEventListener('click', shareScreen);
+            
+            // Immersive controls
+            document.getElementById('handGesture').addEventListener('click', showGestureHint);
+            document.getElementById('eyeTracking').addEventListener('click', toggleEyeTracking);
+            document.getElementById('voiceControl').addEventListener('click', toggleVoiceControl);
+            document.getElementById('immersiveMode').addEventListener('click', toggleImmersiveMode);
+            
+            // UI toggle button
+            document.getElementById('uiToggle').addEventListener('click', toggleUI);
+            
+            // Text toggle button
+            document.getElementById('textToggle').addEventListener('click', toggleTextVisibility);
+            
+            // Make windows draggable
+            document.querySelectorAll('.window-header').forEach(header => {
+                header.addEventListener('mousedown', (e) => {
+                    activeWindow = header.parentElement;
+                    const rect = activeWindow.getBoundingClientRect();
+                    offsetX = e.clientX - rect.left;
+                    offsetY = e.clientY - rect.top;
+                    activeWindow.style.zIndex = '1001';
+                });
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (activeWindow) {
+                    activeWindow.style.left = (e.clientX - offsetX) + 'px';
+                    activeWindow.style.top = (e.clientY - offsetY) + 'px';
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                activeWindow = null;
+            });
+        }
+        
+        function toggleTextVisibility() {
+            textVisible = !textVisible;
+            const btn = document.getElementById('textToggle');
+            
+            if (textVisible) {
+                document.body.classList.remove('text-hidden');
+                btn.innerHTML = '<i class="fas fa-font"></i> Text';
+                btn.classList.remove('active');
+            } else {
+                document.body.classList.add('text-hidden');
+                btn.innerHTML = '<i class="fas fa-eye-slash"></i> Text';
+                btn.classList.add('active');
+            }
+        }
+        
+        function toggleSitting() {
+            if (isSitting) {
+                // Stand up
+                isSitting = false;
+                currentChair = null;
+                camera.position.y = originalCameraHeight;
+                document.getElementById('sitIndicator').innerHTML = 
+                    '<span class="action">Press <span class="key">E</span> to sit down</span>';
+                document.getElementById('sitIndicator').classList.add('show');
+                setTimeout(() => {
+                    document.getElementById('sitIndicator').classList.remove('show');
+                }, 2000);
+                return;
+            }
+            
+            // Check for nearby chairs to sit on
+            let closestChair = null;
+            let minDistance = Infinity;
+            const sitThreshold = 1.5; // Distance threshold for sitting
+            
+            for (const chair of chairs) {
+                const distance = camera.position.distanceTo(chair.position);
+                if (distance < sitThreshold && distance < minDistance) {
+                    minDistance = distance;
+                    closestChair = chair;
+                }
+            }
+            
+            if (closestChair) {
+                isSitting = true;
+                currentChair = closestChair;
+                
+                // Position the camera above the chair
+                camera.position.copy(closestChair.sittingPosition);
+                
+                // Adjust the camera to look straight ahead relative to the chair
+                const lookDirection = new THREE.Vector3();
+                lookDirection.subVectors(closestChair.sittingLookAt, camera.position).normalize();
+                const yaw = Math.atan2(lookDirection.x, lookDirection.z);
+                camera.rotation.set(0, yaw, 0, 'YXZ');
+                
+                // Update the sit indicator
+                document.getElementById('sitIndicator').innerHTML = 
+                    '<span class="action">Press <span class="key">E</span> to stand up</span>';
+                document.getElementById('sitIndicator').classList.add('show');
+            } else {
+                // Show a message that there are no chairs nearby
+                document.getElementById('sitIndicator').textContent = "No chair nearby";
+                document.getElementById('sitIndicator').classList.add('show');
+                setTimeout(() => {
+                    document.getElementById('sitIndicator').classList.remove('show');
+                }, 2000);
+            }
+        }
+        
+        function toggleUI() {
+            uiVisible = !uiVisible;
+            const overlay = document.getElementById('ui-overlay');
+            const toggleBtn = document.getElementById('uiToggle');
+            
+            if (uiVisible) {
+                overlay.classList.remove('ui-hidden');
+                toggleBtn.classList.remove('hidden');
+                toggleBtn.innerHTML = `
+                    <i class="fas fa-eye"></i>
+                    Toggle UI
+                `;
+            } else {
+                overlay.classList.add('ui-hidden');
+                toggleBtn.classList.add('hidden');
+                toggleBtn.innerHTML = `
+                    <i class="fas fa-eye"></i>
+                    Show UI
+                `;
+            }
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Movement - only if not sitting
+            if (!isSitting) {
+                const moveSpeed = 0.15;
+                const direction = new THREE.Vector3();
+                camera.getWorldDirection(direction);
+                direction.y = 0;
+                direction.normalize();
+                
+                const right = new THREE.Vector3();
+                right.crossVectors(new THREE.Vector3(0,1,0), direction).normalize();
+                
+                const newPosition = camera.position.clone();
+                
+                if (moveForward) newPosition.addScaledVector(direction, -moveSpeed);
+                if (moveBackward) newPosition.addScaledVector(direction, moveSpeed);
+                if (moveLeft) newPosition.addScaledVector(right, moveSpeed);
+                if (moveRight) newPosition.addScaledVector(right, -moveSpeed);
+                if (moveUp) newPosition.y += moveSpeed;
+                if (moveDown) newPosition.y -= moveSpeed;
+                
+                // Collision detection
+                let canMove = true;
+                const playerSphere = new THREE.Sphere(newPosition, playerRadius);
+                
+                for (const obj of collidableObjects) {
+                    if (obj.geometry) {
+                        const box = new THREE.Box3().setFromObject(obj);
+                        if (box.intersectsSphere(playerSphere)) {
+                            canMove = false;
+                            
+                            // Show collision indicator
+                            const collisionMarker = document.getElementById('collisionMarker');
+                            collisionMarker.innerHTML = '';
+                            const collisionAlert = document.createElement('div');
+                            collisionAlert.className = 'collision-alert show';
+                            collisionAlert.style.width = `${playerRadius * 100}px`;
+                            collisionAlert.style.height = `${playerRadius * 100}px`;
+                            collisionAlert.style.left = `${50 - playerRadius * 50}%`;
+                            collisionAlert.style.top = `${50 - playerRadius * 50}%`;
+                            collisionMarker.appendChild(collisionAlert);
+                            
+                            setTimeout(() => {
+                                collisionAlert.classList.remove('show');
+                            }, 300);
+                            
+                            break;
+                        }
+                    }
+                }
+                
+                if (canMove) {
+                    camera.position.copy(newPosition);
+                }
+            }
+            
+            // Animate progress bars
+            document.querySelectorAll('.progress-bar').forEach(bar => {
+                bar.style.width = Math.floor(Math.random() * 80 + 20) + '%';
+            });
+            
+            renderer.render(scene, camera);
+        }
+        
+        function toggleLights() {
+            const btn = document.getElementById('lightToggle');
+            const lights = scene.children.filter(child => child.isLight);
+            
+            if (btn.classList.contains('active')) {
+                btn.classList.remove('active');
+                lights.forEach(light => {
+                    light.intensity *= 0.5;
+                });
+                lightIntensity = 0.5;
+            } else {
+                btn.classList.add('active');
+                lights.forEach(light => {
+                    light.intensity *= 2;
+                });
+                lightIntensity = 1;
+            }
+        }
+        
+        function toggleMusic() {
+            const btn = document.getElementById('musicToggle');
+            btn.classList.toggle('active');
+            
+            if (btn.classList.contains('active')) {
+                btn.innerHTML = '<i class="fas fa-music"></i> Music ♪';
+            } else {
+                btn.innerHTML = '<i class="fas fa-music"></i> Music';
+            }
+        }
+        
+        function toggleFocusMode() {
+            const btn = document.getElementById('focusMode');
+            btn.classList.toggle('active');
+            
+            if (btn.classList.contains('active')) {
+                document.body.style.filter = 'blur(0px) brightness(1.2)';
+                btn.innerHTML = '<i class="fas fa-bullseye"></i> Focused';
+            } else {
+                document.body.style.filter = 'none';
+                btn.innerHTML = '<i class="fas fa-bullseye"></i> Focus';
+            }
+        }
+        
+        function shareScreen() {
+            const btn = document.getElementById('shareScreen');
+            btn.classList.toggle('active');
+            
+            if (btn.classList.contains('active')) {
+                btn.innerHTML = '<i class="fas fa-share-alt"></i> Sharing';
+                // Simulate screen sharing effect
+                const monitors = scene.children.filter(child => 
+                    child.userData && child.userData.type === 'monitor'
+                );
+                monitors.forEach(monitor => {
+                    monitor.material.color.setHex(0x00ff00);
+                });
+            } else {
+                btn.innerHTML = '<i class="fas fa-share-alt"></i> Share';
+                const monitors = scene.children.filter(child => 
+                    child.userData && child.userData.type === 'monitor'
+                );
+                monitors.forEach(monitor => {
+                    monitor.material.color.setHex(0x000000);
+                });
+            }
+        }
+        
+        function showGestureHint() {
+            const hint = document.getElementById('gestureHint');
+            hint.classList.add('show');
+            setTimeout(() => {
+                hint.classList.remove('show');
+            }, 3000);
+        }
+        
+        function toggleEyeTracking() {
+            const btn = document.getElementById('eyeTracking');
+            btn.classList.toggle('active');
+            
+            if (btn.classList.contains('active')) {
+                btn.style.background = 'rgba(0, 122, 255, 0.8)';
+            } else {
+                btn.style.background = 'rgba(20, 30, 60, 0.8)';
+            }
+        }
+        
+        function toggleVoiceControl() {
+            const btn = document.getElementById('voiceControl');
+            btn.classList.toggle('active');
+            
+            if (btn.classList.contains('active')) {
+                btn.style.background = 'rgba(255, 0, 0, 0.8)';
+                btn.innerHTML = '<i class="fas fa-microphone"></i>';
+            } else {
+                btn.style.background = 'rgba(20, 30, 60, 0.8)';
+                btn.innerHTML = '<i class="fas fa-microphone"></i>';
+            }
+        }
+        
+        function toggleImmersiveMode() {
+            const btn = document.getElementById('immersiveMode');
+            isImmersiveMode = !isImmersiveMode;
+            
+            if (isImmersiveMode) {
+                btn.style.background = 'rgba(0, 122, 255, 0.8)';
+                document.getElementById('ui-overlay').style.opacity = '0.3';
+                document.getElementById('controlsGuide').style.opacity = '0.5';
+                camera.position.set(0, 2, 8);
+            } else {
+                btn.style.background = 'rgba(20, 30, 60, 0.8)';
+                document.getElementById('ui-overlay').style.opacity = '1';
+                document.getElementById('controlsGuide').style.opacity = '0.95';
+                camera.position.set(0, 3, 12);
+            }
+        }
+        
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>
