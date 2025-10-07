@@ -1720,7 +1720,7 @@
     </div>
 
    <script>
-   class Polarization3DRenderer {
+    class Polarization3DRenderer {
         constructor() {
             this.depthMode = 'api';
             // Enhanced depth processing properties
@@ -2330,180 +2330,6 @@
             if (this.isFullscreen) {
                 this.updateFullscreen();
             }
-        }
-
-        // NEW: Synchronous rendering for export
-        renderCurrentFrameSync() {
-            if (!this.video) return;
-
-            const { width, height } = this.outputCanvas;
-
-            // Clear canvases
-            this.ctx.fillStyle = '#000';
-            this.ctx.fillRect(0, 0, width, height);
-            this.leftCanvasCtx.fillStyle = '#000';
-            this.leftCanvasCtx.fillRect(0, 0, width, height);
-            this.rightCanvasCtx.fillStyle = '#000';
-            this.rightCanvasCtx.fillRect(0, 0, width, height);
-            this.depthCanvasCtx.fillStyle = '#000';
-            this.depthCanvasCtx.fillRect(0, 0, width, height);
-
-            // Draw current frame to temp canvas
-            this.tempCtx.drawImage(this.video, 0, 0, width, height);
-
-            // Generate depth map synchronously
-            this.generateDepthMapSync(width, height);
-
-            // Render left and right eye views
-            this.renderEyeViewsSync(width, height);
-
-            // Render based on current view
-            this.renderViewSync();
-
-            // Update preview canvases
-            this.updatePreviews();
-        }
-
-        // NEW: Synchronous depth map generation
-        generateDepthMapSync(width, height) {
-            if (this.depthMode === 'api') {
-                this.generateEnhancedDepthMap(width, height);
-            } else {
-                this.generateFallbackDepthMap(width, height);
-            }
-        }
-
-        // NEW: Synchronous eye view rendering
-        renderEyeViewsSync(width, height) {
-            if (this.depthMode !== 'api' && this.currentDepthMap) {
-                this.renderEnhancedEyeViews(width, height);
-            } else {
-                const baseSeparation = this.separation * this.depth;
-                this.renderUniformEyeViews(width, height, baseSeparation);
-            }
-        }
-
-        // NEW: Synchronous view rendering
-        renderViewSync() {
-            const { width, height } = this.outputCanvas;
-
-            // Remove any existing view indicators
-            const existingIndicators = document.querySelectorAll('.view-indicator');
-            existingIndicators.forEach(indicator => indicator.remove());
-
-            switch (this.currentView) {
-                case 'left':
-                    this.ctx.drawImage(this.leftCanvas, 0, 0, width, height);
-                    break;
-                case 'right':
-                    this.ctx.drawImage(this.rightCanvas, 0, 0, width, height);
-                    break;
-                case 'sideBySide':
-                    this.renderSideBySideSync();
-                    break;
-                case 'topBottom':
-                    this.renderTopBottomSync();
-                    break;
-                case 'depth':
-                    this.ctx.drawImage(this.depthCanvas, 0, 0, width, height);
-                    break;
-            }
-        }
-
-        // NEW: Synchronous side-by-side rendering
-        renderSideBySideSync() {
-            const { width, height } = this.outputCanvas;
-            
-            // Clear the output canvas
-            this.ctx.clearRect(0, 0, width, height);
-            
-            // Calculate dimensions for each view
-            const viewWidth = width / 2;
-            const viewHeight = height;
-            
-            // Calculate scaling to maintain aspect ratio
-            const videoAspect = this.originalVideoWidth / this.originalVideoHeight;
-            const viewAspect = viewWidth / viewHeight;
-            
-            let drawWidth, drawHeight, offsetX, offsetY;
-            
-            if (videoAspect > viewAspect) {
-                // Video is wider than view - fit to width
-                drawWidth = viewWidth;
-                drawHeight = viewWidth / videoAspect;
-                offsetX = 0;
-                offsetY = (viewHeight - drawHeight) / 2;
-            } else {
-                // Video is taller than view - fit to height
-                drawHeight = viewHeight;
-                drawWidth = viewHeight * videoAspect;
-                offsetX = (viewWidth - drawWidth) / 2;
-                offsetY = 0;
-            }
-            
-            // Draw left and right views with proper aspect ratio
-            this.ctx.drawImage(
-                this.leftCanvas, 
-                0, 0, this.originalVideoWidth, this.originalVideoHeight,
-                0, offsetY, drawWidth, drawHeight
-            );
-            
-            this.ctx.drawImage(
-                this.rightCanvas, 
-                0, 0, this.originalVideoWidth, this.originalVideoHeight,
-                viewWidth, offsetY, drawWidth, drawHeight
-            );
-            
-            // Add view indicators
-            this.addViewIndicators('sbs');
-        }
-
-        // NEW: Synchronous top-bottom rendering
-        renderTopBottomSync() {
-            const { width, height } = this.outputCanvas;
-            
-            // Clear the output canvas
-            this.ctx.clearRect(0, 0, width, height);
-            
-            // Calculate dimensions for each view
-            const viewWidth = width;
-            const viewHeight = height / 2;
-            
-            // Calculate scaling to maintain aspect ratio
-            const videoAspect = this.originalVideoWidth / this.originalVideoHeight;
-            const viewAspect = viewWidth / viewHeight;
-            
-            let drawWidth, drawHeight, offsetX, offsetY;
-            
-            if (videoAspect > viewAspect) {
-                // Video is wider than view - fit to width
-                drawWidth = viewWidth;
-                drawHeight = viewWidth / videoAspect;
-                offsetX = 0;
-                offsetY = (viewHeight - drawHeight) / 2;
-            } else {
-                // Video is taller than view - fit to height
-                drawHeight = viewHeight;
-                drawWidth = viewHeight * videoAspect;
-                offsetX = (viewWidth - drawWidth) / 2;
-                offsetY = 0;
-            }
-            
-            // Draw top and bottom views with proper aspect ratio
-            this.ctx.drawImage(
-                this.leftCanvas, 
-                0, 0, this.originalVideoWidth, this.originalVideoHeight,
-                offsetX, 0, drawWidth, drawHeight
-            );
-            
-            this.ctx.drawImage(
-                this.rightCanvas, 
-                0, 0, this.originalVideoWidth, this.originalVideoHeight,
-                offsetX, viewHeight, drawWidth, drawHeight
-            );
-            
-            // Add view indicators
-            this.addViewIndicators('tb');
         }
 
         async generateDepthMap(width, height) {
@@ -3163,13 +2989,10 @@
             this.addViewIndicators('tb');
         }
 
-        // FIXED: Export current frame with guaranteed rendering
+        // NEW: FIXED export frame function
         exportCurrentFrame() {
             if (!this.video) return;
 
-            // Force a synchronous render to ensure canvas is updated
-            this.renderCurrentFrameSync();
-            
             // Create a canvas with the exact output dimensions and content
             const exportCanvas = document.createElement('canvas');
             exportCanvas.width = this.outputCanvas.width;
@@ -3179,7 +3002,6 @@
             // Draw the current output exactly as shown
             exportCtx.drawImage(this.outputCanvas, 0, 0);
             
-            // Create and trigger download
             const link = document.createElement('a');
             link.download = `polarization_frame_${Date.now()}.png`;
             link.href = exportCanvas.toDataURL('image/png');
@@ -3521,196 +3343,195 @@
             }
         }
 
-        // FIXED: Export as ZIP with guaranteed frame rendering
-        exportAsZip() {
-            if (!this.video || this.isExporting) return;
-            
-            // Warn for long videos
-            if (this.video.duration > 30) {
-                if (!confirm('This video is longer than 30 seconds. Exporting may take several minutes. Continue?')) {
-                    return;
-                }
-            }
+       exportAsZip() {
+    if (!this.video || this.isExporting) return;
+    
+    // Warn for long videos
+    if (this.video.duration > 30) {
+        if (!confirm('This video is longer than 30 seconds. Exporting may take several minutes. Continue?')) {
+            return;
+        }
+    }
 
-            this.isExporting = true;
-            this.exportProgress.classList.remove('hidden');
-            this.exportStatus.classList.remove('hidden');
-            this.exportStatus.textContent = 'Preparing export...';
-            this.exportStatus.className = 'status processing';
+    this.isExporting = true;
+    this.exportProgress.classList.remove('hidden');
+    this.exportStatus.classList.remove('hidden');
+    this.exportStatus.textContent = 'Preparing export...';
+    this.exportStatus.className = 'status processing';
 
-            // Disable buttons during export
-            this.exportMP4Btn.disabled = true;
-            this.exportZipBtn.disabled = true;
-            this.playPauseBtn.disabled = true;
-            this.stopBtn.disabled = true;
+    // Disable buttons during export
+    this.exportMP4Btn.disabled = true;
+    this.exportZipBtn.disabled = true;
+    this.playPauseBtn.disabled = true;
+    this.stopBtn.disabled = true;
 
-            // Store current video state
-            const wasPlaying = this.isPlaying;
-            const currentTime = this.video.currentTime;
-            this.video.pause();
-            this.isPlaying = false;
+    // Store current video state
+    const wasPlaying = this.isPlaying;
+    const currentTime = this.video.currentTime;
+    this.video.pause();
+    this.isPlaying = false;
 
-            // Get export resolution
-            const resolution = this.getExportResolution();
-            const exportWidth = resolution.width;
-            const exportHeight = resolution.height;
-            
-            // Setup ZIP
-            const zip = new JSZip();
-            const frameRate = 30;
-            const totalFrames = Math.ceil(this.video.duration * frameRate);
-            let currentFrame = 0;
-            
-            // Create instructions file
-            const instructions = this.getConversionInstructions();
-            zip.file("INSTRUCTIONS.txt", instructions);
+    // Get export resolution
+    const resolution = this.getExportResolution();
+    const exportWidth = resolution.width;
+    const exportHeight = resolution.height;
+    
+    // Setup ZIP
+    const zip = new JSZip();
+    const frameRate = 30;
+    const totalFrames = Math.ceil(this.video.duration * frameRate);
+    let currentFrame = 0;
+    
+    // Create instructions file
+    const instructions = this.getConversionInstructions();
+    zip.file("INSTRUCTIONS.txt", instructions);
 
-            // Create export canvas with consistent rendering
-            const renderExportFrame = () => {
-                // Force synchronous rendering of current frame
-                this.renderCurrentFrameSync();
+    // Create temporary canvas for export with consistent rendering
+    const renderExportFrame = () => {
+        // Calculate dimensions based on polarization format to maintain aspect ratio
+        let canvasWidth, canvasHeight;
+        
+        switch (this.polarizationFormat) {
+            case 'side-by-side':
+                // Double width for side-by-side
+                canvasWidth = exportWidth * 2;
+                canvasHeight = exportHeight;
+                break;
                 
-                const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = exportWidth;
-                exportCanvas.height = exportHeight;
-                const exportCtx = exportCanvas.getContext('2d');
+            case 'top-bottom':
+                // Double height for top-bottom
+                canvasWidth = exportWidth;
+                canvasHeight = exportHeight * 2;
+                break;
                 
-                // Clear and draw exactly what would be shown in outputCanvas
-                exportCtx.fillStyle = '#000';
-                exportCtx.fillRect(0, 0, exportWidth, exportHeight);
-                
-                // Calculate scaling to maintain aspect ratio
-                const videoAspect = this.originalVideoWidth / this.originalVideoHeight;
-                const exportAspect = exportWidth / exportHeight;
-                
-                let drawWidth, drawHeight, offsetX, offsetY;
-                
-                if (videoAspect > exportAspect) {
-                    // Video is wider than export - fit to width
-                    drawWidth = exportWidth;
-                    drawHeight = exportWidth / videoAspect;
-                    offsetX = 0;
-                    offsetY = (exportHeight - drawHeight) / 2;
-                } else {
-                    // Video is taller than export - fit to height
-                    drawHeight = exportHeight;
-                    drawWidth = exportHeight * videoAspect;
-                    offsetX = (exportWidth - drawWidth) / 2;
-                    offsetY = 0;
-                }
-                
-                // Render based on polarization format with proper scaling
-                switch (this.polarizationFormat) {
-                    case 'side-by-side':
-                        const halfWidth = drawWidth / 2;
-                        exportCtx.drawImage(this.leftCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
-                                           offsetX, offsetY, halfWidth, drawHeight);
-                        exportCtx.drawImage(this.rightCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
-                                           offsetX + halfWidth, offsetY, halfWidth, drawHeight);
-                        break;
-                        
-                    case 'top-bottom':
-                        const halfHeight = drawHeight / 2;
-                        exportCtx.drawImage(this.leftCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
-                                           offsetX, offsetY, drawWidth, halfHeight);
-                        exportCtx.drawImage(this.rightCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
-                                           offsetX, offsetY + halfHeight, drawWidth, halfHeight);
-                        break;
-                        
-                    case 'interlaced':
-                        // For interlaced, render directly to export canvas
-                        this.renderInterlacedToCanvas(exportCtx, offsetX, offsetY, drawWidth, drawHeight);
-                        break;
-                        
-                    case 'checkerboard':
-                        // For checkerboard, render directly to export canvas
-                        this.renderCheckerboardToCanvas(exportCtx, offsetX, offsetY, drawWidth, drawHeight);
-                        break;
-                }
-                
-                return exportCanvas.toDataURL('image/png');
-            };
+            case 'interlaced':
+            case 'checkerboard':
+            default:
+                // Keep original dimensions for other formats
+                canvasWidth = exportWidth;
+                canvasHeight = exportHeight;
+                break;
+        }
 
-            // NEW: Direct interlaced rendering to target canvas
-            this.renderInterlacedToCanvas = (ctx, x, y, width, height) => {
-                // Create temporary canvas at export resolution
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = canvasWidth;
+        exportCanvas.height = canvasHeight;
+        const exportCtx = exportCanvas.getContext('2d');
+        
+        // Clear with black background
+        exportCtx.fillStyle = '#000';
+        exportCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Calculate scaling to maintain original video aspect ratio
+        const videoAspect = this.originalVideoWidth / this.originalVideoHeight;
+        const canvasAspect = canvasWidth / canvasHeight;
+        
+        let drawWidth, drawHeight, offsetX, offsetY;
+        
+        if (videoAspect > canvasAspect) {
+            // Video is wider than canvas - fit to width
+            drawWidth = canvasWidth;
+            drawHeight = canvasWidth / videoAspect;
+            offsetX = 0;
+            offsetY = (canvasHeight - drawHeight) / 2;
+        } else {
+            // Video is taller than canvas - fit to height
+            drawHeight = canvasHeight;
+            drawWidth = canvasHeight * videoAspect;
+            offsetX = (canvasWidth - drawWidth) / 2;
+            offsetY = 0;
+        }
+        
+        // Render based on polarization format with proper scaling
+        switch (this.polarizationFormat) {
+            case 'side-by-side':
+                const halfWidth = drawWidth / 2;
+                exportCtx.drawImage(this.leftCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
+                                   offsetX, offsetY, halfWidth, drawHeight);
+                exportCtx.drawImage(this.rightCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
+                                   offsetX + halfWidth, offsetY, halfWidth, drawHeight);
+                break;
+                
+            case 'top-bottom':
+                const halfHeight = drawHeight / 2;
+                exportCtx.drawImage(this.leftCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
+                                   offsetX, offsetY, drawWidth, halfHeight);
+                exportCtx.drawImage(this.rightCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
+                                   offsetX, offsetY + halfHeight, drawWidth, halfHeight);
+                break;
+                
+            case 'interlaced':
+                // For interlaced, create at video dimensions then scale
                 const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = width;
-                tempCanvas.height = height;
+                tempCanvas.width = this.originalVideoWidth;
+                tempCanvas.height = this.originalVideoHeight;
                 const tempCtx = tempCanvas.getContext('2d');
+                this.encodeInterlacedPolarizationOnCanvas(tempCanvas);
+                exportCtx.drawImage(tempCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
+                                   offsetX, offsetY, drawWidth, drawHeight);
+                break;
                 
-                // Get scaled versions of left and right images
-                tempCtx.drawImage(this.leftCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
-                                 0, 0, width, height);
-                const leftData = tempCtx.getImageData(0, 0, width, height);
-                
-                tempCtx.drawImage(this.rightCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
-                                 0, 0, width, height);
-                const rightData = tempCtx.getImageData(0, 0, width, height);
-                
-                // Create interlaced image
-                const imageData = tempCtx.createImageData(width, height);
+            case 'checkerboard':
+                // For checkerboard, create at video dimensions then scale
+                const tempCanvas2 = document.createElement('canvas');
+                tempCanvas2.width = this.originalVideoWidth;
+                tempCanvas2.height = this.originalVideoHeight;
+                const tempCtx2 = tempCanvas2.getContext('2d');
+                this.encodeCheckerboardPolarizationOnCanvas(tempCanvas2);
+                exportCtx.drawImage(tempCanvas2, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
+                                   offsetX, offsetY, drawWidth, drawHeight);
+                break;
+        }
+        
+        return exportCanvas.toDataURL('image/png');
+    };
+
+            // Helper methods for canvas-based polarization encoding
+            this.encodeInterlacedPolarizationOnCanvas = (canvas) => {
+                const ctx = canvas.getContext('2d');
+                const width = canvas.width;
+                const height = canvas.height;
+                const imageData = ctx.createImageData(width, height);
+                const leftData = this.leftCanvasCtx.getImageData(0, 0, width, height).data;
+                const rightData = this.rightCanvasCtx.getImageData(0, 0, width, height).data;
                 
                 for (let y = 0; y < height; y++) {
                     for (let x = 0; x < width; x++) {
                         const idx = (y * width + x) * 4;
-                        
-                        // Even lines: left eye (vertical polarization)
-                        // Odd lines: right eye (horizontal polarization)
-                        const sourceData = (y % 2 === 0) ? leftData.data : rightData.data;
-                        
+                        const sourceData = (y % 2 === 0) ? leftData : rightData;
                         imageData.data[idx] = sourceData[idx];
                         imageData.data[idx + 1] = sourceData[idx + 1];
                         imageData.data[idx + 2] = sourceData[idx + 2];
                         imageData.data[idx + 3] = 255;
                     }
                 }
-                
-                tempCtx.putImageData(imageData, 0, 0);
-                ctx.drawImage(tempCanvas, x, y);
+                ctx.putImageData(imageData, 0, 0);
             };
 
-            // NEW: Direct checkerboard rendering to target canvas
-            this.renderCheckerboardToCanvas = (ctx, x, y, width, height) => {
-                // Create temporary canvas at export resolution
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = width;
-                tempCanvas.height = height;
-                const tempCtx = tempCanvas.getContext('2d');
-                
-                // Get scaled versions of left and right images
-                tempCtx.drawImage(this.leftCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
-                                 0, 0, width, height);
-                const leftData = tempCtx.getImageData(0, 0, width, height);
-                
-                tempCtx.drawImage(this.rightCanvas, 0, 0, this.originalVideoWidth, this.originalVideoHeight, 
-                                 0, 0, width, height);
-                const rightData = tempCtx.getImageData(0, 0, width, height);
-                
-                // Create checkerboard image
-                const imageData = tempCtx.createImageData(width, height);
+            this.encodeCheckerboardPolarizationOnCanvas = (canvas) => {
+                const ctx = canvas.getContext('2d');
+                const width = canvas.width;
+                const height = canvas.height;
+                const imageData = ctx.createImageData(width, height);
+                const leftData = this.leftCanvasCtx.getImageData(0, 0, width, height).data;
+                const rightData = this.rightCanvasCtx.getImageData(0, 0, width, height).data;
                 
                 for (let y = 0; y < height; y++) {
                     for (let x = 0; x < width; x++) {
                         const idx = (y * width + x) * 4;
-                        
-                        // Checkerboard pattern
                         const isLeftEye = (x % 2 === 0 && y % 2 === 0) || (x % 2 === 1 && y % 2 === 1);
-                        const sourceData = isLeftEye ? leftData.data : rightData.data;
-                        
+                        const sourceData = isLeftEye ? leftData : rightData;
                         imageData.data[idx] = sourceData[idx];
                         imageData.data[idx + 1] = sourceData[idx + 1];
                         imageData.data[idx + 2] = sourceData[idx + 2];
                         imageData.data[idx + 3] = 255;
                     }
                 }
-                
-                tempCtx.putImageData(imageData, 0, 0);
-                ctx.drawImage(tempCanvas, x, y);
+                ctx.putImageData(imageData, 0, 0);
             };
 
-            // Function to process a frame with guaranteed rendering
-            const processFrame = async () => {
+            // Function to process a frame
+            const processFrame = () => {
                 if (currentFrame >= totalFrames) {
                     // Finish up
                     this.exportStatus.textContent = 'Compressing frames...';
@@ -3754,14 +3575,11 @@
                 this.video.currentTime = time;
 
                 // Wait for the video to seek to the time
-                const seekHandler = async () => {
+                const seekHandler = () => {
                     this.video.removeEventListener('seeked', seekHandler);
                     
-                    // Add a small delay to ensure video frame is ready
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                    
-                    // Force synchronous rendering to ensure all canvases are updated
-                    this.renderCurrentFrameSync();
+                    // Re-render the current frame to update all canvases
+                    this.renderCurrentFrame();
                     
                     // Render the export frame with consistent quality
                     const dataURL = renderExportFrame();
