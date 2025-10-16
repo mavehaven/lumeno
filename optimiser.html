@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadratic Simulator: The Optimizer</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --accent: #f72585;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --warning: #f8961e;
+            --danger: #e63946;
+            --grass: #4ade80;
+            --sky: #38bdf8;
+            --spring: #c084fc;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: var(--light);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+        
+        .scenario-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .scenario-button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        
+        .scenario-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .scenario-button.active {
+            background: var(--primary);
+            box-shadow: 0 0 15px rgba(67, 97, 238, 0.5);
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 1100px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .simulation-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .simulation-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            text-align: center;
+            color: var(--success);
+        }
+        
+        .canvas-container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            width: 100%;
+            height: 500px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .controls-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .scenario-description {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 15px rgba(67, 97, 238, 0.3);
+        }
+        
+        .scenario-description h3 {
+            color: var(--success);
+            margin-bottom: 10px;
+        }
+        
+        .parameter {
+            margin-bottom: 25px;
+        }
+        
+        .parameter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .parameter-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .parameter-value {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-family: monospace;
+            border: 1px solid var(--primary);
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        #velocity-slider::-webkit-slider-thumb {
+            background: var(--accent);
+            border: 2px solid white;
+        }
+        
+        #angle-slider::-webkit-slider-thumb {
+            background: var(--success);
+            border: 2px solid white;
+        }
+        
+        #fence-slider::-webkit-slider-thumb {
+            background: var(--warning);
+            border: 2px solid white;
+        }
+        
+        #side-slider::-webkit-slider-thumb {
+            background: var(--danger);
+            border: 2px solid white;
+        }
+        
+        #spring-slider::-webkit-slider-thumb {
+            background: var(--spring);
+            border: 2px solid white;
+        }
+        
+        .action-button {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: var(--accent);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-top: 10px;
+            box-shadow: 0 0 15px rgba(247, 37, 133, 0.3);
+        }
+        
+        .action-button:hover {
+            background: #ff4da6;
+            transform: translateY(-2px);
+        }
+        
+        .action-button:active {
+            transform: translateY(0);
+        }
+        
+        .results-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .results-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: var(--success);
+            text-align: center;
+        }
+        
+        .result {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .result:last-child {
+            border-bottom: none;
+        }
+        
+        .result-name {
+            font-weight: 500;
+        }
+        
+        .result-value {
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 5px;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            text-align: center;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .equation-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-family: 'Cambria Math', serif;
+            border: 1px solid var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Quadratic Simulator: The Optimizer</h1>
+            <p class="subtitle">Apply quadratic functions to real-world scenarios</p>
+        </header>
+        
+        <div class="scenario-selector">
+            <button class="scenario-button active" id="projectile-btn">Projectile Motion</button>
+            <button class="scenario-button" id="area-btn">Area Optimization</button>
+            <button class="scenario-button" id="spring-btn">Spring Energy</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="simulation-container">
+                <h2 class="simulation-title" id="simulation-title">Projectile Motion</h2>
+                <div class="canvas-container">
+                    <canvas id="projectile-canvas"></canvas>
+                </div>
+                <div class="instructions" id="projectile-instructions">
+                    <p>Adjust the initial velocity and angle, then click FIRE! to launch the projectile.</p>
+                </div>
+                <div class="canvas-container hidden">
+                    <canvas id="area-canvas"></canvas>
+                </div>
+                <div class="instructions hidden" id="area-instructions">
+                    <p>Adjust the fence length and side x to maximize the rectangular area.</p>
+                </div>
+                <div class="canvas-container hidden">
+                    <canvas id="spring-canvas"></canvas>
+                </div>
+                <div class="instructions hidden" id="spring-instructions">
+                    <p>Adjust the spring constant and compression to see the potential energy.</p>
+                </div>
+            </div>
+            
+            <div class="controls-container">
+                <div class="scenario-description" id="projectile-description">
+                    <h3>Projectile Motion</h3>
+                    <p>A cannon launches a projectile with initial velocity v₀ at an angle θ. The path follows a parabolic trajectory:</p>
+                    <div class="equation-display">y(x) = -½g(x/(v₀·cosθ))² + (v₀·sinθ)(x/(v₀·cosθ)) + h₀</div>
+                    <p>Where g is gravity (9.8 m/s²), and h₀ is the initial height.</p>
+                </div>
+                
+                <div class="scenario-description hidden" id="area-description">
+                    <h3>Area Optimization</h3>
+                    <p>A farmer has a fixed length of fencing to create a rectangular enclosure. By using one side of a barn as part of the enclosure, we can maximize the area:</p>
+                    <div class="equation-display">A(x) = x · (L - 2x)</div>
+                    <p>Where L is the total fence length, and x is the length of the sides perpendicular to the barn.</p>
+                </div>
+                
+                <div class="scenario-description hidden" id="spring-description">
+                    <h3>Spring Potential Energy</h3>
+                    <p>Hooke's Law states that the force exerted by a spring is proportional to its displacement from equilibrium. The potential energy stored in a spring is quadratic:</p>
+                    <div class="equation-display">PE = ½kx²</div>
+                    <p>Where k is the spring constant and x is the displacement from equilibrium.</p>
+                </div>
+                
+                <div id="projectile-controls">
+                    <div class="parameter">
+                        <div class="parameter-header">
+                            <div class="parameter-title">Initial Velocity (v₀)</div>
+                            <div class="parameter-value" id="velocity-display">20 m/s</div>
+                        </div>
+                        <div class="slider-container">
+                            <span>5 m/s</span>
+                            <input type="range" min="5" max="50" step="1" value="20" class="slider" id="velocity-slider">
+                            <span>50 m/s</span>
+                        </div>
+                    </div>
+                    
+                    <div class="parameter">
+                        <div class="parameter-header">
+                            <div class="parameter-title">Launch Angle (θ)</div>
+                            <div class="parameter-value" id="angle-display">45°</div>
+                        </div>
+                        <div class="slider-container">
+                            <span>15°</span>
+                            <input type="range" min="15" max="75" step="1" value="45" class="slider" id="angle-slider">
+                            <span>75°</span>
+                        </div>
+                    </div>
+                    
+                    <button class="action-button" id="fire-button">FIRE!</button>
+                    
+                    <div class="results-panel">
+                        <h3 class="results-title">Projectile Results</h3>
+                        <div class="result">
+                            <span class="result-name">Maximum Height:</span>
+                            <span class="result-value" id="max-height">10.19 m</span>
+                        </div>
+                        <div class="result">
+                            <span class="result-name">Time to Max Height:</span>
+                            <span class="result-value" id="time-to-max">1.44 s</span>
+                        </div>
+                        <div class="result">
+                            <span class="result-name">Total Flight Time:</span>
+                            <span class="result-value" id="total-time">3.16 s</span>
+                        </div>
+                        <div class="result">
+                            <span class="result-name">Horizontal Distance:</span>
+                            <span class="result-value" id="horizontal-distance">44.72 m</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="area-controls" class="hidden">
+                    <div class="parameter">
+                        <div class="parameter-header">
+                            <div class="parameter-title">Total Fence Length (L)</div>
+                            <div class="parameter-value" id="fence-display">100 m</div>
+                        </div>
+                        <div class="slider-container">
+                            <span>40 m</span>
+                            <input type="range" min="40" max="200" step="5" value="100" class="slider" id="fence-slider">
+                            <span>200 m</span>
+                        </div>
+                    </div>
+                    
+                    <div class="parameter">
+                        <div class="parameter-header">
+                            <div class="parameter-title">Side Length (x)</div>
+                            <div class="parameter-value" id="side-display">25.00 m</div>
+                        </div>
+                        <div class="slider-container">
+                            <span>5 m</span>
+                            <input type="range" min="5" max="50" step="0.5" value="25" class="slider" id="side-slider">
+                            <span>50 m</span>
+                        </div>
+                    </div>
+                    
+                    <div class="results-panel">
+                        <h3 class="results-title">Area Optimization Results</h3>
+                        <div class="result">
+                            <span class="result-name">Current Area:</span>
+                            <span class="result-value" id="current-area">1250.00 m²</span>
+                        </div>
+                        <div class="result">
+                            <span class="result-name">Maximum Possible Area:</span>
+                            <span class="result-value" id="max-area">1250.00 m²</span>
+                        </div>
+                        <div class="result">
+                            <span class="result-name">Optimal x value:</span>
+                            <span class="result-value" id="optimal-x">25.00 m</span>
+                        </div>
+                        <div class="result">
+                            <span class="result-name">Other side length:</span>
+                            <span class="result-value" id="other-side">50.00 m</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="spring-controls" class="hidden">
+                    <div class="parameter">
+                        <div class="parameter-header">
+                            <div class="parameter-title">Spring Constant (k)</div>
+                            <div class="parameter-value" id="spring-constant-display">50 N/m</div>
+                        </div>
+                        <div class="slider-container">
+                            <span>10 N/m</span>
+                            <input type="range" min="10" max="200" step="5" value="50" class="slider" id="spring-slider">
+                            <span>200 N/m</span>
+                        </div>
+                    </div>
+                    
+                    <div class="parameter">
+                        <div class="parameter-header">
+                            <div class="parameter-title">Compression/Stretch (x)</div>
+                            <div class="parameter-value" id="compression-display">0.50 m</div>
+                        </div>
+                        <div class="slider-container">
+                            <span>0 m</span>
+                            <input type="range" min="0" max="2" step="0.05" value="0.5" class="slider" id="compression-slider">
+                            <span>2 m</span>
+                        </div>
+                    </div>
+                    
+                    <div class="results-panel">
+                        <h3 class="results-title">Spring Energy Results</h3>
+                        <div class="result">
+                            <span class="result-name">Potential Energy:</span>
+                            <span class="result-value" id="potential-energy">6.25 J</span>
+                        </div>
+                        <div class="result">
+                            <span class="result-name">Spring Force:</span>
+                            <span class="result-value" id="spring-force">25.00 N</span>
+                        </div>
+                        <div class="result">
+                            <span class="result-name">Energy at Max Compression:</span>
+                            <span class="result-value" id="max-energy">100.00 J</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const projectileCanvas = document.getElementById('projectile-canvas');
+        const areaCanvas = document.getElementById('area-canvas');
+        const springCanvas = document.getElementById('spring-canvas');
+        const projectileCtx = projectileCanvas.getContext('2d');
+        const areaCtx = areaCanvas.getContext('2d');
+        const springCtx = springCanvas.getContext('2d');
+        
+        // Scenario buttons
+        const projectileBtn = document.getElementById('projectile-btn');
+        const areaBtn = document.getElementById('area-btn');
+        const springBtn = document.getElementById('spring-btn');
+        
+        // Scenario descriptions
+        const projectileDescription = document.getElementById('projectile-description');
+        const areaDescription = document.getElementById('area-description');
+        const springDescription = document.getElementById('spring-description');
+        
+        // Controls
+        const projectileControls = document.getElementById('projectile-controls');
+        const areaControls = document.getElementById('area-controls');
+        const springControls = document.getElementById('spring-controls');
+        
+        // Simulation titles and instructions
+        const simulationTitle = document.getElementById('simulation-title');
+        const projectileInstructions = document.getElementById('projectile-instructions');
+        const areaInstructions = document.getElementById('area-instructions');
+        const springInstructions = document.getElementById('spring-instructions');
+        
+        // Projectile controls
+        const velocitySlider = document.getElementById('velocity-slider');
+        const angleSlider = document.getElementById('angle-slider');
+        const velocityDisplay = document.getElementById('velocity-display');
+        const angleDisplay = document.getElementById('angle-display');
+        const fireButton = document.getElementById('fire-button');
+        
+        // Area controls
+        const fenceSlider = document.getElementById('fence-slider');
+        const sideSlider = document.getElementById('side-slider');
+        const fenceDisplay = document.getElementById('fence-display');
+        const sideDisplay = document.getElementById('side-display');
+        
+        // Spring controls
+        const springSlider = document.getElementById('spring-slider');
+        const compressionSlider = document.getElementById('compression-slider');
+        const springConstantDisplay = document.getElementById('spring-constant-display');
+        const compressionDisplay = document.getElementById('compression-display');
+        
+        // Results displays
+        const maxHeight = document.getElementById('max-height');
+        const timeToMax = document.getElementById('time-to-max');
+        const totalTime = document.getElementById('total-time');
+        const horizontalDistance = document.getElementById('horizontal-distance');
+        
+        const currentArea = document.getElementById('current-area');
+        const maxArea = document.getElementById('max-area');
+        const optimalX = document.getElementById('optimal-x');
+        const otherSide = document.getElementById('other-side');
+        
+        const potentialEnergy = document.getElementById('potential-energy');
+        const springForce = document.getElementById('spring-force');
+        const maxEnergy = document.getElementById('max-energy');
+        
+        // Canvas containers
+        const canvasContainers = document.querySelectorAll('.canvas-container');
+        
+        // Initialize parameters
+        // Projectile parameters
+        let velocity = 20;  // m/s
+        let angle = 45;     // degrees
+        let gravity = 9.8;  // m/s²
+        let initialHeight = 0; // meters
+        let isFlying = false;
+        let animationId = null;
+        let time = 0;
+        
+        // Area parameters
+        let fenceLength = 100; // meters
+        let sideX = 25; // meters
+        
+        // Spring parameters
+        let springConstant = 50; // N/m
+        let compression = 0.5; // meters
+        
+        // Set canvas dimensions
+        function setCanvasSize() {
+            const container = document.querySelector('.canvas-container:not(.hidden)');
+            if (!container) return;
+            
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // Set all canvases to the same size
+            [projectileCanvas, areaCanvas, springCanvas].forEach(canvas => {
+                canvas.width = width;
+                canvas.height = height;
+            });
+            
+            // Redraw the current scenario
+            if (projectileBtn.classList.contains('active')) {
+                drawProjectileScene();
+            } else if (areaBtn.classList.contains('active')) {
+                drawAreaScene();
+            } else if (springBtn.classList.contains('active')) {
+                drawSpringScene();
+            }
+        }
+        
+        // Draw the projectile scene
+        function drawProjectileScene() {
+            const width = projectileCanvas.width;
+            const height = projectileCanvas.height;
+            
+            projectileCtx.clearRect(0, 0, width, height);
+            
+            // Draw sky
+            const gradient = projectileCtx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, '#1e3a8a');
+            gradient.addColorStop(1, '#38bdf8');
+            projectileCtx.fillStyle = gradient;
+            projectileCtx.fillRect(0, 0, width, height - 50);
+            
+            // Draw ground
+            projectileCtx.fillStyle = '#15803d';
+            projectileCtx.fillRect(0, height - 50, width, 50);
+            
+            // Draw grass details
+            projectileCtx.fillStyle = '#16a34a';
+            for (let i = 0; i < width; i += 10) {
+                projectileCtx.fillRect(i, height - 50, 5, -Math.random() * 10 - 5);
+            }
+            
+            // Draw cannon
+            const cannonX = 50;
+            const cannonY = height - 50;
+            const angleRad = angle * Math.PI / 180;
+            const cannonLength = 30;
+            
+            projectileCtx.fillStyle = '#6b7280';
+            projectileCtx.fillRect(cannonX - 10, cannonY - 20, 20, 20);
+            
+            projectileCtx.strokeStyle = '#4b5563';
+            projectileCtx.lineWidth = 10;
+            projectileCtx.lineCap = 'round';
+            projectileCtx.beginPath();
+            projectileCtx.moveTo(cannonX, cannonY - 10);
+            projectileCtx.lineTo(
+                cannonX + cannonLength * Math.cos(angleRad),
+                cannonY - 10 - cannonLength * Math.sin(angleRad)
+            );
+            projectileCtx.stroke();
+            
+            // Draw trajectory if not flying
+            if (!isFlying) {
+                drawTrajectory();
+            }
+        }
+        
+        // Draw the trajectory path
+        function drawTrajectory() {
+            const width = projectileCanvas.width;
+            const height = projectileCanvas.height;
+            
+            const angleRad = angle * Math.PI / 180;
+            const v0x = velocity * Math.cos(angleRad);
+            const v0y = velocity * Math.sin(angleRad);
+            
+            // Calculate total flight time
+            const tTotal = (v0y + Math.sqrt(v0y * v0y + 2 * gravity * initialHeight)) / gravity;
+            
+            projectileCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            projectileCtx.lineWidth = 2;
+            projectileCtx.setLineDash([5, 5]);
+            projectileCtx.beginPath();
+            
+            const steps = 50;
+            for (let i = 0; i <= steps; i++) {
+                const t = (i / steps) * tTotal;
+                const x = v0x * t;
+                const y = initialHeight + v0y * t - 0.5 * gravity * t * t;
+                
+                // Scale coordinates to fit canvas
+                const canvasX = 50 + x * 4;
+                const canvasY = height - y * 4 - 50;
+                
+                if (i === 0) {
+                    projectileCtx.moveTo(canvasX, canvasY);
+                } else {
+                    projectileCtx.lineTo(canvasX, canvasY);
+                }
+            }
+            
+            projectileCtx.stroke();
+            projectileCtx.setLineDash([]);
+        }
+        
+        // Animate the projectile
+        function animateProjectile() {
+            if (!isFlying) return;
+            
+            const width = projectileCanvas.width;
+            const height = projectileCanvas.height;
+            
+            const angleRad = angle * Math.PI / 180;
+            const v0x = velocity * Math.cos(angleRad);
+            const v0y = velocity * Math.sin(angleRad);
+            
+            // Calculate position at current time
+            const x = v0x * time;
+            const y = initialHeight + v0y * time - 0.5 * gravity * time * time;
+            
+            // Redraw scene
+            drawProjectileScene();
+            
+            // Draw projectile
+            const canvasX = 50 + x * 4;
+            const canvasY = height - y * 4 - 50;
+            
+            projectileCtx.fillStyle = '#e63946';
+            projectileCtx.beginPath();
+            projectileCtx.arc(canvasX, canvasY, 8, 0, Math.PI * 2);
+            projectileCtx.fill();
+            projectileCtx.strokeStyle = 'white';
+            projectileCtx.lineWidth = 2;
+            projectileCtx.stroke();
+            
+            // Update time
+            time += 0.05;
+            
+            // Check if projectile hit the ground
+            if (y <= 0 && time > 0.1) {
+                isFlying = false;
+                cancelAnimationFrame(animationId);
+                updateProjectileResults();
+                fireButton.textContent = 'FIRE!';
+                return;
+            }
+            
+            animationId = requestAnimationFrame(animateProjectile);
+        }
+        
+        // Update projectile results
+        function updateProjectileResults() {
+            const angleRad = angle * Math.PI / 180;
+            const v0x = velocity * Math.cos(angleRad);
+            const v0y = velocity * Math.sin(angleRad);
+            
+            // Time to maximum height
+            const tMax = v0y / gravity;
+            
+            // Maximum height
+            const hMax = initialHeight + v0y * tMax - 0.5 * gravity * tMax * tMax;
+            
+            // Total flight time
+            const tTotal = (v0y + Math.sqrt(v0y * v0y + 2 * gravity * initialHeight)) / gravity;
+            
+            // Horizontal distance
+            const xTotal = v0x * tTotal;
+            
+            // Update displays
+            maxHeight.textContent = hMax.toFixed(2) + ' m';
+            timeToMax.textContent = tMax.toFixed(2) + ' s';
+            totalTime.textContent = tTotal.toFixed(2) + ' s';
+            horizontalDistance.textContent = xTotal.toFixed(2) + ' m';
+        }
+        
+        // Draw the area optimization scene
+        function drawAreaScene() {
+            const width = areaCanvas.width;
+            const height = areaCanvas.height;
+            
+            areaCtx.clearRect(0, 0, width, height);
+            
+            // Draw background
+            areaCtx.fillStyle = '#1e3a8a';
+            areaCtx.fillRect(0, 0, width, height);
+            
+            // Calculate dimensions
+            const otherSideLength = fenceLength - 2 * sideX;
+            const scale = Math.min(width / 400, height / 300);
+            
+            // Draw barn
+            const barnWidth = 80 * scale;
+            const barnHeight = 120 * scale;
+            const barnX = 50 * scale;
+            const barnY = height - barnHeight - 50 * scale;
+            
+            areaCtx.fillStyle = '#7c2d12';
+            areaCtx.fillRect(barnX, barnY, barnWidth, barnHeight);
+            
+            // Draw barn details
+            areaCtx.fillStyle = '#9a3412';
+            areaCtx.fillRect(barnX, barnY, barnWidth, 20 * scale); // Roof
+            areaCtx.fillRect(barnX + 10 * scale, barnY + 30 * scale, 20 * scale, 40 * scale); // Window
+            areaCtx.fillRect(barnX + 50 * scale, barnY + 60 * scale, 20 * scale, 60 * scale); // Door
+            
+            // Draw fencing
+            const fenceX = barnX + barnWidth;
+            const fenceY = height - 50 * scale;
+            const sideY = fenceY - sideX * 3 * scale;
+            
+            areaCtx.strokeStyle = '#d97706';
+            areaCtx.lineWidth = 3 * scale;
+            
+            // Draw fence posts and rails
+            for (let i = 0; i <= 3; i++) {
+                const x = fenceX + (i * sideX * 3 * scale) / 3;
+                
+                // Post
+                areaCtx.fillStyle = '#92400e';
+                areaCtx.fillRect(x - 3 * scale, sideY, 6 * scale, fenceY - sideY);
+                
+                // Rails
+                if (i < 3) {
+                    areaCtx.beginPath();
+                    areaCtx.moveTo(x, sideY + 10 * scale);
+                    areaCtx.lineTo(x + sideX * 3 * scale, sideY + 10 * scale);
+                    areaCtx.stroke();
+                    
+                    areaCtx.beginPath();
+                    areaCtx.moveTo(x, sideY + 30 * scale);
+                    areaCtx.lineTo(x + sideX * 3 * scale, sideY + 30 * scale);
+                    areaCtx.stroke();
+                }
+            }
+            
+            // Draw the enclosed area
+            areaCtx.fillStyle = 'rgba(34, 197, 94, 0.3)';
+            areaCtx.fillRect(fenceX, sideY, sideX * 3 * scale, fenceY - sideY);
+            
+            // Draw labels
+            areaCtx.fillStyle = 'white';
+            areaCtx.font = `${14 * scale}px Arial`;
+            areaCtx.textAlign = 'center';
+            
+            // Label x
+            areaCtx.fillText('x', fenceX + sideX * 1.5 * 3 * scale, fenceY + 20 * scale);
+            areaCtx.beginPath();
+            areaCtx.moveTo(fenceX, fenceY + 10 * scale);
+            areaCtx.lineTo(fenceX + sideX * 3 * scale, fenceY + 10 * scale);
+            areaCtx.strokeStyle = 'white';
+            areaCtx.lineWidth = 1 * scale;
+            areaCtx.stroke();
+            
+            // Label L - 2x
+            areaCtx.fillText(`L - 2x = ${otherSideLength.toFixed(1)}m`, fenceX + sideX * 3 * scale + 60 * scale, sideY + (fenceY - sideY) / 2);
+            areaCtx.beginPath();
+            areaCtx.moveTo(fenceX + sideX * 3 * scale, sideY + 10 * scale);
+            areaCtx.lineTo(fenceX + sideX * 3 * scale, fenceY - 10 * scale);
+            areaCtx.stroke();
+            
+            // Draw current area value
+            const currentAreaValue = sideX * otherSideLength;
+            areaCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            areaCtx.font = `${16 * scale}px Arial`;
+            areaCtx.fillText(`Area: ${currentAreaValue.toFixed(1)} m²`, width / 2, 30 * scale);
+            
+            // Draw optimal point if needed
+            const optimalXValue = fenceLength / 4;
+            if (Math.abs(sideX - optimalXValue) > 0.1) {
+                areaCtx.fillStyle = 'rgba(239, 68, 68, 0.7)';
+                areaCtx.font = `${14 * scale}px Arial`;
+                areaCtx.fillText(`Optimal x: ${optimalXValue.toFixed(1)} m`, width / 2, 60 * scale);
+                
+                // Draw arrow to optimal point
+                const optimalXPos = fenceX + optimalXValue * 3 * scale;
+                areaCtx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
+                areaCtx.lineWidth = 2 * scale;
+                areaCtx.setLineDash([5, 5]);
+                areaCtx.beginPath();
+                areaCtx.moveTo(optimalXPos, fenceY + 30 * scale);
+                areaCtx.lineTo(optimalXPos, sideY);
+                areaCtx.stroke();
+                areaCtx.setLineDash([]);
+            }
+        }
+        
+        // Update area results
+        function updateAreaResults() {
+            const otherSideLength = fenceLength - 2 * sideX;
+            const currentAreaValue = sideX * otherSideLength;
+            const optimalXValue = fenceLength / 4;
+            const maxAreaValue = optimalXValue * (fenceLength - 2 * optimalXValue);
+            
+            currentArea.textContent = currentAreaValue.toFixed(2) + ' m²';
+            maxArea.textContent = maxAreaValue.toFixed(2) + ' m²';
+            optimalX.textContent = optimalXValue.toFixed(2) + ' m';
+            otherSide.textContent = otherSideLength.toFixed(2) + ' m';
+        }
+        
+        // Draw the spring energy scene
+        function drawSpringScene() {
+            const width = springCanvas.width;
+            const height = springCanvas.height;
+            
+            springCtx.clearRect(0, 0, width, height);
+            
+            // Draw background
+            springCtx.fillStyle = '#1e3a8a';
+            springCtx.fillRect(0, 0, width, height);
+            
+            // Draw wall
+            const wallWidth = 30;
+            const wallHeight = 150;
+            const wallX = 100;
+            const wallY = height / 2 - wallHeight / 2;
+            
+            springCtx.fillStyle = '#6b7280';
+            springCtx.fillRect(wallX, wallY, wallWidth, wallHeight);
+            
+            // Draw wall details
+            springCtx.fillStyle = '#4b5563';
+            for (let i = 0; i < 5; i++) {
+                springCtx.fillRect(wallX + 5, wallY + 20 + i * 25, 20, 10);
+            }
+            
+            // Draw spring
+            const springLength = 100 + compression * 50; // Base length + compression effect
+            const springX = wallX + wallWidth;
+            const springY = height / 2;
+            const coils = 10;
+            const coilHeight = 20;
+            
+            springCtx.strokeStyle = '#c084fc';
+            springCtx.lineWidth = 4;
+            springCtx.beginPath();
+            springCtx.moveTo(springX, springY);
+            
+            for (let i = 0; i < coils; i++) {
+                const x = springX + (i * springLength) / coils;
+                const y = springY + (i % 2 === 0 ? coilHeight : -coilHeight);
+                springCtx.lineTo(x, y);
+            }
+            
+            springCtx.lineTo(springX + springLength, springY);
+            springCtx.stroke();
+            
+            // Draw mass
+            const massWidth = 40;
+            const massHeight = 30;
+            const massX = springX + springLength;
+            const massY = springY - massHeight / 2;
+            
+            springCtx.fillStyle = '#f97316';
+            springCtx.fillRect(massX, massY, massWidth, massHeight);
+            
+            // Draw equilibrium line
+            springCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            springCtx.setLineDash([5, 5]);
+            springCtx.beginPath();
+            springCtx.moveTo(springX + 100, springY - 80);
+            springCtx.lineTo(springX + 100, springY + 80);
+            springCtx.stroke();
+            springCtx.setLineDash([]);
+            
+            // Draw compression/stretch indicator
+            springCtx.strokeStyle = '#4cc9f0';
+            springCtx.lineWidth = 2;
+            springCtx.beginPath();
+            if (compression > 0) {
+                // Compressed
+                springCtx.moveTo(springX + 100, springY);
+                springCtx.lineTo(springX + springLength, springY);
+                springCtx.stroke();
+                
+                springCtx.fillStyle = '#4cc9f0';
+                springCtx.font = '14px Arial';
+                springCtx.fillText(`x = ${compression.toFixed(2)} m`, springX + 100 + (springLength - 100) / 2, springY - 10);
+            } else if (compression < 0) {
+                // Stretched
+                springCtx.moveTo(springX + 100, springY);
+                springCtx.lineTo(springX + springLength, springY);
+                springCtx.stroke();
+                
+                springCtx.fillStyle = '#4cc9f0';
+                springCtx.font = '14px Arial';
+                springCtx.fillText(`x = ${(-compression).toFixed(2)} m`, springX + 100 + (springLength - 100) / 2, springY - 10);
+            }
+            
+            // Draw energy graph
+            const graphWidth = 200;
+            const graphHeight = 120;
+            const graphX = width - graphWidth - 30;
+            const graphY = 30;
+            
+            // Draw graph background
+            springCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            springCtx.fillRect(graphX, graphY, graphWidth, graphHeight);
+            
+            // Draw graph axes
+            springCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            springCtx.lineWidth = 1;
+            springCtx.beginPath();
+            springCtx.moveTo(graphX, graphY + graphHeight / 2);
+            springCtx.lineTo(graphX + graphWidth, graphY + graphHeight / 2);
+            springCtx.stroke();
+            
+            springCtx.beginPath();
+            springCtx.moveTo(graphX, graphY);
+            springCtx.lineTo(graphX, graphY + graphHeight);
+            springCtx.stroke();
+            
+            // Draw energy curve (PE = ½kx²)
+            springCtx.strokeStyle = '#c084fc';
+            springCtx.lineWidth = 3;
+            springCtx.beginPath();
+            
+            for (let x = -2; x <= 2; x += 0.1) {
+                const energy = 0.5 * springConstant * x * x;
+                const plotX = graphX + ((x + 2) / 4) * graphWidth;
+                const plotY = graphY + graphHeight - (energy / (0.5 * springConstant * 4)) * graphHeight;
+                
+                if (x === -2) {
+                    springCtx.moveTo(plotX, plotY);
+                } else {
+                    springCtx.lineTo(plotX, plotY);
+                }
+            }
+            
+            springCtx.stroke();
+            
+            // Draw current point
+            const currentEnergy = 0.5 * springConstant * compression * compression;
+            const currentPlotX = graphX + ((compression + 2) / 4) * graphWidth;
+            const currentPlotY = graphY + graphHeight - (currentEnergy / (0.5 * springConstant * 4)) * graphHeight;
+            
+            springCtx.fillStyle = '#e63946';
+            springCtx.beginPath();
+            springCtx.arc(currentPlotX, currentPlotY, 6, 0, Math.PI * 2);
+            springCtx.fill();
+            
+            // Draw labels
+            springCtx.fillStyle = 'white';
+            springCtx.font = '12px Arial';
+            springCtx.fillText('Displacement (m)', graphX + graphWidth / 2 - 40, graphY + graphHeight + 15);
+            springCtx.save();
+            springCtx.translate(graphX - 20, graphY + graphHeight / 2);
+            springCtx.rotate(-Math.PI / 2);
+            springCtx.fillText('Energy (J)', 0, 0);
+            springCtx.restore();
+            
+            // Draw current energy value
+            springCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            springCtx.font = '16px Arial';
+            springCtx.fillText(`PE = ½ × ${springConstant} × ${compression.toFixed(2)}² = ${currentEnergy.toFixed(2)} J`, 
+                              width / 2, height - 20);
+        }
+        
+        // Update spring results
+        function updateSpringResults() {
+            const currentEnergy = 0.5 * springConstant * compression * compression;
+            const currentForce = springConstant * Math.abs(compression);
+            const maxEnergyValue = 0.5 * springConstant * 4; // At maximum compression of 2m
+            
+            potentialEnergy.textContent = currentEnergy.toFixed(2) + ' J';
+            springForce.textContent = currentForce.toFixed(2) + ' N';
+            maxEnergy.textContent = maxEnergyValue.toFixed(2) + ' J';
+        }
+        
+        // Switch to projectile scenario
+        function showProjectileScenario() {
+            // Update UI state
+            projectileBtn.classList.add('active');
+            areaBtn.classList.remove('active');
+            springBtn.classList.remove('active');
+            
+            projectileDescription.classList.remove('hidden');
+            areaDescription.classList.add('hidden');
+            springDescription.classList.add('hidden');
+            
+            projectileControls.classList.remove('hidden');
+            areaControls.classList.add('hidden');
+            springControls.classList.add('hidden');
+            
+            // Show/hide canvas containers
+            canvasContainers[0].classList.remove('hidden');
+            canvasContainers[1].classList.add('hidden');
+            canvasContainers[2].classList.add('hidden');
+            
+            projectileInstructions.classList.remove('hidden');
+            areaInstructions.classList.add('hidden');
+            springInstructions.classList.add('hidden');
+            
+            simulationTitle.textContent = 'Projectile Motion';
+            
+            // Set canvas size and draw
+            setCanvasSize();
+        }
+        
+        // Switch to area scenario
+        function showAreaScenario() {
+            // Update UI state
+            areaBtn.classList.add('active');
+            projectileBtn.classList.remove('active');
+            springBtn.classList.remove('active');
+            
+            areaDescription.classList.remove('hidden');
+            projectileDescription.classList.add('hidden');
+            springDescription.classList.add('hidden');
+            
+            areaControls.classList.remove('hidden');
+            projectileControls.classList.add('hidden');
+            springControls.classList.add('hidden');
+            
+            // Show/hide canvas containers
+            canvasContainers[0].classList.add('hidden');
+            canvasContainers[1].classList.remove('hidden');
+            canvasContainers[2].classList.add('hidden');
+            
+            areaInstructions.classList.remove('hidden');
+            projectileInstructions.classList.add('hidden');
+            springInstructions.classList.add('hidden');
+            
+            simulationTitle.textContent = 'Area Optimization';
+            
+            // Set canvas size and draw
+            setCanvasSize();
+        }
+        
+        // Switch to spring scenario
+        function showSpringScenario() {
+            // Update UI state
+            springBtn.classList.add('active');
+            projectileBtn.classList.remove('active');
+            areaBtn.classList.remove('active');
+            
+            springDescription.classList.remove('hidden');
+            projectileDescription.classList.add('hidden');
+            areaDescription.classList.add('hidden');
+            
+            springControls.classList.remove('hidden');
+            projectileControls.classList.add('hidden');
+            areaControls.classList.add('hidden');
+            
+            // Show/hide canvas containers
+            canvasContainers[0].classList.add('hidden');
+            canvasContainers[1].classList.add('hidden');
+            canvasContainers[2].classList.remove('hidden');
+            
+            springInstructions.classList.remove('hidden');
+            projectileInstructions.classList.add('hidden');
+            areaInstructions.classList.add('hidden');
+            
+            simulationTitle.textContent = 'Spring Energy';
+            
+            // Set canvas size and draw
+            setCanvasSize();
+        }
+        
+        // Initialize event listeners
+        function initEventListeners() {
+            // Scenario buttons
+            projectileBtn.addEventListener('click', showProjectileScenario);
+            areaBtn.addEventListener('click', showAreaScenario);
+            springBtn.addEventListener('click', showSpringScenario);
+            
+            // Projectile controls
+            velocitySlider.addEventListener('input', function() {
+                velocity = parseInt(velocitySlider.value);
+                velocityDisplay.textContent = velocity + ' m/s';
+                drawProjectileScene();
+                updateProjectileResults();
+            });
+            
+            angleSlider.addEventListener('input', function() {
+                angle = parseInt(angleSlider.value);
+                angleDisplay.textContent = angle + '°';
+                drawProjectileScene();
+                updateProjectileResults();
+            });
+            
+            fireButton.addEventListener('click', function() {
+                if (isFlying) {
+                    // Reset if already flying
+                    isFlying = false;
+                    cancelAnimationFrame(animationId);
+                    time = 0;
+                    drawProjectileScene();
+                    fireButton.textContent = 'FIRE!';
+                } else {
+                    // Start animation
+                    isFlying = true;
+                    time = 0;
+                    animateProjectile();
+                    fireButton.textContent = 'RESET';
+                }
+            });
+            
+            // Area controls
+            fenceSlider.addEventListener('input', function() {
+                fenceLength = parseInt(fenceSlider.value);
+                fenceDisplay.textContent = fenceLength + ' m';
+                
+                // Adjust side slider max value
+                sideSlider.max = fenceLength / 2;
+                
+                drawAreaScene();
+                updateAreaResults();
+            });
+            
+            sideSlider.addEventListener('input', function() {
+                sideX = parseFloat(sideSlider.value);
+                sideDisplay.textContent = sideX.toFixed(2) + ' m';
+                drawAreaScene();
+                updateAreaResults();
+            });
+            
+            // Spring controls
+            springSlider.addEventListener('input', function() {
+                springConstant = parseInt(springSlider.value);
+                springConstantDisplay.textContent = springConstant + ' N/m';
+                drawSpringScene();
+                updateSpringResults();
+            });
+            
+            compressionSlider.addEventListener('input', function() {
+                compression = parseFloat(compressionSlider.value);
+                compressionDisplay.textContent = compression.toFixed(2) + ' m';
+                drawSpringScene();
+                updateSpringResults();
+            });
+            
+            // Window resize
+            window.addEventListener('resize', setCanvasSize);
+        }
+        
+        // Initialize the application
+        function init() {
+            setCanvasSize();
+            initEventListeners();
+            showProjectileScenario();
+            
+            // Initialize results
+            updateProjectileResults();
+            updateAreaResults();
+            updateSpringResults();
+        }
+        
+        // Start the application
+        init();
+    </script>
+</body>
+</html>
