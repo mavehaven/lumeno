@@ -8,6 +8,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -25,6 +30,38 @@
             --transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
 
+        /* Page Loading Overlay with Eye Animation */
+        .page-loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .page-loading-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .eye-loading-spinner {
+            width: 80px;
+            height: 80px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Rest of your existing CSS styles... */
         /* Reduced motion for accessibility */
         @media (prefers-reduced-motion: reduce) {
             * {
@@ -125,10 +162,17 @@
             width: 100%;
         }
 
-        /* Sign in button - FIXED */
+        /* Auth elements */
+        .nav-auth {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        /* Sign in button */
         .sign-in-btn {
-            background: var(--secondary);  /* Black background */
-            color: var(--secondary);     /* White text */
+            background: var(--primary);
+            color: var(--secondary);
             padding: 0.6rem 1.5rem;
             border-radius: 0;
             font-size: 0.7rem;
@@ -141,14 +185,14 @@
         }
         
         .sign-in-btn:hover {
-            background: var(--secondary); /* White background */
-            color: var(--primary);        /* Black text */
+            background: var(--secondary);
+            color: var(--primary);
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
         
         nav.scrolled .sign-in-btn {
-            background: var(--primary);
+            background: var(--secondary);
             color: var(--primary);
         }
         
@@ -158,10 +202,41 @@
             box-shadow: 0 5px 15px rgba(255, 255, 255, 0.1);
         }
         
+        /* Profile Icon Styles */
+        .profile-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: var(--secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 2px solid transparent;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .profile-icon:hover {
+            transform: scale(1.1);
+            border-color: var(--secondary);
+        }
+
+        nav.scrolled .profile-icon {
+            background: var(--secondary);
+            color: var(--primary);
+        }
+
+        nav.scrolled .profile-icon:hover {
+            border-color: var(--primary);
+        }
+
         /* Mobile sign-in button contrast improvement */
         @media (max-width: 768px) {
             .sign-in-btn {
-                background: var(--secondary);
+                background: var(--primary);
                 color: var(--secondary);
                 margin-top: 1rem;
                 padding: 0.8rem 1.5rem;
@@ -171,12 +246,133 @@
             }
             
             nav.scrolled .sign-in-btn {
-                background: var(--primary);
+                background: var(--secondary);
                 color: var(--primary);
                 border: 1px solid var(--secondary);
             }
         }
         
+        /* Login Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .login-modal {
+            background: var(--secondary);
+            padding: 3rem;
+            border-radius: 0;
+            width: 90%;
+            max-width: 400px;
+            position: relative;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active .login-modal {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--gray);
+            transition: var(--transition);
+        }
+
+        .close-modal:hover {
+            color: var(--primary);
+        }
+
+        .login-modal h2 {
+            margin-bottom: 2rem;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .auth-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .auth-btn {
+            padding: 1rem;
+            border: none;
+            border-radius: 0;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-weight: 500;
+        }
+
+        .auth-btn.google {
+            background: #4285f4;
+            color: white;
+        }
+
+        .auth-btn.email {
+            background: var(--primary);
+            color: var(--secondary);
+        }
+
+        .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Loading indicator */
+        .loading-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+            z-index: 10000;
+        }
+
+        .loading-indicator.active {
+            transform: scaleX(0.7);
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            0% { transform: scaleX(0); transform-origin: left; }
+            50% { transform: scaleX(1); transform-origin: left; }
+            51% { transform: scaleX(1); transform-origin: right; }
+            100% { transform: scaleX(0); transform-origin: right; }
+        }
+
         /* Dropdown Menu */
         .dropdown {
             position: absolute;
@@ -958,32 +1154,6 @@
             opacity: 0.7;
         }
 
-        /* Loading indicator */
-        .loading-indicator {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
-            transform: scaleX(0);
-            transform-origin: left;
-            transition: transform 0.3s ease;
-            z-index: 10000;
-        }
-
-        .loading-indicator.active {
-            transform: scaleX(0.7);
-            animation: loading 1.5s infinite;
-        }
-
-        @keyframes loading {
-            0% { transform: scaleX(0); transform-origin: left; }
-            50% { transform: scaleX(1); transform-origin: left; }
-            51% { transform: scaleX(1); transform-origin: right; }
-            100% { transform: scaleX(0); transform-origin: right; }
-        }
-
         /* Scroll Animations */
         .fade-in {
             opacity: 0;
@@ -1422,8 +1592,28 @@
     </style>
 </head>
 <body>
-    <!-- Loading Indicator -->
-    <div class="loading-indicator" id="loadingIndicator"></div>
+    <!-- Page Loading Overlay with Eye Animation -->
+    <div class="page-loading-overlay" id="pageLoadingOverlay">
+        <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760617575427x227577865881120960/S.png" class="eye-loading-spinner" alt="Loading">
+    </div>
+    
+    <!-- Login Modal -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="login-modal">
+            <button class="close-modal" id="closeModal">&times;</button>
+            <h2>Sign In to LumenOS</h2>
+            <div class="auth-options">
+                <button class="auth-btn google" onclick="signInWithGoogle()">
+                    <i class="fab fa-google"></i>
+                    Sign in with Google
+                </button>
+                <button class="auth-btn email" onclick="signInWithEmail()">
+                    <i class="fas fa-envelope"></i>
+                    Sign in with Email
+                </button>
+            </div>
+        </div>
+    </div>
     
     <!-- Glass Morphic Navigation -->
     <nav id="mainNav">
@@ -1464,8 +1654,11 @@
                     <li><a href="#media" onclick="closeMenu()">Media Relations</a></li>
                 </ul>
             </li>
-            <li>
-                <a href="#signin" class="sign-in-btn">Sign in</a>
+            <li class="nav-auth">
+                <a href="#signin" class="sign-in-btn" id="authButton">Sign in</a>
+                <div class="profile-icon" id="profileIcon" style="display: none;">
+                    <i class="fas fa-user"></i>
+                </div>
             </li>
         </ul>
     </nav>
@@ -1500,16 +1693,16 @@ in turn economic benefit downstream."</p>
     </section>
     
     <!-- Partnership Section -->
-<section class="partnership" style="background: #000000; padding: 4rem 5%; text-align: center;">
-    <div style="max-width: 1200px; margin: 0 auto;">
-        <p style="color: #FFFFFF; font-size: 1.2rem; margin-bottom: 2rem; letter-spacing: 2px; text-transform: uppercase;">
-            in partnership with
-        </p>
-        <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760474829153x619765395362233500/Screenshot%202025-10-14%20at%2022.39.11.png" 
-             alt="Partnership" 
-             style="max-width: 300px; width: 100%; height: auto;">
-    </div>
-</section>
+    <section class="partnership" style="background: #000000; padding: 4rem 5%; text-align: center;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <p style="color: #FFFFFF; font-size: 1.2rem; margin-bottom: 2rem; letter-spacing: 2px; text-transform: uppercase;">
+                in partnership with
+            </p>
+            <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760474829153x619765395362233500/Screenshot%202025-10-14%20at%2022.39.11.png" 
+                 alt="Partnership" 
+                 style="max-width: 300px; width: 100%; height: auto;">
+        </div>
+    </section>
 
     <!-- Founder Section -->
     <section class="founder" id="about">
@@ -1760,17 +1953,113 @@ in turn economic benefit downstream."</p>
     </footer>
 
     <script>
-        // Show loading indicator
-        const loadingIndicator = document.getElementById('loadingIndicator');
-        loadingIndicator.classList.add('active');
-        
-        // Hide loading indicator when page is fully loaded
+        // Firebase Configuration
+        // REPLACE WITH YOUR FIREBASE CONFIGURATION
+        const firebaseConfig = {
+            apiKey: "your-api-key-here",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "your-app-id"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // DOM Elements
+        const loginModal = document.getElementById('loginModal');
+        const closeModal = document.getElementById('closeModal');
+        const authButton = document.getElementById('authButton');
+        const profileIcon = document.getElementById('profileIcon');
+        const pageLoadingOverlay = document.getElementById('pageLoadingOverlay');
+
+        // Show page loading overlay
         window.addEventListener('load', function() {
             setTimeout(() => {
-                loadingIndicator.classList.remove('active');
-            }, 500);
+                pageLoadingOverlay.classList.add('hidden');
+            }, 1000); // Show for 1 second minimum
         });
 
+        // Modal Functions
+        function openLoginModal() {
+            loginModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLoginModal() {
+            loginModal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Auth State Listener
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // User is signed in
+                authButton.style.display = 'none';
+                profileIcon.style.display = 'flex';
+                
+                // Add click event to profile icon
+                profileIcon.onclick = () => {
+                    window.location.href = 'profile.html';
+                };
+            } else {
+                // User is signed out
+                authButton.style.display = 'inline-block';
+                profileIcon.style.display = 'none';
+            }
+        });
+
+        // Event Listeners
+        authButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            openLoginModal();
+        });
+
+        closeModal.addEventListener('click', closeLoginModal);
+
+        loginModal.addEventListener('click', (e) => {
+            if (e.target === loginModal) {
+                closeLoginModal();
+            }
+        });
+
+        // Auth Functions
+        function signInWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    console.log('Google sign-in successful', result);
+                    closeLoginModal();
+                })
+                .catch((error) => {
+                    console.error('Google sign-in error', error);
+                    alert('Sign-in failed: ' + error.message);
+                });
+        }
+
+        function signInWithEmail() {
+            const email = prompt('Please enter your email:');
+            if (email) {
+                const actionCodeSettings = {
+                    url: window.location.href,
+                    handleCodeInApp: true
+                };
+                
+                auth.sendSignInLinkToEmail(email, actionCodeSettings)
+                    .then(() => {
+                        alert('Sign-in link sent to your email!');
+                        closeLoginModal();
+                    })
+                    .catch((error) => {
+                        console.error('Email sign-in error', error);
+                        alert('Failed to send sign-in link: ' + error.message);
+                    });
+            }
+        }
+
+        // Your existing JavaScript functions
         // Subject Tab Switching
         function switchSubject(subject) {
             // Update tabs
@@ -1968,13 +2257,6 @@ in turn economic benefit downstream."</p>
                     });
                 }
             });
-        });
-
-        // Form validation for sign-in (placeholder)
-        document.querySelector('.sign-in-btn').addEventListener('click', function(e) {
-            e.preventDefault();
-            // In a real implementation, this would show a sign-in modal
-            alert('Sign-in functionality would be implemented here');
         });
     </script>
 </body>
