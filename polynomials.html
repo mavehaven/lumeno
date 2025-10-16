@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polynomial Explorer | Interactive Learning Platform</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --accent: #f72585;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --warning: #ff9e00;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .tab:hover {
+            background: #f0f0f0;
+        }
+        
+        .tab.active {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .content-section {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+        }
+        
+        .content-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section-title {
+            color: var(--secondary);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--success);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .coefficient-input {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        input[type="number"], input[type="text"] {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 70px;
+        }
+        
+        .visualization-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .visualization-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .graph-container {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        
+        .math-display {
+            font-size: 1.2rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin: 1rem 0;
+            text-align: center;
+        }
+        
+        .properties-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .property-card {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .property-title {
+            font-weight: 600;
+            color: var(--secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+        }
+        
+        .theory-box {
+            background: #e9ecef;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            border-left: 4px solid var(--accent);
+        }
+        
+        .example-box {
+            background: #d8f3dc;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 2rem;
+            margin-top: 2rem;
+            color: #6c757d;
+        }
+        
+        .interactive-controls {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+        }
+        
+        .slider-container {
+            margin: 1rem 0;
+        }
+        
+        .slider-container label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        .operation-selector {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .operation-btn {
+            flex: 1;
+            background: #e9ecef;
+            color: var(--dark);
+            border: 2px solid transparent;
+        }
+        
+        .operation-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--secondary);
+        }
+        
+        .point-info {
+            position: absolute;
+            background: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+        
+        .highlight {
+            background-color: rgba(255, 255, 0, 0.3);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+        
+        .quiz-container {
+            background: #e7f5ff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+        }
+        
+        .quiz-question {
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        
+        .quiz-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .quiz-option {
+            padding: 0.7rem;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .quiz-option:hover {
+            background: #dee2e6;
+        }
+        
+        .quiz-option.correct {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .quiz-option.incorrect {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .feedback {
+            margin-top: 1rem;
+            padding: 0.7rem;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .feedback.correct {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .feedback.incorrect {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        
+        .step-container {
+            margin: 1.5rem 0;
+        }
+        
+        .step {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 4px solid var(--success);
+        }
+        
+        .step-number {
+            display: inline-block;
+            background: var(--success);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            text-align: center;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Polynomial Explorer</h1>
+            <p class="subtitle">Interactive Visualizations & Theoretical Frameworks</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="nav-tabs">
+            <div class="tab active" data-target="fundamentals">Fundamentals</div>
+            <div class="tab" data-target="operations">Operations</div>
+            <div class="tab" data-target="graphing">Graphing</div>
+            <div class="tab" data-target="theorems">Theorems</div>
+        </div>
+        
+        <!-- Fundamentals Section -->
+        <section id="fundamentals" class="content-section active">
+            <h2 class="section-title">Polynomial Fundamentals</h2>
+            
+            <div class="theory-box">
+                <h3>What is a Polynomial?</h3>
+                <p>A polynomial is a mathematical expression consisting of variables, coefficients, and exponents, combined using addition, subtraction, and multiplication. The general form of a polynomial is:</p>
+                <div class="math-display">
+                    \( P(x) = a_nx^n + a_{n-1}x^{n-1} + \cdots + a_1x + a_0 \)
+                </div>
+                <p>Where \( a_n, a_{n-1}, \ldots, a_0 \) are constants (coefficients) and \( n \) is a non-negative integer (the degree).</p>
+            </div>
+            
+            <div class="interactive-controls">
+                <h3>Interactive Polynomial Builder</h3>
+                <div class="input-group">
+                    <div class="coefficient-input">
+                        <label>Coefficient of x³:</label>
+                        <input type="number" id="coeff3" value="1" step="0.1">
+                    </div>
+                    <div class="coefficient-input">
+                        <label>Coefficient of x²:</label>
+                        <input type="number" id="coeff2" value="-3" step="0.1">
+                    </div>
+                    <div class="coefficient-input">
+                        <label>Coefficient of x:</label>
+                        <input type="number" id="coeff1" value="0" step="0.1">
+                    </div>
+                    <div class="coefficient-input">
+                        <label>Constant term:</label>
+                        <input type="number" id="coeff0" value="2" step="0.1">
+                    </div>
+                    <button id="updatePolynomial">Update Polynomial</button>
+                </div>
+                
+                <div class="slider-container">
+                    <label for="xRange">Adjust X-Axis Range: <span id="xRangeValue">-5 to 5</span></label>
+                    <input type="range" id="xRange" min="1" max="10" value="5" step="1">
+                </div>
+            </div>
+            
+            <div class="math-display" id="polynomialDisplay">
+                \( P(x) = x^3 - 3x^2 + 2 \)
+            </div>
+            
+            <div class="visualization-container">
+                <div class="graph-container">
+                    <h3>Graphical Representation</h3>
+                    <canvas id="polynomialGraph" width="400" height="300"></canvas>
+                    <div class="point-info" id="graphPointInfo"></div>
+                </div>
+                
+                <div>
+                    <h3>Properties</h3>
+                    <div class="properties-grid">
+                        <div class="property-card">
+                            <div class="property-title">Degree</div>
+                            <div id="degreeValue">3</div>
+                        </div>
+                        <div class="property-card">
+                            <div class="property-title">Leading Coefficient</div>
+                            <div id="leadingCoeff">1</div>
+                        </div>
+                        <div class="property-card">
+                            <div class="property-title">Type</div>
+                            <div id="polynomialType">Cubic</div>
+                        </div>
+                        <div class="property-card">
+                            <div class="property-title">Standard Form</div>
+                            <div id="standardForm">x³ - 3x² + 2</div>
+                        </div>
+                    </div>
+                    
+                    <div class="quiz-container">
+                        <div class="quiz-question">What is the degree of the polynomial 4x² - 2x + 7?</div>
+                        <div class="quiz-options">
+                            <div class="quiz-option" data-correct="false">1</div>
+                            <div class="quiz-option" data-correct="true">2</div>
+                            <div class="quiz-option" data-correct="false">3</div>
+                            <div class="quiz-option" data-correct="false">7</div>
+                        </div>
+                        <div class="feedback"></div>
+                    </div>
+                    
+                    <div class="theory-box">
+                        <h3>Key Terminology</h3>
+                        <ul>
+                            <li><strong>Term:</strong> A single part of the polynomial (e.g., 3x²)</li>
+                            <li><strong>Coefficient:</strong> The numerical factor of a term (e.g., 3 in 3x²)</li>
+                            <li><strong>Degree:</strong> The highest exponent in the polynomial</li>
+                            <li><strong>Leading Coefficient:</strong> The coefficient of the term with the highest degree</li>
+                            <li><strong>Constant Term:</strong> The term without a variable</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Operations Section -->
+        <section id="operations" class="content-section">
+            <h2 class="section-title">Polynomial Operations</h2>
+            
+            <div class="theory-box">
+                <h3>Adding and Subtracting Polynomials</h3>
+                <p>To add or subtract polynomials, combine like terms (terms with the same variable and exponent).</p>
+                <div class="example-box">
+                    <p><strong>Example:</strong> \((3x^2 + 2x - 5) + (x^2 - 4x + 7) = 4x^2 - 2x + 2\)</p>
+                </div>
+            </div>
+            
+            <div class="interactive-controls">
+                <h3>Interactive Operations</h3>
+                <div class="operation-selector">
+                    <button class="operation-btn active" data-operation="add">Addition</button>
+                    <button class="operation-btn" data-operation="subtract">Subtraction</button>
+                    <button class="operation-btn" data-operation="multiply">Multiplication</button>
+                </div>
+                
+                <div class="input-group">
+                    <div>
+                        <h4>First Polynomial</h4>
+                        <div class="coefficient-input">
+                            <label>x²:</label>
+                            <input type="number" id="poly1_x2" value="2" step="0.1">
+                        </div>
+                        <div class="coefficient-input">
+                            <label>x:</label>
+                            <input type="number" id="poly1_x" value="3" step="0.1">
+                        </div>
+                        <div class="coefficient-input">
+                            <label>constant:</label>
+                            <input type="number" id="poly1_const" value="1" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4>Second Polynomial</h4>
+                        <div class="coefficient-input">
+                            <label>x²:</label>
+                            <input type="number" id="poly2_x2" value="1" step="0.1">
+                        </div>
+                        <div class="coefficient-input">
+                            <label>x:</label>
+                            <input type="number" id="poly2_x" value="-2" step="0.1">
+                        </div>
+                        <div class="coefficient-input">
+                            <label>constant:</label>
+                            <input type="number" id="poly2_const" value="4" step="0.1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="math-display" id="operationResult">
+                \( (2x^2 + 3x + 1) + (x^2 - 2x + 4) = 3x^2 + x + 5 \)
+            </div>
+            
+            <div class="visualization-container">
+                <div class="graph-container">
+                    <h3>Operation Visualization</h3>
+                    <canvas id="operationGraph" width="400" height="300"></canvas>
+                </div>
+                
+                <div class="graph-container">
+                    <h3>Step-by-Step Process</h3>
+                    <div class="step-container" id="stepsContainer">
+                        <div class="step">
+                            <span class="step-number">1</span> Write both polynomials
+                        </div>
+                        <div class="step">
+                            <span class="step-number">2</span> Combine like terms
+                        </div>
+                        <div class="step">
+                            <span class="step-number">3</span> Simplify the expression
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Graphing Section -->
+        <section id="graphing" class="content-section">
+            <h2 class="section-title">Graphing Polynomials</h2>
+            
+            <div class="theory-box">
+                <h3>End Behavior</h3>
+                <p>The end behavior of a polynomial describes what happens to the graph as x approaches positive or negative infinity. It's determined by the degree and leading coefficient.</p>
+                <ul>
+                    <li>Even degree, positive leading coefficient: Both ends point upward</li>
+                    <li>Even degree, negative leading coefficient: Both ends point downward</li>
+                    <li>Odd degree, positive leading coefficient: Left end down, right end up</li>
+                    <li>Odd degree, negative leading coefficient: Left end up, right end down</li>
+                </ul>
+            </div>
+            
+            <div class="interactive-controls">
+                <h3>Explore Graph Features</h3>
+                <div class="input-group">
+                    <div class="coefficient-input">
+                        <label>Coefficient of x³:</label>
+                        <input type="number" id="graph_coeff3" value="1" step="0.1">
+                    </div>
+                    <div class="coefficient-input">
+                        <label>Coefficient of x²:</label>
+                        <input type="number" id="graph_coeff2" value="-2" step="0.1">
+                    </div>
+                    <div class="coefficient-input">
+                        <label>Coefficient of x:</label>
+                        <input type="number" id="graph_coeff1" value="-1" step="0.1">
+                    </div>
+                    <div class="coefficient-input">
+                        <label>Constant term:</label>
+                        <input type="number" id="graph_coeff0" value="2" step="0.1">
+                    </div>
+                </div>
+                
+                <div class="slider-container">
+                    <label>
+                        <input type="checkbox" id="showRoots" checked> Show Roots
+                    </label>
+                    <label>
+                        <input type="checkbox" id="showTurningPoints" checked> Show Turning Points
+                    </label>
+                    <label>
+                        <input type="checkbox" id="showEndBehavior"> Highlight End Behavior
+                    </label>
+                </div>
+            </div>
+            
+            <div class="visualization-container">
+                <div class="graph-container">
+                    <h3>Interactive Graph</h3>
+                    <canvas id="graphingCanvas" width="400" height="300"></canvas>
+                </div>
+                
+                <div class="graph-container">
+                    <h3>Graph Analysis</h3>
+                    <div class="properties-grid">
+                        <div class="property-card">
+                            <div class="property-title">Roots</div>
+                            <div id="rootsList">-1, 1, 2</div>
+                        </div>
+                        <div class="property-card">
+                            <div class="property-title">Y-Intercept</div>
+                            <div id="yIntercept">2</div>
+                        </div>
+                        <div class="property-card">
+                            <div class="property-title">End Behavior</div>
+                            <div id="endBehavior">Left: -∞, Right: +∞</div>
+                        </div>
+                        <div class="property-card">
+                            <div class="property-title">Turning Points</div>
+                            <div id="turningPoints">2</div>
+                        </div>
+                    </div>
+                    
+                    <div class="quiz-container">
+                        <div class="quiz-question">What is the end behavior of a cubic polynomial with a positive leading coefficient?</div>
+                        <div class="quiz-options">
+                            <div class="quiz-option" data-correct="false">Both ends point upward</div>
+                            <div class="quiz-option" data-correct="true">Left end down, right end up</div>
+                            <div class="quiz-option" data-correct="false">Both ends point downward</div>
+                            <div class="quiz-option" data-correct="false">Left end up, right end down</div>
+                        </div>
+                        <div class="feedback"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Theorems Section -->
+        <section id="theorems" class="content-section">
+            <h2 class="section-title">Polynomial Theorems</h2>
+            
+            <div class="theory-box">
+                <h3>Remainder Theorem</h3>
+                <p>If a polynomial P(x) is divided by (x - c), then the remainder is P(c).</p>
+                <div class="example-box">
+                    <p><strong>Example:</strong> For P(x) = x² - 3x + 2, divided by (x - 1), the remainder is P(1) = 1 - 3 + 2 = 0</p>
+                </div>
+            </div>
+            
+            <div class="interactive-controls">
+                <h3>Explore the Theorems</h3>
+                <div class="input-group">
+                    <div class="coefficient-input">
+                        <label>Coefficient of x²:</label>
+                        <input type="number" id="theorem_coeff2" value="1" step="0.1">
+                    </div>
+                    <div class="coefficient-input">
+                        <label>Coefficient of x:</label>
+                        <input type="number" id="theorem_coeff1" value="-3" step="0.1">
+                    </div>
+                    <div class="coefficient-input">
+                        <label>Constant term:</label>
+                        <input type="number" id="theorem_coeff0" value="2" step="0.1">
+                    </div>
+                    <div class="coefficient-input">
+                        <label>Test value (c):</label>
+                        <input type="number" id="testValue" value="1" step="0.1">
+                    </div>
+                    <button id="testTheorem">Test Theorem</button>
+                </div>
+            </div>
+            
+            <div class="math-display" id="theoremResult">
+                \( P(1) = (1)^2 - 3(1) + 2 = 0 \), so (x - 1) is a factor.
+            </div>
+            
+            <div class="visualization-container">
+                <div class="graph-container">
+                    <h3>Factor Theorem Visualization</h3>
+                    <canvas id="theoremGraph" width="400" height="300"></canvas>
+                </div>
+                
+                <div>
+                    <h3>Rational Root Theorem</h3>
+                    <p>If a polynomial has integer coefficients, then any rational root will be of the form p/q, where p is a factor of the constant term and q is a factor of the leading coefficient.</p>
+                    <div class="property-card">
+                        <div class="property-title">Possible Rational Roots</div>
+                        <div id="rationalRoots">±1, ±2</div>
+                    </div>
+                    
+                    <div class="step-container">
+                        <div class="step">
+                            <span class="step-number">1</span> Identify factors of constant term: 1, 2
+                        </div>
+                        <div class="step">
+                            <span class="step-number">2</span> Identify factors of leading coefficient: 1
+                        </div>
+                        <div class="step">
+                            <span class="step-number">3</span> Possible roots: ±1/1, ±2/1 = ±1, ±2
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+    
+    <footer>
+        <div class="container">
+            <p>Polynomial Explorer &copy; 2023 | Interactive Mathematics Learning Platform</p>
+        </div>
+    </footer>
+
+    <script>
+        // Tab switching functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and sections
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding section
+                tab.classList.add('active');
+                const targetId = tab.getAttribute('data-target');
+                document.getElementById(targetId).classList.add('active');
+                
+                // Update visualizations when switching tabs
+                if (targetId === 'fundamentals') updatePolynomial();
+                if (targetId === 'operations') updateOperations();
+                if (targetId === 'graphing') updateGraphing();
+                if (targetId === 'theorems') updateTheorems();
+            });
+        });
+
+        // Polynomial update functionality
+        document.getElementById('updatePolynomial').addEventListener('click', updatePolynomial);
+        document.getElementById('xRange').addEventListener('input', updatePolynomial);
+        
+        // Operations functionality
+        document.querySelectorAll('.operation-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.operation-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                updateOperations();
+            });
+        });
+        
+        // Add event listeners for operation polynomial inputs
+        ['poly1_x2', 'poly1_x', 'poly1_const', 'poly2_x2', 'poly2_x', 'poly2_const'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateOperations);
+        });
+        
+        // Graphing functionality
+        ['graph_coeff3', 'graph_coeff2', 'graph_coeff1', 'graph_coeff0'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateGraphing);
+        });
+        
+        ['showRoots', 'showTurningPoints', 'showEndBehavior'].forEach(id => {
+            document.getElementById(id).addEventListener('change', updateGraphing);
+        });
+        
+        // Theorems functionality
+        document.getElementById('testTheorem').addEventListener('click', updateTheorems);
+        ['theorem_coeff2', 'theorem_coeff1', 'theorem_coeff0', 'testValue'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateTheorems);
+        });
+        
+        // Quiz functionality
+        document.querySelectorAll('.quiz-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const isCorrect = this.getAttribute('data-correct') === 'true';
+                const feedback = this.parentElement.nextElementSibling;
+                
+                // Remove any existing classes
+                this.parentElement.querySelectorAll('.quiz-option').forEach(opt => {
+                    opt.classList.remove('correct', 'incorrect');
+                });
+                
+                // Mark the clicked option
+                this.classList.add(isCorrect ? 'correct' : 'incorrect');
+                
+                // Show feedback
+                feedback.textContent = isCorrect 
+                    ? 'Correct! Well done.' 
+                    : 'Incorrect. Try again.';
+                feedback.className = `feedback ${isCorrect ? 'correct' : 'incorrect'}`;
+                
+                // If correct, mark the correct answer if a wrong answer was selected
+                if (!isCorrect) {
+                    this.parentElement.querySelector('.quiz-option[data-correct="true"]').classList.add('correct');
+                }
+            });
+        });
+
+        function updatePolynomial() {
+            const coeff3 = parseFloat(document.getElementById('coeff3').value) || 0;
+            const coeff2 = parseFloat(document.getElementById('coeff2').value) || 0;
+            const coeff1 = parseFloat(document.getElementById('coeff1').value) || 0;
+            const coeff0 = parseFloat(document.getElementById('coeff0').value) || 0;
+            const xRange = parseInt(document.getElementById('xRange').value);
+            
+            // Update polynomial display
+            let polynomialText = 'P(x) = ';
+            if (coeff3 !== 0) polynomialText += `${formatTerm(coeff3, 3)} `;
+            if (coeff2 !== 0) polynomialText += `${formatTerm(coeff2, 2, coeff3 !== 0)} `;
+            if (coeff1 !== 0) polynomialText += `${formatTerm(coeff1, 1, coeff3 !== 0 || coeff2 !== 0)} `;
+            if (coeff0 !== 0) polynomialText += `${formatTerm(coeff0, 0, coeff3 !== 0 || coeff2 !== 0 || coeff1 !== 0)}`;
+            
+            if (polynomialText === 'P(x) = ') polynomialText = 'P(x) = 0';
+            
+            document.getElementById('polynomialDisplay').textContent = polynomialText;
+            
+            // Update properties
+            let degree = 0;
+            if (coeff3 !== 0) degree = 3;
+            else if (coeff2 !== 0) degree = 2;
+            else if (coeff1 !== 0) degree = 1;
+            
+            document.getElementById('degreeValue').textContent = degree;
+            
+            let leadingCoeff = 0;
+            if (coeff3 !== 0) leadingCoeff = coeff3;
+            else if (coeff2 !== 0) leadingCoeff = coeff2;
+            else if (coeff1 !== 0) leadingCoeff = coeff1;
+            else leadingCoeff = coeff0;
+            
+            document.getElementById('leadingCoeff').textContent = leadingCoeff;
+            
+            const types = ['Constant', 'Linear', 'Quadratic', 'Cubic', 'Quartic'];
+            document.getElementById('polynomialType').textContent = types[degree] || `Degree ${degree}`;
+            
+            document.getElementById('standardForm').textContent = polynomialText.replace('P(x) = ', '');
+            document.getElementById('xRangeValue').textContent = `-${xRange} to ${xRange}`;
+            
+            // Update graphs
+            updatePolynomialGraph(coeff3, coeff2, coeff1, coeff0, xRange);
+        }
+
+        function updateOperations() {
+            const operation = document.querySelector('.operation-btn.active').getAttribute('data-operation');
+            
+            // Get polynomial coefficients
+            const a1 = parseFloat(document.getElementById('poly1_x2').value) || 0;
+            const b1 = parseFloat(document.getElementById('poly1_x').value) || 0;
+            const c1 = parseFloat(document.getElementById('poly1_const').value) || 0;
+            
+            const a2 = parseFloat(document.getElementById('poly2_x2').value) || 0;
+            const b2 = parseFloat(document.getElementById('poly2_x').value) || 0;
+            const c2 = parseFloat(document.getElementById('poly2_const').value) || 0;
+            
+            // Calculate result based on operation
+            let resultA, resultB, resultC;
+            let operationSymbol = '';
+            
+            switch(operation) {
+                case 'add':
+                    resultA = a1 + a2;
+                    resultB = b1 + b2;
+                    resultC = c1 + c2;
+                    operationSymbol = '+';
+                    break;
+                case 'subtract':
+                    resultA = a1 - a2;
+                    resultB = b1 - b2;
+                    resultC = c1 - c2;
+                    operationSymbol = '-';
+                    break;
+                case 'multiply':
+                    // For simplicity, we'll only handle multiplication of quadratics with no x² in second polynomial
+                    resultA = a1 * c2 + b1 * b2 + c1 * a2;
+                    resultB = a1 * b2 + b1 * c2;
+                    resultC = c1 * c2;
+                    operationSymbol = '×';
+                    break;
+            }
+            
+            // Format polynomials for display
+            const poly1Text = formatPolynomial(a1, b1, c1);
+            const poly2Text = formatPolynomial(a2, b2, c2);
+            const resultText = formatPolynomial(resultA, resultB, resultC);
+            
+            // Update display
+            document.getElementById('operationResult').textContent = 
+                `(${poly1Text}) ${operationSymbol} (${poly2Text}) = ${resultText}`;
+            
+            // Update steps
+            updateOperationSteps(operation, a1, b1, c1, a2, b2, c2, resultA, resultB, resultC);
+            
+            // Update graph
+            updateOperationGraph(a1, b1, c1, a2, b2, c2, resultA, resultB, resultC, operation);
+        }
+
+        function updateGraphing() {
+            const a = parseFloat(document.getElementById('graph_coeff3').value) || 0;
+            const b = parseFloat(document.getElementById('graph_coeff2').value) || 0;
+            const c = parseFloat(document.getElementById('graph_coeff1').value) || 0;
+            const d = parseFloat(document.getElementById('graph_coeff0').value) || 0;
+            
+            const showRoots = document.getElementById('showRoots').checked;
+            const showTurningPoints = document.getElementById('showTurningPoints').checked;
+            const showEndBehavior = document.getElementById('showEndBehavior').checked;
+            
+            // Calculate roots (simplified for demo)
+            let roots = [];
+            if (a !== 0) {
+                // For cubic, we'd need a more complex calculation
+                // For demo, we'll use some example roots
+                roots = calculateCubicRoots(a, b, c, d);
+            } else if (b !== 0) {
+                // Quadratic formula
+                const discriminant = c*c - 4*b*d;
+                if (discriminant >= 0) {
+                    roots.push((-c + Math.sqrt(discriminant)) / (2*b));
+                    roots.push((-c - Math.sqrt(discriminant)) / (2*b));
+                }
+            } else if (c !== 0) {
+                // Linear
+                roots.push(-d/c);
+            }
+            
+            document.getElementById('rootsList').textContent = roots.length > 0 
+                ? roots.map(r => r.toFixed(2)).join(', ') 
+                : 'No real roots';
+            
+            document.getElementById('yIntercept').textContent = d;
+            
+            // Determine end behavior
+            let endBehavior = '';
+            if (a !== 0) {
+                endBehavior = a > 0 ? 'Left: -∞, Right: +∞' : 'Left: +∞, Right: -∞';
+            } else if (b !== 0) {
+                endBehavior = b > 0 ? 'Both ends: +∞' : 'Both ends: -∞';
+            }
+            document.getElementById('endBehavior').textContent = endBehavior;
+            
+            // Estimate turning points (for demo)
+            const turningPoints = a !== 0 ? 2 : (b !== 0 ? 1 : 0);
+            document.getElementById('turningPoints').textContent = turningPoints;
+            
+            // Update graph
+            updateGraphingVisualization(a, b, c, d, showRoots, showTurningPoints, showEndBehavior);
+        }
+
+        function updateTheorems() {
+            const a = parseFloat(document.getElementById('theorem_coeff2').value) || 0;
+            const b = parseFloat(document.getElementById('theorem_coeff1').value) || 0;
+            const cVal = parseFloat(document.getElementById('theorem_coeff0').value) || 0;
+            const testVal = parseFloat(document.getElementById('testValue').value) || 0;
+            
+            // Calculate P(testVal)
+            const result = a * testVal * testVal + b * testVal + cVal;
+            
+            // Update theorem result display
+            document.getElementById('theoremResult').textContent = 
+                `P(${testVal}) = ${a}(${testVal})² + ${b}(${testVal}) + ${cVal} = ${result.toFixed(2)}`;
+            
+            if (Math.abs(result) < 0.001) {
+                document.getElementById('theoremResult').textContent += `, so (x - ${testVal}) is a factor.`;
+            } else {
+                document.getElementById('theoremResult').textContent += `, so (x - ${testVal}) is not a factor.`;
+            }
+            
+            // Update rational roots
+            updateRationalRoots(a, cVal);
+            
+            // Update graph
+            updateTheoremGraph(a, b, cVal, testVal, result);
+        }
+
+        function formatTerm(coeff, power, hasPrevious = false) {
+            let sign = '';
+            if (hasPrevious) {
+                sign = coeff >= 0 ? '+ ' : '- ';
+            } else if (coeff < 0) {
+                sign = '-';
+            }
+            
+            const absCoeff = Math.abs(coeff);
+            
+            if (power === 0) {
+                return `${sign}${absCoeff}`;
+            }
+            
+            let coeffPart = '';
+            if (absCoeff !== 1) {
+                coeffPart = absCoeff;
+            }
+            
+            let powerPart = '';
+            if (power === 1) {
+                powerPart = 'x';
+            } else {
+                powerPart = `x^${power}`;
+            }
+            
+            return `${sign}${coeffPart}${powerPart}`;
+        }
+
+        function formatPolynomial(a, b, c) {
+            let result = '';
+            if (a !== 0) result += `${formatTerm(a, 2)} `;
+            if (b !== 0) result += `${formatTerm(b, 1, a !== 0)} `;
+            if (c !== 0) result += `${formatTerm(c, 0, a !== 0 || b !== 0)}`;
+            
+            if (result === '') result = '0';
+            return result;
+        }
+
+        function updateOperationSteps(operation, a1, b1, c1, a2, b2, c2, ra, rb, rc) {
+            const container = document.getElementById('stepsContainer');
+            container.innerHTML = '';
+            
+            let steps = [];
+            
+            switch(operation) {
+                case 'add':
+                    steps = [
+                        `Write both polynomials: (${formatPolynomial(a1, b1, c1)}) + (${formatPolynomial(a2, b2, c2)})`,
+                        `Combine like terms: ${a1 !== 0 || a2 !== 0 ? `${a1 + a2}x² ` : ''}${b1 !== 0 || b2 !== 0 ? `${formatTerm(b1 + b2, 1, a1 !== 0 || a2 !== 0)} ` : ''}${c1 !== 0 || c2 !== 0 ? formatTerm(c1 + c2, 0, a1 !== 0 || a2 !== 0 || b1 !== 0 || b2 !== 0) : ''}`,
+                        `Simplify: ${formatPolynomial(ra, rb, rc)}`
+                    ];
+                    break;
+                case 'subtract':
+                    steps = [
+                        `Write both polynomials: (${formatPolynomial(a1, b1, c1)}) - (${formatPolynomial(a2, b2, c2)})`,
+                        `Distribute the negative: (${formatPolynomial(a1, b1, c1)}) + (${formatPolynomial(-a2, -b2, -c2)})`,
+                        `Combine like terms: ${formatPolynomial(ra, rb, rc)}`
+                    ];
+                    break;
+                case 'multiply':
+                    steps = [
+                        `Write both polynomials: (${formatPolynomial(a1, b1, c1)}) × (${formatPolynomial(a2, b2, c2)})`,
+                        `Apply distributive property`,
+                        `Simplify: ${formatPolynomial(ra, rb, rc)}`
+                    ];
+                    break;
+            }
+            
+            steps.forEach((step, index) => {
+                const stepEl = document.createElement('div');
+                stepEl.className = 'step';
+                stepEl.innerHTML = `<span class="step-number">${index + 1}</span> ${step}`;
+                container.appendChild(stepEl);
+            });
+        }
+
+        function calculateCubicRoots(a, b, c, d) {
+            // Simplified root calculation for demo purposes
+            // In a real application, you would implement a proper cubic root finder
+            const roots = [];
+            
+            // Try some integer values
+            for (let x = -5; x <= 5; x++) {
+                const value = a*x*x*x + b*x*x + c*x + d;
+                if (Math.abs(value) < 0.1) {
+                    roots.push(x);
+                    if (roots.length >= 3) break;
+                }
+            }
+            
+            return roots;
+        }
+
+        function updateRationalRoots(leadingCoeff, constantTerm) {
+            if (leadingCoeff === 0 || constantTerm === 0) {
+                document.getElementById('rationalRoots').textContent = 'N/A';
+                return;
+            }
+            
+            // Find factors of constant term
+            const constantFactors = [];
+            const absConstant = Math.abs(constantTerm);
+            for (let i = 1; i <= absConstant; i++) {
+                if (absConstant % i === 0) {
+                    constantFactors.push(i);
+                    constantFactors.push(-i);
+                }
+            }
+            
+            // Find factors of leading coefficient
+            const leadingFactors = [];
+            const absLeading = Math.abs(leadingCoeff);
+            for (let i = 1; i <= absLeading; i++) {
+                if (absLeading % i === 0) {
+                    leadingFactors.push(i);
+                    leadingFactors.push(-i);
+                }
+            }
+            
+            // Generate possible rational roots
+            const possibleRoots = new Set();
+            for (const p of constantFactors) {
+                for (const q of leadingFactors) {
+                    possibleRoots.add(p / q);
+                }
+            }
+            
+            // Convert to sorted array and format
+            const rootsArray = Array.from(possibleRoots).sort((a, b) => a - b);
+            document.getElementById('rationalRoots').textContent = rootsArray.join(', ');
+        }
+
+        // Graph update functions (simplified for this example)
+        function updatePolynomialGraph(a, b, c, d, range) {
+            const ctx = document.getElementById('polynomialGraph').getContext('2d');
+            
+            // Clear previous chart if exists
+            if (window.polynomialChart) {
+                window.polynomialChart.destroy();
+            }
+            
+            // Generate data points
+            const data = [];
+            for (let x = -range; x <= range; x += 0.1) {
+                const y = a * Math.pow(x, 3) + b * Math.pow(x, 2) + c * x + d;
+                data.push({x, y});
+            }
+            
+            window.polynomialChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Polynomial',
+                        data: data,
+                        borderColor: '#4361ee',
+                        backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'x'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'P(x)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    onClick: (e) => {
+                        const canvasPosition = Chart.helpers.getRelativePosition(e, window.polynomialChart);
+                        const dataX = window.polynomialChart.scales.x.getValueForPixel(canvasPosition.x);
+                        const dataY = a * Math.pow(dataX, 3) + b * Math.pow(dataX, 2) + c * dataX + d;
+                        
+                        const pointInfo = document.getElementById('graphPointInfo');
+                        pointInfo.innerHTML = `x = ${dataX.toFixed(2)}<br>y = ${dataY.toFixed(2)}`;
+                        pointInfo.style.opacity = '1';
+                        pointInfo.style.left = e.offsetX + 'px';
+                        pointInfo.style.top = e.offsetY + 'px';
+                        
+                        setTimeout(() => {
+                            pointInfo.style.opacity = '0';
+                        }, 3000);
+                    }
+                }
+            });
+        }
+
+        function updateOperationGraph(a1, b1, c1, a2, b2, c2, ra, rb, rc, operation) {
+            const ctx = document.getElementById('operationGraph').getContext('2d');
+            
+            if (window.operationChart) {
+                window.operationChart.destroy();
+            }
+            
+            // Generate data points for all three polynomials
+            const data1 = [];
+            const data2 = [];
+            const dataResult = [];
+            
+            for (let x = -5; x <= 5; x += 0.1) {
+                const y1 = a1 * x * x + b1 * x + c1;
+                const y2 = a2 * x * x + b2 * x + c2;
+                
+                let yResult;
+                switch(operation) {
+                    case 'add': yResult = y1 + y2; break;
+                    case 'subtract': yResult = y1 - y2; break;
+                    case 'multiply': yResult = y1 * y2; break;
+                }
+                
+                data1.push({x, y: y1});
+                data2.push({x, y: y2});
+                dataResult.push({x, y: yResult});
+            }
+            
+            window.operationChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Polynomial 1',
+                            data: data1,
+                            borderColor: '#4361ee',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Polynomial 2',
+                            data: data2,
+                            borderColor: '#f72585',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Result',
+                            data: dataResult,
+                            borderColor: '#4cc9f0',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom'
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'P(x)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateGraphingVisualization(a, b, c, d, showRoots, showTurningPoints, showEndBehavior) {
+            const ctx = document.getElementById('graphingCanvas').getContext('2d');
+            
+            if (window.graphingChart) {
+                window.graphingChart.destroy();
+            }
+            
+            const data = [];
+            for (let x = -5; x <= 5; x += 0.1) {
+                const y = a * Math.pow(x, 3) + b * Math.pow(x, 2) + c * x + d;
+                data.push({x, y});
+            }
+            
+            // Calculate roots for annotation
+            const roots = calculateCubicRoots(a, b, c, d);
+            
+            window.graphingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Polynomial',
+                        data: data,
+                        borderColor: '#4361ee',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom'
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'P(x)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {}
+                        }
+                    }
+                }
+            });
+            
+            // Add annotations for roots if requested
+            if (showRoots && roots.length > 0) {
+                roots.forEach((root, index) => {
+                    window.graphingChart.options.plugins.annotation.annotations[`root${index}`] = {
+                        type: 'point',
+                        xValue: root,
+                        yValue: 0,
+                        backgroundColor: 'rgba(255, 0, 0, 0.5)',
+                        radius: 5,
+                        label: {
+                            enabled: true,
+                            content: `Root: ${root.toFixed(2)}`,
+                            position: 'top'
+                        }
+                    };
+                });
+                window.graphingChart.update();
+            }
+        }
+
+        function updateTheoremGraph(a, b, c, testVal, result) {
+            const ctx = document.getElementById('theoremGraph').getContext('2d');
+            
+            if (window.theoremChart) {
+                window.theoremChart.destroy();
+            }
+            
+            const data = [];
+            for (let x = -3; x <= 3; x += 0.1) {
+                const y = a * x * x + b * x + c;
+                data.push({x, y});
+            }
+            
+            window.theoremChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Polynomial',
+                        data: data,
+                        borderColor: '#4361ee',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom'
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'P(x)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                testPoint: {
+                                    type: 'point',
+                                    xValue: testVal,
+                                    yValue: result,
+                                    backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                                    radius: 6
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePolynomial();
+            updateOperations();
+            updateGraphing();
+            updateTheorems();
+            
+            // Render MathJax after updating polynomial display
+            if (window.MathJax) {
+                MathJax.typeset();
+            }
+        });
+    </script>
+</body>
+</html>
