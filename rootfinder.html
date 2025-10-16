@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadratic Simulator: The Root Finder</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --accent: #f72585;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --warning: #f8961e;
+            --danger: #e63946;
+            --discriminant-positive: #4ade80;
+            --discriminant-zero: #fbbf24;
+            --discriminant-negative: #f87171;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: var(--light);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 1100px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .graph-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .graph-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            text-align: center;
+            color: var(--success);
+        }
+        
+        #graph-canvas {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            width: 100%;
+            height: 500px;
+            cursor: grab;
+        }
+        
+        #graph-canvas:active {
+            cursor: grabbing;
+        }
+        
+        .controls-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .equation-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 1.8rem;
+            font-family: 'Cambria Math', serif;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 15px rgba(67, 97, 238, 0.3);
+        }
+        
+        .parameter {
+            margin-bottom: 25px;
+        }
+        
+        .parameter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .parameter-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .parameter-value {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-family: monospace;
+            border: 1px solid var(--primary);
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        #a-slider::-webkit-slider-thumb {
+            background: var(--accent);
+            border: 2px solid white;
+        }
+        
+        #b-slider::-webkit-slider-thumb {
+            background: var(--success);
+            border: 2px solid white;
+        }
+        
+        #c-slider::-webkit-slider-thumb {
+            background: var(--warning);
+            border: 2px solid white;
+        }
+        
+        .discriminant-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .discriminant-positive {
+            border-color: var(--discriminant-positive);
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.3);
+        }
+        
+        .discriminant-zero {
+            border-color: var(--discriminant-zero);
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
+        }
+        
+        .discriminant-negative {
+            border-color: var(--discriminant-negative);
+            box-shadow: 0 0 15px rgba(248, 113, 113, 0.3);
+        }
+        
+        .discriminant-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .discriminant-value {
+            font-size: 1.5rem;
+            text-align: center;
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+        
+        .discriminant-interpretation {
+            text-align: center;
+            font-weight: 500;
+            padding: 8px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        .method-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        .method-button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .method-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .method-button.active {
+            background: var(--primary);
+            box-shadow: 0 0 10px rgba(67, 97, 238, 0.5);
+        }
+        
+        .solution-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-height: 200px;
+        }
+        
+        .solution-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: var(--success);
+            text-align: center;
+        }
+        
+        .solution-content {
+            font-family: 'Cambria Math', serif;
+            line-height: 1.6;
+            font-size: 1.1rem;
+        }
+        
+        .solution-step {
+            margin-bottom: 10px;
+            padding-left: 10px;
+            border-left: 2px solid var(--primary);
+        }
+        
+        .roots-panel {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .root {
+            text-align: center;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            flex: 1;
+            margin: 0 5px;
+        }
+        
+        .root-value {
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            text-align: center;
+        }
+        
+        .form-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .form-button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .form-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .form-button.active {
+            background: var(--primary);
+            box-shadow: 0 0 10px rgba(67, 97, 238, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Quadratic Simulator: The Root Finder</h1>
+            <p class="subtitle">Discover the roots of quadratic functions using different methods</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="graph-container">
+                <h2 class="graph-title">Quadratic Function & Roots</h2>
+                <canvas id="graph-canvas"></canvas>
+                <div class="instructions">
+                    <p>Drag to pan the graph. Roots are shown where the parabola crosses the x-axis.</p>
+                </div>
+            </div>
+            
+            <div class="controls-container">
+                <div class="equation-display">
+                    y = <span id="a-value">1</span>x² + <span id="b-value">0</span>x + <span id="c-value">0</span>
+                </div>
+                
+                <div class="parameter">
+                    <div class="parameter-header">
+                        <div class="parameter-title">Parameter a</div>
+                        <div class="parameter-value" id="a-display">1.00</div>
+                    </div>
+                    <div class="slider-container">
+                        <span>-5</span>
+                        <input type="range" min="-5" max="5" step="0.1" value="1" class="slider" id="a-slider">
+                        <span>5</span>
+                    </div>
+                </div>
+                
+                <div class="parameter">
+                    <div class="parameter-header">
+                        <div class="parameter-title">Parameter b</div>
+                        <div class="parameter-value" id="b-display">0.00</div>
+                    </div>
+                    <div class="slider-container">
+                        <span>-5</span>
+                        <input type="range" min="-5" max="5" step="0.1" value="0" class="slider" id="b-slider">
+                        <span>5</span>
+                    </div>
+                </div>
+                
+                <div class="parameter">
+                    <div class="parameter-header">
+                        <div class="parameter-title">Parameter c</div>
+                        <div class="parameter-value" id="c-display">0.00</div>
+                    </div>
+                    <div class="slider-container">
+                        <span>-5</span>
+                        <input type="range" min="-5" max="5" step="0.1" value="0" class="slider" id="c-slider">
+                        <span>5</span>
+                    </div>
+                </div>
+                
+                <div class="discriminant-panel" id="discriminant-panel">
+                    <h3 class="discriminant-title">Discriminant</h3>
+                    <div class="discriminant-value">D = b² - 4ac = <span id="discriminant-value">0.00</span></div>
+                    <div class="discriminant-interpretation" id="discriminant-interpretation">One Repeated Real Root</div>
+                </div>
+                
+                <div class="method-selector">
+                    <button class="method-button active" id="factoring-btn">Factoring</button>
+                    <button class="method-button" id="quadratic-formula-btn">Quadratic Formula</button>
+                    <button class="method-button" id="completing-square-btn">Completing the Square</button>
+                </div>
+                
+                <div class="solution-panel">
+                    <h3 class="solution-title" id="solution-title">Solution by Factoring</h3>
+                    <div class="solution-content" id="solution-content">
+                        <div class="solution-step">The equation is already in factored form: x(x) = 0</div>
+                        <div class="solution-step">Set each factor equal to zero:</div>
+                        <div class="solution-step">x = 0 or x = 0</div>
+                    </div>
+                    <div class="roots-panel">
+                        <div class="root">
+                            <div>Root 1</div>
+                            <div class="root-value" id="root1-value">0.00</div>
+                        </div>
+                        <div class="root">
+                            <div>Root 2</div>
+                            <div class="root-value" id="root2-value">0.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const canvas = document.getElementById('graph-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Parameter displays
+        const aValue = document.getElementById('a-value');
+        const bValue = document.getElementById('b-value');
+        const cValue = document.getElementById('c-value');
+        
+        // Sliders
+        const aSlider = document.getElementById('a-slider');
+        const bSlider = document.getElementById('b-slider');
+        const cSlider = document.getElementById('c-slider');
+        
+        // Value displays
+        const aDisplay = document.getElementById('a-display');
+        const bDisplay = document.getElementById('b-display');
+        const cDisplay = document.getElementById('c-display');
+        
+        // Discriminant elements
+        const discriminantPanel = document.getElementById('discriminant-panel');
+        const discriminantValue = document.getElementById('discriminant-value');
+        const discriminantInterpretation = document.getElementById('discriminant-interpretation');
+        
+        // Method buttons
+        const factoringBtn = document.getElementById('factoring-btn');
+        const quadraticFormulaBtn = document.getElementById('quadratic-formula-btn');
+        const completingSquareBtn = document.getElementById('completing-square-btn');
+        
+        // Solution elements
+        const solutionTitle = document.getElementById('solution-title');
+        const solutionContent = document.getElementById('solution-content');
+        const root1Value = document.getElementById('root1-value');
+        const root2Value = document.getElementById('root2-value');
+        
+        // Set canvas dimensions
+        function setCanvasSize() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        
+        // Initialize parameters
+        let a = 1;
+        let b = 0;
+        let c = 0;
+        
+        // Canvas transformation variables
+        let scale = 40;
+        let offsetX = canvas.width / 2;
+        let offsetY = canvas.height / 2;
+        
+        // Dragging state
+        let isPanning = false;
+        let lastPanX, lastPanY;
+        
+        // Initialize
+        setCanvasSize();
+        window.addEventListener('resize', setCanvasSize);
+        
+        // Convert math coordinates to canvas coordinates
+        function toCanvasX(x) {
+            return offsetX + x * scale;
+        }
+        
+        function toCanvasY(y) {
+            return offsetY - y * scale;
+        }
+        
+        // Convert canvas coordinates to math coordinates
+        function toMathX(canvasX) {
+            return (canvasX - offsetX) / scale;
+        }
+        
+        function toMathY(canvasY) {
+            return (offsetY - canvasY) / scale;
+        }
+        
+        // Draw the coordinate grid
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid background
+            ctx.fillStyle = 'rgba(10, 15, 30, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Calculate visible range
+            const minX = toMathX(0);
+            const maxX = toMathX(canvas.width);
+            const minY = toMathY(canvas.height);
+            const maxY = toMathY(0);
+            
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = Math.ceil(minX); x <= Math.floor(maxX); x++) {
+                ctx.beginPath();
+                ctx.moveTo(toCanvasX(x), 0);
+                ctx.lineTo(toCanvasX(x), canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
+                ctx.beginPath();
+                ctx.moveTo(0, toCanvasY(y));
+                ctx.lineTo(canvas.width, toCanvasY(y));
+                ctx.stroke();
+            }
+            
+            // Draw axes
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 2;
+            
+            // Y-axis
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(0), 0);
+            ctx.lineTo(toCanvasX(0), canvas.height);
+            ctx.stroke();
+            
+            // X-axis
+            ctx.beginPath();
+            ctx.moveTo(0, toCanvasY(0));
+            ctx.lineTo(canvas.width, toCanvasY(0));
+            ctx.stroke();
+            
+            // Draw axis labels
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // X-axis labels
+            for (let x = Math.ceil(minX); x <= Math.floor(maxX); x++) {
+                if (x !== 0) {
+                    ctx.fillText(x, toCanvasX(x), toCanvasY(0) + 15);
+                }
+            }
+            
+            // Y-axis labels
+            for (let y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
+                if (y !== 0) {
+                    ctx.fillText(y, toCanvasX(0) - 15, toCanvasY(y));
+                }
+            }
+            
+            // Origin label
+            ctx.fillText('0', toCanvasX(0) - 10, toCanvasY(0) + 15);
+        }
+        
+        // Calculate the roots using the quadratic formula
+        function calculateRoots() {
+            const discriminant = b * b - 4 * a * c;
+            
+            if (discriminant > 0) {
+                const root1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+                const root2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+                return { root1, root2, discriminant, type: 'two-real' };
+            } else if (discriminant === 0) {
+                const root = -b / (2 * a);
+                return { root1: root, root2: root, discriminant, type: 'one-real' };
+            } else {
+                const realPart = -b / (2 * a);
+                const imaginaryPart = Math.sqrt(-discriminant) / (2 * a);
+                return { 
+                    root1: realPart + imaginaryPart, 
+                    root2: realPart - imaginaryPart, 
+                    discriminant, 
+                    type: 'complex' 
+                };
+            }
+        }
+        
+        // Draw the parabola and roots
+        function drawParabola() {
+            // Calculate visible range
+            const minX = toMathX(0);
+            const maxX = toMathX(canvas.width);
+            
+            // Draw the parabola
+            ctx.strokeStyle = '#4361ee';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            
+            let firstPoint = true;
+            const step = (maxX - minX) / 200;
+            
+            for (let x = minX; x <= maxX; x += step) {
+                const y = a * x * x + b * x + c;
+                const canvasX = toCanvasX(x);
+                const canvasY = toCanvasY(y);
+                
+                if (firstPoint) {
+                    ctx.moveTo(canvasX, canvasY);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(canvasX, canvasY);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Calculate and draw roots
+            const roots = calculateRoots();
+            
+            // Draw x-intercepts for real roots
+            if (roots.type === 'two-real' || roots.type === 'one-real') {
+                ctx.fillStyle = '#e63946';
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                
+                // Draw first root
+                if (roots.root1 >= minX && roots.root1 <= maxX) {
+                    const rootCanvasX = toCanvasX(roots.root1);
+                    const rootCanvasY = toCanvasY(0);
+                    
+                    ctx.beginPath();
+                    ctx.arc(rootCanvasX, rootCanvasY, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // Draw vertical line to x-axis
+                    ctx.strokeStyle = 'rgba(230, 57, 70, 0.5)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(rootCanvasX, 0);
+                    ctx.lineTo(rootCanvasX, canvas.height);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                
+                // Draw second root (if different from first)
+                if (roots.type === 'two-real' && roots.root2 >= minX && roots.root2 <= maxX) {
+                    const rootCanvasX = toCanvasX(roots.root2);
+                    const rootCanvasY = toCanvasY(0);
+                    
+                    ctx.fillStyle = '#e63946';
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    
+                    ctx.beginPath();
+                    ctx.arc(rootCanvasX, rootCanvasY, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // Draw vertical line to x-axis
+                    ctx.strokeStyle = 'rgba(230, 57, 70, 0.5)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(rootCanvasX, 0);
+                    ctx.lineTo(rootCanvasX, canvas.height);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+            
+            // Draw vertex
+            const vertexX = -b / (2 * a);
+            const vertexY = a * vertexX * vertexX + b * vertexX + c;
+            
+            if (vertexX >= minX && vertexX <= maxX && vertexY >= minY && vertexY <= maxY) {
+                const vertexCanvasX = toCanvasX(vertexX);
+                const vertexCanvasY = toCanvasY(vertexY);
+                
+                ctx.fillStyle = '#4cc9f0';
+                ctx.beginPath();
+                ctx.arc(vertexCanvasX, vertexCanvasY, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+        
+        // Update the equation display
+        function updateEquation() {
+            aValue.textContent = formatNumber(a);
+            bValue.textContent = formatNumber(b);
+            cValue.textContent = formatNumber(c);
+        }
+        
+        // Format numbers for display
+        function formatNumber(num) {
+            if (num === 0) return '0';
+            
+            // Format to 2 decimal places, but remove trailing zeros
+            let formatted = num.toFixed(2);
+            if (formatted.endsWith('.00')) {
+                return formatted.slice(0, -3);
+            } else if (formatted.endsWith('0')) {
+                return formatted.slice(0, -1);
+            }
+            return formatted;
+        }
+        
+        // Format complex numbers for display
+        function formatComplex(real, imaginary) {
+            if (imaginary === 0) return formatNumber(real);
+            if (real === 0) return `${formatNumber(imaginary)}i`;
+            
+            const sign = imaginary > 0 ? '+' : '';
+            return `${formatNumber(real)} ${sign} ${formatNumber(Math.abs(imaginary))}i`;
+        }
+        
+        // Update the discriminant display
+        function updateDiscriminant() {
+            const discriminant = b * b - 4 * a * c;
+            discriminantValue.textContent = formatNumber(discriminant);
+            
+            // Update panel styling based on discriminant value
+            if (discriminant > 0) {
+                discriminantPanel.className = 'discriminant-panel discriminant-positive';
+                discriminantInterpretation.textContent = 'Two Distinct Real Roots';
+                discriminantInterpretation.style.background = 'rgba(74, 222, 128, 0.2)';
+            } else if (discriminant === 0) {
+                discriminantPanel.className = 'discriminant-panel discriminant-zero';
+                discriminantInterpretation.textContent = 'One Repeated Real Root';
+                discriminantInterpretation.style.background = 'rgba(251, 191, 36, 0.2)';
+            } else {
+                discriminantPanel.className = 'discriminant-panel discriminant-negative';
+                discriminantInterpretation.textContent = 'No Real Roots (Two Complex Roots)';
+                discriminantInterpretation.style.background = 'rgba(248, 113, 113, 0.2)';
+            }
+        }
+        
+        // Update the solution display based on selected method
+        function updateSolution() {
+            const roots = calculateRoots();
+            
+            // Update root displays
+            if (roots.type === 'two-real' || roots.type === 'one-real') {
+                root1Value.textContent = formatNumber(roots.root1);
+                root2Value.textContent = formatNumber(roots.root2);
+            } else {
+                // Complex roots
+                const realPart = -b / (2 * a);
+                const imaginaryPart = Math.sqrt(-roots.discriminant) / (2 * a);
+                root1Value.textContent = formatComplex(realPart, imaginaryPart);
+                root2Value.textContent = formatComplex(realPart, -imaginaryPart);
+            }
+            
+            // Update solution content based on selected method
+            if (factoringBtn.classList.contains('active')) {
+                updateFactoringSolution(roots);
+            } else if (quadraticFormulaBtn.classList.contains('active')) {
+                updateQuadraticFormulaSolution(roots);
+            } else if (completingSquareBtn.classList.contains('active')) {
+                updateCompletingSquareSolution(roots);
+            }
+        }
+        
+        // Update the factoring solution
+        function updateFactoringSolution(roots) {
+            solutionTitle.textContent = 'Solution by Factoring';
+            
+            let content = '';
+            
+            // Try to find integer factors
+            const possibleFactors = findFactors();
+            
+            if (possibleFactors.factorable) {
+                content += `
+                    <div class="solution-step">The quadratic can be factored as: ${possibleFactors.factoredForm}</div>
+                    <div class="solution-step">Set each factor equal to zero:</div>
+                    <div class="solution-step">${possibleFactors.equation1} or ${possibleFactors.equation2}</div>
+                `;
+                
+                if (roots.type === 'two-real' || roots.type === 'one-real') {
+                    content += `<div class="solution-step">Solving gives: x = ${formatNumber(roots.root1)} and x = ${formatNumber(roots.root2)}</div>`;
+                }
+            } else {
+                content += `
+                    <div class="solution-step">This quadratic cannot be easily factored with integer coefficients.</div>
+                    <div class="solution-step">Try using the Quadratic Formula or Completing the Square methods.</div>
+                `;
+            }
+            
+            solutionContent.innerHTML = content;
+        }
+        
+        // Find factors for the quadratic (simplified version)
+        function findFactors() {
+            // For simplicity, we'll only handle cases with rational roots
+            // In a full implementation, this would be more sophisticated
+            
+            if (a === 0) return { factorable: false };
+            
+            const discriminant = b * b - 4 * a * c;
+            
+            // Check if roots are rational
+            if (discriminant >= 0) {
+                const root1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+                const root2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+                
+                // Check if roots are integers (for simplicity)
+                if (Number.isInteger(root1) && Number.isInteger(root2)) {
+                    let factor1 = root1 === 0 ? 'x' : `(x - ${root1})`;
+                    let factor2 = root2 === 0 ? 'x' : `(x - ${root2})`;
+                    
+                    // Adjust for negative roots
+                    if (root1 > 0) factor1 = `(x - ${root1})`;
+                    if (root1 < 0) factor1 = `(x + ${Math.abs(root1)})`;
+                    
+                    if (root2 > 0) factor2 = `(x - ${root2})`;
+                    if (root2 < 0) factor2 = `(x + ${Math.abs(root2)})`;
+                    
+                    return {
+                        factorable: true,
+                        factoredForm: `${a !== 1 ? a : ''}${factor1}${factor2}`,
+                        equation1: `${factor1.replace('(', '').replace(')', '')} = 0`,
+                        equation2: `${factor2.replace('(', '').replace(')', '')} = 0`
+                    };
+                }
+            }
+            
+            return { factorable: false };
+        }
+        
+        // Update the quadratic formula solution
+        function updateQuadraticFormulaSolution(roots) {
+            solutionTitle.textContent = 'Solution by Quadratic Formula';
+            
+            let content = '';
+            const discriminant = b * b - 4 * a * c;
+            
+            content += `
+                <div class="solution-step">The quadratic formula is: x = [-b ± √(b² - 4ac)] / 2a</div>
+                <div class="solution-step">Substitute a = ${formatNumber(a)}, b = ${formatNumber(b)}, c = ${formatNumber(c)}:</div>
+                <div class="solution-step">x = [ -(${formatNumber(b)}) ± √((${formatNumber(b)})² - 4·${formatNumber(a)}·${formatNumber(c)}) ] / 2·${formatNumber(a)}</div>
+                <div class="solution-step">x = [ ${formatNumber(-b)} ± √(${formatNumber(b*b)} - ${formatNumber(4*a*c)}) ] / ${formatNumber(2*a)}</div>
+                <div class="solution-step">x = [ ${formatNumber(-b)} ± √(${formatNumber(discriminant)}) ] / ${formatNumber(2*a)}</div>
+            `;
+            
+            if (discriminant > 0) {
+                content += `
+                    <div class="solution-step">x = [ ${formatNumber(-b)} ± ${formatNumber(Math.sqrt(discriminant))} ] / ${formatNumber(2*a)}</div>
+                    <div class="solution-step">So the two solutions are:</div>
+                    <div class="solution-step">x = [ ${formatNumber(-b)} + ${formatNumber(Math.sqrt(discriminant))} ] / ${formatNumber(2*a)} = ${formatNumber(roots.root1)}</div>
+                    <div class="solution-step">x = [ ${formatNumber(-b)} - ${formatNumber(Math.sqrt(discriminant))} ] / ${formatNumber(2*a)} = ${formatNumber(roots.root2)}</div>
+                `;
+            } else if (discriminant === 0) {
+                content += `
+                    <div class="solution-step">x = [ ${formatNumber(-b)} ± 0 ] / ${formatNumber(2*a)}</div>
+                    <div class="solution-step">So the solution is: x = ${formatNumber(roots.root1)}</div>
+                `;
+            } else {
+                content += `
+                    <div class="solution-step">Since the discriminant is negative, we have complex roots:</div>
+                    <div class="solution-step">x = [ ${formatNumber(-b)} ± √(${formatNumber(discriminant)}) ] / ${formatNumber(2*a)}</div>
+                    <div class="solution-step">x = [ ${formatNumber(-b)} ± ${formatNumber(Math.sqrt(-discriminant))}i ] / ${formatNumber(2*a)}</div>
+                    <div class="solution-step">So the two solutions are:</div>
+                    <div class="solution-step">x = ${formatComplex(roots.root1, 0)}</div>
+                    <div class="solution-step">x = ${formatComplex(roots.root2, 0)}</div>
+                `;
+            }
+            
+            solutionContent.innerHTML = content;
+        }
+        
+        // Update the completing the square solution
+        function updateCompletingSquareSolution(roots) {
+            solutionTitle.textContent = 'Solution by Completing the Square';
+            
+            let content = '';
+            
+            content += `
+                <div class="solution-step">Start with: ${a}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0</div>
+            `;
+            
+            if (a !== 1) {
+                content += `
+                    <div class="solution-step">Divide through by ${formatNumber(a)}: x² + ${formatNumber(b/a)}x + ${formatNumber(c/a)} = 0</div>
+                `;
+            }
+            
+            content += `
+                <div class="solution-step">Move constant term to right: x² + ${formatNumber(b/a)}x = ${formatNumber(-c/a)}</div>
+                <div class="solution-step">Add (${formatNumber(b/(2*a))})² = ${formatNumber(Math.pow(b/(2*a), 2))} to both sides:</div>
+                <div class="solution-step">x² + ${formatNumber(b/a)}x + ${formatNumber(Math.pow(b/(2*a), 2))} = ${formatNumber(-c/a)} + ${formatNumber(Math.pow(b/(2*a), 2))}</div>
+                <div class="solution-step">Left side is now a perfect square: (x + ${formatNumber(b/(2*a))})² = ${formatNumber(Math.pow(b/(2*a), 2) - c/a)}</div>
+                <div class="solution-step">Take square root of both sides: x + ${formatNumber(b/(2*a))} = ±√(${formatNumber(Math.pow(b/(2*a), 2) - c/a)})</div>
+                <div class="solution-step">Solve for x: x = ${formatNumber(-b/(2*a))} ± ${formatNumber(Math.sqrt(Math.abs(Math.pow(b/(2*a), 2) - c/a)))}${Math.pow(b/(2*a), 2) - c/a < 0 ? 'i' : ''}</div>
+            `;
+            
+            if (roots.type === 'two-real' || roots.type === 'one-real') {
+                content += `
+                    <div class="solution-step">So the solutions are: x = ${formatNumber(roots.root1)} and x = ${formatNumber(roots.root2)}</div>
+                `;
+            } else {
+                content += `
+                    <div class="solution-step">So the complex solutions are: x = ${formatComplex(roots.root1, 0)} and x = ${formatComplex(roots.root2, 0)}</div>
+                `;
+            }
+            
+            solutionContent.innerHTML = content;
+        }
+        
+        // Handle mouse down event
+        function handleMouseDown(e) {
+            isPanning = true;
+            lastPanX = e.clientX;
+            lastPanY = e.clientY;
+            canvas.style.cursor = 'grabbing';
+        }
+        
+        // Handle mouse move event
+        function handleMouseMove(e) {
+            if (isPanning) {
+                // Pan the graph
+                const dx = e.clientX - lastPanX;
+                const dy = e.clientY - lastPanY;
+                
+                offsetX += dx;
+                offsetY += dy;
+                
+                lastPanX = e.clientX;
+                lastPanY = e.clientY;
+                
+                draw();
+            }
+        }
+        
+        // Handle mouse up event
+        function handleMouseUp() {
+            isPanning = false;
+            canvas.style.cursor = 'default';
+        }
+        
+        // Update parameters from slider values
+        function updateFromParameters() {
+            a = parseFloat(aSlider.value);
+            b = parseFloat(bSlider.value);
+            c = parseFloat(cSlider.value);
+            
+            // Update displays
+            aDisplay.textContent = formatNumber(a);
+            bDisplay.textContent = formatNumber(b);
+            cDisplay.textContent = formatNumber(c);
+        }
+        
+        // Draw everything
+        function draw() {
+            drawGrid();
+            drawParabola();
+        }
+        
+        // Initialize event listeners
+        function initEventListeners() {
+            // Slider events
+            aSlider.addEventListener('input', function() {
+                updateFromParameters();
+                updateEquation();
+                updateDiscriminant();
+                updateSolution();
+                draw();
+            });
+            
+            bSlider.addEventListener('input', function() {
+                updateFromParameters();
+                updateEquation();
+                updateDiscriminant();
+                updateSolution();
+                draw();
+            });
+            
+            cSlider.addEventListener('input', function() {
+                updateFromParameters();
+                updateEquation();
+                updateDiscriminant();
+                updateSolution();
+                draw();
+            });
+            
+            // Mouse events for canvas
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseleave', handleMouseUp);
+            
+            // Method button events
+            factoringBtn.addEventListener('click', function() {
+                factoringBtn.classList.add('active');
+                quadraticFormulaBtn.classList.remove('active');
+                completingSquareBtn.classList.remove('active');
+                updateSolution();
+            });
+            
+            quadraticFormulaBtn.addEventListener('click', function() {
+                quadraticFormulaBtn.classList.add('active');
+                factoringBtn.classList.remove('active');
+                completingSquareBtn.classList.remove('active');
+                updateSolution();
+            });
+            
+            completingSquareBtn.addEventListener('click', function() {
+                completingSquareBtn.classList.add('active');
+                factoringBtn.classList.remove('active');
+                quadraticFormulaBtn.classList.remove('active');
+                updateSolution();
+            });
+        }
+        
+        // Initialize the application
+        function init() {
+            setCanvasSize();
+            initEventListeners();
+            updateEquation();
+            updateDiscriminant();
+            updateSolution();
+            draw();
+        }
+        
+        // Start the application
+        init();
+    </script>
+</body>
+</html>
