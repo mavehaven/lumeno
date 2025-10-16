@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadratic Simulator: The Shape Shifter</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3a0ca3;
+            --accent: #f72585;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --warning: #f8961e;
+            --danger: #e63946;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: var(--light);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--accent), var(--success));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 1100px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .graph-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .graph-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            text-align: center;
+            color: var(--success);
+        }
+        
+        #graph-canvas {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            width: 100%;
+            height: 500px;
+            cursor: grab;
+        }
+        
+        #graph-canvas:active {
+            cursor: grabbing;
+        }
+        
+        .controls-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .equation-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 1.8rem;
+            font-family: 'Cambria Math', serif;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 15px rgba(67, 97, 238, 0.3);
+        }
+        
+        .parameter {
+            margin-bottom: 25px;
+        }
+        
+        .parameter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .parameter-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .parameter-value {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-family: monospace;
+            border: 1px solid var(--primary);
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        #a-slider::-webkit-slider-thumb {
+            background: var(--accent);
+            border: 2px solid white;
+        }
+        
+        #h-slider::-webkit-slider-thumb {
+            background: var(--success);
+            border: 2px solid white;
+        }
+        
+        #k-slider::-webkit-slider-thumb {
+            background: var(--warning);
+            border: 2px solid white;
+        }
+        
+        .features-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .features-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: var(--success);
+            text-align: center;
+        }
+        
+        .feature {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .feature:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-name {
+            font-weight: 500;
+        }
+        
+        .feature-value {
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 5px;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            text-align: center;
+        }
+        
+        .form-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .form-button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .form-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .form-button.active {
+            background: var(--primary);
+            box-shadow: 0 0 10px rgba(67, 97, 238, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Quadratic Simulator: The Shape Shifter</h1>
+            <p class="subtitle">Explore how parameters transform quadratic functions in real-time</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="graph-container">
+                <h2 class="graph-title">Interactive Parabola</h2>
+                <canvas id="graph-canvas"></canvas>
+                <div class="instructions">
+                    <p>Drag the vertex (red point) to change position. Drag the stretch point (blue point) to change shape.</p>
+                </div>
+            </div>
+            
+            <div class="controls-container">
+                <div class="equation-display">
+                    y = <span id="a-value">1</span>(x - <span id="h-value">0</span>)² + <span id="k-value">0</span>
+                </div>
+                
+                <div class="form-buttons">
+                    <button class="form-button active" id="vertex-form-btn">Vertex Form</button>
+                    <button class="form-button" id="standard-form-btn">Standard Form</button>
+                </div>
+                
+                <div class="parameter">
+                    <div class="parameter-header">
+                        <div class="parameter-title">Parameter a (Vertical Stretch/Compression)</div>
+                        <div class="parameter-value" id="a-display">1.00</div>
+                    </div>
+                    <div class="slider-container">
+                        <span>-5</span>
+                        <input type="range" min="-5" max="5" step="0.1" value="1" class="slider" id="a-slider">
+                        <span>5</span>
+                    </div>
+                    <div class="instructions">
+                        Controls the "steepness" and direction of the parabola
+                    </div>
+                </div>
+                
+                <div class="parameter">
+                    <div class="parameter-header">
+                        <div class="parameter-title">Parameter h (Horizontal Shift)</div>
+                        <div class="parameter-value" id="h-display">0.00</div>
+                    </div>
+                    <div class="slider-container">
+                        <span>-5</span>
+                        <input type="range" min="-5" max="5" step="0.1" value="0" class="slider" id="h-slider">
+                        <span>5</span>
+                    </div>
+                    <div class="instructions">
+                        Moves the parabola left or right
+                    </div>
+                </div>
+                
+                <div class="parameter">
+                    <div class="parameter-header">
+                        <div class="parameter-title">Parameter k (Vertical Shift)</div>
+                        <div class="parameter-value" id="k-display">0.00</div>
+                    </div>
+                    <div class="slider-container">
+                        <span>-5</span>
+                        <input type="range" min="-5" max="5" step="0.1" value="0" class="slider" id="k-slider">
+                        <span>5</span>
+                    </div>
+                    <div class="instructions">
+                        Moves the parabola up or down
+                    </div>
+                </div>
+                
+                <div class="features-panel">
+                    <h3 class="features-title">Key Features</h3>
+                    <div class="feature">
+                        <span class="feature-name">Vertex:</span>
+                        <span class="feature-value" id="vertex-value">(0.00, 0.00)</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-name">Axis of Symmetry:</span>
+                        <span class="feature-value" id="axis-value">x = 0.00</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-name">Y-Intercept:</span>
+                        <span class="feature-value" id="yint-value">(0.00, 0.00)</span>
+                    </div>
+                    <div class="feature">
+                        <span class="feature-name">Direction:</span>
+                        <span class="feature-value" id="direction-value">Opens Up</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const canvas = document.getElementById('graph-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Parameter displays
+        const aValue = document.getElementById('a-value');
+        const hValue = document.getElementById('h-value');
+        const kValue = document.getElementById('k-value');
+        
+        // Sliders
+        const aSlider = document.getElementById('a-slider');
+        const hSlider = document.getElementById('h-slider');
+        const kSlider = document.getElementById('k-slider');
+        
+        // Value displays
+        const aDisplay = document.getElementById('a-display');
+        const hDisplay = document.getElementById('h-display');
+        const kDisplay = document.getElementById('k-display');
+        
+        // Feature displays
+        const vertexValue = document.getElementById('vertex-value');
+        const axisValue = document.getElementById('axis-value');
+        const yintValue = document.getElementById('yint-value');
+        const directionValue = document.getElementById('direction-value');
+        
+        // Form buttons
+        const vertexFormBtn = document.getElementById('vertex-form-btn');
+        const standardFormBtn = document.getElementById('standard-form-btn');
+        
+        // Set canvas dimensions
+        function setCanvasSize() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        
+        // Initialize parameters
+        let a = 1;  // Vertical stretch/compression
+        let h = 0;  // Horizontal shift
+        let k = 0;  // Vertical shift
+        
+        // Canvas transformation variables
+        let scale = 40;  // Pixels per unit
+        let offsetX = canvas.width / 2;
+        let offsetY = canvas.height / 2;
+        
+        // Dragging state
+        let isDraggingVertex = false;
+        let isDraggingStretch = false;
+        let isPanning = false;
+        let lastPanX, lastPanY;
+        
+        // Initialize
+        setCanvasSize();
+        window.addEventListener('resize', setCanvasSize);
+        
+        // Convert math coordinates to canvas coordinates
+        function toCanvasX(x) {
+            return offsetX + x * scale;
+        }
+        
+        function toCanvasY(y) {
+            return offsetY - y * scale;
+        }
+        
+        // Convert canvas coordinates to math coordinates
+        function toMathX(canvasX) {
+            return (canvasX - offsetX) / scale;
+        }
+        
+        function toMathY(canvasY) {
+            return (offsetY - canvasY) / scale;
+        }
+        
+        // Draw the coordinate grid
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid background
+            ctx.fillStyle = 'rgba(10, 15, 30, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Calculate visible range
+            const minX = toMathX(0);
+            const maxX = toMathX(canvas.width);
+            const minY = toMathY(canvas.height);
+            const maxY = toMathY(0);
+            
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = Math.ceil(minX); x <= Math.floor(maxX); x++) {
+                ctx.beginPath();
+                ctx.moveTo(toCanvasX(x), 0);
+                ctx.lineTo(toCanvasX(x), canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
+                ctx.beginPath();
+                ctx.moveTo(0, toCanvasY(y));
+                ctx.lineTo(canvas.width, toCanvasY(y));
+                ctx.stroke();
+            }
+            
+            // Draw axes
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 2;
+            
+            // Y-axis
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(0), 0);
+            ctx.lineTo(toCanvasX(0), canvas.height);
+            ctx.stroke();
+            
+            // X-axis
+            ctx.beginPath();
+            ctx.moveTo(0, toCanvasY(0));
+            ctx.lineTo(canvas.width, toCanvasY(0));
+            ctx.stroke();
+            
+            // Draw axis labels
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // X-axis labels
+            for (let x = Math.ceil(minX); x <= Math.floor(maxX); x++) {
+                if (x !== 0) {
+                    ctx.fillText(x, toCanvasX(x), toCanvasY(0) + 15);
+                }
+            }
+            
+            // Y-axis labels
+            for (let y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
+                if (y !== 0) {
+                    ctx.fillText(y, toCanvasX(0) - 15, toCanvasY(y));
+                }
+            }
+            
+            // Origin label
+            ctx.fillText('0', toCanvasX(0) - 10, toCanvasY(0) + 15);
+        }
+        
+        // Draw the parabola
+        function drawParabola() {
+            // Calculate visible range
+            const minX = toMathX(0);
+            const maxX = toMathX(canvas.width);
+            
+            // Draw the parabola
+            ctx.strokeStyle = '#4361ee';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            
+            let firstPoint = true;
+            const step = (maxX - minX) / 200;
+            
+            for (let x = minX; x <= maxX; x += step) {
+                const y = a * Math.pow(x - h, 2) + k;
+                const canvasX = toCanvasX(x);
+                const canvasY = toCanvasY(y);
+                
+                if (firstPoint) {
+                    ctx.moveTo(canvasX, canvasY);
+                    firstPoint = false;
+                } else {
+                    ctx.lineTo(canvasX, canvasY);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Draw the vertex
+            const vertexCanvasX = toCanvasX(h);
+            const vertexCanvasY = toCanvasY(k);
+            
+            ctx.fillStyle = '#e63946';
+            ctx.beginPath();
+            ctx.arc(vertexCanvasX, vertexCanvasY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw the stretch point
+            const stretchX = h + 1;
+            const stretchY = a * Math.pow(stretchX - h, 2) + k;
+            const stretchCanvasX = toCanvasX(stretchX);
+            const stretchCanvasY = toCanvasY(stretchY);
+            
+            ctx.fillStyle = '#4cc9f0';
+            ctx.beginPath();
+            ctx.arc(stretchCanvasX, stretchCanvasY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw axis of symmetry
+            ctx.strokeStyle = 'rgba(76, 201, 240, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(toCanvasX(h), 0);
+            ctx.lineTo(toCanvasX(h), canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        // Update the equation display
+        function updateEquation() {
+            aValue.textContent = formatNumber(a);
+            hValue.textContent = formatNumber(h);
+            kValue.textContent = formatNumber(k);
+            
+            // Update standard form if needed
+            if (standardFormBtn.classList.contains('active')) {
+                updateStandardForm();
+            }
+        }
+        
+        // Update the standard form equation
+        function updateStandardForm() {
+            // Convert vertex form to standard form: y = a(x-h)² + k -> y = ax² - 2ahx + (ah² + k)
+            const aVal = a;
+            const bVal = -2 * a * h;
+            const cVal = a * h * h + k;
+            
+            aValue.textContent = formatNumber(aVal);
+            hValue.textContent = formatNumber(bVal);
+            kValue.textContent = formatNumber(cVal);
+        }
+        
+        // Format numbers for display
+        function formatNumber(num) {
+            if (num === 0) return '0';
+            
+            // Format to 2 decimal places, but remove trailing zeros
+            let formatted = num.toFixed(2);
+            if (formatted.endsWith('.00')) {
+                return formatted.slice(0, -3);
+            } else if (formatted.endsWith('0')) {
+                return formatted.slice(0, -1);
+            }
+            return formatted;
+        }
+        
+        // Update key features display
+        function updateFeatures() {
+            // Vertex
+            vertexValue.textContent = `(${formatNumber(h)}, ${formatNumber(k)})`;
+            
+            // Axis of symmetry
+            axisValue.textContent = `x = ${formatNumber(h)}`;
+            
+            // Y-intercept (x=0)
+            const yIntercept = a * Math.pow(0 - h, 2) + k;
+            yintValue.textContent = `(0, ${formatNumber(yIntercept)})`;
+            
+            // Direction
+            directionValue.textContent = a > 0 ? 'Opens Up' : 'Opens Down';
+            directionValue.style.color = a > 0 ? '#4cc9f0' : '#f8961e';
+        }
+        
+        // Check if a point is near the vertex
+        function isNearVertex(x, y) {
+            const vertexCanvasX = toCanvasX(h);
+            const vertexCanvasY = toCanvasY(k);
+            const distance = Math.sqrt(Math.pow(x - vertexCanvasX, 2) + Math.pow(y - vertexCanvasY, 2));
+            return distance < 15;
+        }
+        
+        // Check if a point is near the stretch point
+        function isNearStretchPoint(x, y) {
+            const stretchX = h + 1;
+            const stretchY = a * Math.pow(stretchX - h, 2) + k;
+            const stretchCanvasX = toCanvasX(stretchX);
+            const stretchCanvasY = toCanvasY(stretchY);
+            const distance = Math.sqrt(Math.pow(x - stretchCanvasX, 2) + Math.pow(y - stretchCanvasY, 2));
+            return distance < 15;
+        }
+        
+        // Handle mouse down event
+        function handleMouseDown(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (isNearVertex(x, y)) {
+                isDraggingVertex = true;
+                canvas.style.cursor = 'grabbing';
+            } else if (isNearStretchPoint(x, y)) {
+                isDraggingStretch = true;
+                canvas.style.cursor = 'grabbing';
+            } else {
+                isPanning = true;
+                lastPanX = e.clientX;
+                lastPanY = e.clientY;
+                canvas.style.cursor = 'grabbing';
+            }
+        }
+        
+        // Handle mouse move event
+        function handleMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Update cursor
+            if (isNearVertex(x, y) || isNearStretchPoint(x, y)) {
+                canvas.style.cursor = 'grab';
+            } else {
+                canvas.style.cursor = 'default';
+            }
+            
+            if (isDraggingVertex) {
+                // Update h and k based on mouse position
+                h = toMathX(x);
+                k = toMathY(y);
+                
+                // Update sliders and displays
+                updateFromVertex();
+                updateEquation();
+                updateFeatures();
+                draw();
+            } else if (isDraggingStretch) {
+                // Calculate new a value based on mouse position
+                const mathX = toMathX(x);
+                const mathY = toMathY(y);
+                
+                // Avoid division by zero
+                if (mathX !== h) {
+                    a = (mathY - k) / Math.pow(mathX - h, 2);
+                    
+                    // Constrain a to reasonable values
+                    if (a > 5) a = 5;
+                    if (a < -5) a = -5;
+                    
+                    // Update sliders and displays
+                    updateFromParameters();
+                    updateEquation();
+                    updateFeatures();
+                    draw();
+                }
+            } else if (isPanning) {
+                // Pan the graph
+                const dx = e.clientX - lastPanX;
+                const dy = e.clientY - lastPanY;
+                
+                offsetX += dx;
+                offsetY += dy;
+                
+                lastPanX = e.clientX;
+                lastPanY = e.clientY;
+                
+                draw();
+            }
+        }
+        
+        // Handle mouse up event
+        function handleMouseUp() {
+            isDraggingVertex = false;
+            isDraggingStretch = false;
+            isPanning = false;
+            canvas.style.cursor = 'default';
+        }
+        
+        // Update parameters from vertex position
+        function updateFromVertex() {
+            // Constrain h and k to slider ranges
+            h = Math.max(-5, Math.min(5, h));
+            k = Math.max(-5, Math.min(5, k));
+            
+            // Update sliders
+            aSlider.value = a;
+            hSlider.value = h;
+            kSlider.value = k;
+            
+            // Update displays
+            aDisplay.textContent = formatNumber(a);
+            hDisplay.textContent = formatNumber(h);
+            kDisplay.textContent = formatNumber(k);
+        }
+        
+        // Update parameters from slider values
+        function updateFromParameters() {
+            a = parseFloat(aSlider.value);
+            h = parseFloat(hSlider.value);
+            k = parseFloat(kSlider.value);
+            
+            // Update displays
+            aDisplay.textContent = formatNumber(a);
+            hDisplay.textContent = formatNumber(h);
+            kDisplay.textContent = formatNumber(k);
+        }
+        
+        // Draw everything
+        function draw() {
+            drawGrid();
+            drawParabola();
+        }
+        
+        // Initialize event listeners
+        function initEventListeners() {
+            // Slider events
+            aSlider.addEventListener('input', function() {
+                updateFromParameters();
+                updateEquation();
+                updateFeatures();
+                draw();
+            });
+            
+            hSlider.addEventListener('input', function() {
+                updateFromParameters();
+                updateEquation();
+                updateFeatures();
+                draw();
+            });
+            
+            kSlider.addEventListener('input', function() {
+                updateFromParameters();
+                updateEquation();
+                updateFeatures();
+                draw();
+            });
+            
+            // Mouse events for canvas
+            canvas.addEventListener('mousedown', handleMouseDown);
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('mouseup', handleMouseUp);
+            canvas.addEventListener('mouseleave', handleMouseUp);
+            
+            // Form button events
+            vertexFormBtn.addEventListener('click', function() {
+                vertexFormBtn.classList.add('active');
+                standardFormBtn.classList.remove('active');
+                updateEquation();
+            });
+            
+            standardFormBtn.addEventListener('click', function() {
+                standardFormBtn.classList.add('active');
+                vertexFormBtn.classList.remove('active');
+                updateEquation();
+            });
+        }
+        
+        // Initialize the application
+        function init() {
+            setCanvasSize();
+            initEventListeners();
+            updateEquation();
+            updateFeatures();
+            draw();
+        }
+        
+        // Start the application
+        init();
+    </script>
+</body>
+</html>
