@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Transformations - 2D & 3D Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0a0a0f;
+            --secondary: #1a1a2e;
+            --accent-cyan: #00ffff;
+            --accent-magenta: #ff00ff;
+            --accent-yellow: #ffff00;
+            --accent-orange: #ff6b00;
+            --accent-green: #00ff00;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #0f0f23 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            border: 1px solid rgba(128, 0, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(128, 0, 255, 0.3);
+        }
+
+        .panel-header h2 {
+            font-size: 1.5rem;
+            color: var(--accent-cyan);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .theory-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+        }
+
+        .theory-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-active {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        .canvas-container {
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid rgba(128, 0, 255, 0.3);
+            margin-bottom: 20px;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0a0a0f;
+            position: relative;
+        }
+
+        #canvas2d, #canvas3d {
+            width: 100%;
+            height: 400px;
+            display: block;
+        }
+
+        .theory-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: none;
+            border: 1px solid rgba(128, 0, 255, 0.3);
+        }
+
+        .theory-panel.active {
+            display: block;
+        }
+
+        .theory-content {
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .theory-content h3 {
+            color: var(--accent-yellow);
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .theory-content p {
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .theory-content ul {
+            color: var(--text-secondary);
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .theory-content li {
+            margin-bottom: 5px;
+        }
+
+        .formula {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            text-align: center;
+            font-family: 'Times New Roman', serif;
+        }
+
+        .matrix-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .matrix-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .matrix-input-group label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .matrix-input {
+            display: flex;
+            gap: 8px;
+        }
+
+        .matrix-input input {
+            flex: 1;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .transformation-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .rotation-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .slider-container {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .slider-container label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-orange);
+            cursor: pointer;
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .info-panel h3 {
+            color: var(--accent-yellow);
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .info-panel p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .matrix-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            text-align: center;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .matrix-controls, .transformation-controls, .rotation-controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* MathJax styling */
+        .MathJax {
+            color: white !important;
+            font-size: 1.1em !important;
+        }
+
+        mjx-container[jax="CHTML"][display="true"] {
+            text-align: center !important;
+            margin: 10px 0 !important;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(128, 0, 255, 0.5);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(128, 0, 255, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Linear Transformations</h1>
+            <p>Visualize how matrices transform 2D and 3D spaces</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 2D Transformation Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-square"></i> 2D Transformations</h2>
+                    <button class="theory-btn" id="theory2dBtn">
+                        <i class="fas fa-book"></i> Theory
+                    </button>
+                </div>
+                
+                <div class="theory-panel" id="theory2dPanel">
+                    <div class="theory-content">
+                        <h3>2D Linear Transformations</h3>
+                        <p>A linear transformation \( T: \mathbb{R}^2 \to \mathbb{R}^2 \) is a function that satisfies:</p>
+                        <ul>
+                            <li>\( T(\mathbf{u} + \mathbf{v}) = T(\mathbf{u}) + T(\mathbf{v}) \) for all vectors \( \mathbf{u}, \mathbf{v} \in \mathbb{R}^2 \)</li>
+                            <li>\( T(c\mathbf{v}) = cT(\mathbf{v}) \) for all vectors \( \mathbf{v} \in \mathbb{R}^2 \) and scalars \( c \in \mathbb{R} \)</li>
+                        </ul>
+                        <p>Every linear transformation can be represented by a 2×2 matrix \( A \) such that:</p>
+                        <div class="formula">
+                            \( T(\mathbf{v}) = A\mathbf{v} \)
+                        </div>
+                        <p>Where \( A = \begin{bmatrix} a & b \\ c & d \end{bmatrix} \) and \( \mathbf{v} = \begin{bmatrix} x \\ y \end{bmatrix} \)</p>
+                        
+                        <h3>Common 2D Transformations</h3>
+                        <p><strong>Scaling:</strong> \( \begin{bmatrix} s_x & 0 \\ 0 & s_y \end{bmatrix} \)</p>
+                        <p><strong>Rotation:</strong> \( \begin{bmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{bmatrix} \)</p>
+                        <p><strong>Shear:</strong> \( \begin{bmatrix} 1 & k \\ 0 & 1 \end{bmatrix} \) (horizontal) or \( \begin{bmatrix} 1 & 0 \\ k & 1 \end{bmatrix} \) (vertical)</p>
+                        <p><strong>Reflection:</strong> \( \begin{bmatrix} -1 & 0 \\ 0 & 1 \end{bmatrix} \) (across y-axis) or \( \begin{bmatrix} 1 & 0 \\ 0 & -1 \end{bmatrix} \) (across x-axis)</p>
+                        
+                        <h3>Properties</h3>
+                        <ul>
+                            <li>Preserves vector addition and scalar multiplication</li>
+                            <li>Maps lines to lines</li>
+                            <li>Preserves the origin (0,0)</li>
+                            <li>The determinant represents how area scales under the transformation</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-secondary" id="reset2dBtn">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                    <button class="btn btn-secondary" id="showGrid2dBtn">
+                        <i class="fas fa-th"></i> Toggle Grid
+                    </button>
+                    <div style="flex: 1;"></div>
+                    <button class="btn btn-secondary" id="preset2dBtn">
+                        <i class="fas fa-cog"></i> Presets
+                    </button>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="canvas2d" width="600" height="400"></canvas>
+                </div>
+
+                <div class="matrix-controls">
+                    <div class="matrix-input-group">
+                        <label>Transformation Matrix</label>
+                        <div class="matrix-input">
+                            <input type="number" id="a11" value="1" step="0.1">
+                            <input type="number" id="a12" value="0" step="0.1">
+                        </div>
+                        <div class="matrix-input">
+                            <input type="number" id="a21" value="0" step="0.1">
+                            <input type="number" id="a22" value="1" step="0.1">
+                        </div>
+                    </div>
+
+                    <div class="matrix-input-group">
+                        <label>Preset Transformations</label>
+                        <select id="presetSelect2d" class="btn btn-secondary" style="width: 100%; padding: 10px;">
+                            <option value="identity">Identity</option>
+                            <option value="scale">Scale</option>
+                            <option value="rotate">Rotation</option>
+                            <option value="shear">Shear</option>
+                            <option value="reflect">Reflection</option>
+                            <option value="project">Projection</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="transformation-controls">
+                    <div class="slider-container">
+                        <label for="scaleX2d">Scale X: <span id="scaleXValue2d">1.0</span></label>
+                        <input type="range" id="scaleX2d" class="slider" min="0.1" max="3" step="0.1" value="1">
+                    </div>
+                    <div class="slider-container">
+                        <label for="scaleY2d">Scale Y: <span id="scaleYValue2d">1.0</span></label>
+                        <input type="range" id="scaleY2d" class="slider" min="0.1" max="3" step="0.1" value="1">
+                    </div>
+                    <div class="slider-container">
+                        <label for="rotate2d">Rotation: <span id="rotateValue2d">0°</span></label>
+                        <input type="range" id="rotate2d" class="slider" min="0" max="360" step="1" value="0">
+                    </div>
+                </div>
+
+                <div class="info-panel">
+                    <h3>Current 2D Transformation</h3>
+                    <p>The transformation matrix is applied to all points in the coordinate system. The determinant of this matrix is <span id="det2d">1.00</span>.</p>
+                    <div class="matrix-display">
+                        T(x, y) = [<span id="m11">1</span> <span id="m12">0</span>; <span id="m21">0</span> <span id="m22">1</span>] · [x; y]
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Transformation Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-cube"></i> 3D Transformations</h2>
+                    <button class="theory-btn" id="theory3dBtn">
+                        <i class="fas fa-book"></i> Theory
+                    </button>
+                </div>
+                
+                <div class="theory-panel" id="theory3dPanel">
+                    <div class="theory-content">
+                        <h3>3D Linear Transformations</h3>
+                        <p>A linear transformation \( T: \mathbb{R}^3 \to \mathbb{R}^3 \) satisfies:</p>
+                        <ul>
+                            <li>\( T(\mathbf{u} + \mathbf{v}) = T(\mathbf{u}) + T(\mathbf{v}) \) for all vectors \( \mathbf{u}, \mathbf{v} \in \mathbb{R}^3 \)</li>
+                            <li>\( T(c\mathbf{v}) = cT(\mathbf{v}) \) for all vectors \( \mathbf{v} \in \mathbb{R}^3 \) and scalars \( c \in \mathbb{R} \)</li>
+                        </ul>
+                        <p>Every 3D linear transformation can be represented by a 3×3 matrix \( A \) such that:</p>
+                        <div class="formula">
+                            \( T(\mathbf{v}) = A\mathbf{v} \)
+                        </div>
+                        <p>Where \( A = \begin{bmatrix} a & b & c \\ d & e & f \\ g & h & i \end{bmatrix} \) and \( \mathbf{v} = \begin{bmatrix} x \\ y \\ z \end{bmatrix} \)</p>
+                        
+                        <h3>Common 3D Transformations</h3>
+                        <p><strong>Scaling:</strong> \( \begin{bmatrix} s_x & 0 & 0 \\ 0 & s_y & 0 \\ 0 & 0 & s_z \end{bmatrix} \)</p>
+                        <p><strong>Rotation around X-axis:</strong> \( \begin{bmatrix} 1 & 0 & 0 \\ 0 & \cos\theta & -\sin\theta \\ 0 & \sin\theta & \cos\theta \end{bmatrix} \)</p>
+                        <p><strong>Rotation around Y-axis:</strong> \( \begin{bmatrix} \cos\theta & 0 & \sin\theta \\ 0 & 1 & 0 \\ -\sin\theta & 0 & \cos\theta \end{bmatrix} \)</p>
+                        <p><strong>Rotation around Z-axis:</strong> \( \begin{bmatrix} \cos\theta & -\sin\theta & 0 \\ \sin\theta & \cos\theta & 0 \\ 0 & 0 & 1 \end{bmatrix} \)</p>
+                        
+                        <h3>Properties</h3>
+                        <ul>
+                            <li>Preserves vector addition and scalar multiplication</li>
+                            <li>Maps lines to lines and planes to planes</li>
+                            <li>Preserves the origin (0,0,0)</li>
+                            <li>The determinant represents how volume scales under the transformation</li>
+                            <li>Orthogonal transformations (rotations, reflections) preserve lengths and angles</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-secondary" id="reset3dBtn">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                    <button class="btn btn-secondary" id="showAxes3dBtn">
+                        <i class="fas fa-arrows-alt"></i> Toggle Axes
+                    </button>
+                    <div style="flex: 1;"></div>
+                    <button class="btn btn-secondary" id="preset3dBtn">
+                        <i class="fas fa-cog"></i> Presets
+                    </button>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="canvas3d" width="600" height="400"></canvas>
+                </div>
+
+                <div class="matrix-controls">
+                    <div class="matrix-input-group">
+                        <label>Transformation Matrix (3×3)</label>
+                        <div class="matrix-input">
+                            <input type="number" id="b11" value="1" step="0.1">
+                            <input type="number" id="b12" value="0" step="0.1">
+                            <input type="number" id="b13" value="0" step="0.1">
+                        </div>
+                        <div class="matrix-input">
+                            <input type="number" id="b21" value="0" step="0.1">
+                            <input type="number" id="b22" value="1" step="0.1">
+                            <input type="number" id="b23" value="0" step="0.1">
+                        </div>
+                        <div class="matrix-input">
+                            <input type="number" id="b31" value="0" step="0.1">
+                            <input type="number" id="b32" value="0" step="0.1">
+                            <input type="number" id="b33" value="1" step="0.1">
+                        </div>
+                    </div>
+
+                    <div class="matrix-input-group">
+                        <label>Preset Transformations</label>
+                        <select id="presetSelect3d" class="btn btn-secondary" style="width: 100%; padding: 10px;">
+                            <option value="identity">Identity</option>
+                            <option value="scale">Scale</option>
+                            <option value="rotateX">Rotation X</option>
+                            <option value="rotateY">Rotation Y</option>
+                            <option value="rotateZ">Rotation Z</option>
+                            <option value="shear">Shear</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="transformation-controls">
+                    <div class="slider-container">
+                        <label for="scaleX3d">Scale X: <span id="scaleXValue3d">1.0</span></label>
+                        <input type="range" id="scaleX3d" class="slider" min="0.1" max="3" step="0.1" value="1">
+                    </div>
+                    <div class="slider-container">
+                        <label for="scaleY3d">Scale Y: <span id="scaleYValue3d">1.0</span></label>
+                        <input type="range" id="scaleY3d" class="slider" min="0.1" max="3" step="0.1" value="1">
+                    </div>
+                    <div class="slider-container">
+                        <label for="scaleZ3d">Scale Z: <span id="scaleZValue3d">1.0</span></label>
+                        <input type="range" id="scaleZ3d" class="slider" min="0.1" max="3" step="0.1" value="1">
+                    </div>
+                </div>
+
+                <div class="rotation-controls">
+                    <div class="slider-container">
+                        <label for="rotateX3d">Rotate X: <span id="rotateXValue3d">0°</span></label>
+                        <input type="range" id="rotateX3d" class="slider" min="0" max="360" step="1" value="0">
+                    </div>
+                    <div class="slider-container">
+                        <label for="rotateY3d">Rotate Y: <span id="rotateYValue3d">0°</span></label>
+                        <input type="range" id="rotateY3d" class="slider" min="0" max="360" step="1" value="0">
+                    </div>
+                    <div class="slider-container">
+                        <label for="rotateZ3d">Rotate Z: <span id="rotateZValue3d">0°</span></label>
+                        <input type="range" id="rotateZ3d" class="slider" min="0" max="360" step="1" value="0">
+                    </div>
+                </div>
+
+                <div class="info-panel">
+                    <h3>Current 3D Transformation</h3>
+                    <p>The transformation matrix is applied to all points in 3D space. The determinant of this matrix is <span id="det3d">1.00</span>.</p>
+                    <div class="matrix-display">
+                        T(x, y, z) = [<span id="n11">1</span> <span id="n12">0</span> <span id="n13">0</span>; 
+                                      <span id="n21">0</span> <span id="n22">1</span> <span id="n23">0</span>; 
+                                      <span id="n31">0</span> <span id="n32">0</span> <span id="n33">1</span>] · [x; y; z]
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        const state2d = {
+            matrix: [[1, 0], [0, 1]],
+            showGrid: true,
+            scaleX: 1,
+            scaleY: 1,
+            rotation: 0
+        };
+
+        const state3d = {
+            matrix: [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+            showAxes: true,
+            scaleX: 1,
+            scaleY: 1,
+            scaleZ: 1,
+            rotationX: 0,
+            rotationY: 0,
+            rotationZ: 0,
+            autoRotate: false
+        };
+
+        // DOM elements
+        const canvas2d = document.getElementById('canvas2d');
+        const ctx2d = canvas2d.getContext('2d');
+        const canvas3d = document.getElementById('canvas3d');
+
+        // Theory buttons and panels
+        const theory2dBtn = document.getElementById('theory2dBtn');
+        const theory2dPanel = document.getElementById('theory2dPanel');
+        const theory3dBtn = document.getElementById('theory3dBtn');
+        const theory3dPanel = document.getElementById('theory3dPanel');
+
+        // 2D Controls
+        const reset2dBtn = document.getElementById('reset2dBtn');
+        const showGrid2dBtn = document.getElementById('showGrid2dBtn');
+        const preset2dBtn = document.getElementById('preset2dBtn');
+        const presetSelect2d = document.getElementById('presetSelect2d');
+        const scaleX2d = document.getElementById('scaleX2d');
+        const scaleY2d = document.getElementById('scaleY2d');
+        const rotate2d = document.getElementById('rotate2d');
+        const scaleXValue2d = document.getElementById('scaleXValue2d');
+        const scaleYValue2d = document.getElementById('scaleYValue2d');
+        const rotateValue2d = document.getElementById('rotateValue2d');
+        const det2d = document.getElementById('det2d');
+        
+        // 2D Matrix inputs
+        const a11 = document.getElementById('a11');
+        const a12 = document.getElementById('a12');
+        const a21 = document.getElementById('a21');
+        const a22 = document.getElementById('a22');
+
+        // 2D Matrix display
+        const m11 = document.getElementById('m11');
+        const m12 = document.getElementById('m12');
+        const m21 = document.getElementById('m21');
+        const m22 = document.getElementById('m22');
+
+        // 3D Controls
+        const reset3dBtn = document.getElementById('reset3dBtn');
+        const showAxes3dBtn = document.getElementById('showAxes3dBtn');
+        const preset3dBtn = document.getElementById('preset3dBtn');
+        const presetSelect3d = document.getElementById('presetSelect3d');
+        const scaleX3d = document.getElementById('scaleX3d');
+        const scaleY3d = document.getElementById('scaleY3d');
+        const scaleZ3d = document.getElementById('scaleZ3d');
+        const rotateX3d = document.getElementById('rotateX3d');
+        const rotateY3d = document.getElementById('rotateY3d');
+        const rotateZ3d = document.getElementById('rotateZ3d');
+        const scaleXValue3d = document.getElementById('scaleXValue3d');
+        const scaleYValue3d = document.getElementById('scaleYValue3d');
+        const scaleZValue3d = document.getElementById('scaleZValue3d');
+        const rotateXValue3d = document.getElementById('rotateXValue3d');
+        const rotateYValue3d = document.getElementById('rotateYValue3d');
+        const rotateZValue3d = document.getElementById('rotateZValue3d');
+        const det3d = document.getElementById('det3d');
+        
+        // 3D Matrix inputs
+        const b11 = document.getElementById('b11');
+        const b12 = document.getElementById('b12');
+        const b13 = document.getElementById('b13');
+        const b21 = document.getElementById('b21');
+        const b22 = document.getElementById('b22');
+        const b23 = document.getElementById('b23');
+        const b31 = document.getElementById('b31');
+        const b32 = document.getElementById('b32');
+        const b33 = document.getElementById('b33');
+
+        // 3D Matrix display
+        const n11 = document.getElementById('n11');
+        const n12 = document.getElementById('n12');
+        const n13 = document.getElementById('n13');
+        const n21 = document.getElementById('n21');
+        const n22 = document.getElementById('n22');
+        const n23 = document.getElementById('n23');
+        const n31 = document.getElementById('n31');
+        const n32 = document.getElementById('n32');
+        const n33 = document.getElementById('n33');
+
+        // Three.js variables
+        let scene, camera, renderer, cube, axesHelper;
+
+        // Initialize the application
+        function init() {
+            // Set up event listeners for theory panels
+            theory2dBtn.addEventListener('click', () => toggleTheoryPanel(theory2dPanel));
+            theory3dBtn.addEventListener('click', () => toggleTheoryPanel(theory3dPanel));
+
+            // Set up event listeners for 2D
+            reset2dBtn.addEventListener('click', reset2d);
+            showGrid2dBtn.addEventListener('click', toggleGrid2d);
+            presetSelect2d.addEventListener('change', applyPreset2d);
+            
+            scaleX2d.addEventListener('input', updateScale2d);
+            scaleY2d.addEventListener('input', updateScale2d);
+            rotate2d.addEventListener('input', updateRotation2d);
+            
+            a11.addEventListener('input', updateMatrix2d);
+            a12.addEventListener('input', updateMatrix2d);
+            a21.addEventListener('input', updateMatrix2d);
+            a22.addEventListener('input', updateMatrix2d);
+
+            // Set up event listeners for 3D
+            reset3dBtn.addEventListener('click', reset3d);
+            showAxes3dBtn.addEventListener('click', toggleAxes3d);
+            presetSelect3d.addEventListener('change', applyPreset3d);
+            
+            scaleX3d.addEventListener('input', updateScale3d);
+            scaleY3d.addEventListener('input', updateScale3d);
+            scaleZ3d.addEventListener('input', updateScale3d);
+            
+            rotateX3d.addEventListener('input', updateRotation3d);
+            rotateY3d.addEventListener('input', updateRotation3d);
+            rotateZ3d.addEventListener('input', updateRotation3d);
+            
+            b11.addEventListener('input', updateMatrix3d);
+            b12.addEventListener('input', updateMatrix3d);
+            b13.addEventListener('input', updateMatrix3d);
+            b21.addEventListener('input', updateMatrix3d);
+            b22.addEventListener('input', updateMatrix3d);
+            b23.addEventListener('input', updateMatrix3d);
+            b31.addEventListener('input', updateMatrix3d);
+            b32.addEventListener('input', updateMatrix3d);
+            b33.addEventListener('input', updateMatrix3d);
+
+            // Initialize 3D scene
+            init3D();
+
+            // Initial render
+            draw2D();
+            animate3D();
+        }
+
+        // Theory panel functions
+        function toggleTheoryPanel(panel) {
+            panel.classList.toggle('active');
+            if (panel.classList.contains('active')) {
+                // Process MathJax when showing theory panel
+                MathJax.typesetPromise([panel]).catch(err => console.log('MathJax error:', err));
+            }
+        }
+
+        // 2D Drawing Functions
+        function draw2D() {
+            const width = canvas2d.width;
+            const height = canvas2d.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            // Clear canvas
+            ctx2d.fillStyle = '#0a0a0f';
+            ctx2d.fillRect(0, 0, width, height);
+            
+            // Draw grid if enabled
+            if (state2d.showGrid) {
+                drawGrid2D(ctx2d, width, height, centerX, centerY);
+            }
+            
+            // Draw original coordinate system
+            drawCoordinateSystem(ctx2d, centerX, centerY, '#333366');
+            
+            // Apply transformation matrix
+            ctx2d.save();
+            ctx2d.translate(centerX, centerY);
+            
+            // Apply the transformation matrix
+            ctx2d.transform(
+                state2d.matrix[0][0], state2d.matrix[1][0],
+                state2d.matrix[0][1], state2d.matrix[1][1],
+                0, 0
+            );
+            
+            // Draw transformed coordinate system
+            drawCoordinateSystem(ctx2d, 0, 0, '#00ffff');
+            
+            // Draw a sample shape (square) to visualize transformation
+            ctx2d.strokeStyle = '#ff00ff';
+            ctx2d.lineWidth = 2;
+            ctx2d.strokeRect(-40, -40, 80, 80);
+            
+            // Draw a circle to show deformation
+            ctx2d.beginPath();
+            ctx2d.arc(0, 0, 50, 0, Math.PI * 2);
+            ctx2d.strokeStyle = '#ffff00';
+            ctx2d.stroke();
+            
+            ctx2d.restore();
+            
+            // Update matrix display and determinant
+            updateMatrixDisplay2D();
+            updateDeterminant2D();
+        }
+
+        function drawGrid2D(ctx, width, height, centerX, centerY) {
+            ctx.strokeStyle = 'rgba(100, 100, 120, 0.2)';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = 0; x <= width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y <= height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // Center lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, height);
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.stroke();
+        }
+
+        function drawCoordinateSystem(ctx, x, y, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            // X-axis
+            ctx.beginPath();
+            ctx.moveTo(x - 150, y);
+            ctx.lineTo(x + 150, y);
+            ctx.stroke();
+            
+            // Y-axis
+            ctx.beginPath();
+            ctx.moveTo(x, y - 150);
+            ctx.lineTo(x, y + 150);
+            ctx.stroke();
+            
+            // X-axis arrow
+            ctx.beginPath();
+            ctx.moveTo(x + 140, y - 5);
+            ctx.lineTo(x + 150, y);
+            ctx.lineTo(x + 140, y + 5);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Y-axis arrow
+            ctx.beginPath();
+            ctx.moveTo(x - 5, y - 140);
+            ctx.lineTo(x, y - 150);
+            ctx.lineTo(x + 5, y - 140);
+            ctx.fill();
+            
+            // Labels
+            ctx.fillStyle = color;
+            ctx.font = 'bold 14px sans-serif';
+            ctx.fillText('X', x + 160, y + 5);
+            ctx.fillText('Y', x - 10, y - 160);
+        }
+
+        // 2D Event Handlers
+        function reset2d() {
+            state2d.matrix = [[1, 0], [0, 1]];
+            state2d.scaleX = 1;
+            state2d.scaleY = 1;
+            state2d.rotation = 0;
+            
+            a11.value = 1;
+            a12.value = 0;
+            a21.value = 0;
+            a22.value = 1;
+            
+            scaleX2d.value = 1;
+            scaleY2d.value = 1;
+            rotate2d.value = 0;
+            
+            scaleXValue2d.textContent = '1.0';
+            scaleYValue2d.textContent = '1.0';
+            rotateValue2d.textContent = '0°';
+            
+            draw2D();
+        }
+
+        function toggleGrid2d() {
+            state2d.showGrid = !state2d.showGrid;
+            draw2D();
+        }
+
+        function applyPreset2d() {
+            const preset = presetSelect2d.value;
+            
+            switch(preset) {
+                case 'identity':
+                    state2d.matrix = [[1, 0], [0, 1]];
+                    break;
+                case 'scale':
+                    state2d.matrix = [[1.5, 0], [0, 0.8]];
+                    break;
+                case 'rotate':
+                    state2d.matrix = [
+                        [Math.cos(Math.PI/4), -Math.sin(Math.PI/4)],
+                        [Math.sin(Math.PI/4), Math.cos(Math.PI/4)]
+                    ];
+                    break;
+                case 'shear':
+                    state2d.matrix = [[1, 0.5], [0.3, 1]];
+                    break;
+                case 'reflect':
+                    state2d.matrix = [[1, 0], [0, -1]];
+                    break;
+                case 'project':
+                    state2d.matrix = [[1, 0], [0, 0]];
+                    break;
+            }
+            
+            updateMatrixInputs2D();
+            draw2D();
+        }
+
+        function updateScale2d() {
+            state2d.scaleX = parseFloat(scaleX2d.value);
+            state2d.scaleY = parseFloat(scaleY2d.value);
+            
+            scaleXValue2d.textContent = state2d.scaleX.toFixed(1);
+            scaleYValue2d.textContent = state2d.scaleY.toFixed(1);
+            
+            // Update matrix with scaling
+            const angle = state2d.rotation * Math.PI / 180;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            
+            state2d.matrix = [
+                [state2d.scaleX * cos, -state2d.scaleY * sin],
+                [state2d.scaleX * sin, state2d.scaleY * cos]
+            ];
+            
+            updateMatrixInputs2D();
+            draw2D();
+        }
+
+        function updateRotation2d() {
+            state2d.rotation = parseFloat(rotate2d.value);
+            rotateValue2d.textContent = `${state2d.rotation}°`;
+            
+            // Update matrix with rotation
+            const angle = state2d.rotation * Math.PI / 180;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            
+            state2d.matrix = [
+                [state2d.scaleX * cos, -state2d.scaleY * sin],
+                [state2d.scaleX * sin, state2d.scaleY * cos]
+            ];
+            
+            updateMatrixInputs2D();
+            draw2D();
+        }
+
+        function updateMatrix2d() {
+            state2d.matrix = [
+                [parseFloat(a11.value), parseFloat(a12.value)],
+                [parseFloat(a21.value), parseFloat(a22.value)]
+            ];
+            
+            // Extract scale and rotation from matrix for sliders
+            // This is a simplification - in practice, you'd need to decompose the matrix
+            const m = state2d.matrix;
+            state2d.scaleX = Math.sqrt(m[0][0]*m[0][0] + m[1][0]*m[1][0]);
+            state2d.scaleY = Math.sqrt(m[0][1]*m[0][1] + m[1][1]*m[1][1]);
+            state2d.rotation = Math.atan2(m[1][0], m[0][0]) * 180 / Math.PI;
+            
+            scaleX2d.value = state2d.scaleX;
+            scaleY2d.value = state2d.scaleY;
+            rotate2d.value = state2d.rotation;
+            
+            scaleXValue2d.textContent = state2d.scaleX.toFixed(1);
+            scaleYValue2d.textContent = state2d.scaleY.toFixed(1);
+            rotateValue2d.textContent = `${Math.round(state2d.rotation)}°`;
+            
+            draw2D();
+        }
+
+        function updateMatrixInputs2D() {
+            a11.value = state2d.matrix[0][0].toFixed(2);
+            a12.value = state2d.matrix[0][1].toFixed(2);
+            a21.value = state2d.matrix[1][0].toFixed(2);
+            a22.value = state2d.matrix[1][1].toFixed(2);
+        }
+
+        function updateMatrixDisplay2D() {
+            m11.textContent = state2d.matrix[0][0].toFixed(2);
+            m12.textContent = state2d.matrix[0][1].toFixed(2);
+            m21.textContent = state2d.matrix[1][0].toFixed(2);
+            m22.textContent = state2d.matrix[1][1].toFixed(2);
+        }
+
+        function updateDeterminant2D() {
+            const det = state2d.matrix[0][0] * state2d.matrix[1][1] - state2d.matrix[0][1] * state2d.matrix[1][0];
+            det2d.textContent = det.toFixed(2);
+        }
+
+        // 3D Functions
+        function init3D() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0f);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, canvas3d.clientWidth / canvas3d.clientHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true });
+            renderer.setSize(canvas3d.clientWidth, canvas3d.clientHeight);
+            
+            // Create cube
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffff, 
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            cube = new THREE.Mesh(geometry, material);
+            scene.add(cube);
+            
+            // Create axes helper
+            axesHelper = new THREE.AxesHelper(2);
+            scene.add(axesHelper);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = canvas3d.clientWidth / canvas3d.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas3d.clientWidth, canvas3d.clientHeight);
+        }
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            
+            // Apply transformation matrix to cube
+            const matrix = new THREE.Matrix4();
+            matrix.set(
+                state3d.matrix[0][0], state3d.matrix[0][1], state3d.matrix[0][2], 0,
+                state3d.matrix[1][0], state3d.matrix[1][1], state3d.matrix[1][2], 0,
+                state3d.matrix[2][0], state3d.matrix[2][1], state3d.matrix[2][2], 0,
+                0, 0, 0, 1
+            );
+            
+            cube.matrix.copy(matrix);
+            cube.matrixAutoUpdate = false;
+            
+            // Update matrix display and determinant
+            updateMatrixDisplay3D();
+            updateDeterminant3D();
+            
+            renderer.render(scene, camera);
+        }
+
+        // 3D Event Handlers
+        function reset3d() {
+            state3d.matrix = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+            state3d.scaleX = 1;
+            state3d.scaleY = 1;
+            state3d.scaleZ = 1;
+            state3d.rotationX = 0;
+            state3d.rotationY = 0;
+            state3d.rotationZ = 0;
+            
+            b11.value = 1;
+            b12.value = 0;
+            b13.value = 0;
+            b21.value = 0;
+            b22.value = 1;
+            b23.value = 0;
+            b31.value = 0;
+            b32.value = 0;
+            b33.value = 1;
+            
+            scaleX3d.value = 1;
+            scaleY3d.value = 1;
+            scaleZ3d.value = 1;
+            rotateX3d.value = 0;
+            rotateY3d.value = 0;
+            rotateZ3d.value = 0;
+            
+            scaleXValue3d.textContent = '1.0';
+            scaleYValue3d.textContent = '1.0';
+            scaleZValue3d.textContent = '1.0';
+            rotateXValue3d.textContent = '0°';
+            rotateYValue3d.textContent = '0°';
+            rotateZValue3d.textContent = '0°';
+            
+            animate3D();
+        }
+
+        function toggleAxes3d() {
+            state3d.showAxes = !state3d.showAxes;
+            axesHelper.visible = state3d.showAxes;
+        }
+
+        function applyPreset3d() {
+            const preset = presetSelect3d.value;
+            
+            switch(preset) {
+                case 'identity':
+                    state3d.matrix = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+                    break;
+                case 'scale':
+                    state3d.matrix = [[1.5, 0, 0], [0, 0.8, 0], [0, 0, 1.2]];
+                    break;
+                case 'rotateX':
+                    const angleX = Math.PI/4;
+                    state3d.matrix = [
+                        [1, 0, 0],
+                        [0, Math.cos(angleX), -Math.sin(angleX)],
+                        [0, Math.sin(angleX), Math.cos(angleX)]
+                    ];
+                    state3d.rotationX = 45;
+                    rotateX3d.value = 45;
+                    rotateXValue3d.textContent = '45°';
+                    break;
+                case 'rotateY':
+                    const angleY = Math.PI/4;
+                    state3d.matrix = [
+                        [Math.cos(angleY), 0, Math.sin(angleY)],
+                        [0, 1, 0],
+                        [-Math.sin(angleY), 0, Math.cos(angleY)]
+                    ];
+                    state3d.rotationY = 45;
+                    rotateY3d.value = 45;
+                    rotateYValue3d.textContent = '45°';
+                    break;
+                case 'rotateZ':
+                    const angleZ = Math.PI/4;
+                    state3d.matrix = [
+                        [Math.cos(angleZ), -Math.sin(angleZ), 0],
+                        [Math.sin(angleZ), Math.cos(angleZ), 0],
+                        [0, 0, 1]
+                    ];
+                    state3d.rotationZ = 45;
+                    rotateZ3d.value = 45;
+                    rotateZValue3d.textContent = '45°';
+                    break;
+                case 'shear':
+                    state3d.matrix = [[1, 0.3, 0.2], [0.1, 1, 0.4], [0.3, 0.2, 1]];
+                    break;
+            }
+            
+            updateMatrixInputs3D();
+            animate3D();
+        }
+
+        function updateScale3d() {
+            state3d.scaleX = parseFloat(scaleX3d.value);
+            state3d.scaleY = parseFloat(scaleY3d.value);
+            state3d.scaleZ = parseFloat(scaleZ3d.value);
+            
+            scaleXValue3d.textContent = state3d.scaleX.toFixed(1);
+            scaleYValue3d.textContent = state3d.scaleY.toFixed(1);
+            scaleZValue3d.textContent = state3d.scaleZ.toFixed(1);
+            
+            // Update matrix with scaling and rotation
+            updateRotationMatrix3D();
+        }
+
+        function updateRotation3d() {
+            state3d.rotationX = parseFloat(rotateX3d.value);
+            state3d.rotationY = parseFloat(rotateY3d.value);
+            state3d.rotationZ = parseFloat(rotateZ3d.value);
+            
+            rotateXValue3d.textContent = `${state3d.rotationX}°`;
+            rotateYValue3d.textContent = `${state3d.rotationY}°`;
+            rotateZValue3d.textContent = `${state3d.rotationZ}°`;
+            
+            // Update matrix with rotation and scaling
+            updateRotationMatrix3D();
+        }
+
+        function updateRotationMatrix3D() {
+            // Convert angles to radians
+            const rx = state3d.rotationX * Math.PI / 180;
+            const ry = state3d.rotationY * Math.PI / 180;
+            const rz = state3d.rotationZ * Math.PI / 180;
+            
+            // Precompute trigonometric values
+            const cosX = Math.cos(rx);
+            const sinX = Math.sin(rx);
+            const cosY = Math.cos(ry);
+            const sinY = Math.sin(ry);
+            const cosZ = Math.cos(rz);
+            const sinZ = Math.sin(rz);
+            
+            // Create rotation matrices for each axis
+            const rotX = [
+                [1, 0, 0],
+                [0, cosX, -sinX],
+                [0, sinX, cosX]
+            ];
+            
+            const rotY = [
+                [cosY, 0, sinY],
+                [0, 1, 0],
+                [-sinY, 0, cosY]
+            ];
+            
+            const rotZ = [
+                [cosZ, -sinZ, 0],
+                [sinZ, cosZ, 0],
+                [0, 0, 1]
+            ];
+            
+            // Create scaling matrix
+            const scale = [
+                [state3d.scaleX, 0, 0],
+                [0, state3d.scaleY, 0],
+                [0, 0, state3d.scaleZ]
+            ];
+            
+            // Combine rotations (Z * Y * X order)
+            const rotYX = multiplyMatrices(rotY, rotX);
+            const rotZYX = multiplyMatrices(rotZ, rotYX);
+            
+            // Apply scaling
+            state3d.matrix = multiplyMatrices(rotZYX, scale);
+            
+            updateMatrixInputs3D();
+            animate3D();
+        }
+
+        // Helper function to multiply two 3x3 matrices
+        function multiplyMatrices(a, b) {
+            const result = [[0,0,0],[0,0,0],[0,0,0]];
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    for (let k = 0; k < 3; k++) {
+                        result[i][j] += a[i][k] * b[k][j];
+                    }
+                }
+            }
+            return result;
+        }
+
+        function updateMatrix3d() {
+            state3d.matrix = [
+                [parseFloat(b11.value), parseFloat(b12.value), parseFloat(b13.value)],
+                [parseFloat(b21.value), parseFloat(b22.value), parseFloat(b23.value)],
+                [parseFloat(b31.value), parseFloat(b32.value), parseFloat(b33.value)]
+            ];
+            
+            // Extract scale from matrix for sliders
+            // This is a simplification
+            state3d.scaleX = Math.sqrt(
+                state3d.matrix[0][0]*state3d.matrix[0][0] + 
+                state3d.matrix[1][0]*state3d.matrix[1][0] + 
+                state3d.matrix[2][0]*state3d.matrix[2][0]
+            );
+            
+            state3d.scaleY = Math.sqrt(
+                state3d.matrix[0][1]*state3d.matrix[0][1] + 
+                state3d.matrix[1][1]*state3d.matrix[1][1] + 
+                state3d.matrix[2][1]*state3d.matrix[2][1]
+            );
+            
+            state3d.scaleZ = Math.sqrt(
+                state3d.matrix[0][2]*state3d.matrix[0][2] + 
+                state3d.matrix[1][2]*state3d.matrix[1][2] + 
+                state3d.matrix[2][2]*state3d.matrix[2][2]
+            );
+            
+            scaleX3d.value = state3d.scaleX;
+            scaleY3d.value = state3d.scaleY;
+            scaleZ3d.value = state3d.scaleZ;
+            
+            scaleXValue3d.textContent = state3d.scaleX.toFixed(1);
+            scaleYValue3d.textContent = state3d.scaleY.toFixed(1);
+            scaleZValue3d.textContent = state3d.scaleZ.toFixed(1);
+            
+            animate3D();
+        }
+
+        function updateMatrixInputs3D() {
+            b11.value = state3d.matrix[0][0].toFixed(2);
+            b12.value = state3d.matrix[0][1].toFixed(2);
+            b13.value = state3d.matrix[0][2].toFixed(2);
+            b21.value = state3d.matrix[1][0].toFixed(2);
+            b22.value = state3d.matrix[1][1].toFixed(2);
+            b23.value = state3d.matrix[1][2].toFixed(2);
+            b31.value = state3d.matrix[2][0].toFixed(2);
+            b32.value = state3d.matrix[2][1].toFixed(2);
+            b33.value = state3d.matrix[2][2].toFixed(2);
+        }
+
+        function updateMatrixDisplay3D() {
+            n11.textContent = state3d.matrix[0][0].toFixed(2);
+            n12.textContent = state3d.matrix[0][1].toFixed(2);
+            n13.textContent = state3d.matrix[0][2].toFixed(2);
+            n21.textContent = state3d.matrix[1][0].toFixed(2);
+            n22.textContent = state3d.matrix[1][1].toFixed(2);
+            n23.textContent = state3d.matrix[1][2].toFixed(2);
+            n31.textContent = state3d.matrix[2][0].toFixed(2);
+            n32.textContent = state3d.matrix[2][1].toFixed(2);
+            n33.textContent = state3d.matrix[2][2].toFixed(2);
+        }
+
+        function updateDeterminant3D() {
+            const m = state3d.matrix;
+            const det = m[0][0] * (m[1][1]*m[2][2] - m[1][2]*m[2][1]) -
+                       m[0][1] * (m[1][0]*m[2][2] - m[1][2]*m[2][0]) +
+                       m[0][2] * (m[1][0]*m[2][1] - m[1][1]*m[2][0]);
+            det3d.textContent = det.toFixed(2);
+        }
+
+        // Initialize the application when the page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
