@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Systems of Equations - Draggable Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0a0a0f;
+            --secondary: #1a1a2e;
+            --accent-cyan: #00ffff;
+            --accent-magenta: #ff00ff;
+            --accent-yellow: #ffff00;
+            --accent-orange: #ff6b00;
+            --accent-green: #00ff00;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #0f0f23 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            border: 1px solid rgba(128, 0, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(128, 0, 255, 0.3);
+        }
+
+        .panel-header h2 {
+            font-size: 1.5rem;
+            color: var(--accent-cyan);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .theory-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+        }
+
+        .theory-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-active {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        .canvas-container {
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid rgba(128, 0, 255, 0.3);
+            margin-bottom: 20px;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0a0a0f;
+            position: relative;
+        }
+
+        #canvas2d, #canvas3d {
+            width: 100%;
+            height: 400px;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .theory-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: none;
+            border: 1px solid rgba(128, 0, 255, 0.3);
+        }
+
+        .theory-panel.active {
+            display: block;
+        }
+
+        .theory-content {
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .theory-content h3 {
+            color: var(--accent-yellow);
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .theory-content p {
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .theory-content ul {
+            color: var(--text-secondary);
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .theory-content li {
+            margin-bottom: 5px;
+        }
+
+        .formula {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            text-align: center;
+            font-family: 'Times New Roman', serif;
+        }
+
+        .equations-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .equation-group {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .equation-group h4 {
+            color: var(--accent-green);
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .equation-inputs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .equation-inputs input {
+            width: 60px;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .equation-inputs span {
+            color: var(--text-primary);
+            font-weight: bold;
+        }
+
+        .solution-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .solution-panel h3 {
+            color: var(--accent-yellow);
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .solution-result {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .solution-result.solution {
+            color: var(--accent-green);
+        }
+
+        .solution-result.no-solution {
+            color: var(--accent-orange);
+        }
+
+        .solution-result.infinite {
+            color: var(--accent-magenta);
+        }
+
+        .matrix-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            text-align: center;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .equation-inputs {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* MathJax styling */
+        .MathJax {
+            color: white !important;
+            font-size: 1.1em !important;
+        }
+
+        mjx-container[jax="CHTML"][display="true"] {
+            text-align: center !important;
+            margin: 10px 0 !important;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(128, 0, 255, 0.5);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(128, 0, 255, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Systems of Equations - Draggable Visualizer</h1>
+            <p>Drag lines and planes to explore solutions in real-time</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 2D Systems Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-crosshairs"></i> 2D Systems</h2>
+                    <button class="theory-btn" id="theory2dBtn">
+                        <i class="fas fa-book"></i> Theory
+                    </button>
+                </div>
+                
+                <div class="theory-panel" id="theory2dPanel">
+                    <div class="theory-content">
+                        <h3>2D Systems of Linear Equations</h3>
+                        <p>A system of two linear equations in two variables has the form:</p>
+                        <div class="formula">
+                            \( \begin{cases} a_1x + b_1y = c_1 \\ a_2x + b_2y = c_2 \end{cases} \)
+                        </div>
+                        <p>Geometrically, each equation represents a line in the plane. The solution to the system corresponds to the intersection point of these lines.</p>
+                        
+                        <h3>Possible Solutions</h3>
+                        <ul>
+                            <li><strong>Unique Solution:</strong> The lines intersect at exactly one point. The system is consistent and independent.</li>
+                            <li><strong>No Solution:</strong> The lines are parallel and distinct. The system is inconsistent.</li>
+                            <li><strong>Infinitely Many Solutions:</strong> The lines are coincident (the same line). The system is consistent but dependent.</li>
+                        </ul>
+                        
+                        <h3>Dragging Interaction</h3>
+                        <p>Click and drag on any line to move it. The solution updates in real-time as you drag.</p>
+                    </div>
+                </div>
+                
+                <div class="instructions">
+                    <i class="fas fa-mouse-pointer"></i> Click and drag lines to move them. Watch how the solution changes!
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-secondary" id="reset2dBtn">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                    <button class="btn btn-secondary" id="showGrid2dBtn">
+                        <i class="fas fa-th"></i> Toggle Grid
+                    </button>
+                    <div style="flex: 1;"></div>
+                    <button class="btn btn-secondary" id="preset2dBtn">
+                        <i class="fas fa-cog"></i> Presets
+                    </button>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="canvas2d" width="600" height="400"></canvas>
+                </div>
+
+                <div class="equations-container">
+                    <div class="equation-group">
+                        <h4>Equation 1 (Blue)</h4>
+                        <div class="equation-inputs">
+                            <input type="number" id="a1" value="2" step="0.1">
+                            <span>x</span>
+                            <span>+</span>
+                            <input type="number" id="b1" value="1" step="0.1">
+                            <span>y</span>
+                            <span>=</span>
+                            <input type="number" id="c1" value="5" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <div class="equation-group">
+                        <h4>Equation 2 (Pink)</h4>
+                        <div class="equation-inputs">
+                            <input type="number" id="a2" value="1" step="0.1">
+                            <span>x</span>
+                            <span>+</span>
+                            <input type="number" id="b2" value="-1" step="0.1">
+                            <span>y</span>
+                            <span>=</span>
+                            <input type="number" id="c2" value="0" step="0.1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="solution-panel">
+                    <h3>Solution</h3>
+                    <div class="solution-result" id="solution2d">
+                        Drag lines to see solution
+                    </div>
+                    <div class="matrix-display">
+                        System: 
+                        [<span id="m11">2</span> <span id="m12">1</span>] [x] = [<span id="c1val">5</span>]
+                        [<span id="m21">1</span> <span id="m22">-1</span>] [y] = [<span id="c2val">0</span>]
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Systems Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-cube"></i> 3D Systems</h2>
+                    <button class="theory-btn" id="theory3dBtn">
+                        <i class="fas fa-book"></i> Theory
+                    </button>
+                </div>
+                
+                <div class="theory-panel" id="theory3dPanel">
+                    <div class="theory-content">
+                        <h3>3D Systems of Linear Equations</h3>
+                        <p>A system of three linear equations in three variables has the form:</p>
+                        <div class="formula">
+                            \( \begin{cases} a_1x + b_1y + c_1z = d_1 \\ a_2x + b_2y + c_2z = d_2 \\ a_3x + b_3y + c_3z = d_3 \end{cases} \)
+                        </div>
+                        <p>Geometrically, each equation represents a plane in 3D space. The solution to the system corresponds to the intersection of these planes.</p>
+                        
+                        <h3>Possible Solutions</h3>
+                        <ul>
+                            <li><strong>Unique Solution:</strong> The planes intersect at exactly one point.</li>
+                            <li><strong>No Solution:</strong> The planes have no common point of intersection.</li>
+                            <li><strong>Infinitely Many Solutions (Line):</strong> The planes intersect along a line.</li>
+                            <li><strong>Infinitely Many Solutions (Plane):</strong> All three planes are the same.</li>
+                        </ul>
+                        
+                        <h3>3D Interaction</h3>
+                        <p>Drag to rotate the view. The solution point (if it exists) is shown as a green sphere.</p>
+                    </div>
+                </div>
+                
+                <div class="instructions">
+                    <i class="fas fa-arrows-alt"></i> Drag to rotate view. The solution point is shown in green.
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-secondary" id="reset3dBtn">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                    <button class="btn btn-secondary" id="showAxes3dBtn">
+                        <i class="fas fa-arrows-alt"></i> Toggle Axes
+                    </button>
+                    <div style="flex: 1;"></div>
+                    <button class="btn btn-secondary" id="preset3dBtn">
+                        <i class="fas fa-cog"></i> Presets
+                    </button>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="canvas3d" width="600" height="400"></canvas>
+                </div>
+
+                <div class="equations-container">
+                    <div class="equation-group">
+                        <h4>Equation 1 (Cyan)</h4>
+                        <div class="equation-inputs">
+                            <input type="number" id="a1_3d" value="1" step="0.1">
+                            <span>x</span>
+                            <span>+</span>
+                            <input type="number" id="b1_3d" value="1" step="0.1">
+                            <span>y</span>
+                            <span>+</span>
+                            <input type="number" id="c1_3d" value="1" step="0.1">
+                            <span>z</span>
+                            <span>=</span>
+                            <input type="number" id="d1_3d" value="6" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <div class="equation-group">
+                        <h4>Equation 2 (Magenta)</h4>
+                        <div class="equation-inputs">
+                            <input type="number" id="a2_3d" value="2" step="0.1">
+                            <span>x</span>
+                            <span>+</span>
+                            <input type="number" id="b2_3d" value="1" step="0.1">
+                            <span>y</span>
+                            <span>+</span>
+                            <input type="number" id="c2_3d" value="-1" step="0.1">
+                            <span>z</span>
+                            <span>=</span>
+                            <input type="number" id="d2_3d" value="1" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <div class="equation-group">
+                        <h4>Equation 3 (Yellow)</h4>
+                        <div class="equation-inputs">
+                            <input type="number" id="a3_3d" value="1" step="0.1">
+                            <span>x</span>
+                            <span>+</span>
+                            <input type="number" id="b3_3d" value="-1" step="0.1">
+                            <span>y</span>
+                            <span>+</span>
+                            <input type="number" id="c3_3d" value="2" step="0.1">
+                            <span>z</span>
+                            <span>=</span>
+                            <input type="number" id="d3_3d" value="3" step="0.1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="solution-panel">
+                    <h3>Solution</h3>
+                    <div class="solution-result" id="solution3d">
+                        Unique solution exists
+                    </div>
+                    <div class="matrix-display">
+                        System: 
+                        [<span id="n11">1</span> <span id="n12">1</span> <span id="n13">1</span>] [x] = [<span id="d1val">6</span>]
+                        [<span id="n21">2</span> <span id="n22">1</span> <span id="n23">-1</span>] [y] = [<span id="d2val">1</span>]
+                        [<span id="n31">1</span> <span id="n32">-1</span> <span id="n33">2</span>] [z] = [<span id="d3val">3</span>]
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        const state2d = {
+            equations: [
+                { a: 2, b: 1, c: 5 },
+                { a: 1, b: -1, c: 0 }
+            ],
+            showGrid: true,
+            solution: null,
+            dragging: null
+        };
+
+        const state3d = {
+            equations: [
+                { a: 1, b: 1, c: 1, d: 6 },
+                { a: 2, b: 1, c: -1, d: 1 },
+                { a: 1, b: -1, c: 2, d: 3 }
+            ],
+            showAxes: true,
+            solution: null,
+            isRotating: false,
+            previousMousePosition: { x: 0, y: 0 }
+        };
+
+        // DOM elements
+        const canvas2d = document.getElementById('canvas2d');
+        const ctx2d = canvas2d.getContext('2d');
+        const canvas3d = document.getElementById('canvas3d');
+
+        // Theory buttons and panels
+        const theory2dBtn = document.getElementById('theory2dBtn');
+        const theory2dPanel = document.getElementById('theory2dPanel');
+        const theory3dBtn = document.getElementById('theory3dBtn');
+        const theory3dPanel = document.getElementById('theory3dPanel');
+
+        // 2D Controls
+        const reset2dBtn = document.getElementById('reset2dBtn');
+        const showGrid2dBtn = document.getElementById('showGrid2dBtn');
+        const preset2dBtn = document.getElementById('preset2dBtn');
+        const solution2d = document.getElementById('solution2d');
+        
+        // 2D Equation inputs
+        const a1 = document.getElementById('a1');
+        const b1 = document.getElementById('b1');
+        const c1 = document.getElementById('c1');
+        const a2 = document.getElementById('a2');
+        const b2 = document.getElementById('b2');
+        const c2 = document.getElementById('c2');
+        
+        // 2D Matrix display
+        const m11 = document.getElementById('m11');
+        const m12 = document.getElementById('m12');
+        const m21 = document.getElementById('m21');
+        const m22 = document.getElementById('m22');
+        const c1val = document.getElementById('c1val');
+        const c2val = document.getElementById('c2val');
+
+        // 3D Controls
+        const reset3dBtn = document.getElementById('reset3dBtn');
+        const showAxes3dBtn = document.getElementById('showAxes3dBtn');
+        const preset3dBtn = document.getElementById('preset3dBtn');
+        const solution3d = document.getElementById('solution3d');
+        
+        // 3D Equation inputs
+        const a1_3d = document.getElementById('a1_3d');
+        const b1_3d = document.getElementById('b1_3d');
+        const c1_3d = document.getElementById('c1_3d');
+        const d1_3d = document.getElementById('d1_3d');
+        const a2_3d = document.getElementById('a2_3d');
+        const b2_3d = document.getElementById('b2_3d');
+        const c2_3d = document.getElementById('c2_3d');
+        const d2_3d = document.getElementById('d2_3d');
+        const a3_3d = document.getElementById('a3_3d');
+        const b3_3d = document.getElementById('b3_3d');
+        const c3_3d = document.getElementById('c3_3d');
+        const d3_3d = document.getElementById('d3_3d');
+        
+        // 3D Matrix display
+        const n11 = document.getElementById('n11');
+        const n12 = document.getElementById('n12');
+        const n13 = document.getElementById('n13');
+        const n21 = document.getElementById('n21');
+        const n22 = document.getElementById('n22');
+        const n23 = document.getElementById('n23');
+        const n31 = document.getElementById('n31');
+        const n32 = document.getElementById('n32');
+        const n33 = document.getElementById('n33');
+        const d1val = document.getElementById('d1val');
+        const d2val = document.getElementById('d2val');
+        const d3val = document.getElementById('d3val');
+
+        // Three.js variables
+        let scene, camera, renderer, planes = [], solutionPoint, axesHelper;
+        let isMouseDown = false;
+
+        // Initialize the application
+        function init() {
+            // Set up event listeners for theory panels
+            theory2dBtn.addEventListener('click', () => toggleTheoryPanel(theory2dPanel));
+            theory3dBtn.addEventListener('click', () => toggleTheoryPanel(theory3dPanel));
+
+            // Set up event listeners for 2D
+            reset2dBtn.addEventListener('click', reset2d);
+            showGrid2dBtn.addEventListener('click', toggleGrid2d);
+            preset2dBtn.addEventListener('click', showPresets2d);
+            
+            a1.addEventListener('input', update2dEquations);
+            b1.addEventListener('input', update2dEquations);
+            c1.addEventListener('input', update2dEquations);
+            a2.addEventListener('input', update2dEquations);
+            b2.addEventListener('input', update2dEquations);
+            c2.addEventListener('input', update2dEquations);
+
+            // Set up event listeners for 3D
+            reset3dBtn.addEventListener('click', reset3d);
+            showAxes3dBtn.addEventListener('click', toggleAxes3d);
+            preset3dBtn.addEventListener('click', showPresets3d);
+            
+            a1_3d.addEventListener('input', update3dEquations);
+            b1_3d.addEventListener('input', update3dEquations);
+            c1_3d.addEventListener('input', update3dEquations);
+            d1_3d.addEventListener('input', update3dEquations);
+            a2_3d.addEventListener('input', update3dEquations);
+            b2_3d.addEventListener('input', update3dEquations);
+            c2_3d.addEventListener('input', update3dEquations);
+            d2_3d.addEventListener('input', update3dEquations);
+            a3_3d.addEventListener('input', update3dEquations);
+            b3_3d.addEventListener('input', update3dEquations);
+            c3_3d.addEventListener('input', update3dEquations);
+            d3_3d.addEventListener('input', update3dEquations);
+
+            // Set up mouse event listeners for 2D dragging
+            canvas2d.addEventListener('mousedown', handleMouseDown2d);
+            canvas2d.addEventListener('mousemove', handleMouseMove2d);
+            canvas2d.addEventListener('mouseup', handleMouseUp2d);
+            canvas2d.addEventListener('mouseleave', handleMouseUp2d);
+
+            // Initialize 3D scene
+            init3D();
+
+            // Initial render
+            draw2D();
+            solve2d();
+            animate3D();
+        }
+
+        // Theory panel functions
+        function toggleTheoryPanel(panel) {
+            panel.classList.toggle('active');
+            if (panel.classList.contains('active')) {
+                // Process MathJax when showing theory panel
+                MathJax.typesetPromise([panel]).catch(err => console.log('MathJax error:', err));
+            }
+        }
+
+        // 2D Drawing Functions
+        function draw2D() {
+            const width = canvas2d.width;
+            const height = canvas2d.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const scale = 40; // Pixels per unit
+            
+            // Clear canvas
+            ctx2d.fillStyle = '#0a0a0f';
+            ctx2d.fillRect(0, 0, width, height);
+            
+            // Draw grid if enabled
+            if (state2d.showGrid) {
+                drawGrid2D(ctx2d, width, height, centerX, centerY);
+            }
+            
+            // Draw coordinate system
+            drawCoordinateSystem2D(ctx2d, centerX, centerY, '#333366');
+            
+            // Draw equations
+            const colors = ['#00ffff', '#ff00ff'];
+            
+            for (let i = 0; i < state2d.equations.length; i++) {
+                const eq = state2d.equations[i];
+                drawLine2D(ctx2d, centerX, centerY, scale, eq, colors[i], i);
+            }
+            
+            // Draw solution if it exists
+            if (state2d.solution && state2d.solution.type === 'unique') {
+                drawSolution2D(ctx2d, centerX, centerY, scale, state2d.solution);
+            }
+            
+            // Update matrix display
+            updateMatrixDisplay2D();
+        }
+
+        function drawGrid2D(ctx, width, height, centerX, centerY) {
+            ctx.strokeStyle = 'rgba(100, 100, 120, 0.2)';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = 0; x <= width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y <= height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // Center lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, height);
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.stroke();
+        }
+
+        function drawCoordinateSystem2D(ctx, x, y, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            // X-axis
+            ctx.beginPath();
+            ctx.moveTo(x - 200, y);
+            ctx.lineTo(x + 200, y);
+            ctx.stroke();
+            
+            // Y-axis
+            ctx.beginPath();
+            ctx.moveTo(x, y - 200);
+            ctx.lineTo(x, y + 200);
+            ctx.stroke();
+            
+            // X-axis arrow
+            ctx.beginPath();
+            ctx.moveTo(x + 190, y - 5);
+            ctx.lineTo(x + 200, y);
+            ctx.lineTo(x + 190, y + 5);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Y-axis arrow
+            ctx.beginPath();
+            ctx.moveTo(x - 5, y - 190);
+            ctx.lineTo(x, y - 200);
+            ctx.lineTo(x + 5, y - 190);
+            ctx.fill();
+            
+            // Labels
+            ctx.fillStyle = color;
+            ctx.font = 'bold 14px sans-serif';
+            ctx.fillText('X', x + 210, y + 5);
+            ctx.fillText('Y', x - 10, y - 210);
+            
+            // Scale markers
+            ctx.font = '12px sans-serif';
+            for (let i = -5; i <= 5; i++) {
+                if (i === 0) continue;
+                
+                // X-axis markers
+                ctx.beginPath();
+                ctx.moveTo(x + i * 40, y - 5);
+                ctx.lineTo(x + i * 40, y + 5);
+                ctx.stroke();
+                ctx.fillText(i.toString(), x + i * 40 - 5, y + 20);
+                
+                // Y-axis markers
+                ctx.beginPath();
+                ctx.moveTo(x - 5, y - i * 40);
+                ctx.lineTo(x + 5, y - i * 40);
+                ctx.stroke();
+                ctx.fillText(i.toString(), x - 20, y - i * 40 + 5);
+            }
+        }
+
+        function drawLine2D(ctx, centerX, centerY, scale, eq, color, index) {
+            const { a, b, c } = eq;
+            
+            // Handle vertical lines (b = 0)
+            if (Math.abs(b) < 1e-10) {
+                if (Math.abs(a) < 1e-10) return; // Invalid equation
+                
+                const x = c / a;
+                const screenX = centerX + x * scale;
+                
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(screenX, 0);
+                ctx.lineTo(screenX, canvas2d.height);
+                ctx.stroke();
+                
+                // Draw draggable point
+                drawDraggablePoint(ctx, screenX, centerY, color, index);
+                return;
+            }
+            
+            // Calculate two points on the line
+            const x1 = -5;
+            const y1 = (c - a * x1) / b;
+            const x2 = 5;
+            const y2 = (c - a * x2) / b;
+            
+            const screenX1 = centerX + x1 * scale;
+            const screenY1 = centerY - y1 * scale;
+            const screenX2 = centerX + x2 * scale;
+            const screenY2 = centerY - y2 * scale;
+            
+            // Draw the line
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(screenX1, screenY1);
+            ctx.lineTo(screenX2, screenY2);
+            ctx.stroke();
+            
+            // Draw draggable point (at intersection with x=0 or y=0)
+            let dragX, dragY;
+            if (Math.abs(a) > Math.abs(b)) {
+                // Use intersection with y-axis
+                dragX = centerX;
+                dragY = centerY - (c / b) * scale;
+            } else {
+                // Use intersection with x-axis
+                dragX = centerX + (c / a) * scale;
+                dragY = centerY;
+            }
+            
+            drawDraggablePoint(ctx, dragX, dragY, color, index);
+        }
+
+        function drawDraggablePoint(ctx, x, y, color, index) {
+            // Draw a circle to indicate draggable point
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw a white border
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Add a number to identify the line
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText((index + 1).toString(), x, y);
+        }
+
+        function drawSolution2D(ctx, centerX, centerY, scale, solution) {
+            const { x, y } = solution;
+            const screenX = centerX + x * scale;
+            const screenY = centerY - y * scale;
+            
+            // Draw the solution point
+            ctx.fillStyle = '#00ff00';
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw a crosshair
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(screenX - 10, screenY);
+            ctx.lineTo(screenX + 10, screenY);
+            ctx.moveTo(screenX, screenY - 10);
+            ctx.lineTo(screenX, screenY + 10);
+            ctx.stroke();
+        }
+
+        // 2D Mouse Event Handlers
+        function handleMouseDown2d(e) {
+            const rect = canvas2d.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const centerX = canvas2d.width / 2;
+            const centerY = canvas2d.height / 2;
+            const scale = 40;
+            
+            // Check if user clicked on a draggable point
+            for (let i = 0; i < state2d.equations.length; i++) {
+                const eq = state2d.equations[i];
+                let pointX, pointY;
+                
+                // Calculate the draggable point position
+                if (Math.abs(eq.b) < 1e-10) {
+                    // Vertical line
+                    pointX = centerX + (eq.c / eq.a) * scale;
+                    pointY = centerY;
+                } else if (Math.abs(eq.a) > Math.abs(eq.b)) {
+                    // Use intersection with y-axis
+                    pointX = centerX;
+                    pointY = centerY - (eq.c / eq.b) * scale;
+                } else {
+                    // Use intersection with x-axis
+                    pointX = centerX + (eq.c / eq.a) * scale;
+                    pointY = centerY;
+                }
+                
+                // Check if click is near the point
+                const distance = Math.sqrt((x - pointX) ** 2 + (y - pointY) ** 2);
+                if (distance < 15) {
+                    state2d.dragging = i;
+                    canvas2d.style.cursor = 'grabbing';
+                    return;
+                }
+            }
+        }
+
+        function handleMouseMove2d(e) {
+            if (state2d.dragging === null) return;
+            
+            const rect = canvas2d.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const centerX = canvas2d.width / 2;
+            const centerY = canvas2d.height / 2;
+            const scale = 40;
+            
+            // Convert screen coordinates to math coordinates
+            const mathX = (x - centerX) / scale;
+            const mathY = (centerY - y) / scale;
+            
+            // Update the equation based on the drag
+            const eqIndex = state2d.dragging;
+            const eq = state2d.equations[eqIndex];
+            
+            // Calculate new constant term c
+            // The line equation is: a*x + b*y = c
+            // So c = a*mathX + b*mathY
+            const newC = eq.a * mathX + eq.b * mathY;
+            
+            // Update the equation
+            state2d.equations[eqIndex].c = newC;
+            
+            // Update the input field
+            if (eqIndex === 0) {
+                c1.value = newC.toFixed(2);
+            } else {
+                c2.value = newC.toFixed(2);
+            }
+            
+            // Solve and redraw
+            solve2d();
+            draw2D();
+        }
+
+        function handleMouseUp2d() {
+            state2d.dragging = null;
+            canvas2d.style.cursor = 'crosshair';
+        }
+
+        // 2D Event Handlers
+        function reset2d() {
+            state2d.equations = [
+                { a: 2, b: 1, c: 5 },
+                { a: 1, b: -1, c: 0 }
+            ];
+            state2d.solution = null;
+            
+            a1.value = 2;
+            b1.value = 1;
+            c1.value = 5;
+            a2.value = 1;
+            b2.value = -1;
+            c2.value = 0;
+            
+            solution2d.textContent = 'Drag lines to see solution';
+            solution2d.className = 'solution-result';
+            
+            draw2D();
+            solve2d();
+        }
+
+        function toggleGrid2d() {
+            state2d.showGrid = !state2d.showGrid;
+            draw2D();
+        }
+
+        function showPresets2d() {
+            // Simple preset selector
+            const preset = prompt("Choose a preset:\n1. Intersecting lines\n2. Parallel lines\n3. Coincident lines", "1");
+            
+            switch(preset) {
+                case "1":
+                    state2d.equations = [
+                        { a: 2, b: 1, c: 5 },
+                        { a: 1, b: -1, c: 0 }
+                    ];
+                    break;
+                case "2":
+                    state2d.equations = [
+                        { a: 2, b: 1, c: 5 },
+                        { a: 2, b: 1, c: 1 }
+                    ];
+                    break;
+                case "3":
+                    state2d.equations = [
+                        { a: 2, b: 1, c: 5 },
+                        { a: 4, b: 2, c: 10 }
+                    ];
+                    break;
+                default:
+                    return; // User cancelled
+            }
+            
+            update2dEquations();
+        }
+
+        function update2dEquations() {
+            state2d.equations = [
+                { a: parseFloat(a1.value), b: parseFloat(b1.value), c: parseFloat(c1.value) },
+                { a: parseFloat(a2.value), b: parseFloat(b2.value), c: parseFloat(c2.value) }
+            ];
+            state2d.solution = null;
+            solve2d();
+            draw2D();
+        }
+
+        function solve2d() {
+            const eq1 = state2d.equations[0];
+            const eq2 = state2d.equations[1];
+            
+            // Calculate determinant
+            const det = eq1.a * eq2.b - eq1.b * eq2.a;
+            
+            if (Math.abs(det) < 1e-10) {
+                // Check if the system is inconsistent or dependent
+                const ratio1 = eq1.a / eq2.a;
+                const ratio2 = eq1.b / eq2.b;
+                const ratio3 = eq1.c / eq2.c;
+                
+                if (Math.abs(ratio1 - ratio2) < 1e-10 && Math.abs(ratio1 - ratio3) < 1e-10) {
+                    state2d.solution = { type: 'infinite' };
+                    solution2d.textContent = 'Infinitely many solutions (lines are coincident)';
+                    solution2d.className = 'solution-result infinite';
+                } else {
+                    state2d.solution = { type: 'none' };
+                    solution2d.textContent = 'No solution (lines are parallel)';
+                    solution2d.className = 'solution-result no-solution';
+                }
+            } else {
+                // Unique solution
+                const x = (eq1.c * eq2.b - eq1.b * eq2.c) / det;
+                const y = (eq1.a * eq2.c - eq1.c * eq2.a) / det;
+                
+                state2d.solution = { type: 'unique', x, y };
+                solution2d.textContent = `Unique solution: (${x.toFixed(2)}, ${y.toFixed(2)})`;
+                solution2d.className = 'solution-result solution';
+            }
+        }
+
+        function updateMatrixDisplay2D() {
+            const eq1 = state2d.equations[0];
+            const eq2 = state2d.equations[1];
+            
+            m11.textContent = eq1.a.toFixed(1);
+            m12.textContent = eq1.b.toFixed(1);
+            m21.textContent = eq2.a.toFixed(1);
+            m22.textContent = eq2.b.toFixed(1);
+            c1val.textContent = eq1.c.toFixed(1);
+            c2val.textContent = eq2.c.toFixed(1);
+        }
+
+        // 3D Functions
+        function init3D() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0f);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, canvas3d.clientWidth / canvas3d.clientHeight, 0.1, 1000);
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true });
+            renderer.setSize(canvas3d.clientWidth, canvas3d.clientHeight);
+            
+            // Create axes helper
+            axesHelper = new THREE.AxesHelper(4);
+            scene.add(axesHelper);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            // Set up mouse controls for 3D rotation
+            canvas3d.addEventListener('mousedown', onMouseDown3D);
+            canvas3d.addEventListener('mousemove', onMouseMove3D);
+            canvas3d.addEventListener('mouseup', onMouseUp3D);
+            canvas3d.addEventListener('wheel', onMouseWheel3D);
+            
+            // Create initial planes
+            createPlanes3D();
+            solve3d();
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = canvas3d.clientWidth / canvas3d.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas3d.clientWidth, canvas3d.clientHeight);
+        }
+
+        function createPlanes3D() {
+            // Clear existing planes
+            planes.forEach(plane => scene.remove(plane));
+            planes = [];
+            
+            if (solutionPoint) {
+                scene.remove(solutionPoint);
+                solutionPoint = null;
+            }
+            
+            const colors = [0x00ffff, 0xff00ff, 0xffff00];
+            const planeSize = 8;
+            
+            for (let i = 0; i < state3d.equations.length; i++) {
+                const eq = state3d.equations[i];
+                const { a, b, c, d } = eq;
+                
+                // Create plane geometry
+                const geometry = new THREE.PlaneGeometry(planeSize, planeSize);
+                
+                // Create material with transparency
+                const material = new THREE.MeshBasicMaterial({
+                    color: colors[i],
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.5
+                });
+                
+                const plane = new THREE.Mesh(geometry, material);
+                
+                // Calculate normal vector and position
+                const normal = new THREE.Vector3(a, b, c).normalize();
+                plane.lookAt(normal);
+                
+                // Calculate distance from origin
+                const distance = d / Math.sqrt(a*a + b*b + c*c);
+                plane.position.copy(normal.multiplyScalar(distance));
+                
+                scene.add(plane);
+                planes.push(plane);
+            }
+        }
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            
+            // Update matrix display
+            updateMatrixDisplay3D();
+            
+            renderer.render(scene, camera);
+        }
+
+        // 3D Mouse Event Handlers
+        function onMouseDown3D(event) {
+            isMouseDown = true;
+            state3d.previousMousePosition = {
+                x: event.clientX,
+                y: event.clientY
+            };
+            canvas3d.style.cursor = 'grabbing';
+        }
+
+        function onMouseMove3D(event) {
+            if (!isMouseDown) return;
+            
+            const deltaX = event.clientX - state3d.previousMousePosition.x;
+            const deltaY = event.clientY - state3d.previousMousePosition.y;
+            
+            // Rotate camera based on mouse movement
+            camera.position.x -= deltaX * 0.01;
+            camera.position.y += deltaY * 0.01;
+            
+            // Ensure camera looks at the origin
+            camera.lookAt(0, 0, 0);
+            
+            state3d.previousMousePosition = {
+                x: event.clientX,
+                y: event.clientY
+            };
+        }
+
+        function onMouseUp3D() {
+            isMouseDown = false;
+            canvas3d.style.cursor = 'crosshair';
+        }
+
+        function onMouseWheel3D(event) {
+            // Zoom in/out with mouse wheel
+            event.preventDefault();
+            camera.position.multiplyScalar(event.deltaY > 0 ? 1.1 : 0.9);
+            camera.lookAt(0, 0, 0);
+        }
+
+        // 3D Event Handlers
+        function reset3d() {
+            state3d.equations = [
+                { a: 1, b: 1, c: 1, d: 6 },
+                { a: 2, b: 1, c: -1, d: 1 },
+                { a: 1, b: -1, c: 2, d: 3 }
+            ];
+            state3d.solution = null;
+            
+            a1_3d.value = 1;
+            b1_3d.value = 1;
+            c1_3d.value = 1;
+            d1_3d.value = 6;
+            a2_3d.value = 2;
+            b2_3d.value = 1;
+            c2_3d.value = -1;
+            d2_3d.value = 1;
+            a3_3d.value = 1;
+            b3_3d.value = -1;
+            c3_3d.value = 2;
+            d3_3d.value = 3;
+            
+            solution3d.textContent = 'Unique solution exists';
+            solution3d.className = 'solution-result';
+            
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+            
+            createPlanes3D();
+            solve3d();
+        }
+
+        function toggleAxes3d() {
+            state3d.showAxes = !state3d.showAxes;
+            axesHelper.visible = state3d.showAxes;
+        }
+
+        function showPresets3d() {
+            // Simple preset selector
+            const preset = prompt("Choose a preset:\n1. Three planes intersecting at a point\n2. Three parallel planes\n3. Planes intersecting along a line", "1");
+            
+            switch(preset) {
+                case "1":
+                    state3d.equations = [
+                        { a: 1, b: 1, c: 1, d: 6 },
+                        { a: 2, b: 1, c: -1, d: 1 },
+                        { a: 1, b: -1, c: 2, d: 3 }
+                    ];
+                    break;
+                case "2":
+                    state3d.equations = [
+                        { a: 1, b: 1, c: 1, d: 6 },
+                        { a: 1, b: 1, c: 1, d: 3 },
+                        { a: 1, b: 1, c: 1, d: 0 }
+                    ];
+                    break;
+                case "3":
+                    state3d.equations = [
+                        { a: 1, b: 1, c: 1, d: 6 },
+                        { a: 2, b: 2, c: 2, d: 12 },
+                        { a: 1, b: -1, c: 0, d: 0 }
+                    ];
+                    break;
+                default:
+                    return; // User cancelled
+            }
+            
+            update3dEquations();
+        }
+
+        function update3dEquations() {
+            state3d.equations = [
+                { a: parseFloat(a1_3d.value), b: parseFloat(b1_3d.value), c: parseFloat(c1_3d.value), d: parseFloat(d1_3d.value) },
+                { a: parseFloat(a2_3d.value), b: parseFloat(b2_3d.value), c: parseFloat(c2_3d.value), d: parseFloat(d2_3d.value) },
+                { a: parseFloat(a3_3d.value), b: parseFloat(b3_3d.value), c: parseFloat(c3_3d.value), d: parseFloat(d3_3d.value) }
+            ];
+            state3d.solution = null;
+            createPlanes3D();
+            solve3d();
+        }
+
+        function solve3d() {
+            const eq1 = state3d.equations[0];
+            const eq2 = state3d.equations[1];
+            const eq3 = state3d.equations[2];
+            
+            // Create coefficient matrix
+            const A = [
+                [eq1.a, eq1.b, eq1.c],
+                [eq2.a, eq2.b, eq2.c],
+                [eq3.a, eq3.b, eq3.c]
+            ];
+            
+            // Create constant vector
+            const B = [eq1.d, eq2.d, eq3.d];
+            
+            // Calculate determinant
+            const det = determinant3x3(A);
+            
+            if (Math.abs(det) < 1e-10) {
+                // Check for infinite solutions or no solution
+                // This is a simplified check - in practice, we'd need to check rank
+                solution3d.textContent = 'System may have no solution or infinitely many solutions';
+                solution3d.className = 'solution-result infinite';
+                state3d.solution = { type: 'infinite' };
+                
+                // Remove solution point if it exists
+                if (solutionPoint) {
+                    scene.remove(solutionPoint);
+                    solutionPoint = null;
+                }
+            } else {
+                // Use Cramer's rule to solve
+                const detX = determinant3x3([
+                    [B[0], A[0][1], A[0][2]],
+                    [B[1], A[1][1], A[1][2]],
+                    [B[2], A[2][1], A[2][2]]
+                ]);
+                
+                const detY = determinant3x3([
+                    [A[0][0], B[0], A[0][2]],
+                    [A[1][0], B[1], A[1][2]],
+                    [A[2][0], B[2], A[2][2]]
+                ]);
+                
+                const detZ = determinant3x3([
+                    [A[0][0], A[0][1], B[0]],
+                    [A[1][0], A[1][1], B[1]],
+                    [A[2][0], A[2][1], B[2]]
+                ]);
+                
+                const x = detX / det;
+                const y = detY / det;
+                const z = detZ / det;
+                
+                solution3d.textContent = `Unique solution: (${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)})`;
+                solution3d.className = 'solution-result solution';
+                state3d.solution = { type: 'unique', x, y, z };
+                
+                // Visualize the solution point
+                if (solutionPoint) {
+                    scene.remove(solutionPoint);
+                }
+                
+                const geometry = new THREE.SphereGeometry(0.2, 32, 32);
+                const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                solutionPoint = new THREE.Mesh(geometry, material);
+                solutionPoint.position.set(x, y, z);
+                scene.add(solutionPoint);
+            }
+        }
+
+        function determinant3x3(matrix) {
+            const [[a, b, c], [d, e, f], [g, h, i]] = matrix;
+            return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+        }
+
+        function updateMatrixDisplay3D() {
+            const eq1 = state3d.equations[0];
+            const eq2 = state3d.equations[1];
+            const eq3 = state3d.equations[2];
+            
+            n11.textContent = eq1.a.toFixed(1);
+            n12.textContent = eq1.b.toFixed(1);
+            n13.textContent = eq1.c.toFixed(1);
+            n21.textContent = eq2.a.toFixed(1);
+            n22.textContent = eq2.b.toFixed(1);
+            n23.textContent = eq2.c.toFixed(1);
+            n31.textContent = eq3.a.toFixed(1);
+            n32.textContent = eq3.b.toFixed(1);
+            n33.textContent = eq3.c.toFixed(1);
+            d1val.textContent = eq1.d.toFixed(1);
+            d2val.textContent = eq2.d.toFixed(1);
+            d3val.textContent = eq3.d.toFixed(1);
+        }
+
+        // Initialize the application when the page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
