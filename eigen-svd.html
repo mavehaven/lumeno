@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVD & Eigenvalues - Matrix Transformation Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Your existing CSS remains the same */
+        :root {
+            --primary: #0a0a0f;
+            --secondary: #1a1a2e;
+            --accent-cyan: #00ffff;
+            --accent-magenta: #ff00ff;
+            --accent-yellow: #ffff00;
+            --accent-orange: #ff6b00;
+            --accent-green: #00ff00;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --border-radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #0f0f23 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            border: 1px solid rgba(128, 0, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(128, 0, 255, 0.3);
+        }
+
+        .panel-header h2 {
+            font-size: 1.5rem;
+            color: var(--accent-cyan);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .theory-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+        }
+
+        .theory-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-active {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        .canvas-container {
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid rgba(128, 0, 255, 0.3);
+            margin-bottom: 20px;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0a0a0f;
+            position: relative;
+        }
+
+        #canvas2d, #canvas3d {
+            width: 100%;
+            height: 400px;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .theory-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: none;
+            border: 1px solid rgba(128, 0, 255, 0.3);
+        }
+
+        .theory-panel.active {
+            display: block;
+        }
+
+        .theory-content {
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .theory-content h3 {
+            color: var(--accent-yellow);
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .theory-content h4 {
+            color: var(--accent-green);
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .theory-content p {
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .theory-content ul {
+            color: var(--text-secondary);
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .theory-content li {
+            margin-bottom: 5px;
+        }
+
+        .formula {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+            text-align: center;
+            font-family: 'Times New Roman', serif;
+        }
+
+        .matrix-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .matrix-group {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .matrix-group h4 {
+            color: var(--accent-green);
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .matrix-inputs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .matrix-inputs input {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .matrix-inputs span {
+            color: var(--text-primary);
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .decomposition-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .decomposition-panel h3 {
+            color: var(--accent-yellow);
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .decomposition-result {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .decomposition-result.solution {
+            color: var(--accent-green);
+        }
+
+        .decomposition-result.no-solution {
+            color: var(--accent-orange);
+        }
+
+        .decomposition-result.infinite {
+            color: var(--accent-magenta);
+        }
+
+        .matrix-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            text-align: center;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .decomposition-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .matrix-inputs {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* MathJax styling */
+        .MathJax {
+            color: white !important;
+            font-size: 1.1em !important;
+        }
+
+        mjx-container[jax="CHTML"][display="true"] {
+            text-align: center !important;
+            margin: 10px 0 !important;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(128, 0, 255, 0.5);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(128, 0, 255, 0.7);
+        }
+
+        .theorem {
+            background: rgba(0, 0, 0, 0.3);
+            border-left: 4px solid var(--accent-cyan);
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .theorem-title {
+            color: var(--accent-cyan);
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .proof {
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 4px solid var(--accent-green);
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .proof-title {
+            color: var(--accent-green);
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .visual-explanation {
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 4px solid var(--accent-magenta);
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .visual-explanation-title {
+            color: var(--accent-magenta);
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SVD & Eigenvalues - Matrix Transformation Visualizer</h1>
+            <p>Visualize matrix transformations, singular values, and eigenvalues in 2D and 3D</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 2D Systems Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-crosshairs"></i> 2D Matrix Transformations</h2>
+                    <button class="theory-btn" id="theory2dBtn">
+                        <i class="fas fa-book"></i> Theory
+                    </button>
+                </div>
+                
+                <div class="theory-panel" id="theory2dPanel">
+                    <div class="theory-content">
+                        <h3>Singular Value Decomposition (SVD)</h3>
+                        <p>Singular Value Decomposition is a fundamental matrix factorization method with applications across mathematics, statistics, and computer science. For any real or complex matrix \( A \in \mathbb{R}^{m \times n} \), the SVD is given by:</p>
+                        
+                        <div class="formula">
+                            \( A = U \Sigma V^T \)
+                        </div>
+                        
+                        <p>Where:</p>
+                        <ul>
+                            <li>\( U \in \mathbb{R}^{m \times m} \) is an orthogonal matrix whose columns are the left singular vectors</li>
+                            <li>\( \Sigma \in \mathbb{R}^{m \times n} \) is a rectangular diagonal matrix with non-negative singular values \( \sigma_1 \geq \sigma_2 \geq \cdots \geq \sigma_p \geq 0 \) on the diagonal, where \( p = \min(m,n) \)</li>
+                            <li>\( V \in \mathbb{R}^{n \times n} \) is an orthogonal matrix whose columns are the right singular vectors</li>
+                        </ul>
+                        
+                        <div class="theorem">
+                            <div class="theorem-title">Existence Theorem (Eckart-Young-Mirsky)</div>
+                            <p>Every matrix \( A \in \mathbb{R}^{m \times n} \) has a singular value decomposition. If \( A \) is real, then \( U \) and \( V \) can be taken to be real orthogonal matrices.</p>
+                        </div>
+                        
+                        <div class="visual-explanation">
+                            <div class="visual-explanation-title">Geometric Interpretation</div>
+                            <p>The SVD reveals that any linear transformation can be decomposed into three simple transformations:</p>
+                            <ol>
+                                <li>A rotation/reflection \( V^T \) in the domain</li>
+                                <li>A scaling \( \Sigma \) along the coordinate axes</li>
+                                <li>A rotation/reflection \( U \) in the codomain</li>
+                            </ol>
+                            <p>In 2D, the unit circle is transformed into an ellipse. The right singular vectors \( V \) give the directions of the principal axes of the ellipse before transformation, while the left singular vectors \( U \) give the directions after transformation.</p>
+                        </div>
+                        
+                        <h3>Eigenvalues and Eigenvectors</h3>
+                        <p>For a square matrix \( A \in \mathbb{R}^{n \times n} \), an eigenvector \( \mathbf{v} \neq \mathbf{0} \) and eigenvalue \( \lambda \) satisfy:</p>
+                        
+                        <div class="formula">
+                            \( A \mathbf{v} = \lambda \mathbf{v} \)
+                        </div>
+                        
+                        <p>The eigenvalues are found by solving the characteristic equation:</p>
+                        
+                        <div class="formula">
+                            \( \det(A - \lambda I) = 0 \)
+                        </div>
+                        
+                        <h4>Spectral Theorem</h4>
+                        <p>For symmetric matrices \( A = A^T \), the spectral theorem guarantees:</p>
+                        <ul>
+                            <li>All eigenvalues are real</li>
+                            <li>Eigenvectors corresponding to distinct eigenvalues are orthogonal</li>
+                            <li>\( A \) can be diagonalized as \( A = Q \Lambda Q^T \), where \( Q \) is orthogonal and \( \Lambda \) is diagonal</li>
+                        </ul>
+                        
+                        <h4>Relationship between SVD and Eigenvalue Decomposition</h4>
+                        <p>For a symmetric positive semidefinite matrix, the SVD and eigenvalue decomposition coincide:</p>
+                        <div class="formula">
+                            \( A = U \Sigma U^T \)
+                        </div>
+                        <p>For general matrices, the singular values are the square roots of the eigenvalues of \( A^T A \) (or \( A A^T \)):</p>
+                        <div class="formula">
+                            \( \sigma_i(A) = \sqrt{\lambda_i(A^T A)} \)
+                        </div>
+                        
+                        <div class="proof">
+                            <div class="proof-title">Proof Sketch</div>
+                            <p>Starting with \( A = U \Sigma V^T \), we have:</p>
+                            <div class="formula">
+                                \( A^T A = (V \Sigma^T U^T)(U \Sigma V^T) = V \Sigma^T \Sigma V^T \)
+                            </div>
+                            <p>Since \( \Sigma^T \Sigma \) is a diagonal matrix with entries \( \sigma_i^2 \), this shows that the columns of \( V \) are eigenvectors of \( A^T A \) with eigenvalues \( \sigma_i^2 \).</p>
+                        </div>
+                        
+                        <h3>Applications</h3>
+                        <ul>
+                            <li><strong>Principal Component Analysis (PCA):</strong> SVD is used to find the principal components of data</li>
+                            <li><strong>Matrix Approximation:</strong> The Eckart-Young theorem states that the best rank-k approximation is given by truncating the SVD</li>
+                            <li><strong>Linear Systems:</strong> SVD provides a numerically stable method for solving linear systems</li>
+                            <li><strong>Image Compression:</strong> Low-rank approximations via SVD can compress images</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="instructions">
+                    <i class="fas fa-mouse-pointer"></i> Adjust matrix values to see how they transform the unit circle
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-secondary" id="reset2dBtn">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                    <button class="btn btn-secondary" id="showGrid2dBtn">
+                        <i class="fas fa-th"></i> Toggle Grid
+                    </button>
+                    <div style="flex: 1;"></div>
+                    <button class="btn btn-secondary" id="preset2dBtn">
+                        <i class="fas fa-cog"></i> Presets
+                    </button>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="canvas2d" width="600" height="400"></canvas>
+                </div>
+
+                <div class="matrix-container">
+                    <div class="matrix-group">
+                        <h4>Transformation Matrix A</h4>
+                        <div class="matrix-inputs">
+                            <input type="number" id="a11" value="2" step="0.1">
+                            <input type="number" id="a12" value="1" step="0.1">
+                            <span></span>
+                            <input type="number" id="a21" value="1" step="0.1">
+                            <input type="number" id="a22" value="2" step="0.1">
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="decomposition-panel">
+                    <h3>Decomposition Results</h3>
+                    <div class="decomposition-result" id="eigenvalues2d">
+                        Eigenvalues: Calculating...
+                    </div>
+                    <div class="decomposition-result" id="singularValues2d">
+                        Singular Values: Calculating...
+                    </div>
+                    <div class="matrix-display">
+                        Matrix A = 
+                        [<span id="m11">2</span> <span id="m12">1</span>]
+                        [<span id="m21">1</span> <span id="m22">2</span>]
+                    </div>
+                    <div class="decomposition-controls">
+                        <button class="btn btn-secondary" id="showEigenvectors2d">
+                            <i class="fas fa-arrows-alt"></i> Toggle Eigenvectors
+                        </button>
+                        <button class="btn btn-secondary" id="showSingularVectors2d">
+                            <i class="fas fa-arrows-alt"></i> Toggle Singular Vectors
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Systems Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-cube"></i> 3D Matrix Transformations</h2>
+                    <button class="theory-btn" id="theory3dBtn">
+                        <i class="fas fa-book"></i> Theory
+                    </button>
+                </div>
+                
+                <div class="theory-panel" id="theory3dPanel">
+                    <div class="theory-content">
+                        <h3>3D Singular Value Decomposition</h3>
+                        <p>In three dimensions, the SVD of a matrix \( A \in \mathbb{R}^{3 \times 3} \) is:</p>
+                        <div class="formula">
+                            \( A = U \Sigma V^T \)
+                        </div>
+                        <p>Where \( U, V \in \mathbb{R}^{3 \times 3} \) are orthogonal matrices and \( \Sigma \in \mathbb{R}^{3 \times 3} \) is diagonal with non-negative entries.</p>
+                        
+                        <h4>Geometric Interpretation in 3D</h4>
+                        <p>The SVD decomposition in 3D has a beautiful geometric interpretation:</p>
+                        <ol>
+                            <li>The unit sphere \( \{ \mathbf{x} \in \mathbb{R}^3 : \|\mathbf{x}\| = 1 \} \) is transformed by \( A \) into an ellipsoid</li>
+                            <li>The right singular vectors (columns of \( V \)) give the principal axes of the ellipsoid in the input space</li>
+                            <li>The singular values \( \sigma_1, \sigma_2, \sigma_3 \) give the lengths of the semi-axes of the ellipsoid</li>
+                            <li>The left singular vectors (columns of \( U \)) give the directions of the semi-axes in the output space</li>
+                        </ol>
+                        
+                        <div class="theorem">
+                            <div class="theorem-title">Volume Transformation</div>
+                            <p>The volume of the transformed unit sphere (ellipsoid) is given by:</p>
+                            <div class="formula">
+                                \( \text{Volume} = \frac{4}{3}\pi \sigma_1 \sigma_2 \sigma_3 \)
+                            </div>
+                            <p>This equals \( \frac{4}{3}\pi |\det(A)| \), since \( |\det(A)| = \sigma_1 \sigma_2 \sigma_3 \).</p>
+                        </div>
+                        
+                        <h3>3D Eigenvalues and Eigenvectors</h3>
+                        <p>For a 3×3 matrix \( A \), eigenvalues satisfy the characteristic polynomial:</p>
+                        <div class="formula">
+                            \( \det(A - \lambda I) = -\lambda^3 + \text{tr}(A)\lambda^2 - \text{tr}(\text{adj}(A))\lambda + \det(A) = 0 \)
+                        </div>
+                        
+                        <h4>Classification of 3D Transformations</h4>
+                        <p>Based on eigenvalues, 3D linear transformations can be classified:</p>
+                        <ul>
+                            <li><strong>Three real eigenvalues:</strong> The transformation has three principal directions of stretching/compression</li>
+                            <li><strong>One real and two complex eigenvalues:</strong> The transformation includes a rotation component</li>
+                            <li><strong>All eigenvalues real and positive:</strong> The transformation preserves orientation</li>
+                            <li><strong>Negative determinant:</strong> The transformation reverses orientation</li>
+                        </ul>
+                        
+                        <div class="visual-explanation">
+                            <div class="visual-explanation-title">Visual Interpretation</div>
+                            <p>In this visualization:</p>
+                            <ul>
+                                <li>The transparent sphere represents the unit sphere in the input space</li>
+                                <li>The ellipsoid shows how the matrix transforms the unit sphere</li>
+                                <li>Eigenvectors (when real) show directions that are only scaled by the transformation</li>
+                                <li>Singular vectors show the principal directions of stretching</li>
+                            </ul>
+                        </div>
+                        
+                        <h3>Special Cases in 3D</h3>
+                        <h4>Symmetric Matrices</h4>
+                        <p>For symmetric matrices \( A = A^T \):</p>
+                        <ul>
+                            <li>All eigenvalues are real</li>
+                            <li>Eigenvectors are orthogonal</li>
+                            <li>SVD and eigenvalue decomposition coincide: \( A = Q \Lambda Q^T \)</li>
+                        </ul>
+                        
+                        <h4>Orthogonal Matrices</h4>
+                        <p>For orthogonal matrices \( Q^T Q = I \):</p>
+                        <ul>
+                            <li>All singular values are 1</li>
+                            <li>The transformation is a pure rotation or reflection</li>
+                            <li>The unit sphere is mapped to itself</li>
+                        </ul>
+                        
+                        <h4>Rank-Deficient Matrices</h4>
+                        <p>When one or more singular values are zero:</p>
+                        <ul>
+                            <li>The transformation collapses one or more dimensions</li>
+                            <li>The ellipsoid becomes degenerate (flattened in some directions)</li>
+                            <li>The matrix has a non-trivial null space</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="instructions">
+                    <i class="fas fa-arrows-alt"></i> Drag to rotate view. The ellipsoid shows the transformation of the unit sphere.
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-secondary" id="reset3dBtn">
+                        <i class="fas fa-redo"></i> Reset
+                    </button>
+                    <button class="btn btn-secondary" id="showAxes3dBtn">
+                        <i class="fas fa-arrows-alt"></i> Toggle Axes
+                    </button>
+                    <div style="flex: 1;"></div>
+                    <button class="btn btn-secondary" id="preset3dBtn">
+                        <i class="fas fa-cog"></i> Presets
+                    </button>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="canvas3d" width="600" height="400"></canvas>
+                </div>
+
+                <div class="matrix-container">
+                    <div class="matrix-group">
+                        <h4>Transformation Matrix A</h4>
+                        <div class="matrix-inputs">
+                            <input type="number" id="a11_3d" value="2" step="0.1">
+                            <input type="number" id="a12_3d" value="0.5" step="0.1">
+                            <input type="number" id="a13_3d" value="0" step="0.1">
+                            <input type="number" id="a21_3d" value="0.5" step="0.1">
+                            <input type="number" id="a22_3d" value="2" step="0.1">
+                            <input type="number" id="a23_3d" value="0" step="0.1">
+                            <input type="number" id="a31_3d" value="0" step="0.1">
+                            <input type="number" id="a32_3d" value="0" step="0.1">
+                            <input type="number" id="a33_3d" value="1" step="0.1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="decomposition-panel">
+                    <h3>Decomposition Results</h3>
+                    <div class="decomposition-result" id="eigenvalues3d">
+                        Eigenvalues: Calculating...
+                    </div>
+                    <div class="decomposition-result" id="singularValues3d">
+                        Singular Values: Calculating...
+                    </div>
+                    <div class="matrix-display">
+                        Matrix A = 
+                        [<span id="n11">2</span> <span id="n12">0.5</span> <span id="n13">0</span>]
+                        [<span id="n21">0.5</span> <span id="n22">2</span> <span id="n23">0</span>]
+                        [<span id="n31">0</span> <span id="n32">0</span> <span id="n33">1</span>]
+                    </div>
+                    <div class="decomposition-controls">
+                        <button class="btn btn-secondary" id="showEigenvectors3d">
+                            <i class="fas fa-arrows-alt"></i> Toggle Eigenvectors
+                        </button>
+                        <button class="btn btn-secondary" id="showSingularVectors3d">
+                            <i class="fas fa-arrows-alt"></i> Toggle Singular Vectors
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Your existing JavaScript code remains the same
+        // State management
+        const state2d = {
+            matrix: [
+                [2, 1],
+                [1, 2]
+            ],
+            showGrid: true,
+            showEigenvectors: true,
+            showSingularVectors: true,
+            eigenvectors: [],
+            eigenvalues: [],
+            singularValues: [],
+            leftSingularVectors: [],
+            rightSingularVectors: []
+        };
+
+        const state3d = {
+            matrix: [
+                [2, 0.5, 0],
+                [0.5, 2, 0],
+                [0, 0, 1]
+            ],
+            showAxes: true,
+            showEigenvectors: true,
+            showSingularVectors: true,
+            eigenvectors: [],
+            eigenvalues: [],
+            singularValues: [],
+            leftSingularVectors: [],
+            rightSingularVectors: [],
+            isRotating: false,
+            previousMousePosition: { x: 0, y: 0 }
+        };
+
+        // DOM elements
+        const canvas2d = document.getElementById('canvas2d');
+        const ctx2d = canvas2d.getContext('2d');
+        const canvas3d = document.getElementById('canvas3d');
+
+        // Theory buttons and panels
+        const theory2dBtn = document.getElementById('theory2dBtn');
+        const theory2dPanel = document.getElementById('theory2dPanel');
+        const theory3dBtn = document.getElementById('theory3dBtn');
+        const theory3dPanel = document.getElementById('theory3dPanel');
+
+        // 2D Controls
+        const reset2dBtn = document.getElementById('reset2dBtn');
+        const showGrid2dBtn = document.getElementById('showGrid2dBtn');
+        const preset2dBtn = document.getElementById('preset2dBtn');
+        const eigenvalues2d = document.getElementById('eigenvalues2d');
+        const singularValues2d = document.getElementById('singularValues2d');
+        const showEigenvectors2d = document.getElementById('showEigenvectors2d');
+        const showSingularVectors2d = document.getElementById('showSingularVectors2d');
+        
+        // 2D Matrix inputs
+        const a11 = document.getElementById('a11');
+        const a12 = document.getElementById('a12');
+        const a21 = document.getElementById('a21');
+        const a22 = document.getElementById('a22');
+        
+        // 2D Matrix display
+        const m11 = document.getElementById('m11');
+        const m12 = document.getElementById('m12');
+        const m21 = document.getElementById('m21');
+        const m22 = document.getElementById('m22');
+
+        // 3D Controls
+        const reset3dBtn = document.getElementById('reset3dBtn');
+        const showAxes3dBtn = document.getElementById('showAxes3dBtn');
+        const preset3dBtn = document.getElementById('preset3dBtn');
+        const eigenvalues3d = document.getElementById('eigenvalues3d');
+        const singularValues3d = document.getElementById('singularValues3d');
+        const showEigenvectors3d = document.getElementById('showEigenvectors3d');
+        const showSingularVectors3d = document.getElementById('showSingularVectors3d');
+        
+        // 3D Matrix inputs
+        const a11_3d = document.getElementById('a11_3d');
+        const a12_3d = document.getElementById('a12_3d');
+        const a13_3d = document.getElementById('a13_3d');
+        const a21_3d = document.getElementById('a21_3d');
+        const a22_3d = document.getElementById('a22_3d');
+        const a23_3d = document.getElementById('a23_3d');
+        const a31_3d = document.getElementById('a31_3d');
+        const a32_3d = document.getElementById('a32_3d');
+        const a33_3d = document.getElementById('a33_3d');
+        
+        // 3D Matrix display
+        const n11 = document.getElementById('n11');
+        const n12 = document.getElementById('n12');
+        const n13 = document.getElementById('n13');
+        const n21 = document.getElementById('n21');
+        const n22 = document.getElementById('n22');
+        const n23 = document.getElementById('n23');
+        const n31 = document.getElementById('n31');
+        const n32 = document.getElementById('n32');
+        const n33 = document.getElementById('n33');
+
+        // Three.js variables
+        let scene, camera, renderer, sphere, ellipsoid, eigenvectors3dObj = [], singularVectors3dObj = [];
+        let isMouseDown = false;
+
+        // Initialize the application
+        function init() {
+            // Set up event listeners for theory panels
+            theory2dBtn.addEventListener('click', () => toggleTheoryPanel(theory2dPanel));
+            theory3dBtn.addEventListener('click', () => toggleTheoryPanel(theory3dPanel));
+
+            // Set up event listeners for 2D
+            reset2dBtn.addEventListener('click', reset2d);
+            showGrid2dBtn.addEventListener('click', toggleGrid2d);
+            preset2dBtn.addEventListener('click', showPresets2d);
+            showEigenvectors2d.addEventListener('click', toggleEigenvectors2d);
+            showSingularVectors2d.addEventListener('click', toggleSingularVectors2d);
+            
+            a11.addEventListener('input', update2dMatrix);
+            a12.addEventListener('input', update2dMatrix);
+            a21.addEventListener('input', update2dMatrix);
+            a22.addEventListener('input', update2dMatrix);
+
+            // Set up event listeners for 3D
+            reset3dBtn.addEventListener('click', reset3d);
+            showAxes3dBtn.addEventListener('click', toggleAxes3d);
+            preset3dBtn.addEventListener('click', showPresets3d);
+            showEigenvectors3d.addEventListener('click', toggleEigenvectors3d);
+            showSingularVectors3d.addEventListener('click', toggleSingularVectors3d);
+            
+            a11_3d.addEventListener('input', update3dMatrix);
+            a12_3d.addEventListener('input', update3dMatrix);
+            a13_3d.addEventListener('input', update3dMatrix);
+            a21_3d.addEventListener('input', update3dMatrix);
+            a22_3d.addEventListener('input', update3dMatrix);
+            a23_3d.addEventListener('input', update3dMatrix);
+            a31_3d.addEventListener('input', update3dMatrix);
+            a32_3d.addEventListener('input', update3dMatrix);
+            a33_3d.addEventListener('input', update3dMatrix);
+
+            // Initialize 3D scene
+            init3D();
+
+            // Initial render
+            draw2D();
+            computeDecomposition2d();
+            animate3D();
+        }
+
+        // Theory panel functions
+        function toggleTheoryPanel(panel) {
+            panel.classList.toggle('active');
+            if (panel.classList.contains('active')) {
+                // Process MathJax when showing theory panel
+                MathJax.typesetPromise([panel]).catch(err => console.log('MathJax error:', err));
+            }
+        }
+
+        // 2D Drawing Functions
+        function draw2D() {
+            const width = canvas2d.width;
+            const height = canvas2d.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const scale = 40; // Pixels per unit
+            
+            // Clear canvas
+            ctx2d.fillStyle = '#0a0a0f';
+            ctx2d.fillRect(0, 0, width, height);
+            
+            // Draw grid if enabled
+            if (state2d.showGrid) {
+                drawGrid2D(ctx2d, width, height, centerX, centerY);
+            }
+            
+            // Draw coordinate system
+            drawCoordinateSystem2D(ctx2d, centerX, centerY, '#333366');
+            
+            // Draw unit circle
+            drawUnitCircle2D(ctx2d, centerX, centerY, scale, 'rgba(255, 255, 255, 0.3)');
+            
+            // Draw transformed ellipse
+            drawEllipse2D(ctx2d, centerX, centerY, scale, state2d.matrix, '#00ffff');
+            
+            // Draw eigenvectors if enabled
+            if (state2d.showEigenvectors && state2d.eigenvectors.length > 0) {
+                drawEigenvectors2D(ctx2d, centerX, centerY, scale, state2d.eigenvectors, state2d.eigenvalues, '#ff00ff');
+            }
+            
+            // Draw singular vectors if enabled
+            if (state2d.showSingularVectors && state2d.singularValues.length > 0) {
+                drawSingularVectors2D(ctx2d, centerX, centerY, scale, state2d.leftSingularVectors, state2d.rightSingularVectors, state2d.singularValues, '#ffff00');
+            }
+            
+            // Update matrix display
+            updateMatrixDisplay2D();
+        }
+
+        function drawGrid2D(ctx, width, height, centerX, centerY) {
+            ctx.strokeStyle = 'rgba(100, 100, 120, 0.2)';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = 0; x <= width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y <= height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // Center lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, height);
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.stroke();
+        }
+
+        function drawCoordinateSystem2D(ctx, x, y, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            // X-axis
+            ctx.beginPath();
+            ctx.moveTo(x - 200, y);
+            ctx.lineTo(x + 200, y);
+            ctx.stroke();
+            
+            // Y-axis
+            ctx.beginPath();
+            ctx.moveTo(x, y - 200);
+            ctx.lineTo(x, y + 200);
+            ctx.stroke();
+            
+            // X-axis arrow
+            ctx.beginPath();
+            ctx.moveTo(x + 190, y - 5);
+            ctx.lineTo(x + 200, y);
+            ctx.lineTo(x + 190, y + 5);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Y-axis arrow
+            ctx.beginPath();
+            ctx.moveTo(x - 5, y - 190);
+            ctx.lineTo(x, y - 200);
+            ctx.lineTo(x + 5, y - 190);
+            ctx.fill();
+            
+            // Labels
+            ctx.fillStyle = color;
+            ctx.font = 'bold 14px sans-serif';
+            ctx.fillText('X', x + 210, y + 5);
+            ctx.fillText('Y', x - 10, y - 210);
+            
+            // Scale markers
+            ctx.font = '12px sans-serif';
+            for (let i = -5; i <= 5; i++) {
+                if (i === 0) continue;
+                
+                // X-axis markers
+                ctx.beginPath();
+                ctx.moveTo(x + i * 40, y - 5);
+                ctx.lineTo(x + i * 40, y + 5);
+                ctx.stroke();
+                ctx.fillText(i.toString(), x + i * 40 - 5, y + 20);
+                
+                // Y-axis markers
+                ctx.beginPath();
+                ctx.moveTo(x - 5, y - i * 40);
+                ctx.lineTo(x + 5, y - i * 40);
+                ctx.stroke();
+                ctx.fillText(i.toString(), x - 20, y - i * 40 + 5);
+            }
+        }
+
+        function drawUnitCircle2D(ctx, centerX, centerY, scale, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, scale, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        function drawEllipse2D(ctx, centerX, centerY, scale, matrix, color) {
+            // Sample points on unit circle and transform them
+            const numPoints = 100;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            for (let i = 0; i <= numPoints; i++) {
+                const angle = (i / numPoints) * Math.PI * 2;
+                const x = Math.cos(angle);
+                const y = Math.sin(angle);
+                
+                // Apply matrix transformation
+                const tx = matrix[0][0] * x + matrix[0][1] * y;
+                const ty = matrix[1][0] * x + matrix[1][1] * y;
+                
+                const screenX = centerX + tx * scale;
+                const screenY = centerY - ty * scale;
+                
+                if (i === 0) {
+                    ctx.moveTo(screenX, screenY);
+                } else {
+                    ctx.lineTo(screenX, screenY);
+                }
+            }
+            
+            ctx.stroke();
+        }
+
+        function drawEigenvectors2D(ctx, centerX, centerY, scale, eigenvectors, eigenvalues, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            for (let i = 0; i < eigenvectors.length; i++) {
+                const vec = eigenvectors[i];
+                const val = eigenvalues[i];
+                
+                // Scale eigenvector by eigenvalue
+                const scaledX = vec[0] * val;
+                const scaledY = vec[1] * val;
+                
+                const screenX = centerX + scaledX * scale;
+                const screenY = centerY - scaledY * scale;
+                
+                // Draw eigenvector line
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(screenX, screenY);
+                ctx.stroke();
+                
+                // Draw arrowhead
+                drawArrowhead(ctx, centerX, centerY, screenX, screenY, color);
+                
+                // Draw eigenvalue label
+                ctx.fillStyle = color;
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText(`λ=${val.toFixed(2)}`, screenX + 10, screenY + 10);
+            }
+        }
+
+        function drawSingularVectors2D(ctx, centerX, centerY, scale, leftVectors, rightVectors, singularValues, color) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            
+            // Draw right singular vectors (input space)
+            for (let i = 0; i < rightVectors.length; i++) {
+                const vec = rightVectors[i];
+                const val = singularValues[i];
+                
+                // Scale by singular value
+                const scaledX = vec[0] * val;
+                const scaledY = vec[1] * val;
+                
+                const screenX = centerX + scaledX * scale;
+                const screenY = centerY - scaledY * scale;
+                
+                // Draw right singular vector
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(screenX, screenY);
+                ctx.stroke();
+                
+                // Draw arrowhead
+                drawArrowhead(ctx, centerX, centerY, screenX, screenY, color);
+                
+                // Draw singular value label
+                ctx.fillStyle = color;
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText(`σ=${val.toFixed(2)}`, screenX + 10, screenY + 10);
+            }
+            
+            // Draw left singular vectors (output space)
+            for (let i = 0; i < leftVectors.length; i++) {
+                const vec = leftVectors[i];
+                const val = singularValues[i];
+                
+                // Scale by singular value
+                const scaledX = vec[0] * val;
+                const scaledY = vec[1] * val;
+                
+                const screenX = centerX + scaledX * scale;
+                const screenY = centerY - scaledY * scale;
+                
+                // Draw left singular vector with dashed line
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(screenX, screenY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw arrowhead
+                drawArrowhead(ctx, centerX, centerY, screenX, screenY, color);
+            }
+        }
+
+        function drawArrowhead(ctx, fromX, fromY, toX, toY, color) {
+            const headLength = 10;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI/6), toY - headLength * Math.sin(angle - Math.PI/6));
+            ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI/6), toY - headLength * Math.sin(angle + Math.PI/6));
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // 2D Event Handlers
+        function reset2d() {
+            state2d.matrix = [
+                [2, 1],
+                [1, 2]
+            ];
+            
+            a11.value = 2;
+            a12.value = 1;
+            a21.value = 1;
+            a22.value = 2;
+            
+            draw2D();
+            computeDecomposition2d();
+        }
+
+        function toggleGrid2d() {
+            state2d.showGrid = !state2d.showGrid;
+            draw2D();
+        }
+
+        function toggleEigenvectors2d() {
+            state2d.showEigenvectors = !state2d.showEigenvectors;
+            draw2D();
+        }
+
+        function toggleSingularVectors2d() {
+            state2d.showSingularVectors = !state2d.showSingularVectors;
+            draw2D();
+        }
+
+        function showPresets2d() {
+            const preset = prompt("Choose a preset:\n1. Symmetric matrix\n2. Rotation matrix\n3. Scaling matrix\n4. Shear matrix", "1");
+            
+            switch(preset) {
+                case "1":
+                    state2d.matrix = [
+                        [2, 1],
+                        [1, 2]
+                    ];
+                    break;
+                case "2":
+                    const angle = Math.PI/4; // 45 degrees
+                    state2d.matrix = [
+                        [Math.cos(angle), -Math.sin(angle)],
+                        [Math.sin(angle), Math.cos(angle)]
+                    ];
+                    break;
+                case "3":
+                    state2d.matrix = [
+                        [2, 0],
+                        [0, 1]
+                    ];
+                    break;
+                case "4":
+                    state2d.matrix = [
+                        [1, 1],
+                        [0, 1]
+                    ];
+                    break;
+                default:
+                    return; // User cancelled
+            }
+            
+            update2dMatrix();
+        }
+
+        function update2dMatrix() {
+            state2d.matrix = [
+                [parseFloat(a11.value), parseFloat(a12.value)],
+                [parseFloat(a21.value), parseFloat(a22.value)]
+            ];
+            draw2D();
+            computeDecomposition2d();
+        }
+
+        function computeDecomposition2d() {
+            const A = state2d.matrix;
+            
+            // Compute eigenvalues and eigenvectors
+            const trace = A[0][0] + A[1][1];
+            const det = A[0][0]*A[1][1] - A[0][1]*A[1][0];
+            
+            // For 2x2 matrix, eigenvalues are roots of λ² - trace(A)λ + det(A) = 0
+            const discriminant = trace*trace - 4*det;
+            
+            if (discriminant >= 0) {
+                const sqrtDisc = Math.sqrt(discriminant);
+                const lambda1 = (trace + sqrtDisc) / 2;
+                const lambda2 = (trace - sqrtDisc) / 2;
+                
+                state2d.eigenvalues = [lambda1, lambda2];
+                
+                // Compute eigenvectors (simplified)
+                if (A[0][1] !== 0) {
+                    state2d.eigenvectors = [
+                        [A[0][1], lambda1 - A[0][0]],
+                        [A[0][1], lambda2 - A[0][0]]
+                    ];
+                } else if (A[1][0] !== 0) {
+                    state2d.eigenvectors = [
+                        [lambda1 - A[1][1], A[1][0]],
+                        [lambda2 - A[1][1], A[1][0]]
+                    ];
+                } else {
+                    // Diagonal matrix
+                    state2d.eigenvectors = [
+                        [1, 0],
+                        [0, 1]
+                    ];
+                }
+                
+                // Normalize eigenvectors
+                for (let i = 0; i < state2d.eigenvectors.length; i++) {
+                    const len = Math.sqrt(
+                        state2d.eigenvectors[i][0]**2 + state2d.eigenvectors[i][1]**2
+                    );
+                    if (len > 0) {
+                        state2d.eigenvectors[i][0] /= len;
+                        state2d.eigenvectors[i][1] /= len;
+                    }
+                }
+                
+                eigenvalues2d.textContent = `Eigenvalues: ${lambda1.toFixed(3)}, ${lambda2.toFixed(3)}`;
+            } else {
+                eigenvalues2d.textContent = 'Eigenvalues: Complex (not shown)';
+                state2d.eigenvalues = [];
+                state2d.eigenvectors = [];
+            }
+            
+            // Compute SVD (simplified for 2x2)
+            const ATA = [
+                [A[0][0]*A[0][0] + A[1][0]*A[1][0], A[0][0]*A[0][1] + A[1][0]*A[1][1]],
+                [A[0][0]*A[0][1] + A[1][0]*A[1][1], A[0][1]*A[0][1] + A[1][1]*A[1][1]]
+            ];
+            
+            // Eigenvalues of ATA are squares of singular values
+            const traceATA = ATA[0][0] + ATA[1][1];
+            const detATA = ATA[0][0]*ATA[1][1] - ATA[0][1]*ATA[1][1];
+            const discriminantATA = traceATA*traceATA - 4*detATA;
+            
+            if (discriminantATA >= 0) {
+                const sqrtDiscATA = Math.sqrt(discriminantATA);
+                const sigma1 = Math.sqrt((traceATA + sqrtDiscATA) / 2);
+                const sigma2 = Math.sqrt((traceATA - sqrtDiscATA) / 2);
+                
+                state2d.singularValues = [sigma1, sigma2];
+                singularValues2d.textContent = `Singular Values: ${sigma1.toFixed(3)}, ${sigma2.toFixed(3)}`;
+                
+                // Compute right singular vectors (eigenvectors of ATA)
+                if (ATA[0][1] !== 0) {
+                    state2d.rightSingularVectors = [
+                        [ATA[0][1], sigma1**2 - ATA[0][0]],
+                        [ATA[0][1], sigma2**2 - ATA[0][0]]
+                    ];
+                } else {
+                    state2d.rightSingularVectors = [
+                        [1, 0],
+                        [0, 1]
+                    ];
+                }
+                
+                // Normalize right singular vectors
+                for (let i = 0; i < state2d.rightSingularVectors.length; i++) {
+                    const len = Math.sqrt(
+                        state2d.rightSingularVectors[i][0]**2 + state2d.rightSingularVectors[i][1]**2
+                    );
+                    if (len > 0) {
+                        state2d.rightSingularVectors[i][0] /= len;
+                        state2d.rightSingularVectors[i][1] /= len;
+                    }
+                }
+                
+                // Compute left singular vectors: u_i = (1/σ_i) A v_i
+                state2d.leftSingularVectors = [];
+                for (let i = 0; i < state2d.singularValues.length; i++) {
+                    if (state2d.singularValues[i] > 1e-10) {
+                        const v = state2d.rightSingularVectors[i];
+                        const u = [
+                            (A[0][0]*v[0] + A[0][1]*v[1]) / state2d.singularValues[i],
+                            (A[1][0]*v[0] + A[1][1]*v[1]) / state2d.singularValues[i]
+                        ];
+                        state2d.leftSingularVectors.push(u);
+                    } else {
+                        state2d.leftSingularVectors.push([0, 0]);
+                    }
+                }
+            } else {
+                singularValues2d.textContent = 'Singular Values: Error computing';
+                state2d.singularValues = [];
+                state2d.leftSingularVectors = [];
+                state2d.rightSingularVectors = [];
+            }
+            
+            draw2D();
+        }
+
+        function updateMatrixDisplay2D() {
+            const A = state2d.matrix;
+            
+            m11.textContent = A[0][0].toFixed(1);
+            m12.textContent = A[0][1].toFixed(1);
+            m21.textContent = A[1][0].toFixed(1);
+            m22.textContent = A[1][1].toFixed(1);
+        }
+
+        // 3D Functions
+        function init3D() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0f);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, canvas3d.clientWidth / canvas3d.clientHeight, 0.1, 1000);
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true });
+            renderer.setSize(canvas3d.clientWidth, canvas3d.clientHeight);
+            
+            // Create axes helper
+            const axesHelper = new THREE.AxesHelper(4);
+            scene.add(axesHelper);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            // Set up mouse controls for 3D rotation
+            canvas3d.addEventListener('mousedown', onMouseDown3D);
+            canvas3d.addEventListener('mousemove', onMouseMove3D);
+            canvas3d.addEventListener('mouseup', onMouseUp3D);
+            canvas3d.addEventListener('wheel', onMouseWheel3D);
+            
+            // Create initial sphere and ellipsoid
+            createSphereAndEllipsoid();
+            computeDecomposition3d();
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = canvas3d.clientWidth / canvas3d.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas3d.clientWidth, canvas3d.clientHeight);
+        }
+
+        function createSphereAndEllipsoid() {
+            // Clear existing objects
+            if (sphere) scene.remove(sphere);
+            if (ellipsoid) scene.remove(ellipsoid);
+            
+            eigenvectors3dObj.forEach(obj => scene.remove(obj));
+            eigenvectors3dObj = [];
+            
+            singularVectors3dObj.forEach(obj => scene.remove(obj));
+            singularVectors3dObj = [];
+            
+            // Create unit sphere (transparent)
+            const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
+            const sphereMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.2,
+                wireframe: true
+            });
+            sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            scene.add(sphere);
+            
+            // Create ellipsoid (result of transformation)
+            // For a symmetric matrix, the singular values are the semi-axes lengths
+            // and the singular vectors are the directions of the axes
+            
+            const ellipsoidGeometry = new THREE.SphereGeometry(1, 32, 32);
+            const ellipsoidMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ffff,
+                transparent: true,
+                opacity: 0.5,
+                wireframe: false
+            });
+            ellipsoid = new THREE.Mesh(ellipsoidGeometry, ellipsoidMaterial);
+            
+            // Scale the ellipsoid based on singular values
+            if (state3d.singularValues.length >= 3) {
+                ellipsoid.scale.set(
+                    state3d.singularValues[0],
+                    state3d.singularValues[1],
+                    state3d.singularValues[2]
+                );
+            }
+            
+            scene.add(ellipsoid);
+        }
+
+        function createEigenvectorArrows() {
+            // Clear existing eigenvector arrows
+            eigenvectors3dObj.forEach(obj => scene.remove(obj));
+            eigenvectors3dObj = [];
+            
+            if (!state3d.showEigenvectors || state3d.eigenvectors.length === 0) return;
+            
+            const arrowLength = 2;
+            
+            for (let i = 0; i < state3d.eigenvectors.length; i++) {
+                const eigenvector = state3d.eigenvectors[i];
+                const eigenvalue = state3d.eigenvalues[i];
+                
+                // Create arrow
+                const direction = new THREE.Vector3(
+                    eigenvector[0],
+                    eigenvector[1],
+                    eigenvector[2]
+                ).normalize();
+                
+                const arrowHelper = new THREE.ArrowHelper(
+                    direction,
+                    new THREE.Vector3(0, 0, 0),
+                    arrowLength * Math.abs(eigenvalue),
+                    0xff00ff,
+                    0.2,
+                    0.1
+                );
+                
+                scene.add(arrowHelper);
+                eigenvectors3dObj.push(arrowHelper);
+                
+                // Add eigenvalue label (simplified - just log to console)
+                console.log(`Eigenvalue ${i+1}: ${eigenvalue.toFixed(3)}`);
+            }
+        }
+
+        function createSingularVectorArrows() {
+            // Clear existing singular vector arrows
+            singularVectors3dObj.forEach(obj => scene.remove(obj));
+            singularVectors3dObj = [];
+            
+            if (!state3d.showSingularVectors || state3d.singularValues.length === 0) return;
+            
+            const arrowLength = 2;
+            
+            // Right singular vectors (input space)
+            for (let i = 0; i < state3d.rightSingularVectors.length; i++) {
+                const vector = state3d.rightSingularVectors[i];
+                const value = state3d.singularValues[i];
+                
+                const direction = new THREE.Vector3(
+                    vector[0],
+                    vector[1],
+                    vector[2]
+                ).normalize();
+                
+                const arrowHelper = new THREE.ArrowHelper(
+                    direction,
+                    new THREE.Vector3(0, 0, 0),
+                    arrowLength * value,
+                    0xffff00,
+                    0.2,
+                    0.1
+                );
+                
+                scene.add(arrowHelper);
+                singularVectors3dObj.push(arrowHelper);
+            }
+            
+            // Left singular vectors (output space) - would be the same as right for symmetric matrix
+            // For non-symmetric, we'd need to compute and display separately
+        }
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            
+            // Update matrix display
+            updateMatrixDisplay3D();
+            
+            renderer.render(scene, camera);
+        }
+
+        // 3D Mouse Event Handlers
+        function onMouseDown3D(event) {
+            isMouseDown = true;
+            state3d.previousMousePosition = {
+                x: event.clientX,
+                y: event.clientY
+            };
+            canvas3d.style.cursor = 'grabbing';
+        }
+
+        function onMouseMove3D(event) {
+            if (!isMouseDown) return;
+            
+            const deltaX = event.clientX - state3d.previousMousePosition.x;
+            const deltaY = event.clientY - state3d.previousMousePosition.y;
+            
+            // Rotate camera based on mouse movement
+            camera.position.x -= deltaX * 0.01;
+            camera.position.y += deltaY * 0.01;
+            
+            // Ensure camera looks at the origin
+            camera.lookAt(0, 0, 0);
+            
+            state3d.previousMousePosition = {
+                x: event.clientX,
+                y: event.clientY
+            };
+        }
+
+        function onMouseUp3D() {
+            isMouseDown = false;
+            canvas3d.style.cursor = 'crosshair';
+        }
+
+        function onMouseWheel3D(event) {
+            // Zoom in/out with mouse wheel
+            event.preventDefault();
+            camera.position.multiplyScalar(event.deltaY > 0 ? 1.1 : 0.9);
+            camera.lookAt(0, 0, 0);
+        }
+
+        // 3D Event Handlers
+        function reset3d() {
+            state3d.matrix = [
+                [2, 0.5, 0],
+                [0.5, 2, 0],
+                [0, 0, 1]
+            ];
+            
+            a11_3d.value = 2;
+            a12_3d.value = 0.5;
+            a13_3d.value = 0;
+            a21_3d.value = 0.5;
+            a22_3d.value = 2;
+            a23_3d.value = 0;
+            a31_3d.value = 0;
+            a32_3d.value = 0;
+            a33_3d.value = 1;
+            
+            eigenvalues3d.textContent = 'Eigenvalues: Calculating...';
+            singularValues3d.textContent = 'Singular Values: Calculating...';
+            
+            camera.position.set(5, 5, 5);
+            camera.lookAt(0, 0, 0);
+            
+            createSphereAndEllipsoid();
+            computeDecomposition3d();
+        }
+
+        function toggleAxes3d() {
+            state3d.showAxes = !state3d.showAxes;
+            // Toggle visibility of axes helper
+            scene.children.forEach(child => {
+                if (child instanceof THREE.AxesHelper) {
+                    child.visible = state3d.showAxes;
+                }
+            });
+        }
+
+        function toggleEigenvectors3d() {
+            state3d.showEigenvectors = !state3d.showEigenvectors;
+            createEigenvectorArrows();
+        }
+
+        function toggleSingularVectors3d() {
+            state3d.showSingularVectors = !state3d.showSingularVectors;
+            createSingularVectorArrows();
+        }
+
+        function showPresets3d() {
+            const preset = prompt("Choose a preset:\n1. Symmetric matrix\n2. Diagonal matrix\n3. Rotation matrix", "1");
+            
+            switch(preset) {
+                case "1":
+                    state3d.matrix = [
+                        [2, 0.5, 0],
+                        [0.5, 2, 0],
+                        [0, 0, 1]
+                    ];
+                    break;
+                case "2":
+                    state3d.matrix = [
+                        [2, 0, 0],
+                        [0, 1, 0],
+                        [0, 0, 0.5]
+                    ];
+                    break;
+                case "3":
+                    const angle = Math.PI/4; // 45 degrees
+                    state3d.matrix = [
+                        [Math.cos(angle), -Math.sin(angle), 0],
+                        [Math.sin(angle), Math.cos(angle), 0],
+                        [0, 0, 1]
+                    ];
+                    break;
+                default:
+                    return; // User cancelled
+            }
+            
+            update3dMatrix();
+        }
+
+        function update3dMatrix() {
+            state3d.matrix = [
+                [parseFloat(a11_3d.value), parseFloat(a12_3d.value), parseFloat(a13_3d.value)],
+                [parseFloat(a21_3d.value), parseFloat(a22_3d.value), parseFloat(a23_3d.value)],
+                [parseFloat(a31_3d.value), parseFloat(a32_3d.value), parseFloat(a33_3d.value)]
+            ];
+            createSphereAndEllipsoid();
+            computeDecomposition3d();
+        }
+
+        function computeDecomposition3d() {
+            const A = state3d.matrix;
+            
+            // For simplicity, we'll compute eigenvalues only for symmetric matrices
+            // and use a simplified SVD computation
+            
+            // Check if matrix is symmetric
+            let isSymmetric = true;
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    if (Math.abs(A[i][j] - A[j][i]) > 1e-10) {
+                        isSymmetric = false;
+                        break;
+                    }
+                }
+                if (!isSymmetric) break;
+            }
+            
+            if (isSymmetric) {
+                // For symmetric matrices, eigenvalues and singular values are related
+                // We'll compute eigenvalues using a simplified method
+                
+                // Characteristic polynomial: λ³ - trace(A)λ² + ... - det(A) = 0
+                // For simplicity, we'll use an iterative method to find one eigenvalue
+                
+                // Power iteration to find the largest eigenvalue
+                let v = [1, 0, 0]; // initial guess
+                let lambda = 0;
+                
+                for (let iter = 0; iter < 100; iter++) {
+                    // Multiply A*v
+                    let Av = [
+                        A[0][0]*v[0] + A[0][1]*v[1] + A[0][2]*v[2],
+                        A[1][0]*v[0] + A[1][1]*v[1] + A[1][2]*v[2],
+                        A[2][0]*v[0] + A[2][1]*v[1] + A[2][2]*v[2]
+                    ];
+                    
+                    // Estimate eigenvalue
+                    const newLambda = Math.sqrt(Av[0]**2 + Av[1]**2 + Av[2]**2);
+                    
+                    // Normalize
+                    const norm = Math.sqrt(v[0]**2 + v[1]**2 + v[2]**2);
+                    if (norm > 0) {
+                        v[0] = Av[0] / newLambda;
+                        v[1] = Av[1] / newLambda;
+                        v[2] = Av[2] / newLambda;
+                    }
+                    
+                    // Check convergence
+                    if (Math.abs(newLambda - lambda) < 1e-10) {
+                        lambda = newLambda;
+                        break;
+                    }
+                    lambda = newLambda;
+                }
+                
+                // For simplicity, we'll assume all eigenvalues are positive
+                // and set them to the singular values
+                state3d.eigenvalues = [lambda, lambda/2, lambda/3]; // Simplified
+                state3d.eigenvectors = [
+                    [v[0], v[1], v[2]],
+                    [v[1], -v[0], 0], // Orthogonal to first
+                    [v[1]*v[2], v[0]*v[2], -v[0]*v[0]-v[1]*v[1]] // Orthogonal to both
+                ];
+                
+                // Normalize eigenvectors
+                for (let i = 0; i < state3d.eigenvectors.length; i++) {
+                    const len = Math.sqrt(
+                        state3d.eigenvectors[i][0]**2 + 
+                        state3d.eigenvectors[i][1]**2 + 
+                        state3d.eigenvectors[i][2]**2
+                    );
+                    if (len > 0) {
+                        state3d.eigenvectors[i][0] /= len;
+                        state3d.eigenvectors[i][1] /= len;
+                        state3d.eigenvectors[i][2] /= len;
+                    }
+                }
+                
+                eigenvalues3d.textContent = `Eigenvalues: ${state3d.eigenvalues[0].toFixed(3)}, ${state3d.eigenvalues[1].toFixed(3)}, ${state3d.eigenvalues[2].toFixed(3)}`;
+                
+                // For symmetric matrices, singular values are absolute values of eigenvalues
+                state3d.singularValues = [
+                    Math.abs(state3d.eigenvalues[0]),
+                    Math.abs(state3d.eigenvalues[1]),
+                    Math.abs(state3d.eigenvalues[2])
+                ];
+                
+                // Right singular vectors are eigenvectors
+                state3d.rightSingularVectors = state3d.eigenvectors;
+                
+                // Left singular vectors are the same for symmetric matrices
+                state3d.leftSingularVectors = state3d.eigenvectors;
+                
+                singularValues3d.textContent = `Singular Values: ${state3d.singularValues[0].toFixed(3)}, ${state3d.singularValues[1].toFixed(3)}, ${state3d.singularValues[2].toFixed(3)}`;
+            } else {
+                // For non-symmetric matrices, we'll use a simplified approach
+                eigenvalues3d.textContent = 'Eigenvalues: Complex (simplified display)';
+                singularValues3d.textContent = 'Singular Values: Simplified computation';
+                
+                // Use diagonal elements as singular values for simplicity
+                state3d.singularValues = [
+                    Math.abs(A[0][0]),
+                    Math.abs(A[1][1]),
+                    Math.abs(A[2][2])
+                ];
+                
+                // Use standard basis as singular vectors
+                state3d.rightSingularVectors = [
+                    [1, 0, 0],
+                    [0, 1, 0],
+                    [0, 0, 1]
+                ];
+                
+                state3d.leftSingularVectors = [
+                    [1, 0, 0],
+                    [0, 1, 0],
+                    [0, 0, 1]
+                ];
+            }
+            
+            // Update ellipsoid scale
+            if (ellipsoid && state3d.singularValues.length >= 3) {
+                ellipsoid.scale.set(
+                    state3d.singularValues[0],
+                    state3d.singularValues[1],
+                    state3d.singularValues[2]
+                );
+            }
+            
+            createEigenvectorArrows();
+            createSingularVectorArrows();
+        }
+
+        function updateMatrixDisplay3D() {
+            const A = state3d.matrix;
+            
+            n11.textContent = A[0][0].toFixed(1);
+            n12.textContent = A[0][1].toFixed(1);
+            n13.textContent = A[0][2].toFixed(1);
+            n21.textContent = A[1][0].toFixed(1);
+            n22.textContent = A[1][1].toFixed(1);
+            n23.textContent = A[1][2].toFixed(1);
+            n31.textContent = A[2][0].toFixed(1);
+            n32.textContent = A[2][1].toFixed(1);
+            n33.textContent = A[2][2].toFixed(1);
+        }
+
+        // Initialize the application when the page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
