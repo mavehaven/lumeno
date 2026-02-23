@@ -555,7 +555,7 @@
             box-shadow: 0 15px 30px rgba(255, 255, 255, 0.2);
         }
 
-        /* Three.js Hopf Fibration Canvas */
+        /* Three.js Canvas - now featuring sphere-to-cube morph in electric blue */
         #hopf-canvas {
             position: absolute;
             top: 0;
@@ -1678,7 +1678,7 @@
         </ul>
     </nav>
 
-    <!-- Hopf Fibration Three.js Canvas -->
+    <!-- Three.js Canvas - now featuring sphere-to-cube morph in electric blue -->
     <canvas id="hopf-canvas"></canvas>
     <div class="canvas-fallback" id="canvasFallback"></div>
 
@@ -1686,7 +1686,7 @@
     <section class="hero">
         <div class="hero-content">
             <h1 class="fade-in">Redefining STEM <br>Education</h1>
-            <p class="fade-in">Traditional textbooks give you static facts. LumenOS hands you a universe you can touch, manipulate, and explore.</p>
+            <p class="fade-in">Interactive simulations that turn abstract theory into lived understanding.</p>
             <button class="cta-button fade-in">
                 <span>Explore Our Platform</span>
                 <i class="fas fa-arrow-right"></i>
@@ -2145,9 +2145,10 @@ in turn economic benefit downstream."</p>
             }
         });
 
-        // THREE.JS HOPF FIBRATION VISUALIZATION
-        let scene, camera, renderer, hopfMesh;
+        // THREE.JS SPHERE TO CUBE MORPH (ELECTRIC BLUE)
+        let scene, camera, renderer, morphMesh;
         let animationId;
+        let originalPositions; // store original sphere vertex positions
         
         function initHopfFibration() {
             try {
@@ -2168,29 +2169,25 @@ in turn economic benefit downstream."</p>
                 renderer.setSize(canvas.clientWidth, canvas.clientHeight);
                 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 
-                // Create Hopf fibration geometry
-                const hopfGeometry = createHopfGeometry();
+                // Create a sphere geometry with high segment count for smooth morph
+                const geometry = new THREE.SphereGeometry(1.5, 80, 60);
                 
-                // Create material with glowing effect
+                // Store original sphere positions (as a Float32Array copy)
+                const posAttribute = geometry.attributes.position;
+                originalPositions = new Float32Array(posAttribute.array.length);
+                originalPositions.set(posAttribute.array);
+                
+                // Electric blue material (wireframe)
                 const material = new THREE.MeshBasicMaterial({
-                    color: 0x4a90e2,
+                    color: 0x00b7ff, // electric blue
                     wireframe: true,
                     transparent: true,
-                    opacity: 0.7
+                    opacity: 0.8
                 });
                 
                 // Create mesh
-                hopfMesh = new THREE.Mesh(hopfGeometry, material);
-                scene.add(hopfMesh);
-                
-                // Add ambient light
-                const ambientLight = new THREE.AmbientLight(0x404040);
-                scene.add(ambientLight);
-                
-                // Add directional light
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-                directionalLight.position.set(1, 1, 1);
-                scene.add(directionalLight);
+                morphMesh = new THREE.Mesh(geometry, material);
+                scene.add(morphMesh);
                 
                 // Handle window resize
                 window.addEventListener('resize', onWindowResize);
@@ -2205,21 +2202,55 @@ in turn economic benefit downstream."</p>
             }
         }
         
-        function createHopfGeometry() {
-            // Create a torus knot geometry to represent the Hopf fibration
-            // This is a simplified representation for visual appeal
-            const geometry = new THREE.TorusKnotGeometry(1.5, 0.4, 128, 16, 2, 3);
-            return geometry;
-        }
-        
         function animate() {
             animationId = requestAnimationFrame(animate);
             
-            if (hopfMesh) {
-                // Rotate the Hopf fibration
-                hopfMesh.rotation.x += 0.005;
-                hopfMesh.rotation.y += 0.01;
-                hopfMesh.rotation.z += 0.0025;
+            if (morphMesh && originalPositions) {
+                // Time factor for smooth oscillation (between 0 and 1)
+                const t = (Math.sin(performance.now() * 0.002) + 1) / 2; // 0 to 1, back and forth
+                
+                const geometry = morphMesh.geometry;
+                const positionAttribute = geometry.attributes.position;
+                const positions = positionAttribute.array;
+                
+                const radius = 1.5;
+                
+                // Update each vertex
+                for (let i = 0; i < positions.length; i += 3) {
+                    // Original sphere position (from stored array)
+                    const ox = originalPositions[i];
+                    const oy = originalPositions[i+1];
+                    const oz = originalPositions[i+2];
+                    
+                    // Normalized direction (since sphere is centered at origin with radius 1.5)
+                    const dx = ox / radius;
+                    const dy = oy / radius;
+                    const dz = oz / radius;
+                    
+                    // Sphere point (same as original)
+                    const sx = ox;
+                    const sy = oy;
+                    const sz = oz;
+                    
+                    // Cube point: scale direction so that max(|dx|,|dy|,|dz|) becomes 1, then multiply by radius
+                    const maxComp = Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dz));
+                    const scale = radius / maxComp;
+                    const cx = dx * scale;
+                    const cy = dy * scale;
+                    const cz = dz * scale;
+                    
+                    // Linear interpolation between sphere (t=0) and cube (t=1)
+                    positions[i]   = sx * (1 - t) + cx * t;
+                    positions[i+1] = sy * (1 - t) + cy * t;
+                    positions[i+2] = sz * (1 - t) + cz * t;
+                }
+                
+                // Mark attribute as needing update
+                positionAttribute.needsUpdate = true;
+                
+                // Also rotate the whole mesh for extra dynamism
+                morphMesh.rotation.x += 0.001;
+                morphMesh.rotation.y += 0.002;
             }
             
             renderer.render(scene, camera);
@@ -2232,7 +2263,7 @@ in turn economic benefit downstream."</p>
             renderer.setSize(canvas.clientWidth, canvas.clientHeight);
         }
         
-        // Initialize the Hopf fibration when the page loads
+        // Initialize the morphing shape when the page loads
         window.addEventListener('load', initHopfFibration);
         
         // Clean up on page unload
