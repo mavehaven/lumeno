@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Elizabeth's Star Board</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #fdf6ff 0%, #f0f4ff 50%, #fff8f0 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Nunito', sans-serif;
+      padding: 2rem;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes starPop {
+      0% { transform: scale(0) rotate(-30deg); opacity: 0; }
+      60% { transform: scale(1.3) rotate(10deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 4px 16px rgba(251,191,36,0.4), inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 0 rgba(251,191,36,0.4); }
+      50% { box-shadow: 0 4px 16px rgba(251,191,36,0.4), inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 10px rgba(251,191,36,0); }
+    }
+    @keyframes celebPop {
+      0% { transform: scale(0.8); opacity: 0; }
+      60% { transform: scale(1.05); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes fadeOut {
+      0% { opacity: 1; }
+      100% { opacity: 0; pointer-events: none; }
+    }
+
+    .card {
+      background: white;
+      border-radius: 32px;
+      padding: 3rem 2.5rem;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(120,80,200,0.12), 0 4px 16px rgba(0,0,0,0.06);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 6px;
+      background: linear-gradient(90deg, #a78bfa, #f9a8d4, #fbbf24, #34d399, #60a5fa, #a78bfa);
+      background-size: 200% auto;
+      animation: shimmer 3s linear infinite;
+    }
+
+    .blob-top {
+      position: absolute; top: -40px; right: -40px;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 70%);
+      border-radius: 50%; pointer-events: none;
+    }
+    .blob-bottom {
+      position: absolute; bottom: -30px; left: -30px;
+      width: 150px; height: 150px;
+      background: radial-gradient(circle, rgba(251,191,36,0.12) 0%, transparent 70%);
+      border-radius: 50%; pointer-events: none;
+    }
+
+    .header { text-align: center; margin-bottom: 2rem; position: relative; }
+
+    .header-emoji {
+      font-size: 2.8rem;
+      display: block;
+      margin-bottom: 0.3rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    h1 {
+      font-family: 'Baloo 2', cursive;
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #7c3aed, #a855f7, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.4rem;
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      color: #9ca3af;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .progress-section { margin-bottom: 1.8rem; }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .progress-text {
+      font-size: 0.8rem; font-weight: 700;
+      color: #a78bfa; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .progress-count { font-size: 0.85rem; font-weight: 800; color: #7c3aed; }
+
+    .progress-track {
+      height: 10px; background: #f3f0ff;
+      border-radius: 99px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, #a78bfa, #ec4899);
+      border-radius: 99px;
+      transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 2px 8px rgba(167,139,250,0.5);
+    }
+
+    .stars-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+
+    .star-btn {
+      cursor: pointer;
+      border: none;
+      background: none;
+      padding: 0;
+      transition: transform 0.15s ease;
+    }
+    .star-btn:hover { transform: scale(1.08); }
+    .star-btn:active { transform: scale(0.95); }
+
+    .star-box {
+      aspect-ratio: 1;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+      border: 2px solid #e9e3ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      box-shadow: 0 2px 8px rgba(124,58,237,0.08);
+      transition: all 0.3s ease;
+    }
+    .star-box.filled {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      border-color: #f59e0b;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .star-box.filled .star-icon {
+      animation: starPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .star-icon { display: inline-block; }
+
+    .reward-card {
+      background: linear-gradient(135deg, #fdf4ff, #fce7f3);
+      border-radius: 20px;
+      padding: 1.25rem 1.5rem;
+      border: 2px solid #f0abfc;
+      text-align: center;
+    }
+    .reward-label {
+      font-size: 0.8rem; font-weight: 700;
+      color: #c084fc; letter-spacing: 0.08em;
+      text-transform: uppercase; margin-bottom: 0.5rem;
+    }
+    .reward-content {
+      display: flex; align-items: center;
+      justify-content: center; gap: 0.5rem;
+    }
+    .reward-emoji { font-size: 1.5rem; }
+    .reward-name { font-size: 1.1rem; font-weight: 800; color: #7c3aed; }
+
+    .footer-note {
+      text-align: center; margin-top: 1.25rem;
+      color: #c4b5fd; font-size: 0.82rem; font-weight: 600;
+    }
+
+    .celebration {
+      display: none;
+      position: absolute; inset: 0;
+      align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.93);
+      border-radius: 32px;
+      flex-direction: column; gap: 0.5rem;
+    }
+    .celebration.show {
+      display: flex;
+      animation: celebPop 0.4s ease forwards;
+    }
+    .celebration.hide {
+      animation: fadeOut 0.5s ease forwards;
+    }
+    .celeb-emoji { font-size: 4rem; }
+    .celeb-title {
+      font-family: 'Baloo 2', cursive;
+      font-size: 1.5rem; font-weight: 800; color: #7c3aed;
+    }
+    .celeb-sub { color: #a855f7; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="blob-top"></div>
+    <div class="blob-bottom"></div>
+
+    <div class="header">
+      <span class="header-emoji">⭐</span>
+      <h1>Elizabeth's Star Board</h1>
+      <p class="subtitle">Earn 5 stars to get your reward! ✨</p>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-label">
+        <span class="progress-text">Progress</span>
+        <span class="progress-count" id="count">0 / 5</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <div class="stars-grid" id="starsGrid">
+      <!-- Boxes injected by JS -->
+    </div>
+
+    <div class="reward-card">
+      <p class="reward-label">I'm working for</p>
+      <div class="reward-content">
+        <span class="reward-emoji">🎁</span>
+        <span class="reward-name">$5 Amazon Gift Card</span>
+        <span class="reward-emoji">🎁</span>
+      </div>
+    </div>
+
+    <p class="footer-note">Click each box to add a star ✨</p>
+
+    <div class="celebration" id="celebration">
+      <span class="celeb-emoji">🎉</span>
+      <p class="celeb-title">You earned it!</p>
+      <p class="celeb-sub">Amazing work, Elizabeth!</p>
+    </div>
+  </div>
+
+  <script>
+    const NUM_STARS = 5;
+    const stars = Array(NUM_STARS).fill(false);
+    const grid = document.getElementById('starsGrid');
+    const fill = document.getElementById('progressFill');
+    const count = document.getElementById('count');
+    const celebration = document.getElementById('celebration');
+
+    function render() {
+      grid.innerHTML = '';
+      const earned = stars.filter(Boolean).length;
+      fill.style.width = `${(earned / NUM_STARS) * 100}%`;
+      count.textContent = `${earned} / ${NUM_STARS}`;
+
+      stars.forEach((filled, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'star-btn';
+        btn.setAttribute('aria-label', filled ? 'Remove star' : 'Add star');
+
+        const box = document.createElement('div');
+        box.className = 'star-box' + (filled ? ' filled' : '');
+
+        const icon = document.createElement('span');
+        icon.className = 'star-icon';
+        icon.textContent = filled ? '⭐' : '';
+
+        box.appendChild(icon);
+        btn.appendChild(box);
+        btn.addEventListener('click', () => toggle(i));
+        grid.appendChild(btn);
+      });
+    }
+
+    function toggle(i) {
+      stars[i] = !stars[i];
+      render();
+      if (stars.every(Boolean)) showCelebration();
+    }
+
+    function showCelebration() {
+      celebration.classList.remove('hide');
+      celebration.classList.add('show');
+      setTimeout(() => {
+        celebration.classList.remove('show');
+        celebration.classList.add('hide');
+      }, 2200);
+    }
+
+    render();
+  </script>
+</body>
+</html>
