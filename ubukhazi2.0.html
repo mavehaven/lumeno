@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>UbuKhazi</title>
+  <title>UbuKhazi – Handcrafted African Luxury</title>
   <meta name="description" content="Handcrafted African luxury rooted in tradition. Discover limited edition pieces made with female master artisans.">
   <meta name="theme-color" content="#1a1714">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+  <!-- Paystack Inline JS -->
+  <script src="https://js.paystack.co/v1/inline.js"></script>
 
   <style>
     /* ============================================================
@@ -1511,6 +1514,37 @@
       #mobile-nav a { font-size: 2rem !important; }
       .modal-img-area { height: 180px; }
     }
+
+    /* ---------- SHIPPING FORM MODAL (new) ---------- */
+    .shipping-form { display: flex; flex-direction: column; gap: 1.2rem; margin: 2rem 0; }
+    .form-row { display: flex; gap: 1rem; }
+    .form-group { flex:1; display: flex; flex-direction: column; gap: 0.3rem; }
+    .form-group label {
+      font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--ember);
+    }
+    .form-group input, .form-group select {
+      background: var(--bg-deep); border: 1px solid var(--border-dark); color: var(--text-primary);
+      padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 0.75rem; outline: none;
+      transition: border-color 0.3s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--gold); }
+    .form-group input::placeholder { color: var(--text-muted); font-size: 0.7rem; }
+    .shipping-total {
+      font-family: var(--font-display); font-size: 1.8rem; color: var(--gold);
+      text-align: right; margin: 1rem 0 0;
+    }
+    .pay-btn {
+      background: var(--ember); border: none; color: var(--bg-deep); padding: 1rem 2rem;
+      font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase;
+      cursor: none; transition: background 0.3s; width: 100%; margin-top: 1rem;
+    }
+    .pay-btn:hover { background: var(--gold); }
+    .pay-btn:disabled { opacity: 0.5; pointer-events: none; }
+
+    @media (max-width:600px) {
+      .form-row { flex-direction: column; gap: 0.8rem; }
+    }
   </style>
 </head>
 <body>
@@ -1741,7 +1775,7 @@
         <div class="cart-total" id="cart-total">R 0</div>
         <div class="cart-actions">
           <button class="cart-continue" id="cart-continue">Continue</button>
-          <button class="cart-checkout" id="cart-checkout">Checkout (demo)</button>
+          <button class="cart-checkout" id="cart-checkout">Proceed to Shipping</button>
         </div>
       </div>
     </div>
@@ -1759,583 +1793,722 @@
     <button class="lb-nav next" id="lb-next">›</button>
   </div>
 
+  <!-- ========== SHIPPING OVERLAY (new) ========== -->
+  <div class="overlay" id="shipping-overlay">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="shipping-title">
+      <button class="modal-close" id="close-shipping">✕</button>
+      <div class="modal-body">
+        <h3 class="modal-title" id="shipping-title">Shipping details</h3>
+        <form id="shipping-form" class="shipping-form">
+          <div class="form-group">
+            <label for="ship-name">Full name *</label>
+            <input type="text" id="ship-name" required placeholder="As it appears on your ID">
+          </div>
+          <div class="form-group">
+            <label for="ship-email">Email *</label>
+            <input type="email" id="ship-email" required placeholder="you@example.com">
+          </div>
+          <div class="form-group">
+            <label for="ship-phone">Phone *</label>
+            <input type="tel" id="ship-phone" required placeholder="+27 XX XXX XXXX">
+          </div>
+          <div class="form-group">
+            <label for="ship-address">Address line 1 *</label>
+            <input type="text" id="ship-address" required placeholder="Street, P.O. Box">
+          </div>
+          <div class="form-group">
+            <label for="ship-address2">Address line 2 (optional)</label>
+            <input type="text" id="ship-address2" placeholder="Apartment, suite, etc.">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="ship-city">City *</label>
+              <input type="text" id="ship-city" required>
+            </div>
+            <div class="form-group">
+              <label for="ship-state">State/Province *</label>
+              <input type="text" id="ship-state" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="ship-zip">Postal code *</label>
+              <input type="text" id="ship-zip" required>
+            </div>
+            <div class="form-group">
+              <label for="ship-country">Country *</label>
+              <select id="ship-country" required>
+                <option value="ZA" selected>South Africa</option>
+                <option value="NA">Namibia</option>
+                <option value="BW">Botswana</option>
+                <option value="ZW">Zimbabwe</option>
+                <option value="MZ">Mozambique</option>
+                <option value="LS">Lesotho</option>
+                <option value="SZ">Eswatini</option>
+              </select>
+            </div>
+          </div>
+          <div class="shipping-total" id="shipping-total">R 0</div>
+          <button type="submit" class="pay-btn" id="pay-now">Pay with Paystack</button>
+          <p style="font-size:0.65rem; color:var(--text-muted); text-align:center; margin-top:0.5rem;">You will be redirected to Paystack’s secure page.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script>
-  (() => {
-    // PRODUCTS array – modified: removed "Heritage Bottle Set" (id 8),
-    // updated "Beaded Wine Stopper" (id 13) with the two provided images.
-    const PRODUCTS = [
-      {
-        id: 1, featured: true,
-        name: 'Lounge Chair & Coaster Combo',
-        sub: 'Handwoven chair + Mirror + Lamp + Bottle Set',
-        badge: 'Limited edition',
-        price: 5450,
-        description: 'Heritage Lamps, handwoven by master artisans using traditional techniques. The organic form and natural fibers create a warm, inviting presence in any living space. Coasters and Bottle stoppers compliment the beautiful mirror accompanying this timeless set.',
-        materials: 'Natural fibers, sustainably sourced wood frame',
-        origin: 'Southern Africa, collaboration with rural weaving cooperatives',
-        dimensions: 'Seat: 28″W × 32″D × 30″H',
-        care: 'Dust regularly with soft brush. Avoid direct sunlight and moisture.',
-        features: ['Handwoven by master artisans', 'Sustainable natural fibers', 'Limited edition', 'Heirloom quality'],
-        images: [
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771186631737x132117398029088180/WhatsApp%20Image%202026-02-14%20at%2015.38.01.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771186722961x862958808325716500/WhatsApp%20Image%202026-02-14%20at%2015.38.01%20%281%29.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447088072x657499917929070800/WhatsApp%20Image%202026-02-11%20at%2023.33.49.jpeg'
-        ]
-      },
-      {
-        id: 2,
-        name: 'Mirror & Lamp Combo',
-        sub: 'Hand-finished · heritage pair',
-        badge: 'Limited edition duo',
-        price: 4500,
-        description: 'A striking heritage duo featuring an intricately crafted mirror and a hand-finished artisan lamp, designed to bring warmth, depth, and cultural elegance to refined living spaces.',
-        materials: 'Solid wood, natural stone, hand-woven textile shade',
-        origin: 'Crafted in collaboration with master artisans in Zimbabwe and South Africa',
-        dimensions: 'Mirror: 24″ diameter; Lamp: 16″H × 10″W',
-        care: 'Dust with soft dry cloth. Keep shade away from direct sunlight.',
-        features: ['Hand-carved wooden frame', 'Artisan-crafted lamp base', 'Heritage textile shade', 'Limited edition duo'],
-        images: [
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771445541831x476106294915728000/WhatsApp%20Image%202026-02-15%20at%2021.56.15%20%281%29.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771186593048x494346909674455300/WhatsApp%20Image%202026-02-15%20at%2021.24.08.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447131031x552144661887167500/WhatsApp%20Image%202026-02-15%20at%2021.24.23%20%281%29.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447393731x212970433318096830/WhatsApp%20Image%202026-02-15%20at%2021.22.53%20%281%29.jpeg'
-        ]
-      },
-      {
-        id: 3,
-        name: 'Carved Vessel',
-        sub: 'Hand-carved stone · one of a kind',
-        badge: 'Unique piece',
-        price: 1320,
-        description: 'A timeless statement of artistry and heritage, meticulously sculpted by master artisans from natural stone. Each piece reveals subtle variations in tone, texture, and pattern — truly one of a kind.',
-        materials: 'Solid natural stone (serpentine or soapstone)',
-        origin: 'Carved by master artisans in Zimbabwe',
-        dimensions: 'Approx. 8″H × 10″W (varies due to handcrafting)',
-        care: 'Wipe gently with a soft, dry cloth. Avoid harsh chemicals.',
-        features: ['Hand-carved from solid natural stone', 'Unique artisanal patterns', 'Heirloom-quality artistry', 'Sculptural décor'],
-        images: ['//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447700517x189429409873266050/WhatsApp%20Image%202026-02-14%20at%2015.37.58%20%283%29.jpeg']
-      },
-      {
-        id: 5,
-        name: 'Heritage Coasters',
-        sub: 'Hand-beaded fibre · master artisan',
-        badge: 'Set of 4',
-        price: 395,
-        description: 'Set of four hand-beaded coasters, each featuring unique geometric patterns inspired by traditional African symbolism. Crafted by master artisans using time-honoured beadwork techniques.',
-        materials: 'Glass beads, natural fiber base',
-        origin: 'Beadwork by Ndebele artisans, South Africa',
-        dimensions: '4″ diameter each',
-        care: 'Wipe with damp cloth; do not soak. Store flat.',
-        features: ['Hand-beaded by master artisans', 'Set of four unique patterns', 'Limited edition', 'Protective felt backing'],
-        images: [
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771236245578x460693429034130240/WhatsApp%20Image%202026-02-15%20at%2022.43.26%20%281%29.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447737297x377741858748748400/WhatsApp%20Image%202026-02-15%20at%2022.43.26%20%282%29.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771445774713x936113204651752800/WhatsApp%20Image%202026-02-15%20at%2022.43.26%20%284%29.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771235923110x493692632489920260/WhatsApp%20Image%202026-02-14%20at%2015.38.00.jpeg'
-        ]
-      },
-      {
-        id: 7,
-        name: '***** Pack',
-        sub: 'Adjustable woven · statement piece',
-        badge: 'Limited',
-        price: 475,
-        description: 'A contemporary accessory woven with traditional techniques. Features intricate patterns and adjustable strap, blending cultural heritage with modern functionality.',
-        materials: 'Synthetic fiber, leather trim',
-        origin: 'Handwoven in partnership with rural cooperatives, Kenya',
-        dimensions: '12″W × 6″H, strap adjustable up to 40″',
-        care: 'Spot clean with mild soap. Air dry.',
-        features: ['Handwoven using traditional looms', 'Adjustable leather strap', 'Limited edition colorways', 'Lightweight and durable'],
-        images: [
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771236061440x637124769555817300/WhatsApp%20Image%202026-02-14%20at%2015.38.04%20%281%29.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771451696844x591571651390756500/*****%20Pack.png'
-        ]
-      },
-      // id 8 (Heritage Bottle Set) removed as requested
-      {
-        id: 10,
-        name: 'Artisan Heritage Lamp',
-        sub: 'Hand-carved base · heritage shade',
-        badge: 'Limited edition',
-        price: 2500,
-        description: 'A celebration of cultural storytelling and refined artistry. Blends traditional African-inspired textile artistry with a hand-finished carved base. When illuminated, casts a warm, ambient glow.',
-        materials: 'Hand-carved stone base, textile shade',
-        origin: 'Crafted in collaboration with master artisans in Zimbabwe',
-        dimensions: '18″H × 12″W',
-        care: 'Dust with soft cloth; keep shade away from direct sunlight.',
-        features: ['Hand-carved stone base', 'Heritage-inspired textile shade', 'Limited edition', 'Warm ambient lighting'],
-        images: [
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771445541831x476106294915728000/WhatsApp%20Image%202026-02-15%20at%2021.56.15%20%281%29.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447131031x552144661887167500/WhatsApp%20Image%202026-02-15%20at%2021.24.23%20%281%29.jpeg'
-        ]
-      },
-      {
-        id: 9,
-        name: 'Bedroom Décor Set',
-        sub: 'Textile & wood · artisan collaboration',
-        badge: 'Curated set',
-        price: 5520,
-        description: 'A curated set of textile and wood accents to transform your bedroom into a serene, culturally rich retreat. Includes a woven wall hanging, carved wooden stool, and two patterned cushions.',
-        materials: 'Cotton, wool, sustainably sourced wood',
-        origin: 'Collaboration with artisans across Lesotho and South Africa',
-        dimensions: 'Wall hanging: 36″L; Stool: 12″H × 14″W; Cushions: 18″ square',
-        care: 'Dry clean textiles; wipe wood with dry cloth.',
-        features: ['Handwoven wall hanging', 'Carved wooden stool', 'Embroidered cushions', 'Limited edition set'],
-        images: [
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771235923110x493692632489920260/WhatsApp%20Image%202026-02-14%20at%2015.38.00.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447088072x657499917929070800/WhatsApp%20Image%202026-02-11%20at%2023.33.49.jpeg'
-        ]
-      },
-      {
-        id: 11,
-        name: 'Beaded Leather Coaster',
-        sub: 'Glass beads & leather · each unique',
-        badge: 'Hand-beaded',
-        price: 180,
-        description: 'A single coaster handcrafted with glass beads and premium leather. Each piece features unique geometric patterns inspired by traditional African symbolism.',
-        materials: 'Glass beads, leather',
-        origin: 'Beadwork by Ndebele artisans, South Africa',
-        dimensions: '4″ diameter',
-        care: 'Wipe with a soft, damp cloth. Do not soak.',
-        features: ['Hand-beaded by master artisans', 'Leather base for durability', 'Unique pattern per piece', 'Limited edition'],
-        images: ['//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1773418378693x239169090934877150/UBUKHAZI%20coasters.png']
-      },
-      {
-        id: 13,
-        name: 'Beaded Wine Stopper',
-        sub: 'Hand-beaded leather · airtight seal',
-        badge: 'Gift idea',
-        price: 180,
-        description: 'A decorative wine stopper topped with hand-beaded patterns. The glass beads are meticulously stitched onto a leather base, creating a vibrant accessory that seals bottles in style.',
-        materials: 'Glass beads, leather, stainless steel stopper',
-        origin: 'Beadwork by Ndebele artisans, South Africa',
-        dimensions: '3″H (top), fits standard wine bottles',
-        care: 'Hand wash the stopper only; avoid submerging the beaded top.',
-        features: ['Hand-beaded leather top', 'Stainless steel stopper', 'Airtight seal', 'Unique design'],
-        // Updated images: first is the bottle image, second is the keyring image (now used for the stopper)
-        images: [
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447653431x822829140371168900/WhatsApp%20Image%202026-02-14%20at%2015.38.54%20%283%29.jpeg',
-          '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1773416639291x326174855285672000/UBUKHAZI%20keyring.png'
-        ]
-      },
-      {
-        id: 14,
-        name: 'Beaded Leather Keyring',
-        sub: 'Hand-beaded fob · brass ring',
-        badge: 'Statement accessory',
-        price: 380,
-        description: 'A substantial keyring featuring a hand-beaded leather fob and a solid brass ring. The intricate beadwork displays traditional geometric motifs.',
-        materials: 'Glass beads, leather, brass ring',
-        origin: 'Beadwork by Ndebele artisans, South Africa',
-        dimensions: 'Fob: 3″ × 1.5″; total length 5″',
-        care: 'Avoid water. Clean with a dry cloth.',
-        features: ['Hand-beaded leather fob', 'Solid brass hardware', 'Unique color combinations', 'Limited edition'],
-        images: ['//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1773416639291x326174855285672000/UBUKHAZI%20keyring.png']
-      }
-    ];
-
-    // ==================== MARQUEE ====================
-    const marqueeItems = [
-      'Southern African Artistry', '·', 'Female Master Artisans', '·',
-      'Limited Edition', '·', 'Heirloom Quality', '·',
-      'Cultural Heritage', '·', 'Made by Hand', '·',
-      'Southern African Artistry', '·', 'Female Master Artisans', '·',
-      'Limited Edition', '·', 'Heirloom Quality', '·',
-      'Cultural Heritage', '·', 'Made by Hand', '·'
-    ];
-    const track = document.getElementById('marquee-track');
-    marqueeItems.forEach(item => {
-      const span = document.createElement('span');
-      if (item === '·') span.className = 'dot';
-      span.textContent = item;
-      track.appendChild(span);
-    });
-
-    // ==================== ZONE RENDERING ====================
-    // Removed id 8 from RAIL_IDS
-    const MOSAIC_IDS  = [1, 2, 3];
-    const RAIL_IDS    = [5, 7, 13, 14, 11];   // id 8 removed
-    const LIST_IDS    = [10, 9];
-
-    const byId = id => PRODUCTS.find(p => p.id === id);
-
-    function makeMosaicCard(p, idx) {
-      const card = document.createElement('div');
-      card.className = 'product-card' + (p.featured ? ' featured' : '');
-      card.innerHTML = `
-        <img src="${p.images[0]}" alt="${p.name}" loading="${idx < 2 ? 'eager' : 'lazy'}">
-        <div class="product-info">
-          <span class="product-badge">${p.badge}</span>
-          <div class="product-number">${String(idx + 1).padStart(2,'0')}</div>
-          <div class="product-name">${p.name}</div>
-          <div class="product-sub">${p.sub}</div>
-          <div class="product-price">R ${p.price.toLocaleString()}</div>
-        </div>`;
-      card.addEventListener('click', () => openProduct(p));
-      return card;
-    }
-    function makeRailCard(p, idx) {
-      const card = document.createElement('div');
-      card.className = 'rail-card';
-      card.innerHTML = `
-        <img src="${p.images[0]}" alt="${p.name}" loading="lazy">
-        <div class="product-info">
-          <span class="product-badge">${p.badge}</span>
-          <div class="product-number">${String(idx + 1).padStart(2,'0')}</div>
-          <div class="product-name">${p.name}</div>
-          <div class="product-sub">${p.sub}</div>
-          <div class="product-price">R ${p.price.toLocaleString()}</div>
-        </div>`;
-      card.addEventListener('click', () => openProduct(p));
-      return card;
-    }
-    function makeListCard(p, idx) {
-      const card = document.createElement('div');
-      card.className = 'list-card';
-      card.innerHTML = `
-        <div class="list-card-img">
-          <img src="${p.images[0]}" alt="${p.name}" loading="lazy">
-        </div>
-        <div class="list-card-body">
-          <div class="list-card-num">${String(idx + 1).padStart(2,'0')}</div>
-          <div class="list-card-name">${p.name}</div>
-          <div class="list-card-sub">${p.sub}</div>
-          <div class="list-card-price">R ${p.price.toLocaleString()}</div>
-          <span class="list-card-badge">${p.badge}</span>
-        </div>`;
-      card.addEventListener('click', () => openProduct(p));
-      return card;
-    }
-
-    const mosaicGrid = document.getElementById('products-grid-mosaic');
-    MOSAIC_IDS.forEach((id, i) => { const p = byId(id); if(p) mosaicGrid.appendChild(makeMosaicCard(p,i)); });
-
-    const rail = document.getElementById('products-rail');
-    RAIL_IDS.forEach((id, i) => { const p = byId(id); if(p) rail.appendChild(makeRailCard(p,i)); });
-
-    let isDragging = false, startX, scrollLeft;
-    rail.addEventListener('mousedown', e => {
-      isDragging = true;
-      startX = e.pageX - rail.offsetLeft;
-      scrollLeft = rail.scrollLeft;
-      rail.style.cursor = 'grabbing';
-    });
-    rail.addEventListener('mouseleave', () => { isDragging = false; rail.style.cursor = 'grab'; });
-    rail.addEventListener('mouseup',    () => { isDragging = false; rail.style.cursor = 'grab'; });
-    rail.addEventListener('mousemove', e => {
-      if (!isDragging) return;
-      e.preventDefault();
-      const x = e.pageX - rail.offsetLeft;
-      rail.scrollLeft = scrollLeft - (x - startX) * 1.4;
-    });
-
-    const listEl = document.getElementById('products-list');
-    LIST_IDS.forEach((id, i) => { const p = byId(id); if(p) listEl.appendChild(makeListCard(p,i)); });
-
-    // ==================== CURSOR (desktop only) ====================
-    const dot  = document.getElementById('cursor-dot');
-    const ring = document.getElementById('cursor-ring');
-    const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-
-    if (!isTouch) {
-      let mouseX = 0, mouseY = 0, ringX = 0, ringY = 0;
-      document.addEventListener('mousemove', e => {
-        mouseX = e.clientX; mouseY = e.clientY;
-        dot.style.left = mouseX + 'px'; dot.style.top = mouseY + 'px';
-      });
-      (function animateRing() {
-        ringX += (mouseX - ringX) * 0.12; ringY += (mouseY - ringY) * 0.12;
-        ring.style.left = ringX + 'px'; ring.style.top = ringY + 'px';
-        requestAnimationFrame(animateRing);
-      })();
-      const hoverable = 'a, button, .product-card, .rail-card, .list-card, input, label';
-      document.querySelectorAll(hoverable).forEach(el => {
-        el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
-        el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
-      });
-    }
-
-    // ==================== MOBILE NAV ====================
-    const hamburger = document.getElementById('hamburger');
-    const mobileNav = document.getElementById('mobile-nav');
-    let navOpen = false;
-    function toggleNav(forceClose) {
-      navOpen = forceClose ? false : !navOpen;
-      mobileNav.style.visibility = navOpen ? 'visible' : 'hidden';
-      mobileNav.style.transform = navOpen ? 'translateY(0)' : 'translateY(-100%)';
-      document.body.style.overflow = navOpen ? 'hidden' : '';
-      const bars = hamburger.querySelectorAll('span');
-      bars[0].style.transform = navOpen ? 'rotate(45deg) translate(5px, 5px)' : '';
-      bars[1].style.opacity   = navOpen ? '0' : '';
-      bars[2].style.transform = navOpen ? 'rotate(-45deg) translate(5px, -5px)' : '';
-    }
-    hamburger.addEventListener('click', () => toggleNav());
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && navOpen) toggleNav(true); });
-    document.querySelectorAll('.mobile-link').forEach(l => {
-      l.addEventListener('click', (e) => {
-        e.preventDefault();
-        const href = l.getAttribute('href');
-        toggleNav(true);
-        setTimeout(() => {
-          const target = document.querySelector(href);
-          if (target) target.scrollIntoView({ behavior: 'smooth' });
-        }, 350);
-      });
-    });
-
-    // ==================== SCROLL REVEALS ====================
-    const revealObs = new IntersectionObserver((entries) => {
-      entries.forEach((entry, i) => {
-        if (entry.isIntersecting) {
-          setTimeout(() => {
-            entry.target.classList.add('visible');
-          }, entry.target.dataset.delay ? parseInt(entry.target.dataset.delay) : 0);
+    (() => {
+      // ========== PRODUCTS ARRAY (exactly as in original, with id 8 removed) ==========
+      const PRODUCTS = [
+        {
+          id: 1, featured: true,
+          name: 'Lounge Chair & Coaster Combo',
+          sub: 'Handwoven chair + Mirror + Lamp + Bottle Set',
+          badge: 'Limited edition',
+          price: 5450,
+          description: 'Heritage Lamps, handwoven by master artisans using traditional techniques. The organic form and natural fibers create a warm, inviting presence in any living space. Coasters and Bottle stoppers compliment the beautiful mirror accompanying this timeless set.',
+          materials: 'Natural fibers, sustainably sourced wood frame',
+          origin: 'Southern Africa, collaboration with rural weaving cooperatives',
+          dimensions: 'Seat: 28″W × 32″D × 30″H',
+          care: 'Dust regularly with soft brush. Avoid direct sunlight and moisture.',
+          features: ['Handwoven by master artisans', 'Sustainable natural fibers', 'Limited edition', 'Heirloom quality'],
+          images: [
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771186631737x132117398029088180/WhatsApp%20Image%202026-02-14%20at%2015.38.01.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771186722961x862958808325716500/WhatsApp%20Image%202026-02-14%20at%2015.38.01%20%281%29.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447088072x657499917929070800/WhatsApp%20Image%202026-02-11%20at%2023.33.49.jpeg'
+          ]
+        },
+        {
+          id: 2,
+          name: 'Mirror & Lamp Combo',
+          sub: 'Hand-finished · heritage pair',
+          badge: 'Limited edition duo',
+          price: 4500,
+          description: 'A striking heritage duo featuring an intricately crafted mirror and a hand-finished artisan lamp, designed to bring warmth, depth, and cultural elegance to refined living spaces.',
+          materials: 'Solid wood, natural stone, hand-woven textile shade',
+          origin: 'Crafted in collaboration with master artisans in Zimbabwe and South Africa',
+          dimensions: 'Mirror: 24″ diameter; Lamp: 16″H × 10″W',
+          care: 'Dust with soft dry cloth. Keep shade away from direct sunlight.',
+          features: ['Hand-carved wooden frame', 'Artisan-crafted lamp base', 'Heritage textile shade', 'Limited edition duo'],
+          images: [
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771445541831x476106294915728000/WhatsApp%20Image%202026-02-15%20at%2021.56.15%20%281%29.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771186593048x494346909674455300/WhatsApp%20Image%202026-02-15%20at%2021.24.08.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447131031x552144661887167500/WhatsApp%20Image%202026-02-15%20at%2021.24.23%20%281%29.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447393731x212970433318096830/WhatsApp%20Image%202026-02-15%20at%2021.22.53%20%281%29.jpeg'
+          ]
+        },
+        {
+          id: 3,
+          name: 'Carved Vessel',
+          sub: 'Hand-carved stone · one of a kind',
+          badge: 'Unique piece',
+          price: 1320,
+          description: 'A timeless statement of artistry and heritage, meticulously sculpted by master artisans from natural stone. Each piece reveals subtle variations in tone, texture, and pattern — truly one of a kind.',
+          materials: 'Solid natural stone (serpentine or soapstone)',
+          origin: 'Carved by master artisans in Zimbabwe',
+          dimensions: 'Approx. 8″H × 10″W (varies due to handcrafting)',
+          care: 'Wipe gently with a soft, dry cloth. Avoid harsh chemicals.',
+          features: ['Hand-carved from solid natural stone', 'Unique artisanal patterns', 'Heirloom-quality artistry', 'Sculptural décor'],
+          images: ['//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447700517x189429409873266050/WhatsApp%20Image%202026-02-14%20at%2015.37.58%20%283%29.jpeg']
+        },
+        {
+          id: 5,
+          name: 'Heritage Coasters',
+          sub: 'Hand-beaded fibre · master artisan',
+          badge: 'Set of 4',
+          price: 395,
+          description: 'Set of four hand-beaded coasters, each featuring unique geometric patterns inspired by traditional African symbolism. Crafted by master artisans using time-honoured beadwork techniques.',
+          materials: 'Glass beads, natural fiber base',
+          origin: 'Beadwork by Ndebele artisans, South Africa',
+          dimensions: '4″ diameter each',
+          care: 'Wipe with damp cloth; do not soak. Store flat.',
+          features: ['Hand-beaded by master artisans', 'Set of four unique patterns', 'Limited edition', 'Protective felt backing'],
+          images: [
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771236245578x460693429034130240/WhatsApp%20Image%202026-02-15%20at%2022.43.26%20%281%29.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447737297x377741858748748400/WhatsApp%20Image%202026-02-15%20at%2022.43.26%20%282%29.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771445774713x936113204651752800/WhatsApp%20Image%202026-02-15%20at%2022.43.26%20%284%29.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771235923110x493692632489920260/WhatsApp%20Image%202026-02-14%20at%2015.38.00.jpeg'
+          ]
+        },
+        {
+          id: 7,
+          name: '***** Pack',
+          sub: 'Adjustable woven · statement piece',
+          badge: 'Limited',
+          price: 475,
+          description: 'A contemporary accessory woven with traditional techniques. Features intricate patterns and adjustable strap, blending cultural heritage with modern functionality.',
+          materials: 'Synthetic fiber, leather trim',
+          origin: 'Handwoven in partnership with rural cooperatives, Kenya',
+          dimensions: '12″W × 6″H, strap adjustable up to 40″',
+          care: 'Spot clean with mild soap. Air dry.',
+          features: ['Handwoven using traditional looms', 'Adjustable leather strap', 'Limited edition colorways', 'Lightweight and durable'],
+          images: [
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771236061440x637124769555817300/WhatsApp%20Image%202026-02-14%20at%2015.38.04%20%281%29.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771451696844x591571651390756500/*****%20Pack.png'
+          ]
+        },
+        {
+          id: 10,
+          name: 'Artisan Heritage Lamp',
+          sub: 'Hand-carved base · heritage shade',
+          badge: 'Limited edition',
+          price: 2500,
+          description: 'A celebration of cultural storytelling and refined artistry. Blends traditional African-inspired textile artistry with a hand-finished carved base. When illuminated, casts a warm, ambient glow.',
+          materials: 'Hand-carved stone base, textile shade',
+          origin: 'Crafted in collaboration with master artisans in Zimbabwe',
+          dimensions: '18″H × 12″W',
+          care: 'Dust with soft cloth; keep shade away from direct sunlight.',
+          features: ['Hand-carved stone base', 'Heritage-inspired textile shade', 'Limited edition', 'Warm ambient lighting'],
+          images: [
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771445541831x476106294915728000/WhatsApp%20Image%202026-02-15%20at%2021.56.15%20%281%29.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447131031x552144661887167500/WhatsApp%20Image%202026-02-15%20at%2021.24.23%20%281%29.jpeg'
+          ]
+        },
+        {
+          id: 9,
+          name: 'Bedroom Décor Set',
+          sub: 'Textile & wood · artisan collaboration',
+          badge: 'Curated set',
+          price: 5520,
+          description: 'A curated set of textile and wood accents to transform your bedroom into a serene, culturally rich retreat. Includes a woven wall hanging, carved wooden stool, and two patterned cushions.',
+          materials: 'Cotton, wool, sustainably sourced wood',
+          origin: 'Collaboration with artisans across Lesotho and South Africa',
+          dimensions: 'Wall hanging: 36″L; Stool: 12″H × 14″W; Cushions: 18″ square',
+          care: 'Dry clean textiles; wipe wood with dry cloth.',
+          features: ['Handwoven wall hanging', 'Carved wooden stool', 'Embroidered cushions', 'Limited edition set'],
+          images: [
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771235923110x493692632489920260/WhatsApp%20Image%202026-02-14%20at%2015.38.00.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447088072x657499917929070800/WhatsApp%20Image%202026-02-11%20at%2023.33.49.jpeg'
+          ]
+        },
+        {
+          id: 11,
+          name: 'Beaded Leather Coaster',
+          sub: 'Glass beads & leather · each unique',
+          badge: 'Hand-beaded',
+          price: 180,
+          description: 'A single coaster handcrafted with glass beads and premium leather. Each piece features unique geometric patterns inspired by traditional African symbolism.',
+          materials: 'Glass beads, leather',
+          origin: 'Beadwork by Ndebele artisans, South Africa',
+          dimensions: '4″ diameter',
+          care: 'Wipe with a soft, damp cloth. Do not soak.',
+          features: ['Hand-beaded by master artisans', 'Leather base for durability', 'Unique pattern per piece', 'Limited edition'],
+          images: ['//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1773418378693x239169090934877150/UBUKHAZI%20coasters.png']
+        },
+        {
+          id: 13,
+          name: 'Beaded Wine Stopper',
+          sub: 'Hand-beaded leather · airtight seal',
+          badge: 'Gift idea',
+          price: 180,
+          description: 'A decorative wine stopper topped with hand-beaded patterns. The glass beads are meticulously stitched onto a leather base, creating a vibrant accessory that seals bottles in style.',
+          materials: 'Glass beads, leather, stainless steel stopper',
+          origin: 'Beadwork by Ndebele artisans, South Africa',
+          dimensions: '3″H (top), fits standard wine bottles',
+          care: 'Hand wash the stopper only; avoid submerging the beaded top.',
+          features: ['Hand-beaded leather top', 'Stainless steel stopper', 'Airtight seal', 'Unique design'],
+          images: [
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1771447653431x822829140371168900/WhatsApp%20Image%202026-02-14%20at%2015.38.54%20%283%29.jpeg',
+            '//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1773416639291x326174855285672000/UBUKHAZI%20keyring.png'
+          ]
+        },
+        {
+          id: 14,
+          name: 'Beaded Leather Keyring',
+          sub: 'Hand-beaded fob · brass ring',
+          badge: 'Statement accessory',
+          price: 380,
+          description: 'A substantial keyring featuring a hand-beaded leather fob and a solid brass ring. The intricate beadwork displays traditional geometric motifs.',
+          materials: 'Glass beads, leather, brass ring',
+          origin: 'Beadwork by Ndebele artisans, South Africa',
+          dimensions: 'Fob: 3″ × 1.5″; total length 5″',
+          care: 'Avoid water. Clean with a dry cloth.',
+          features: ['Hand-beaded leather fob', 'Solid brass hardware', 'Unique color combinations', 'Limited edition'],
+          images: ['//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1773416639291x326174855285672000/UBUKHAZI%20keyring.png']
         }
+      ];
+
+      // ========== MARQUEE, MOSAIC, RAIL, LIST RENDERING (same as original) ==========
+      const marqueeItems = [
+        'Southern African Artistry', '·', 'Female Master Artisans', '·',
+        'Limited Edition', '·', 'Heirloom Quality', '·',
+        'Cultural Heritage', '·', 'Made by Hand', '·',
+        'Southern African Artistry', '·', 'Female Master Artisans', '·',
+        'Limited Edition', '·', 'Heirloom Quality', '·',
+        'Cultural Heritage', '·', 'Made by Hand', '·'
+      ];
+      const track = document.getElementById('marquee-track');
+      marqueeItems.forEach(item => {
+        const span = document.createElement('span');
+        if (item === '·') span.className = 'dot';
+        span.textContent = item;
+        track.appendChild(span);
       });
-    }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
 
-    document.querySelectorAll('.reveal-up').forEach((el, i) => {
-      el.style.transitionDelay = (i % 4) * 80 + 'ms';
-      revealObs.observe(el);
-    });
+      const MOSAIC_IDS  = [1, 2, 3];
+      const RAIL_IDS    = [5, 7, 13, 14, 11];
+      const LIST_IDS    = [10, 9];
 
-    // ==================== MODAL SYSTEM ====================
-    let activeOverlay = null;
-    function openOverlay(id) {
-      if (activeOverlay) closeOverlay(activeOverlay);
-      const overlay = document.getElementById(id);
-      overlay.classList.add('open');
-      document.body.style.overflow = 'hidden';
-      activeOverlay = overlay;
-    }
-    function closeOverlay(overlay) {
-      overlay.classList.remove('open');
-      document.body.style.overflow = '';
-      activeOverlay = null;
-    }
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && activeOverlay) closeOverlay(activeOverlay);
-    });
-    [
-      ['product-overlay', 'close-product'],
-      ['cart-overlay', 'close-cart'],
-      ['lightbox-overlay', 'close-lb']
-    ].forEach(([overlayId, closeId]) => {
-      const overlay = document.getElementById(overlayId);
-      document.getElementById(closeId).addEventListener('click', () => closeOverlay(overlay));
-      overlay.addEventListener('click', e => { if (e.target === overlay) closeOverlay(overlay); });
-    });
+      const byId = id => PRODUCTS.find(p => p.id === id);
 
-    // ==================== PRODUCT MODAL ====================
-    let currentProduct = null;
-    let modalSlideIdx = 0;
-
-    function openProduct(p) {
-      currentProduct = p;
-      modalSlideIdx = 0;
-
-      document.getElementById('modal-title').textContent = p.name;
-      document.getElementById('modal-price').textContent = `R ${p.price.toLocaleString()}`;
-      document.getElementById('modal-desc').textContent = p.description;
-      document.getElementById('modal-qty').value = 1;
-
-      const details = document.getElementById('modal-details');
-      let dHtml = '';
-      if (p.features?.length) {
-        dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Key Features</div><ul class="modal-features">` +
-          p.features.map(f => `<li>${f}</li>`).join('') + `</ul></div>`;
+      function makeMosaicCard(p, idx) {
+        const card = document.createElement('div');
+        card.className = 'product-card' + (p.featured ? ' featured' : '');
+        card.innerHTML = `
+          <img src="${p.images[0]}" alt="${p.name}" loading="${idx < 2 ? 'eager' : 'lazy'}">
+          <div class="product-info">
+            <span class="product-badge">${p.badge}</span>
+            <div class="product-number">${String(idx + 1).padStart(2,'0')}</div>
+            <div class="product-name">${p.name}</div>
+            <div class="product-sub">${p.sub}</div>
+            <div class="product-price">R ${p.price.toLocaleString()}</div>
+          </div>`;
+        card.addEventListener('click', () => openProduct(p));
+        return card;
       }
-      if (p.materials) dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Materials</div><div class="modal-detail-val">${p.materials}</div></div>`;
-      if (p.origin)    dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Origin</div><div class="modal-detail-val">${p.origin}</div></div>`;
-      if (p.dimensions) dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Dimensions</div><div class="modal-detail-val">${p.dimensions}</div></div>`;
-      if (p.care)      dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Care</div><div class="modal-detail-val">${p.care}</div></div>`;
-      details.innerHTML = dHtml;
-
-      const area = document.getElementById('modal-img-area');
-      const imgs = p.images || [];
-      let slidesHtml = `<div class="modal-slides" id="mslides">` +
-        imgs.map((src, i) => `<div class="modal-slide"><img src="${src}" alt="${p.name} view ${i+1}"></div>`).join('') +
-        `</div>`;
-      let navHtml = imgs.length > 1 ?
-        `<button class="modal-nav prev" id="mslide-prev">‹</button>
-         <button class="modal-nav next" id="mslide-next">›</button>
-         <div class="modal-dots">${imgs.map((_, i) => `<button class="modal-dot ${i===0?'active':''}" data-i="${i}"></button>`).join('')}</div>` : '';
-      area.innerHTML = slidesHtml + navHtml;
-
-      function updateModalSlide(idx) {
-        modalSlideIdx = (idx + imgs.length) % imgs.length;
-        document.getElementById('mslides').style.transform = `translateX(-${modalSlideIdx * 100}%)`;
-        area.querySelectorAll('.modal-dot').forEach((d, i) => d.classList.toggle('active', i === modalSlideIdx));
+      function makeRailCard(p, idx) {
+        const card = document.createElement('div');
+        card.className = 'rail-card';
+        card.innerHTML = `
+          <img src="${p.images[0]}" alt="${p.name}" loading="lazy">
+          <div class="product-info">
+            <span class="product-badge">${p.badge}</span>
+            <div class="product-number">${String(idx + 1).padStart(2,'0')}</div>
+            <div class="product-name">${p.name}</div>
+            <div class="product-sub">${p.sub}</div>
+            <div class="product-price">R ${p.price.toLocaleString()}</div>
+          </div>`;
+        card.addEventListener('click', () => openProduct(p));
+        return card;
       }
-      if (imgs.length > 1) {
-        document.getElementById('mslide-prev').addEventListener('click', () => updateModalSlide(modalSlideIdx - 1));
-        document.getElementById('mslide-next').addEventListener('click', () => updateModalSlide(modalSlideIdx + 1));
-        area.querySelectorAll('.modal-dot').forEach(d => {
-          d.addEventListener('click', () => updateModalSlide(parseInt(d.dataset.i)));
+      function makeListCard(p, idx) {
+        const card = document.createElement('div');
+        card.className = 'list-card';
+        card.innerHTML = `
+          <div class="list-card-img">
+            <img src="${p.images[0]}" alt="${p.name}" loading="lazy">
+          </div>
+          <div class="list-card-body">
+            <div class="list-card-num">${String(idx + 1).padStart(2,'0')}</div>
+            <div class="list-card-name">${p.name}</div>
+            <div class="list-card-sub">${p.sub}</div>
+            <div class="list-card-price">R ${p.price.toLocaleString()}</div>
+            <span class="list-card-badge">${p.badge}</span>
+          </div>`;
+        card.addEventListener('click', () => openProduct(p));
+        return card;
+      }
+
+      const mosaicGrid = document.getElementById('products-grid-mosaic');
+      MOSAIC_IDS.forEach((id, i) => { const p = byId(id); if(p) mosaicGrid.appendChild(makeMosaicCard(p,i)); });
+
+      const rail = document.getElementById('products-rail');
+      RAIL_IDS.forEach((id, i) => { const p = byId(id); if(p) rail.appendChild(makeRailCard(p,i)); });
+
+      let isDragging = false, startX, scrollLeft;
+      rail.addEventListener('mousedown', e => {
+        isDragging = true;
+        startX = e.pageX - rail.offsetLeft;
+        scrollLeft = rail.scrollLeft;
+        rail.style.cursor = 'grabbing';
+      });
+      rail.addEventListener('mouseleave', () => { isDragging = false; rail.style.cursor = 'grab'; });
+      rail.addEventListener('mouseup',    () => { isDragging = false; rail.style.cursor = 'grab'; });
+      rail.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const x = e.pageX - rail.offsetLeft;
+        rail.scrollLeft = scrollLeft - (x - startX) * 1.4;
+      });
+
+      const listEl = document.getElementById('products-list');
+      LIST_IDS.forEach((id, i) => { const p = byId(id); if(p) listEl.appendChild(makeListCard(p,i)); });
+
+      // ========== CURSOR (desktop only) ==========
+      const dot  = document.getElementById('cursor-dot');
+      const ring = document.getElementById('cursor-ring');
+      const isTouch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
+      if (!isTouch) {
+        let mouseX = 0, mouseY = 0, ringX = 0, ringY = 0;
+        document.addEventListener('mousemove', e => {
+          mouseX = e.clientX; mouseY = e.clientY;
+          dot.style.left = mouseX + 'px'; dot.style.top = mouseY + 'px';
+        });
+        (function animateRing() {
+          ringX += (mouseX - ringX) * 0.12; ringY += (mouseY - ringY) * 0.12;
+          ring.style.left = ringX + 'px'; ring.style.top = ringY + 'px';
+          requestAnimationFrame(animateRing);
+        })();
+        const hoverable = 'a, button, .product-card, .rail-card, .list-card, input, label';
+        document.querySelectorAll(hoverable).forEach(el => {
+          el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
+          el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
         });
       }
-      area.querySelectorAll('img').forEach((img, idx) => {
-        img.addEventListener('click', () => openLightbox(idx));
-      });
 
-      openOverlay('product-overlay');
-    }
-
-    document.getElementById('modal-add').addEventListener('click', () => {
-      if (!currentProduct) return;
-      const qty = parseInt(document.getElementById('modal-qty').value) || 1;
-      addToCart(currentProduct, qty);
-      closeOverlay(document.getElementById('product-overlay'));
-      showToast(`${currentProduct.name} added to your cart`);
-    });
-
-    // ==================== LIGHTBOX ====================
-    let lbImages = [], lbIdx = 0;
-    function openLightbox(idx) {
-      if (!currentProduct) return;
-      lbImages = currentProduct.images;
-      lbIdx = idx;
-      updateLb();
-      openOverlay('lightbox-overlay');
-    }
-    function updateLb() {
-      document.getElementById('lb-img').src = lbImages[lbIdx];
-      document.getElementById('lb-counter').textContent = `${lbIdx + 1} / ${lbImages.length}`;
-    }
-    document.getElementById('lb-prev').addEventListener('click', () => { lbIdx = (lbIdx - 1 + lbImages.length) % lbImages.length; updateLb(); });
-    document.getElementById('lb-next').addEventListener('click', () => { lbIdx = (lbIdx + 1) % lbImages.length; updateLb(); });
-    document.addEventListener('keydown', e => {
-      if (activeOverlay?.id === 'lightbox-overlay') {
-        if (e.key === 'ArrowLeft') { lbIdx = (lbIdx - 1 + lbImages.length) % lbImages.length; updateLb(); }
-        if (e.key === 'ArrowRight') { lbIdx = (lbIdx + 1) % lbImages.length; updateLb(); }
+      // ========== MOBILE NAV ==========
+      const hamburger = document.getElementById('hamburger');
+      const mobileNav = document.getElementById('mobile-nav');
+      let navOpen = false;
+      function toggleNav(forceClose) {
+        navOpen = forceClose ? false : !navOpen;
+        mobileNav.style.visibility = navOpen ? 'visible' : 'hidden';
+        mobileNav.style.transform = navOpen ? 'translateY(0)' : 'translateY(-100%)';
+        document.body.style.overflow = navOpen ? 'hidden' : '';
+        const bars = hamburger.querySelectorAll('span');
+        bars[0].style.transform = navOpen ? 'rotate(45deg) translate(5px, 5px)' : '';
+        bars[1].style.opacity   = navOpen ? '0' : '';
+        bars[2].style.transform = navOpen ? 'rotate(-45deg) translate(5px, -5px)' : '';
       }
-    });
-
-    // ==================== CART ====================
-    let cart = JSON.parse(localStorage.getItem('uk_cart') || '[]');
-
-    function addToCart(product, qty) {
-      const ex = cart.find(i => i.id === product.id);
-      if (ex) ex.quantity += qty;
-      else cart.push({ id: product.id, name: product.name, price: product.price, quantity: qty });
-      saveCart();
-    }
-
-    function saveCart() {
-      localStorage.setItem('uk_cart', JSON.stringify(cart));
-      const total = cart.reduce((a, i) => a + i.quantity, 0);
-      const badge = document.getElementById('cart-count');
-      badge.textContent = total;
-      badge.style.transform = 'scale(1.4)';
-      setTimeout(() => badge.style.transform = '', 200);
-    }
-
-    function renderCart() {
-      const list = document.getElementById('cart-list');
-      list.innerHTML = '';
-      let total = 0;
-      cart.forEach(item => {
-        total += item.price * item.quantity;
-        const li = document.createElement('li');
-        li.className = 'cart-item';
-        li.innerHTML = `
-          <div>
-            <div class="ci-name">${item.name}</div>
-            <div class="ci-price">R ${item.price.toLocaleString()}</div>
-          </div>
-          <div class="ci-controls">
-            <button class="ci-btn ci-decr" data-id="${item.id}">−</button>
-            <span class="ci-qty">${item.quantity}</span>
-            <button class="ci-btn ci-incr" data-id="${item.id}">+</button>
-            <button class="ci-remove" data-id="${item.id}">✕</button>
-          </div>
-        `;
-        list.appendChild(li);
+      hamburger.addEventListener('click', () => toggleNav());
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && navOpen) toggleNav(true); });
+      document.querySelectorAll('.mobile-link').forEach(l => {
+        l.addEventListener('click', (e) => {
+          e.preventDefault();
+          const href = l.getAttribute('href');
+          toggleNav(true);
+          setTimeout(() => {
+            const target = document.querySelector(href);
+            if (target) target.scrollIntoView({ behavior: 'smooth' });
+          }, 350);
+        });
       });
-      document.getElementById('cart-total').textContent = `R ${total.toLocaleString()}`;
-      list.querySelectorAll('.ci-decr').forEach(b => b.addEventListener('click', () => adjustCart(b.dataset.id, -1)));
-      list.querySelectorAll('.ci-incr').forEach(b => b.addEventListener('click', () => adjustCart(b.dataset.id, 1)));
-      list.querySelectorAll('.ci-remove').forEach(b => b.addEventListener('click', () => removeFromCart(b.dataset.id)));
-    }
 
-    function adjustCart(id, delta) {
-      const item = cart.find(i => i.id == id);
-      if (!item) return;
-      item.quantity += delta;
-      if (item.quantity <= 0) cart = cart.filter(i => i.id != id);
-      saveCart();
-      renderCart();
-    }
-    function removeFromCart(id) {
-      cart = cart.filter(i => i.id != id);
-      saveCart();
-      renderCart();
-    }
+      // ========== SCROLL REVEALS ==========
+      const revealObs = new IntersectionObserver((entries) => {
+        entries.forEach((entry, i) => {
+          if (entry.isIntersecting) {
+            setTimeout(() => {
+              entry.target.classList.add('visible');
+            }, entry.target.dataset.delay ? parseInt(entry.target.dataset.delay) : 0);
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
 
-    document.getElementById('cart-btn').addEventListener('click', () => {
-      renderCart();
-      openOverlay('cart-overlay');
-    });
-    document.getElementById('cart-continue').addEventListener('click', () => closeOverlay(document.getElementById('cart-overlay')));
-    document.getElementById('cart-checkout').addEventListener('click', () => {
-      alert('This is a demonstration. To acquire pieces, please contact us directly.');
-      cart = [];
-      saveCart();
-      closeOverlay(document.getElementById('cart-overlay'));
-    });
+      document.querySelectorAll('.reveal-up').forEach((el, i) => {
+        el.style.transitionDelay = (i % 4) * 80 + 'ms';
+        revealObs.observe(el);
+      });
 
-    saveCart(); // init badge
-
-    function showToast(msg) {
-      const t = document.createElement('div');
-      t.className = 'toast';
-      t.innerHTML = `<span>✦</span> ${msg}`;
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 3100);
-    }
-
-    // ==================== NEWSLETTER ====================
-    document.getElementById('newsletter-form').addEventListener('submit', e => {
-      e.preventDefault();
-      const email = document.getElementById('nl-email').value.trim();
-      const fb = document.getElementById('nl-feedback');
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        fb.textContent = `✦ Thank you. We'll be in touch.`;
-        document.getElementById('nl-email').value = '';
-        setTimeout(() => fb.textContent = '', 4000);
-      } else {
-        fb.textContent = 'Please enter a valid email.';
+      // ========== MODAL SYSTEM ==========
+      let activeOverlay = null;
+      function openOverlay(id) {
+        if (activeOverlay) closeOverlay(activeOverlay);
+        const overlay = document.getElementById(id);
+        overlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        activeOverlay = overlay;
       }
-    });
+      function closeOverlay(overlay) {
+        overlay.classList.remove('open');
+        document.body.style.overflow = '';
+        activeOverlay = null;
+      }
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && activeOverlay) closeOverlay(activeOverlay);
+      });
+      [
+        ['product-overlay', 'close-product'],
+        ['cart-overlay', 'close-cart'],
+        ['lightbox-overlay', 'close-lb'],
+        ['shipping-overlay', 'close-shipping'] // new
+      ].forEach(([overlayId, closeId]) => {
+        const overlay = document.getElementById(overlayId);
+        document.getElementById(closeId).addEventListener('click', () => closeOverlay(overlay));
+        overlay.addEventListener('click', e => { if (e.target === overlay) closeOverlay(overlay); });
+      });
 
-    // ==================== PARALLAX ====================
-    if (!isTouch && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      const heroBg = document.querySelector('.hero-bg img');
-      window.addEventListener('scroll', () => {
-        const y = window.scrollY;
-        if (heroBg && y < window.innerHeight) {
-          heroBg.style.transform = `scale(1.0) translateY(${y * 0.3}px)`;
+      // ========== PRODUCT MODAL ==========
+      let currentProduct = null;
+      let modalSlideIdx = 0;
+
+      function openProduct(p) {
+        currentProduct = p;
+        modalSlideIdx = 0;
+
+        document.getElementById('modal-title').textContent = p.name;
+        document.getElementById('modal-price').textContent = `R ${p.price.toLocaleString()}`;
+        document.getElementById('modal-desc').textContent = p.description;
+        document.getElementById('modal-qty').value = 1;
+
+        const details = document.getElementById('modal-details');
+        let dHtml = '';
+        if (p.features?.length) {
+          dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Key Features</div><ul class="modal-features">` +
+            p.features.map(f => `<li>${f}</li>`).join('') + `</ul></div>`;
         }
-      }, { passive: true });
-    }
+        if (p.materials) dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Materials</div><div class="modal-detail-val">${p.materials}</div></div>`;
+        if (p.origin)    dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Origin</div><div class="modal-detail-val">${p.origin}</div></div>`;
+        if (p.dimensions) dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Dimensions</div><div class="modal-detail-val">${p.dimensions}</div></div>`;
+        if (p.care)      dHtml += `<div class="modal-detail-group"><div class="modal-detail-label">Care</div><div class="modal-detail-val">${p.care}</div></div>`;
+        details.innerHTML = dHtml;
 
-    // ==================== TOUCH SWIPE ====================
-    (function addSwipeSupport() {
-      let touchStartX = 0;
-      document.getElementById('product-overlay').addEventListener('touchstart', e => {
-        touchStartX = e.touches[0].clientX;
-      }, { passive: true });
-      document.getElementById('product-overlay').addEventListener('touchend', e => {
-        const dx = e.changedTouches[0].clientX - touchStartX;
-        if (Math.abs(dx) > 50) {
-          const btn = document.querySelector(dx < 0 ? '#modal-img-area .next' : '#modal-img-area .prev');
-          if (btn) btn.click();
+        const area = document.getElementById('modal-img-area');
+        const imgs = p.images || [];
+        let slidesHtml = `<div class="modal-slides" id="mslides">` +
+          imgs.map((src, i) => `<div class="modal-slide"><img src="${src}" alt="${p.name} view ${i+1}"></div>`).join('') +
+          `</div>`;
+        let navHtml = imgs.length > 1 ?
+          `<button class="modal-nav prev" id="mslide-prev">‹</button>
+           <button class="modal-nav next" id="mslide-next">›</button>
+           <div class="modal-dots">${imgs.map((_, i) => `<button class="modal-dot ${i===0?'active':''}" data-i="${i}"></button>`).join('')}</div>` : '';
+        area.innerHTML = slidesHtml + navHtml;
+
+        function updateModalSlide(idx) {
+          modalSlideIdx = (idx + imgs.length) % imgs.length;
+          document.getElementById('mslides').style.transform = `translateX(-${modalSlideIdx * 100}%)`;
+          area.querySelectorAll('.modal-dot').forEach((d, i) => d.classList.toggle('active', i === modalSlideIdx));
+        }
+        if (imgs.length > 1) {
+          document.getElementById('mslide-prev').addEventListener('click', () => updateModalSlide(modalSlideIdx - 1));
+          document.getElementById('mslide-next').addEventListener('click', () => updateModalSlide(modalSlideIdx + 1));
+          area.querySelectorAll('.modal-dot').forEach(d => {
+            d.addEventListener('click', () => updateModalSlide(parseInt(d.dataset.i)));
+          });
+        }
+        area.querySelectorAll('img').forEach((img, idx) => {
+          img.addEventListener('click', () => openLightbox(idx));
+        });
+
+        openOverlay('product-overlay');
+      }
+
+      document.getElementById('modal-add').addEventListener('click', () => {
+        if (!currentProduct) return;
+        const qty = parseInt(document.getElementById('modal-qty').value) || 1;
+        addToCart(currentProduct, qty);
+        closeOverlay(document.getElementById('product-overlay'));
+        showToast(`${currentProduct.name} added to your cart`);
+      });
+
+      // ========== LIGHTBOX ==========
+      let lbImages = [], lbIdx = 0;
+      function openLightbox(idx) {
+        if (!currentProduct) return;
+        lbImages = currentProduct.images;
+        lbIdx = idx;
+        updateLb();
+        openOverlay('lightbox-overlay');
+      }
+      function updateLb() {
+        document.getElementById('lb-img').src = lbImages[lbIdx];
+        document.getElementById('lb-counter').textContent = `${lbIdx + 1} / ${lbImages.length}`;
+      }
+      document.getElementById('lb-prev').addEventListener('click', () => { lbIdx = (lbIdx - 1 + lbImages.length) % lbImages.length; updateLb(); });
+      document.getElementById('lb-next').addEventListener('click', () => { lbIdx = (lbIdx + 1) % lbImages.length; updateLb(); });
+      document.addEventListener('keydown', e => {
+        if (activeOverlay?.id === 'lightbox-overlay') {
+          if (e.key === 'ArrowLeft') { lbIdx = (lbIdx - 1 + lbImages.length) % lbImages.length; updateLb(); }
+          if (e.key === 'ArrowRight') { lbIdx = (lbIdx + 1) % lbImages.length; updateLb(); }
         }
       });
+
+      // ========== CART ==========
+      let cart = JSON.parse(localStorage.getItem('uk_cart') || '[]');
+
+      function addToCart(product, qty) {
+        const ex = cart.find(i => i.id === product.id);
+        if (ex) ex.quantity += qty;
+        else cart.push({ id: product.id, name: product.name, price: product.price, quantity: qty });
+        saveCart();
+      }
+
+      function saveCart() {
+        localStorage.setItem('uk_cart', JSON.stringify(cart));
+        const total = cart.reduce((a, i) => a + i.quantity, 0);
+        const badge = document.getElementById('cart-count');
+        badge.textContent = total;
+        badge.style.transform = 'scale(1.4)';
+        setTimeout(() => badge.style.transform = '', 200);
+      }
+
+      function renderCart() {
+        const list = document.getElementById('cart-list');
+        list.innerHTML = '';
+        let total = 0;
+        cart.forEach(item => {
+          total += item.price * item.quantity;
+          const li = document.createElement('li');
+          li.className = 'cart-item';
+          li.innerHTML = `
+            <div>
+              <div class="ci-name">${item.name}</div>
+              <div class="ci-price">R ${item.price.toLocaleString()}</div>
+            </div>
+            <div class="ci-controls">
+              <button class="ci-btn ci-decr" data-id="${item.id}">−</button>
+              <span class="ci-qty">${item.quantity}</span>
+              <button class="ci-btn ci-incr" data-id="${item.id}">+</button>
+              <button class="ci-remove" data-id="${item.id}">✕</button>
+            </div>
+          `;
+          list.appendChild(li);
+        });
+        document.getElementById('cart-total').textContent = `R ${total.toLocaleString()}`;
+        list.querySelectorAll('.ci-decr').forEach(b => b.addEventListener('click', () => adjustCart(b.dataset.id, -1)));
+        list.querySelectorAll('.ci-incr').forEach(b => b.addEventListener('click', () => adjustCart(b.dataset.id, 1)));
+        list.querySelectorAll('.ci-remove').forEach(b => b.addEventListener('click', () => removeFromCart(b.dataset.id)));
+      }
+
+      function adjustCart(id, delta) {
+        const item = cart.find(i => i.id == id);
+        if (!item) return;
+        item.quantity += delta;
+        if (item.quantity <= 0) cart = cart.filter(i => i.id != id);
+        saveCart();
+        renderCart();
+      }
+      function removeFromCart(id) {
+        cart = cart.filter(i => i.id != id);
+        saveCart();
+        renderCart();
+      }
+
+      document.getElementById('cart-btn').addEventListener('click', () => {
+        renderCart();
+        openOverlay('cart-overlay');
+      });
+      document.getElementById('cart-continue').addEventListener('click', () => closeOverlay(document.getElementById('cart-overlay')));
+
+      // ========== SHIPPING & PAYSTACK (new) ==========
+      const shippingOverlay = document.getElementById('shipping-overlay');
+      const shippingForm = document.getElementById('shipping-form');
+      const shipTotalSpan = document.getElementById('shipping-total');
+      const payBtn = document.getElementById('pay-now');
+
+      // Override the original "Checkout (demo)" button
+      const checkoutBtn = document.getElementById('cart-checkout');
+      checkoutBtn.textContent = 'Proceed to Shipping';
+      checkoutBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (cart.length === 0) {
+          showToast('Your cart is empty.');
+          return;
+        }
+        const totalCents = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        shipTotalSpan.textContent = `R ${totalCents.toLocaleString()}`;
+        closeOverlay(document.getElementById('cart-overlay'));
+        openOverlay('shipping-overlay');
+      });
+
+      shippingForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (!shippingForm.checkValidity()) {
+          shippingForm.reportValidity();
+          return;
+        }
+
+        payBtn.disabled = true;
+        payBtn.textContent = 'Processing...';
+
+        const shipping = {
+          name: document.getElementById('ship-name').value.trim(),
+          email: document.getElementById('ship-email').value.trim(),
+          phone: document.getElementById('ship-phone').value.trim(),
+          address_line1: document.getElementById('ship-address').value.trim(),
+          address_line2: document.getElementById('ship-address2').value.trim(),
+          city: document.getElementById('ship-city').value.trim(),
+          state: document.getElementById('ship-state').value.trim(),
+          postal_code: document.getElementById('ship-zip').value.trim(),
+          country: document.getElementById('ship-country').value,
+        };
+
+        const totalZAR = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const amountInCents = Math.round(totalZAR * 100);
+
+        const metadata = {
+          shipping: shipping,
+          cart_items: cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity
+          })),
+          custom_fields: [
+            { display_name: "Full Name", variable_name: "full_name", value: shipping.name },
+            { display_name: "Phone", variable_name: "phone", value: shipping.phone },
+            { display_name: "Address", variable_name: "address", value: `${shipping.address_line1}, ${shipping.address_line2}, ${shipping.city}, ${shipping.state} ${shipping.postal_code}, ${shipping.country}` }
+          ]
+        };
+
+        const handler = PaystackPop.setup({
+          key: 'pk_test_013343f5ba958f8a825152a6f38e836a1a7536e1',
+          email: shipping.email,
+          amount: amountInCents,
+          currency: 'ZAR',
+          ref: '' + Math.floor(Math.random() * 1000000000 + 1),
+          metadata: metadata,
+          callback: function(response) {
+            console.log('Payment complete. Reference:', response.reference);
+            cart = [];
+            saveCart();
+            renderCart();
+            closeOverlay(shippingOverlay);
+            showToast('Payment successful! Thank you for your order.');
+          },
+          onClose: function() {
+            payBtn.disabled = false;
+            payBtn.textContent = 'Pay with Paystack';
+            showToast('Payment cancelled.');
+          }
+        });
+
+        handler.openIframe();
+      });
+
+      // ========== NEWSLETTER ==========
+      document.getElementById('newsletter-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const email = document.getElementById('nl-email').value.trim();
+        const fb = document.getElementById('nl-feedback');
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          fb.textContent = `✦ Thank you. We'll be in touch.`;
+          document.getElementById('nl-email').value = '';
+          setTimeout(() => fb.textContent = '', 4000);
+        } else {
+          fb.textContent = 'Please enter a valid email.';
+        }
+      });
+
+      // ========== TOAST ==========
+      function showToast(msg) {
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.innerHTML = `<span>✦</span> ${msg}`;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 3100);
+      }
+
+      // ========== PARALLAX ==========
+      if (!isTouch && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const heroBg = document.querySelector('.hero-bg img');
+        window.addEventListener('scroll', () => {
+          const y = window.scrollY;
+          if (heroBg && y < window.innerHeight) {
+            heroBg.style.transform = `scale(1.0) translateY(${y * 0.3}px)`;
+          }
+        }, { passive: true });
+      }
+
+      // ========== TOUCH SWIPE ==========
+      (function addSwipeSupport() {
+        let touchStartX = 0;
+        document.getElementById('product-overlay').addEventListener('touchstart', e => {
+          touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+        document.getElementById('product-overlay').addEventListener('touchend', e => {
+          const dx = e.changedTouches[0].clientX - touchStartX;
+          if (Math.abs(dx) > 50) {
+            const btn = document.querySelector(dx < 0 ? '#modal-img-area .next' : '#modal-img-area .prev');
+            if (btn) btn.click();
+          }
+        });
+      })();
+
+      saveCart(); // init badge
     })();
-
-  })();
   </script>
-
 </body>
 </html>
