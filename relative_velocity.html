@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relative Velocity — Physics Module 3</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060810;
+  --bg1:#0a0d1a;
+  --bg2:#0f1422;
+  --bg3:#141929;
+  --border:#151d36;
+  --border2:#1e2a4a;
+  --text:#e0eaff;
+  --muted:#6a7aaa;
+  --faint:#1a2444;
+  --gold:#1e90ff;
+  --amber:#3db8ff;
+  --orange:#0af;
+  --cream:#d0e4ff;
+  --teal:#7c3aed;
+  --blue:#0af0ff;
+  --red:#f06292;
+  --dim:#2a3660;
+}
+html{scroll-behavior:smooth}
+
+/* blueprint crosshatch background */
+body{
+  font-family:'IBM Plex Sans',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.7;
+  font-size:15px;
+  background-image:
+    linear-gradient(rgba(30,144,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,144,255,0.04) 1px, transparent 1px),
+    linear-gradient(rgba(30,144,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,144,255,0.02) 1px, transparent 1px);
+  background-size:80px 80px, 80px 80px, 20px 20px, 20px 20px;
+  box-shadow:inset 0 0 200px rgba(30,144,255,0.03);
+}
+
+/* ── Layout ── */
+.page{max-width:860px;margin:0 auto;padding:3rem 1.5rem 8rem;position:relative}
+
+/* corner decorations */
+.page::before,.page::after{
+  content:'';position:fixed;width:60px;height:60px;opacity:.15;
+}
+.page::before{
+  top:20px;left:20px;
+  border-top:1px solid var(--gold);border-left:1px solid var(--gold);
+}
+.page::after{
+  bottom:20px;right:20px;
+  border-bottom:1px solid var(--gold);border-right:1px solid var(--gold);
+}
+
+/* header strip */
+.header-strip{
+  display:flex;align-items:flex-start;gap:1.5rem;
+  padding-bottom:2rem;margin-bottom:2rem;
+  border-bottom:0.5px solid var(--border2);
+}
+.module-stamp{
+  flex-shrink:0;
+  width:56px;height:56px;
+  border:1px solid var(--gold);box-shadow:0 0 12px rgba(30,144,255,0.3),inset 0 0 8px rgba(30,144,255,0.08);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1px;opacity:.8;
+}
+.stamp-top{font-family:'IBM Plex Mono',monospace;font-size:7px;letter-spacing:.15em;color:var(--gold);text-transform:uppercase}
+.stamp-num{font-family:'Playfair Display',serif;font-size:22px;color:var(--gold);line-height:1}
+.stamp-bot{font-family:'IBM Plex Mono',monospace;font-size:6px;letter-spacing:.12em;color:var(--gold);text-transform:uppercase}
+
+.header-text{}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin-bottom:.4rem}
+h1{font-family:'Playfair Display',serif;font-size:2.8rem;font-weight:700;line-height:1.1;color:var(--cream);margin-bottom:.3rem}
+h1 em{font-style:italic;color:var(--gold);text-shadow:0 0 20px rgba(30,144,255,0.5),0 0 40px rgba(30,144,255,0.2)}
+.subtitle{font-size:.9rem;color:var(--muted);font-weight:300;max-width:520px;line-height:1.65}
+
+/* ── Nav ── */
+.section-nav{display:flex;gap:.35rem;margin-bottom:3rem;flex-wrap:wrap}
+.nav-pill{
+  padding:.28rem .7rem;font-size:10px;font-weight:500;
+  border:0.5px solid var(--border2);border-radius:2px;
+  color:var(--dim);background:var(--bg1);cursor:pointer;
+  text-decoration:none;transition:all .15s;letter-spacing:.04em;font-family:'IBM Plex Mono',monospace;
+}
+.nav-pill:hover{border-color:var(--gold);color:var(--gold);background:rgba(30,144,255,0.08)}
+
+/* ── Section ── */
+.sec-badge{
+  display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;
+}
+.sec-num{
+  font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--gold);opacity:.5;
+  border:0.5px solid var(--faint);padding:.15rem .45rem;border-radius:2px;
+}
+.sec-label{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+h2{font-family:'Playfair Display',serif;font-size:1.65rem;font-weight:700;color:var(--cream);margin-bottom:.7rem;letter-spacing:-.01em}
+h3{font-family:'IBM Plex Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);opacity:.55;margin:1.6rem 0 .5rem}
+
+/* ── Prose ── */
+p{color:var(--muted);margin-bottom:1rem;line-height:1.85;font-weight:300}
+p strong{color:var(--text);font-weight:500}
+.divider{border:none;border-top:0.5px solid var(--border);margin:2.5rem 0;position:relative}
+.divider::after{content:'⬡';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:8px;color:var(--faint);background:var(--bg);padding:0 .5rem}
+
+/* ── Callouts ── */
+.callout{
+  border-left:2px solid var(--gold);background:rgba(30,144,255,0.06);
+  border-radius:0 5px 5px 0;padding:.75rem 1rem;margin:1.25rem 0;
+  font-size:.875rem;color:var(--text);line-height:1.65;
+}
+.callout.teal{border-left-color:var(--teal);background:rgba(168,85,247,.04)}
+.callout.orange{border-left-color:var(--orange);background:rgba(0,170,255,.04)}
+.callout.blue{border-left-color:var(--blue);background:rgba(0,200,255,.04)}
+.callout.red{border-left-color:var(--red);background:rgba(224,85,85,.04)}
+
+/* ── Equations ── */
+.eq-block{
+  background:var(--bg1);border:0.5px solid var(--border2);
+  border-radius:6px;padding:1.1rem 1.4rem;margin:1.1rem 0;overflow-x:auto;
+  position:relative;
+}
+.eq-block::after{
+  content:'';position:absolute;top:0;right:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--gold),rgba(30,144,255,0.2),transparent);
+  border-radius:0 6px 6px 0;opacity:.3;
+}
+.eq-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--faint);margin-bottom:.5rem;letter-spacing:.1em;text-transform:uppercase}
+.eq-row{display:flex;flex-wrap:wrap;gap:2rem;align-items:flex-start}
+.eq-item{flex:1;min-width:180px}
+.eq-note{font-size:.8rem;color:var(--muted);margin-top:.4rem;line-height:1.5;font-weight:300}
+.eq-note span{color:var(--gold);font-weight:500}
+.katex{font-size:1.04em}
+.katex-display>.katex{font-size:1.08em}
+
+/* ── Derivation steps ── */
+.deriv{counter-reset:step;margin:1.1rem 0}
+.deriv-step{
+  display:flex;gap:.75rem;align-items:flex-start;
+  padding:.7rem 0;border-bottom:0.5px solid var(--border);
+}
+.deriv-step:last-child{border-bottom:none}
+.deriv-step::before{
+  counter-increment:step;content:counter(step,'decimal-leading-zero');
+  font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--faint);
+  min-width:22px;margin-top:.25rem;
+}
+.deriv-step .math{flex:1;font-size:.9rem}
+.deriv-step .reason{font-size:.77rem;color:var(--muted);margin-top:.3rem;font-weight:300}
+
+/* ── Variable grid ── */
+.var-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.4rem;margin:1rem 0}
+.var-item{
+  display:flex;align-items:center;gap:.6rem;
+  background:var(--bg1);border:0.5px solid var(--border);border-radius:4px;padding:.5rem .75rem;
+}
+.var-sym{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;min-width:36px}
+.var-desc{font-size:.78rem;color:var(--muted);font-weight:300}
+.var-unit{font-size:.72rem;color:var(--faint);margin-left:auto;font-family:'IBM Plex Mono',monospace}
+
+/* ── Insight grid ── */
+.insight-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin:1rem 0}
+.insight{background:var(--bg1);border:0.5px solid var(--border);border-radius:6px;padding:.85rem 1rem}
+.insight-icon{font-size:17px;margin-bottom:.35rem}
+.insight-title{font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:.25rem;letter-spacing:.01em}
+.insight-body{font-size:.76rem;color:var(--muted);line-height:1.55;font-weight:300}
+
+/* ── Scenario cards (split) ── */
+.scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:1.1rem 0}
+.scenario{background:var(--bg1);border:0.5px solid var(--border2);border-radius:6px;padding:.9rem 1.1rem}
+.scenario-head{font-family:'IBM Plex Mono',monospace;font-size:.7rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem}
+.scenario-head.gold{color:var(--gold)}
+.scenario-head.teal{color:var(--teal)}
+.scenario-head.orange{color:var(--orange)}
+.scenario-head.blue{color:var(--blue)}
+
+/* ── Table ── */
+.data-table{width:100%;border-collapse:collapse;font-size:.84rem;margin:1rem 0}
+.data-table th{text-align:left;font-size:.69rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:.5rem .75rem;border-bottom:0.5px solid var(--border2)}
+.data-table td{padding:.55rem .75rem;border-bottom:0.5px solid var(--border);color:var(--muted);font-weight:300}
+.data-table td:first-child{font-family:'IBM Plex Mono',monospace;color:var(--text);font-size:.81rem}
+.data-table tr:last-child td{border-bottom:none}
+.data-table .hi{color:var(--gold)}
+
+/* ── Sim cards ── */
+.sim-card{background:var(--bg1);border:0.5px solid var(--border2);border-radius:10px;overflow:hidden;margin:1.5rem 0}
+.sim-head{
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:.7rem 1.2rem;border-bottom:0.5px solid var(--border);background:var(--bg2);
+}
+.sim-title{font-family:'IBM Plex Mono',monospace;font-size:.72rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.sim-badge{font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--gold);background:rgba(30,144,255,0.12);border:0.5px solid rgba(30,144,255,.2);padding:.18rem .55rem;border-radius:2px}
+.sim-body{padding:1.2rem}
+.sim-eq{
+  background:var(--bg);border:0.5px solid var(--border2);
+  border-radius:5px;padding:.5rem 1rem;margin-bottom:.8rem;
+  font-size:.88rem;overflow-x:auto;color:var(--text);
+}
+.canvas-wrap{background:var(--bg2);border-radius:6px;overflow:hidden;margin-bottom:.85rem;border:0.5px solid var(--border)}
+
+/* readouts */
+.readouts{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem}
+.ro{flex:1;min-width:72px;background:var(--bg2);border:0.5px solid var(--border);border-radius:5px;padding:.42rem .6rem}
+.ro-lbl{font-size:8px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-family:'IBM Plex Mono',monospace}
+.ro-val{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;margin-top:2px;color:var(--gold);text-shadow:0 0 8px rgba(30,144,255,0.6)}
+.ro-val .unit{font-size:9px;font-weight:400;color:var(--muted)}
+
+/* sliders */
+.sliders{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.75rem}
+.sl-wrap{display:flex;flex-direction:column;gap:3px}
+.sl-top{display:flex;justify-content:space-between}
+.sl-name{font-size:10px;color:var(--muted);font-weight:400;font-family:'IBM Plex Mono',monospace}
+.sl-val{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--gold)}
+input[type=range]{width:100%;cursor:pointer;height:2px;accent-color:var(--amber)}
+
+/* graphs */
+.graphs{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+.g-wrap{background:var(--bg2);border-radius:5px;overflow:hidden;border:0.5px solid var(--border)}
+.g-title{font-size:8px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:.32rem .5rem .1rem;font-family:'IBM Plex Mono',monospace}
+canvas.gc{display:block;width:100%;height:60px}
+
+/* frame switcher */
+.frame-switch{
+  display:flex;gap:0;margin-bottom:.75rem;
+  border:0.5px solid var(--border2);border-radius:4px;overflow:hidden;
+  width:fit-content;
+}
+.frame-btn{
+  padding:.32rem .8rem;font-size:.68rem;font-family:'IBM Plex Mono',monospace;
+  font-weight:500;letter-spacing:.08em;text-transform:uppercase;
+  border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;
+}
+.frame-btn.active{background:rgba(30,144,255,.12);color:var(--gold)}
+
+/* ref frame label */
+.frame-label{
+  display:inline-flex;align-items:center;gap:.4rem;
+  font-family:'IBM Plex Mono',monospace;font-size:.72rem;
+  color:var(--gold);background:rgba(30,144,255,0.1);
+  border:0.5px solid rgba(30,144,255,.2);padding:.22rem .6rem;border-radius:3px;
+  margin-bottom:.75rem;
+}
+.frame-label::before{content:'📍';font-size:.7rem}
+
+@media(max-width:600px){
+  h1{font-size:2rem}
+  .insight-grid{grid-template-columns:1fr 1fr}
+  .scenario-grid{grid-template-columns:1fr}
+  .sliders{grid-template-columns:1fr}
+  .graphs{grid-template-columns:1fr}
+  .header-strip{flex-direction:column;gap:.75rem}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header-strip">
+    <div class="module-stamp">
+      <span class="stamp-top">Phys</span>
+      <span class="stamp-num">03</span>
+      <span class="stamp-bot">Module</span>
+    </div>
+    <div class="header-text">
+      <div class="eyebrow">Physics Series · Kinematics</div>
+      <h1>Relative <em>Velocity</em></h1>
+      <p class="subtitle">Motion is not absolute — it is always observed from a reference frame. Understanding how velocities transform between frames is the foundation of classical mechanics.</p>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <a class="nav-pill" href="#sec-frames">Ref. frames</a>
+    <a class="nav-pill" href="#sec-galilean">Galilean addition</a>
+    <a class="nav-pill" href="#sec-1d">1D problems</a>
+    <a class="nav-pill" href="#sec-2d">2D problems</a>
+    <a class="nav-pill" href="#sec-river">River crossing</a>
+    <a class="nav-pill" href="#sec-rain">Rain & wind</a>
+    <a class="nav-pill" href="#sec-sims">Simulations</a>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       §1  REFERENCE FRAMES
+  ══════════════════════════════════════════════════ -->
+  <div id="sec-frames">
+    <div class="sec-badge">
+      <span class="sec-num">§ 01</span>
+      <span class="sec-label">Foundation</span>
+    </div>
+    <h2>Reference frames</h2>
+
+    <p>A <strong>reference frame</strong> is a coordinate system attached to an observer. There is no single "correct" frame — all inertial frames (non-accelerating) are equivalent. When we say an object has velocity $v$, we always mean velocity <em>relative to some frame</em>.</p>
+
+    <div class="callout">
+      <strong>The key insight:</strong> the same physical event can have completely different descriptions depending on who is measuring it. A passenger sitting still in a train is moving at 100 km/h relative to the platform. Both descriptions are equally valid.
+    </div>
+
+    <div class="var-grid">
+      <div class="var-item"><span class="var-sym" style="color:var(--gold)">$S$</span><span class="var-desc">inertial reference frame</span></div>
+      <div class="var-item"><span class="var-sym" style="color:var(--teal)">$S'$</span><span class="var-desc">second (moving) frame</span></div>
+      <div class="var-item"><span class="var-sym" style="color:var(--orange)">$\vec{v}_{A/B}$</span><span class="var-desc">velocity of A relative to B</span><span class="var-unit">m s⁻¹</span></div>
+      <div class="var-item"><span class="var-sym" style="color:var(--muted)">$\vec{u}$</span><span class="var-desc">velocity of frame itself</span><span class="var-unit">m s⁻¹</span></div>
+    </div>
+
+    <div class="insight-grid">
+      <div class="insight">
+        <div class="insight-icon">🚂</div>
+        <div class="insight-title">Train frame</div>
+        <div class="insight-body">A ball rolled forward at 5 m/s inside a train moving at 30 m/s appears to move at 35 m/s to a stationary observer.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon">⚡</div>
+        <div class="insight-title">Inertial = non-accelerating</div>
+        <div class="insight-body">Galilean addition applies only to <em>inertial</em> frames. An accelerating frame introduces fictitious forces (Coriolis, centrifugal).</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon">🔁</div>
+        <div class="insight-title">Antisymmetry</div>
+        <div class="insight-body">$\vec{v}_{A/B} = -\vec{v}_{B/A}$. If you move at +20 m/s relative to me, I move at −20 m/s relative to you.</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════════════
+       §2  GALILEAN ADDITION
+  ══════════════════════════════════════════════════ -->
+  <div id="sec-galilean">
+    <div class="sec-badge">
+      <span class="sec-num">§ 02</span>
+      <span class="sec-label">Core Rule</span>
+    </div>
+    <h2>Galilean velocity addition</h2>
+
+    <p>The rule for combining velocities in classical mechanics is simple vector addition. The subscript notation is crucial — learn to read it fluently.</p>
+
+    <div class="eq-block">
+      <div class="eq-label">GALILEAN ADDITION LAW</div>
+      $$\vec{v}_{A/C} = \vec{v}_{A/B} + \vec{v}_{B/C}$$
+      <div class="eq-note" style="margin-top:.6rem">
+        <span>Read:</span> "velocity of A relative to C equals velocity of A relative to B, plus velocity of B relative to C." <br>
+        The middle subscripts $B$ cancel, like fractions: $A/B \cdot B/C = A/C$.
+      </div>
+    </div>
+
+    <h3>Derivation from position</h3>
+    <div class="deriv">
+      <div class="deriv-step">
+        <div class="math">
+          $\vec{r}_{A/C} = \vec{r}_{A/B} + \vec{r}_{B/C}$
+          <div class="reason">Position of A measured from C = position of A from B, plus position of B from C (vector triangle)</div>
+        </div>
+      </div>
+      <div class="deriv-step">
+        <div class="math">
+          $\dfrac{d\vec{r}_{A/C}}{dt} = \dfrac{d\vec{r}_{A/B}}{dt} + \dfrac{d\vec{r}_{B/C}}{dt}$
+          <div class="reason">Differentiate both sides with respect to time (linear, so derivatives add)</div>
+        </div>
+      </div>
+      <div class="deriv-step">
+        <div class="math">
+          $$\boxed{\vec{v}_{A/C} = \vec{v}_{A/B} + \vec{v}_{B/C}}$$
+          <div class="reason">By definition of velocity as $d\vec{r}/dt$. This holds exactly for $v \ll c$; near light speed, use Lorentz addition.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout teal">
+      <strong>Subscript trick.</strong> Write the subscript chain so adjacent letters match and cancel: $\vec{v}_{P/Q} + \vec{v}_{Q/R} = \vec{v}_{P/R}$. This works for any length chain: $\vec{v}_{A/B} + \vec{v}_{B/C} + \vec{v}_{C/D} = \vec{v}_{A/D}$.
+    </div>
+
+    <div class="callout orange">
+      <strong>Acceleration transforms the same way</strong> between inertial frames: $\vec{a}_{A/C} = \vec{a}_{A/B} + \vec{a}_{B/C}$. Since a constant-velocity frame has $\vec{a}_{B/C} = 0$, the acceleration of an object looks the same in all inertial frames — this is why Newton's laws apply equally in all of them.
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════════════
+       §3  1D PROBLEMS
+  ══════════════════════════════════════════════════ -->
+  <div id="sec-1d">
+    <div class="sec-badge">
+      <span class="sec-num">§ 03</span>
+      <span class="sec-label">One Dimension</span>
+    </div>
+    <h2>1D relative velocity</h2>
+
+    <p>In one dimension, vectors reduce to signed scalars. The addition law becomes simple algebra — but direction (sign) still matters critically.</p>
+
+    <div class="eq-block">
+      <div class="eq-label">1D FORM</div>
+      $$v_{A/C} = v_{A/B} + v_{B/C}$$
+      <div class="eq-note" style="margin-top:.5rem">Positive = rightward (or chosen positive direction). Negative = opposite direction.</div>
+    </div>
+
+    <h3>Canonical scenarios</h3>
+    <div class="scenario-grid">
+      <div class="scenario">
+        <div class="scenario-head gold">Same direction</div>
+        <p style="font-size:.82rem;color:var(--muted);margin:0;line-height:1.7;font-weight:300">
+          Car A: $v_{A/G} = +30$ m/s<br>
+          Car B: $v_{B/G} = +20$ m/s<br>
+          $v_{A/B} = v_{A/G} + v_{G/B} = 30 + (-20) = \mathbf{+10}$ <b>m/s</b><br>
+          <span style="font-size:.76rem;color:var(--faint)">A gains on B slowly from behind.</span>
+        </p>
+      </div>
+      <div class="scenario">
+        <div class="scenario-head teal">Opposite directions</div>
+        <p style="font-size:.82rem;color:var(--muted);margin:0;line-height:1.7;font-weight:300">
+          Car A: $v_{A/G} = +30$ m/s<br>
+          Car B: $v_{B/G} = -25$ m/s<br>
+          $v_{A/B} = 30 - (-25) = \mathbf{+55}$ <b>m/s</b><br>
+          <span style="font-size:.76rem;color:var(--faint)">They close at combined speed.</span>
+        </p>
+      </div>
+      <div class="scenario">
+        <div class="scenario-head orange">Overtaking</div>
+        <p style="font-size:.82rem;color:var(--muted);margin:0;line-height:1.7;font-weight:300">
+          Train: $v_{T/G} = +50$ m/s<br>
+          Passenger walks: $v_{P/T} = +1.5$ m/s<br>
+          $v_{P/G} = 1.5 + 50 = \mathbf{+51.5}$ <b>m/s</b><br>
+          <span style="font-size:.76rem;color:var(--faint)">Walking forward on a train adds to ground speed.</span>
+        </p>
+      </div>
+      <div class="scenario">
+        <div class="scenario-head blue">Conveyor belt</div>
+        <p style="font-size:.82rem;color:var(--muted);margin:0;line-height:1.7;font-weight:300">
+          Belt: $v_{B/G} = +2$ m/s<br>
+          Walker on belt: $v_{W/B} = -2$ m/s<br>
+          $v_{W/G} = -2 + 2 = \mathbf{0}$ <b>m/s</b><br>
+          <span style="font-size:.76rem;color:var(--faint)">Walking backward at the belt speed: stationary to ground.</span>
+        </p>
+      </div>
+    </div>
+
+    <h3>Time to meet / overtake</h3>
+    <div class="eq-block">
+      <div class="eq-row">
+        <div class="eq-item">
+          $$t_{\text{meet}} = \frac{d}{|v_{A/B}|}$$
+          <div class="eq-note">Time for A to travel distance $d$ relative to B. Use the relative speed, not individual speeds.</div>
+        </div>
+        <div class="eq-item">
+          $$d_{\text{at }t} = v_{\text{rel}} \cdot t$$
+          <div class="eq-note">Separation changes at the relative speed. <span>Closing</span> = positive relative approach velocity.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout blue">
+      <strong>Exam tip:</strong> to find when two objects meet, work in one object's reference frame. In that frame, one object is stationary — the problem reduces to simple distance ÷ speed.
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════════════
+       §4  2D RELATIVE VELOCITY
+  ══════════════════════════════════════════════════ -->
+  <div id="sec-2d">
+    <div class="sec-badge">
+      <span class="sec-num">§ 04</span>
+      <span class="sec-label">Two Dimensions</span>
+    </div>
+    <h2>2D relative velocity</h2>
+
+    <p>In 2D, the addition law is identical — but now the velocities are vectors with $x$ and $y$ components. Add components separately, then find the resultant magnitude and direction.</p>
+
+    <div class="eq-block">
+      <div class="eq-label">VECTOR COMPONENT FORM</div>
+      <div class="eq-row">
+        <div class="eq-item">
+          $$(v_{A/C})_x = (v_{A/B})_x + (v_{B/C})_x$$
+          <div class="eq-note">Horizontal components add algebraically.</div>
+        </div>
+        <div class="eq-item">
+          $$(v_{A/C})_y = (v_{A/B})_y + (v_{B/C})_y$$
+          <div class="eq-note">Vertical components add independently.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="eq-block">
+      <div class="eq-label">RESULTANT</div>
+      <div class="eq-row">
+        <div class="eq-item">
+          $$|\vec{v}_{A/C}| = \sqrt{v_x^2 + v_y^2}$$
+        </div>
+        <div class="eq-item">
+          $$\theta = \arctan\!\left(\frac{v_y}{v_x}\right)$$
+          <div class="eq-note"><span>Check quadrant</span> — $\arctan$ only gives $[-90°, 90°]$. Use $\text{atan2}(v_y, v_x)$ for full range.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>General 2D strategy</h3>
+    <div class="deriv">
+      <div class="deriv-step">
+        <div class="math">Identify all frames in the problem and label them clearly (e.g. Ground $G$, Wind $W$, Aircraft $A$).<div class="reason">Naming frames prevents subscript confusion</div></div>
+      </div>
+      <div class="deriv-step">
+        <div class="math">Write the velocity chain: $\vec{v}_{A/G} = \vec{v}_{A/W} + \vec{v}_{W/G}$<div class="reason">Middle subscripts cancel; left side is what you want to find</div></div>
+      </div>
+      <div class="deriv-step">
+        <div class="math">Resolve each known vector into $(x, y)$ components using $\cos$ and $\sin$.<div class="reason">Work in Cartesian coordinates — avoid trying to "see" the geometry directly</div></div>
+      </div>
+      <div class="deriv-step">
+        <div class="math">Add $x$ components and add $y$ components separately.<div class="reason">The axes are independent</div></div>
+      </div>
+      <div class="deriv-step">
+        <div class="math">Reconstruct $|\vec{v}_{A/G}|$ and direction $\theta$ from the components.<div class="reason">Pythagoras + $\arctan$, mindful of quadrant</div></div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════════════
+       §5  RIVER CROSSING
+  ══════════════════════════════════════════════════ -->
+  <div id="sec-river">
+    <div class="sec-badge">
+      <span class="sec-num">§ 05</span>
+      <span class="sec-label">Classic Problem</span>
+    </div>
+    <h2>River crossing problem</h2>
+
+    <p>A boat crosses a river of width $d$. The river has current speed $v_c$ (parallel to banks). The boat's engine gives it speed $v_b$ relative to the water. The direction the boat points (heading angle $\alpha$ from the bank) determines the actual path over the ground.</p>
+
+    <div class="eq-block">
+      <div class="eq-label">VELOCITY DECOMPOSITION</div>
+      <div class="eq-row">
+        <div class="eq-item">
+          $$v_{\text{ground},x} = v_b\cos\alpha + v_c$$
+          <div class="eq-note">$x$ = along-river. Boat heading contributes $v_b\cos\alpha$; current always adds $v_c$.</div>
+        </div>
+        <div class="eq-item">
+          $$v_{\text{ground},y} = v_b\sin\alpha$$
+          <div class="eq-note">$y$ = across-river. Only the boat's engine provides crossing speed.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Three objectives — three solutions</h3>
+    <table class="data-table">
+      <thead><tr><th>Objective</th><th>Required heading $\alpha$</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Cross in shortest <em>time</em></td>
+          <td>$\alpha = 90°$ (point straight across)</td>
+          <td>$t_{\min} = d/v_b$ but drifts $\Delta x = v_c \cdot d/v_b$</td>
+        </tr>
+        <tr>
+          <td>Land <em>directly opposite</em></td>
+          <td>$\alpha = 90° + \arcsin(v_c/v_b)$ (aim upstream)</td>
+          <td>Zero drift, longer time $t = d/(v_b\sin\alpha)$. Requires $v_b > v_c$.</td>
+        </tr>
+        <tr class="hi">
+          <td>Cross in shortest <em>distance</em></td>
+          <td>$\alpha = 90° + \arcsin(v_c/v_b)$ (same as above)</td>
+          <td>Straight-line path. The shortest path is always the zero-drift path.</td>
+        </tr>
+        <tr>
+          <td>$v_b < v_c$ (can't go straight)</td>
+          <td>Aim as far upstream as possible: $\alpha$ maximising $v_y/v_x$</td>
+          <td>Minimise drift; cannot reach directly opposite. Some downstream drift unavoidable.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Critical condition:</strong> zero drift requires $\sin\alpha_{\text{upstream}} = v_c / v_b$. This only has a solution if $v_c \leq v_b$. If the current is faster than the boat, you <em>cannot</em> cross straight — you will always be swept downstream.
+    </div>
+
+    <div class="eq-block">
+      <div class="eq-label">MINIMUM TIME CROSSING (α = 90°)</div>
+      <div class="eq-row">
+        <div class="eq-item">
+          $$t = \frac{d}{v_b}$$
+          <div class="eq-note">Time depends only on crossing component. Current has <span>no effect on crossing time</span> when heading is perpendicular.</div>
+        </div>
+        <div class="eq-item">
+          $$\text{drift} = v_c \cdot t = \frac{v_c \cdot d}{v_b}$$
+          <div class="eq-note">Downstream displacement. Increases with current speed and width.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════════════
+       §6  RAIN & WIND (APPARENT VELOCITY)
+  ══════════════════════════════════════════════════ -->
+  <div id="sec-rain">
+    <div class="sec-badge">
+      <span class="sec-num">§ 06</span>
+      <span class="sec-label">Apparent Velocity</span>
+    </div>
+    <h2>Rain, wind, and apparent motion</h2>
+
+    <p>When an observer is moving, stationary objects appear to move. Raindrops falling vertically <em>appear</em> to fall at an angle to a person who is running. This <strong>apparent velocity</strong> is simply relative velocity.</p>
+
+    <div class="eq-block">
+      <div class="eq-label">APPARENT (RELATIVE) VELOCITY OF RAIN</div>
+      $$\vec{v}_{\text{rain/person}} = \vec{v}_{\text{rain/ground}} + \vec{v}_{\text{ground/person}}$$
+      <div class="eq-note" style="margin-top:.5rem">
+        Note: $\vec{v}_{\text{ground/person}} = -\vec{v}_{\text{person/ground}}$. If you move right, the ground appears to move left relative to you.
+      </div>
+    </div>
+
+    <h3>Classic rain problem</h3>
+    <p>Rain falls vertically at $v_r$ downward. A person walks at $v_p$ to the right. In the person's frame:</p>
+
+    <div class="eq-block">
+      <div class="eq-row">
+        <div class="eq-item">
+          $$(\vec{v}_{r/p})_x = 0 - v_p = -v_p$$
+          <div class="eq-note">Rain appears to come from in front (tilted toward person).</div>
+        </div>
+        <div class="eq-item">
+          $$(\vec{v}_{r/p})_y = -v_r$$
+          <div class="eq-note">Downward component unchanged — vertical rain still falls at $v_r$.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="eq-block">
+      <div class="eq-label">TILT ANGLE OF APPARENT RAIN</div>
+      $$\tan\phi = \frac{v_p}{v_r} \implies \phi = \arctan\!\left(\frac{v_p}{v_r}\right)$$
+      <div class="eq-note" style="margin-top:.5rem">
+        To keep dry: tilt umbrella forward at angle $\phi$ from vertical. Faster walking → more tilt needed.
+      </div>
+    </div>
+
+    <div class="callout teal">
+      <strong>Wind correction for aircraft.</strong> An aircraft wants to fly on heading $\theta_{\text{desired}}$. Wind blows at $\vec{v}_w$. The pilot must aim the nose at $\theta_{\text{aim}} = \theta_{\text{desired}} - \arcsin(v_w / v_{\text{air}})$ (adjusted for wind direction). The ground track is what matters; the heading is what the pilot controls.
+    </div>
+
+    <h3>Summary of common apparents</h3>
+    <div class="scenario-grid">
+      <div class="scenario">
+        <div class="scenario-head gold">Apparent wind (sailing)</div>
+        <p style="font-size:.82rem;color:var(--muted);margin:0;line-height:1.7;font-weight:300">
+          $\vec{v}_{\text{wind/boat}} = \vec{v}_{\text{true wind}} - \vec{v}_{\text{boat/ground}}$<br>
+          At rest: apparent = true wind.<br>
+          Sailing into wind: apparent wind stronger.<br>
+          Sailing downwind: apparent wind weaker.
+        </p>
+      </div>
+      <div class="scenario">
+        <div class="scenario-head teal">Aircraft crosswind</div>
+        <p style="font-size:.82rem;color:var(--muted);margin:0;line-height:1.7;font-weight:300">
+          $\vec{v}_{\text{ground}} = \vec{v}_{\text{air}} + \vec{v}_{\text{wind}}$<br>
+          To fly north in east wind: point nose NW.<br>
+          Correction angle: $\arcsin(v_w / v_a)$.<br>
+          Groundspeed $\neq$ airspeed in crosswind.
+        </p>
+      </div>
+      <div class="scenario">
+        <div class="scenario-head orange">Relative motion of ships</div>
+        <p style="font-size:.82rem;color:var(--muted);margin:0;line-height:1.7;font-weight:300">
+          Ship A and B have velocities $\vec{v}_A, \vec{v}_B$.<br>
+          B's motion relative to A: $\vec{v}_{B/A} = \vec{v}_B - \vec{v}_A$.<br>
+          Collision course: $\vec{v}_{B/A}$ points toward A's current position.
+        </p>
+      </div>
+      <div class="scenario">
+        <div class="scenario-head blue">Swimmer in current</div>
+        <p style="font-size:.82rem;color:var(--muted);margin:0;line-height:1.7;font-weight:300">
+          Identical to river crossing.<br>
+          Swimmer aims at angle to current to compensate.<br>
+          Effective crossing speed: $\sqrt{v_s^2 - v_c^2}$ when aiming to land directly opposite.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════════════
+       §7  SIMULATIONS
+  ══════════════════════════════════════════════════ -->
+  <div id="sec-sims">
+    <div class="sec-badge">
+      <span class="sec-num">§ 07</span>
+      <span class="sec-label">Interactive</span>
+    </div>
+    <h2>Live simulations</h2>
+    <p>Four scenarios — each demonstrates a different aspect of relative velocity. Adjust sliders and toggle the reference frame to see the same motion described differently.</p>
+
+    <!-- ── SIM 1: 1D OVERTAKING ── -->
+    <div class="sim-card">
+      <div class="sim-head">
+        <span class="sim-title">1D overtaking / approach</span>
+        <span class="sim-badge">Ground · Car A · Car B</span>
+      </div>
+      <div class="sim-body">
+        <div class="sim-eq" id="eq-1d"></div>
+        <div class="frame-switch">
+          <button class="frame-btn active" id="fb1-g" onclick="setFrame('1d','ground')">Ground frame</button>
+          <button class="frame-btn" id="fb1-a" onclick="setFrame('1d','a')">Car A frame</button>
+          <button class="frame-btn" id="fb1-b" onclick="setFrame('1d','b')">Car B frame</button>
+        </div>
+        <div class="frame-label" id="lbl-1d">Observer: Ground</div>
+        <div class="canvas-wrap"><canvas id="c1d" style="display:block;width:100%;height:160px"></canvas></div>
+        <div class="readouts" id="ro-1d"></div>
+        <div class="sliders" id="sl-1d"></div>
+        <div class="graphs">
+          <div class="g-wrap"><div class="g-title">x_A, x_B — t</div><canvas class="gc" id="g1d-pos"></canvas></div>
+          <div class="g-wrap"><div class="g-title">relative vel — t</div><canvas class="gc" id="g1d-rel"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SIM 2: RIVER CROSSING ── -->
+    <div class="sim-card">
+      <div class="sim-head">
+        <span class="sim-title">River crossing</span>
+        <span class="sim-badge">Boat + Current → Ground track</span>
+      </div>
+      <div class="sim-body">
+        <div class="sim-eq" id="eq-riv"></div>
+        <div class="frame-switch">
+          <button class="frame-btn active" id="fb2-g" onclick="setFrame('river','ground')">Ground frame</button>
+          <button class="frame-btn" id="fb2-w" onclick="setFrame('river','water')">Water frame</button>
+        </div>
+        <div class="frame-label" id="lbl-riv">Observer: Ground</div>
+        <div class="canvas-wrap"><canvas id="c-riv" style="display:block;width:100%;height:220px"></canvas></div>
+        <div class="readouts" id="ro-riv"></div>
+        <div class="sliders" id="sl-riv"></div>
+        <div class="graphs">
+          <div class="g-wrap"><div class="g-title">x drift — t</div><canvas class="gc" id="g-riv-x"></canvas></div>
+          <div class="g-wrap"><div class="g-title">y progress — t</div><canvas class="gc" id="g-riv-y"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SIM 3: RAIN ── -->
+    <div class="sim-card">
+      <div class="sim-head">
+        <span class="sim-title">Rain & umbrella angle</span>
+        <span class="sim-badge">Apparent velocity</span>
+      </div>
+      <div class="sim-body">
+        <div class="sim-eq" id="eq-rain"></div>
+        <div class="canvas-wrap"><canvas id="c-rain" style="display:block;width:100%;height:200px"></canvas></div>
+        <div class="readouts" id="ro-rain"></div>
+        <div class="sliders" id="sl-rain"></div>
+      </div>
+    </div>
+
+    <!-- ── SIM 4: AIRCRAFT + WIND ── -->
+    <div class="sim-card">
+      <div class="sim-head">
+        <span class="sim-title">Aircraft crosswind correction</span>
+        <span class="sim-badge">2D vector addition</span>
+      </div>
+      <div class="sim-body">
+        <div class="sim-eq" id="eq-air"></div>
+        <div class="canvas-wrap"><canvas id="c-air" style="display:block;width:100%;height:220px"></canvas></div>
+        <div class="readouts" id="ro-air"></div>
+        <div class="sliders" id="sl-air"></div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /page -->
+
+<script>
+/* ═══════════════════════════════════
+   UTILS
+═══════════════════════════════════ */
+const DPR = () => window.devicePixelRatio || 1;
+function setupCanvas(el, h) {
+  const dpr = DPR(), pw = el.parentElement.offsetWidth;
+  el.width = pw * dpr; el.height = h * dpr;
+  el.style.width = pw + 'px'; el.style.height = h + 'px';
+  const ctx = el.getContext('2d'); ctx.scale(dpr, dpr);
+  return { ctx, w: pw, h };
+}
+function resizeCanvas(el) {
+  const dpr = DPR(), pw = el.parentElement.offsetWidth;
+  const oldH = el.height / dpr;
+  el.width = pw * dpr; el.height = oldH * dpr;
+  el.style.width = pw + 'px';
+  const ctx = el.getContext('2d'); ctx.scale(dpr, dpr);
+  return { ctx, w: pw, h: oldH };
+}
+function drawGraph(canvas, datasets, opts = {}) {
+  if (!canvas.parentElement) return;
+  const dpr = DPR(), pw = canvas.parentElement.offsetWidth;
+  canvas.width = pw * dpr; canvas.height = 60 * dpr;
+  canvas.style.width = pw + 'px'; canvas.style.height = '60px';
+  const ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+  const w = pw, h = 60, pad = 2;
+  ctx.clearRect(0, 0, w, h);
+  if (!datasets.length || !datasets[0].data.length) return;
+  const allX = datasets.flatMap(d => d.data.map(p => p[0]));
+  const allY = datasets.flatMap(d => d.data.map(p => p[1]));
+  const maxX = Math.max(...allX) || 1;
+  const minY = Math.min(...allY), maxY = Math.max(...allY);
+  const yr = maxY - minY || 1;
+  const tx = v => pad + (v / maxX) * (w - 2 * pad);
+  const ty = v => h - pad - ((v - minY) / yr) * (h - 2 * pad);
+  if (minY < 0 && maxY > 0) {
+    ctx.strokeStyle = 'rgba(30,80,160,0.3)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(0, ty(0)); ctx.lineTo(w, ty(0)); ctx.stroke();
+  }
+  datasets.forEach(ds => {
+    if (ds.data.length < 2) return;
+    ctx.strokeStyle = ds.color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+    ctx.beginPath(); ds.data.forEach((p, i) => i === 0 ? ctx.moveTo(tx(p[0]), ty(p[1])) : ctx.lineTo(tx(p[0]), ty(p[1]))); ctx.stroke();
+    const last = ds.data[ds.data.length - 1];
+    ctx.beginPath(); ctx.arc(tx(last[0]), ty(last[1]), 2.5, 0, Math.PI * 2); ctx.fillStyle = ds.color; ctx.fill();
+  });
+}
+function arrow(ctx, x1, y1, x2, y2, col, lw = 2) {
+  const ang = Math.atan2(y2 - y1, x2 - x1), hs = 8;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - hs * Math.cos(ang - .42), y2 - hs * Math.sin(ang - .42));
+  ctx.lineTo(x2 - hs * Math.cos(ang + .42), y2 - hs * Math.sin(ang + .42));
+  ctx.closePath(); ctx.fill();
+}
+function setRo(id, v, u) {
+  const el = document.getElementById('rv-' + id);
+  if (el) el.innerHTML = v + '<span class="unit"> ' + u + '</span>';
+}
+function buildReadouts(cont, specs) {
+  cont.innerHTML = specs.map(r =>
+    `<div class="ro"><div class="ro-lbl">${r.l}</div><div class="ro-val" id="rv-${r.id}">— <span class="unit">${r.u}</span></div></div>`
+  ).join('');
+}
+function buildSliders(cont, specs, cb) {
+  cont.innerHTML = '';
+  specs.forEach(s => {
+    const d = document.createElement('div'); d.className = 'sl-wrap';
+    d.innerHTML = `<div class="sl-top"><span class="sl-name">${s.n}</span><span class="sl-val" id="sv-${s.id}">${s.v} ${s.u}</span></div>
+    <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.v}" style="accent-color:${s.c}">`;
+    cont.appendChild(d);
+    d.querySelector('input').addEventListener('input', function () {
+      s.v = parseFloat(this.value);
+      document.getElementById('sv-' + s.id).textContent = this.value + ' ' + s.u;
+      if (cb) cb();
+    });
+  });
+}
+function renderEq(el, latex) {
+  if (!el) return;
+  if (window.katex) { try { katex.render(latex, el, { throwOnError: false, displayMode: false }); } catch (e) { el.textContent = latex; } }
+  else el.textContent = latex;
+}
+function label(ctx, text, x, y, col, size = '9px') {
+  ctx.fillStyle = col; ctx.font = size + ' IBM Plex Mono,monospace'; ctx.fillText(text, x, y);
+}
+
+/* ═══════════════════════════════════
+   STATE
+═══════════════════════════════════ */
+const frames = { '1d': 'ground', river: 'ground' };
+const DT = 1 / 60;
+
+// 1D car sim
+const C1 = { va: 8, vb: 4 };
+let t1d = 0, h1d_a = [], h1d_b = [], h1d_rel = [];
+
+// River sim
+const RV = { vb: 5, vc: 3, aim: 90 };
+const RIVER_W = 100;
+let triv = 0, hriv_x = [], hriv_y = [], rivPath = [];
+
+// Rain sim
+const RN = { vr: 8, vp: 5 };
+let trainTime = 0;
+
+// Aircraft sim
+const AC = { vair: 14, wdir: 270, wspd: 5, desired: 0 }; // desired = north (up)
+let tair = 0;
+
+function setFrame(sim, frame) {
+  frames[sim] = frame;
+  if (sim === '1d') {
+    document.querySelectorAll('[id^="fb1-"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('fb1-' + frame[0]).classList.add('active');
+    const labels = { ground: 'Observer: Ground', a: 'Observer: Car A', b: 'Observer: Car B' };
+    document.getElementById('lbl-1d').textContent = labels[frame];
+    t1d = 0; h1d_a = []; h1d_b = []; h1d_rel = [];
+  }
+  if (sim === 'river') {
+    document.querySelectorAll('[id^="fb2-"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('fb2-' + frame[0]).classList.add('active');
+    const labels = { ground: 'Observer: Ground (sees drift)', water: 'Observer: Water (boat goes straight)' };
+    document.getElementById('lbl-riv').textContent = labels[frame];
+    triv = 0; hriv_x = []; hriv_y = []; rivPath = [];
+  }
+}
+
+/* ═══════════════════════════════════
+   SIM 1 — 1D CARS
+═══════════════════════════════════ */
+const ROAD_LEN = 400; // m, visible window
+function draw1D() {
+  const el = document.getElementById('c1d');
+  if (!el || !el.parentElement.offsetWidth) return;
+  const { ctx, w, h } = setupCanvas(el, 160);
+  ctx.clearRect(0, 0, w, h);
+
+  const va = C1.va, vb = C1.vb;
+  const frame = frames['1d'];
+  // offset velocities by frame
+  let frameV = 0;
+  if (frame === 'a') frameV = va;
+  if (frame === 'b') frameV = vb;
+
+  const vaRel = va - frameV;
+  const vbRel = vb - frameV;
+  const vRelAB = va - vb; // A relative to B
+
+  // road
+  const roadY = h * 0.38, roadY2 = h * 0.62;
+  const rg = ctx.createLinearGradient(0, roadY, 0, roadY2);
+  rg.addColorStop(0, 'rgba(10,20,50,0.6)');
+  rg.addColorStop(0.5, 'rgba(8,15,40,0.85)');
+  rg.addColorStop(1, 'rgba(10,20,50,0.6)');
+  ctx.fillStyle = rg;
+  ctx.fillRect(0, roadY, w, roadY2 - roadY);
+
+  // dashes
+  const dashOff = -(t1d * (vb - frameV) * (w / ROAD_LEN)) % 40;
+  ctx.strokeStyle = 'rgba(30,144,255,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([20, 20]);
+  ctx.lineDashOffset = dashOff;
+  ctx.beginPath(); ctx.moveTo(0, (roadY + roadY2) / 2); ctx.lineTo(w, (roadY + roadY2) / 2); ctx.stroke();
+  ctx.setLineDash([]); ctx.lineDashOffset = 0;
+
+  // car positions (wrap within window)
+  const scale = w / ROAD_LEN;
+  const xA0 = 60, xB0 = 220; // starting positions
+  const xA = ((xA0 + vaRel * t1d * scale) % w + w) % w;
+  const xB = ((xB0 + vbRel * t1d * scale) % w + w) % w;
+
+  // draw cars
+  function drawCar(x, col, label2) {
+    const cy = (roadY + roadY2) / 2;
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.roundRect(x - 22, cy - 14, 44, 28, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath(); ctx.roundRect(x - 16, cy - 12, 32, 14, 3); ctx.fill();
+    // wheels
+    ctx.fillStyle = '#111';
+    [[x - 14, cy + 14], [x + 14, cy + 14]].forEach(([wx, wy]) => {
+      ctx.beginPath(); ctx.arc(wx, wy, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1.5; ctx.stroke();
+    });
+    ctx.fillStyle = '#fff'; ctx.font = '8px IBM Plex Mono,monospace';
+    ctx.textAlign = 'center'; ctx.fillText(label2, x, cy + 4); ctx.textAlign = 'left';
+  }
+  drawCar(xA, '#1e90ff', 'A');
+  drawCar(xB, '#a855f7', 'B');
+
+  // velocity arrows above
+  const arrowY = roadY - 22;
+  const scl = 4;
+  if (Math.abs(vaRel) > 0.05) arrow(ctx, xA, arrowY, xA + vaRel * scl, arrowY, '#1e90ff', 2);
+  if (Math.abs(vbRel) > 0.05) arrow(ctx, xB, arrowY, xB + vbRel * scl, arrowY, '#a855f7', 2);
+
+  // labels
+  const frameLabel = frame === 'ground' ? 'Ground frame' : frame === 'a' ? 'Car A frame' : 'Car B frame';
+  label(ctx, frameLabel, 8, h - 8, 'rgba(30,144,255,0.4)');
+  label(ctx, 'v_A = ' + vaRel.toFixed(1) + ' m/s', 8, 14, '#1e90ff99');
+  label(ctx, 'v_B = ' + vbRel.toFixed(1) + ' m/s', 8, 26, '#a855f788');
+  label(ctx, 'v_A/B = ' + vRelAB.toFixed(1) + ' m/s', w - 130, 14, 'rgba(30,144,255,0.65)');
+
+  // readouts
+  setRo('1-va', vaRel.toFixed(1), 'm/s'); setRo('1-vb', vbRel.toFixed(1), 'm/s');
+  setRo('1-rel', vRelAB.toFixed(1), 'm/s'); setRo('1-t', t1d.toFixed(1), 's');
+
+  // graphs
+  h1d_a.push([t1d, vaRel]); h1d_b.push([t1d, vbRel]);
+  h1d_rel.push([t1d, vRelAB]);
+  if (h1d_a.length > 300) { h1d_a.shift(); h1d_b.shift(); h1d_rel.shift(); }
+  drawGraph(document.getElementById('g1d-pos'), [{ data: h1d_a, color: '#1e90ff' }, { data: h1d_b, color: '#a855f7' }]);
+  drawGraph(document.getElementById('g1d-rel'), [{ data: h1d_rel, color: '#3db8ff' }]);
+}
+
+/* ═══════════════════════════════════
+   SIM 2 — RIVER
+═══════════════════════════════════ */
+function rivState(t) {
+  const a = RV.aim * Math.PI / 180;
+  const vx = RV.vb * Math.cos(a) + (frames.river === 'water' ? 0 : RV.vc);
+  const vy = RV.vb * Math.sin(a);
+  return { x: (frames.river === 'water' ? 0 : RV.vc) * t + RV.vb * Math.cos(a) * t,
+           y: vy * t, vx, vy, vy0: vy };
+}
+function rivMaxT() { return Math.max(0.5, RIVER_W / Math.max(0.1, RV.vb * Math.sin(RV.aim * Math.PI / 180)) * 1.05); }
+
+function drawRiver() {
+  const el = document.getElementById('c-riv');
+  if (!el || !el.parentElement.offsetWidth) return;
+  const { ctx, w, h } = setupCanvas(el, 220);
+  ctx.clearRect(0, 0, w, h);
+
+  const S = (() => {
+    const a = RV.aim * Math.PI / 180;
+    const vy = RV.vb * Math.sin(a);
+    const vx_boat = RV.vb * Math.cos(a);
+    const vx_total = vx_boat + (frames.river === 'water' ? 0 : RV.vc);
+    return { x: vx_total * triv, y: vy * triv, vx: vx_total, vy, vbx: vx_boat };
+  })();
+
+  const PAD = { l: 40, r: 14, b: 30, t: 14 };
+  const cw = w - PAD.l - PAD.r, ch = h - PAD.t - PAD.b;
+  const mxX = Math.max(1, RIVER_W * 1.3);
+  const mxY = RIVER_W * 1.1;
+  const tx = x => PAD.l + ((x + mxX * 0.12) / (mxX * 1.25)) * cw;
+  const ty = y => h - PAD.b - (y / mxY) * ch;
+
+  // water fill
+  ctx.fillStyle = 'rgba(0,200,255,0.07)';
+  ctx.fillRect(PAD.l, ty(RIVER_W), cw, ty(0) - ty(RIVER_W));
+
+  // banks
+  ctx.strokeStyle = 'rgba(0,200,255,0.45)'; ctx.lineWidth = 1.5;
+  [0, RIVER_W].forEach(y => {
+    ctx.beginPath(); ctx.moveTo(PAD.l, ty(y)); ctx.lineTo(w - PAD.r, ty(y)); ctx.stroke();
+  });
+
+  // current arrows (only in ground frame)
+  if (frames.river === 'ground') {
+    for (let yy = 15; yy < RIVER_W; yy += 25) {
+      for (let xx = -mxX * 0.05; xx < mxX; xx += mxX * 0.22) {
+        const bx = tx(xx), by = ty(yy);
+        arrow(ctx, bx, by, bx + 16, by, 'rgba(0,200,255,0.22)', 1);
+      }
+    }
+    label(ctx, 'current →', PAD.l + 4, ty(RIVER_W / 2) + 3, 'rgba(0,200,255,0.45)');
+  }
+
+  // path trail
+  if (rivPath.length > 1) {
+    ctx.beginPath(); ctx.strokeStyle = '#1e90ff55'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]);
+    rivPath.forEach((p, i) => i === 0 ? ctx.moveTo(tx(p.x), ty(p.y)) : ctx.lineTo(tx(p.x), ty(p.y)));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  const bx = tx(S.x), by = ty(S.y);
+  const vsc = 22;
+
+  // draw velocity vectors at boat position
+  // boat heading vector (engine)
+  const a = RV.aim * Math.PI / 180;
+  arrow(ctx, bx, by, bx + RV.vb * Math.cos(a) * vsc, by - RV.vb * Math.sin(a) * vsc, '#a855f7', 2);
+  label(ctx, 'v_boat', bx + RV.vb * Math.cos(a) * vsc + 3, by - RV.vb * Math.sin(a) * vsc - 3, '#a855f788');
+
+  // current vector (only ground frame)
+  if (frames.river === 'ground' && RV.vc > 0) {
+    arrow(ctx, bx, by, bx + RV.vc * vsc, by, '#0af0ff', 1.5);
+    label(ctx, 'v_curr', bx + RV.vc * vsc + 3, by + 10, '#0af0ff88');
+  }
+  // resultant
+  if (frames.river === 'ground') {
+    arrow(ctx, bx, by, bx + S.vx * vsc, by - S.vy * vsc, '#3db8ff', 2);
+    label(ctx, 'v_res', bx + S.vx * vsc + 3, by - S.vy * vsc - 3, '#3db8ff99');
+  }
+
+  // boat dot
+  const bg = ctx.createRadialGradient(bx, by, 0, bx, by, 12);
+  bg.addColorStop(0, '#1e90ff55'); bg.addColorStop(1, 'transparent');
+  ctx.beginPath(); ctx.arc(bx, by, 12, 0, Math.PI * 2); ctx.fillStyle = bg; ctx.fill();
+  ctx.beginPath(); ctx.arc(bx, by, 7, 0, Math.PI * 2); ctx.fillStyle = '#1e90ff'; ctx.fill();
+
+  // axis labels
+  ctx.fillStyle = 'rgba(100,90,50,0.5)'; ctx.font = '9px IBM Plex Mono,monospace';
+  ctx.fillText('Start', PAD.l + 2, ty(0) + 13);
+  ctx.fillText('Far bank', PAD.l + 2, ty(RIVER_W) - 5);
+  ctx.fillText('Width ' + RIVER_W + 'm', w - 85, ty(RIVER_W / 2));
+
+  const drift = frames.river === 'ground' ? S.x.toFixed(1) : '0.0';
+  setRo('r-x', drift, 'm drift');
+  setRo('r-y', S.y.toFixed(1), 'm cross');
+  setRo('r-v', Math.hypot(S.vx, S.vy).toFixed(2), 'm/s');
+  setRo('r-t', triv.toFixed(1), 's');
+
+  rivPath.push({ x: S.x, y: S.y });
+  hriv_x.push([triv, S.x]);
+  hriv_y.push([triv, S.y]);
+  if (hriv_x.length > 300) { hriv_x.shift(); hriv_y.shift(); rivPath.shift(); }
+
+  drawGraph(document.getElementById('g-riv-x'), [{ data: hriv_x, color: '#3db8ff' }]);
+  drawGraph(document.getElementById('g-riv-y'), [{ data: hriv_y, color: '#a855f7' }]);
+}
+
+/* ═══════════════════════════════════
+   SIM 3 — RAIN
+═══════════════════════════════════ */
+function drawRain() {
+  const el = document.getElementById('c-rain');
+  if (!el || !el.parentElement.offsetWidth) return;
+  const { ctx, w, h } = setupCanvas(el, 260);
+  ctx.clearRect(0, 0, w, h);
+
+  const vr = RN.vr, vp = RN.vp;
+  const phi = Math.atan2(vp, vr);
+  const vRainX = -vp, vRainY = -vr; // rain rel to person
+  const vRainMag = Math.hypot(vp, vr);
+
+  trainTime += DT;
+
+  // background sky gradient
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, 'rgba(2,4,14,1)');
+  sky.addColorStop(0.6, 'rgba(5,10,28,1)');
+  sky.addColorStop(1, 'rgba(8,16,36,1)');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+
+  const groundY = h - 34;
+  // scroll offset driven by person speed — world moves LEFT as person walks RIGHT
+  const scrollX = (trainTime * vp * 38) % w;
+
+  // ── BUILDINGS (far background, slow parallax) ──
+  const bldgScroll = (trainTime * vp * 12) % w;
+  const bldgs = [
+    { x: 0,   bw: 55, bh: 75 },
+    { x: 70,  bw: 38, bh: 55 },
+    { x: 120, bw: 60, bh: 90 },
+    { x: 195, bw: 45, bh: 65 },
+    { x: 250, bw: 70, bh: 80 },
+    { x: 335, bw: 40, bh: 50 },
+    { x: 385, bw: 55, bh: 100 },
+    { x: 455, bw: 50, bh: 70 },
+    { x: 520, bw: 65, bh: 85 },
+    { x: 600, bw: 42, bh: 60 },
+    { x: 655, bw: 58, bh: 95 },
+    { x: 728, bw: 36, bh: 55 },
+    { x: 778, bw: 60, bh: 75 },
+  ];
+  bldgs.forEach(b => {
+    // tile across two widths so there's no gap when scrolling
+    [0, w].forEach(tile => {
+      const bx = ((b.x - bldgScroll + tile) % (w * 1.5) + w * 1.5) % (w * 1.5) - 20;
+      if (bx > w + 10 || bx + b.bw < -10) return;
+      const by = groundY - b.bh;
+      // building body
+      ctx.fillStyle = 'rgba(10,16,40,0.95)';
+      ctx.strokeStyle = 'rgba(30,144,255,0.12)';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.rect(bx, by, b.bw, b.bh); ctx.fill(); ctx.stroke();
+      // lit windows
+      const cols = Math.floor(b.bw / 14), rows = Math.floor(b.bh / 16);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const wx = bx + 5 + c * 14, wy = by + 6 + r * 16;
+          // use a stable pseudo-random to decide if window is lit
+          const lit = ((b.x * 13 + r * 7 + c * 11) % 5) > 1;
+          if (lit) {
+            ctx.fillStyle = 'rgba(30,144,255,0.25)';
+            ctx.fillRect(wx, wy, 8, 8);
+            // inner bright
+            ctx.fillStyle = 'rgba(100,200,255,0.12)';
+            ctx.fillRect(wx + 1, wy + 1, 6, 6);
+          }
+        }
+      }
+    });
+  });
+
+  // ── STREETLIGHTS (mid layer) ──
+  const lightSpacing = 110;
+  const lightScroll = scrollX % lightSpacing;
+  for (let i = -1; i < Math.ceil(w / lightSpacing) + 1; i++) {
+    const lx = i * lightSpacing - lightScroll + lightSpacing * 0.6;
+    // pole
+    ctx.strokeStyle = 'rgba(60,120,200,0.4)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(lx, groundY); ctx.lineTo(lx, groundY - 70); ctx.stroke();
+    // arm
+    ctx.beginPath(); ctx.moveTo(lx, groundY - 70); ctx.lineTo(lx + 18, groundY - 68); ctx.stroke();
+    // lamp glow
+    const glowR = ctx.createRadialGradient(lx + 18, groundY - 68, 0, lx + 18, groundY - 68, 28);
+    glowR.addColorStop(0, 'rgba(100,180,255,0.18)');
+    glowR.addColorStop(1, 'transparent');
+    ctx.fillStyle = glowR;
+    ctx.beginPath(); ctx.arc(lx + 18, groundY - 68, 28, 0, Math.PI * 2); ctx.fill();
+    // lamp head
+    ctx.fillStyle = 'rgba(180,220,255,0.9)';
+    ctx.beginPath(); ctx.arc(lx + 18, groundY - 68, 4, 0, Math.PI * 2); ctx.fill();
+    // light cone on ground
+    ctx.fillStyle = 'rgba(30,144,255,0.05)';
+    ctx.beginPath();
+    ctx.moveTo(lx + 18, groundY - 68);
+    ctx.lineTo(lx + 18 - 22, groundY);
+    ctx.lineTo(lx + 18 + 22, groundY);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // ── PAVEMENT / ROAD ──
+  // wet pavement — dark with blue sheen
+  const pavGrad = ctx.createLinearGradient(0, groundY, 0, h);
+  pavGrad.addColorStop(0, 'rgba(8,14,35,1)');
+  pavGrad.addColorStop(0.4, 'rgba(12,20,50,1)');
+  pavGrad.addColorStop(1, 'rgba(6,10,28,1)');
+  ctx.fillStyle = pavGrad; ctx.fillRect(0, groundY, w, h - groundY);
+
+  // kerb line
+  ctx.strokeStyle = 'rgba(30,144,255,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(w, groundY); ctx.stroke();
+  ctx.strokeStyle = 'rgba(30,144,255,0.08)'; ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(0, groundY + 4); ctx.lineTo(w, groundY + 4); ctx.stroke();
+
+  // ── PUDDLES (scroll with scene) ──
+  const puddles = [
+    { x: 80,  rw: 28, rh: 5 },
+    { x: 220, rw: 18, rh: 4 },
+    { x: 360, rw: 35, rh: 6 },
+    { x: 500, rw: 22, rh: 4 },
+    { x: 650, rw: 30, rh: 5 },
+    { x: 780, rw: 20, rh: 4 },
+  ];
+  puddles.forEach(p => {
+    [0, w, -w].forEach(tile => {
+      const px2 = ((p.x - scrollX * 1.0 + tile) % (w + 100) + (w + 100)) % (w + 100) - 50;
+      if (px2 < -60 || px2 > w + 60) return;
+      const py2 = groundY + 10;
+      // puddle fill
+      const pg = ctx.createRadialGradient(px2, py2, 0, px2, py2, p.rw);
+      pg.addColorStop(0, 'rgba(30,144,255,0.18)');
+      pg.addColorStop(0.5, 'rgba(20,100,200,0.1)');
+      pg.addColorStop(1, 'transparent');
+      ctx.fillStyle = pg;
+      ctx.beginPath(); ctx.ellipse(px2, py2, p.rw, p.rh, 0, 0, Math.PI * 2); ctx.fill();
+      // puddle edge shimmer
+      ctx.strokeStyle = 'rgba(100,180,255,0.15)'; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.ellipse(px2, py2, p.rw, p.rh, 0, 0, Math.PI * 2); ctx.stroke();
+      // rain ripples in puddle (animated)
+      const ripR = ((trainTime * 3 + p.x * 0.1) % 1) * p.rw * 0.8;
+      if (ripR > 1) {
+        ctx.strokeStyle = `rgba(100,200,255,${0.2 * (1 - ripR / p.rw)})`;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.ellipse(px2, py2, ripR, ripR * p.rh / p.rw, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+    });
+  });
+
+  // ── PAVEMENT CRACKS / TILES (close ground detail) ──
+  ctx.strokeStyle = 'rgba(30,144,255,0.06)'; ctx.lineWidth = 0.5;
+  const tileW = 50;
+  const tileScroll = scrollX % tileW;
+  for (let i = -1; i < Math.ceil(w / tileW) + 1; i++) {
+    const tx = i * tileW - tileScroll;
+    ctx.beginPath(); ctx.moveTo(tx, groundY); ctx.lineTo(tx, h); ctx.stroke();
+  }
+
+  // ── DISTANT CAR headlights approaching (optional flair) ──
+  const carX = ((trainTime * 60 + 400) % (w + 200)) - 100;
+  if (carX > -20 && carX < w + 20) {
+    // two small headlights
+    [-8, 8].forEach(ox => {
+      const hg = ctx.createRadialGradient(carX + ox, groundY - 8, 0, carX + ox, groundY - 8, 40);
+      hg.addColorStop(0, 'rgba(200,230,255,0.4)');
+      hg.addColorStop(1, 'transparent');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(carX + ox, groundY - 8, 40, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(240,248,255,0.9)';
+      ctx.beginPath(); ctx.arc(carX + ox, groundY - 8, 2.5, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  // rain drops left half (ground frame: vertical)
+  const nDrops = 55;
+  const halfW = w * 0.48;
+  for (let i = 0; i < nDrops; i++) {
+    const seed = i * 137.5;
+    const x = (seed * 71.3) % halfW;
+    const fallFrac = ((seed * 0.41 + trainTime * vr * 0.07) % 1 + 1) % 1;
+    const y = fallFrac * groundY;
+    const len = 10 + (seed % 8);
+    const alpha = 0.2 + (i % 5) * 0.05;
+    ctx.strokeStyle = `rgba(0,180,255,${alpha})`;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + len); ctx.stroke();
+  }
+
+  // ── Person + attached umbrella ──
+  const px = w * 0.3, py = groundY;
+  const personCol = 'rgba(30,144,255,0.85)';
+
+  // shoulder position (top of body)
+  const shoulderY = py - 48;
+  // raised hand: arm goes up-right to hold umbrella handle bottom
+  const handX = px + 14;
+  const handY = shoulderY - 22;
+
+  // umbrella handle bottom IS the hand position
+  // the pole extends upward at angle -phi (tilted forward into apparent rain)
+  const poleLen = 58;
+  const poleTopX = handX + Math.sin(-phi) * (-poleLen); // pole goes up = negative poleLen in y
+  const poleTopY = handY - Math.cos(phi) * poleLen;
+
+  // draw umbrella FIRST (behind person)
+  ctx.save();
+  ctx.translate(handX, handY);
+  ctx.rotate(-phi);
+  // pole
+  ctx.strokeStyle = '#1e90ff'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -poleLen); ctx.stroke();
+  // curved hook at bottom
+  ctx.beginPath(); ctx.arc(4, 0, 4, Math.PI, Math.PI * 1.6); ctx.stroke();
+  // canopy ribs
+  ctx.strokeStyle = 'rgba(30,144,255,0.5)'; ctx.lineWidth = 1;
+  for (let r = -3; r <= 3; r++) {
+    const rx = r * 12;
+    ctx.beginPath(); ctx.moveTo(0, -poleLen); ctx.quadraticCurveTo(rx * 0.6, -poleLen + 10, rx, -poleLen + 16); ctx.stroke();
+  }
+  // canopy fill
+  ctx.fillStyle = 'rgba(30,144,255,0.22)';
+  ctx.beginPath(); ctx.ellipse(0, -poleLen + 2, 40, 14, 0, Math.PI, 0); ctx.fill();
+  ctx.strokeStyle = '#1e90ffbb'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.ellipse(0, -poleLen + 2, 40, 14, 0, Math.PI, 0); ctx.stroke();
+  ctx.restore();
+
+  // now draw person ON TOP
+  ctx.fillStyle = personCol;
+  // body
+  ctx.beginPath(); ctx.roundRect(px - 8, shoulderY, 16, 32, 4); ctx.fill();
+  // head
+  ctx.beginPath(); ctx.arc(px, py - 62, 10, 0, Math.PI * 2); ctx.fill();
+
+  // arm holding umbrella (raised right arm)
+  ctx.strokeStyle = personCol; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(px + 8, shoulderY + 4); ctx.lineTo(handX, handY); ctx.stroke();
+
+  // other arm swinging
+  const armSwing = Math.sin(trainTime * 5) * 14;
+  ctx.beginPath(); ctx.moveTo(px - 8, shoulderY + 4); ctx.lineTo(px - 14 + armSwing, shoulderY + 22); ctx.stroke();
+
+  // legs walking
+  ctx.lineWidth = 3;
+  const legA = Math.sin(trainTime * 5) * 18;
+  ctx.beginPath(); ctx.moveTo(px, py - 18); ctx.lineTo(px + legA, py); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(px, py - 18); ctx.lineTo(px - legA, py); ctx.stroke();
+  ctx.lineCap = 'butt';
+
+  // apparent rain drops (right side, person frame)
+  for (let i = 0; i < nDrops; i++) {
+    const seed = i * 137.5 + 1000;
+    const ox = ((seed * 0.87 + w * 0.55) % (w * 0.44) + w * 0.53) % w;
+    const fallFrac = ((seed * 0.41 + trainTime * vRainMag * 0.06) % 1 + 1) % 1;
+    const y = fallFrac * groundY;
+    const len = 10 + (seed % 8);
+    const alpha = 0.18 + (i % 5) * 0.05;
+    ctx.strokeStyle = `rgba(100,180,255,${alpha})`;
+    ctx.lineWidth = 0.8;
+    const dx = -Math.sin(phi) * len, dy = Math.cos(phi) * len;
+    ctx.beginPath(); ctx.moveTo(ox, y); ctx.lineTo(ox + dx, y + dy); ctx.stroke();
+  }
+
+  // vector diagram
+  const cx2 = w - 80, cy2 = h * 0.35;
+  const sc = 10;
+  arrow(ctx, cx2, cy2, cx2, cy2 + vr * sc * 0.8, '#0af0ff', 2);
+  label(ctx, 'v_rain', cx2 + 5, cy2 + vr * sc * 0.4, '#0af0ff88');
+  arrow(ctx, cx2, cy2 + vr * sc * 0.8, cx2 - vp * sc * 0.8, cy2 + vr * sc * 0.8, '#a855f7', 2);
+  label(ctx, '-v_person', cx2 - vp * sc * 0.8 - 65, cy2 + vr * sc * 0.8 - 4, '#a855f788');
+  arrow(ctx, cx2, cy2, cx2 - vp * sc * 0.8, cy2 + vr * sc * 0.8, '#3db8ff', 2);
+  label(ctx, 'apparent', cx2 - vp * sc * 0.8 - 10, cy2 + 10, '#3db8ff88');
+
+  // phi label
+  ctx.strokeStyle = 'rgba(30,144,255,0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(cx2, cy2, 20, Math.PI / 2, Math.PI / 2 + phi); ctx.stroke();
+  label(ctx, 'φ', cx2 - 14, cy2 + 28, '#1e90ff99');
+
+  // divider line
+  ctx.strokeStyle = 'rgba(30,144,255,0.12)'; ctx.lineWidth = 0.5; ctx.setLineDash([4, 6]);
+  ctx.beginPath(); ctx.moveTo(w * 0.5, 0); ctx.lineTo(w * 0.5, h); ctx.stroke();
+  ctx.setLineDash([]);
+  label(ctx, 'ground frame', 8, 14, 'rgba(0,200,255,0.45)');
+  label(ctx, 'person frame', w * 0.52, 14, 'rgba(30,144,255,0.45)');
+
+  const phiDeg = (phi * 180 / Math.PI).toFixed(1);
+  setRo('rn-vr', vr.toFixed(1), 'm/s'); setRo('rn-vp', vp.toFixed(1), 'm/s');
+  setRo('rn-phi', phiDeg, '°'); setRo('rn-app', vRainMag.toFixed(2), 'm/s');
+}
+
+/* ═══════════════════════════════════
+   SIM 4 — AIRCRAFT + WIND
+═══════════════════════════════════ */
+function drawAircraft() {
+  const el = document.getElementById('c-air');
+  if (!el || !el.parentElement.offsetWidth) return;
+  const { ctx, w, h } = setupCanvas(el, 220);
+  ctx.clearRect(0, 0, w, h);
+
+  const desired = AC.desired * Math.PI / 180; // desired ground track (0=north=up)
+  const wdir = AC.wdir * Math.PI / 180; // wind FROM direction
+  const vair = AC.vair, wspd = AC.wspd;
+
+  // wind vector (going TO direction = wdir + 180)
+  const windToX = wspd * Math.sin(wdir + Math.PI);
+  const windToY = wspd * Math.cos(wdir + Math.PI);
+
+  // required heading: v_ground = v_air_heading + v_wind
+  // v_air_heading = v_ground - v_wind
+  const vgx = vair * Math.sin(desired);
+  const vgy = vair * Math.cos(desired);
+  // iterative: find heading so |v_air| = vair and v_air + v_wind = v_ground track
+  const vintoX = vgx - windToX;
+  const vintoY = vgy - windToY;
+  const vintoMag = Math.hypot(vintoX, vintoY);
+  const scale_needed = vair / (vintoMag || 1);
+  const headingX = vintoX * scale_needed;
+  const headingY = vintoY * scale_needed;
+  const groundX = headingX + windToX;
+  const groundY = headingY + windToY;
+  const groundSpeed = Math.hypot(groundX, groundY);
+  const headingAngle = Math.atan2(headingX, headingY);
+  const trackAngle = Math.atan2(groundX, groundY);
+
+  const cx = w / 2, cy = h / 2;
+  const sc = 9;
+  tair += DT;
+
+  // background with faint compass rose
+  ctx.strokeStyle = 'rgba(30,144,255,0.06)'; ctx.lineWidth = 0.5;
+  [1, 2, 3].forEach(r => {
+    ctx.beginPath(); ctx.arc(cx, cy, r * 55, 0, Math.PI * 2); ctx.stroke();
+  });
+  ['N', 'E', 'S', 'W'].forEach((d, i) => {
+    const a = i * Math.PI / 2;
+    ctx.strokeStyle = 'rgba(30,144,255,0.12)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(a) * 175, cy - Math.cos(a) * 175); ctx.stroke();
+    ctx.fillStyle = 'rgba(30,144,255,0.35)'; ctx.font = '9px IBM Plex Mono,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(d, cx + Math.sin(a) * 180, cy - Math.cos(a) * 180 + 4);
+  });
+  ctx.textAlign = 'left';
+
+  // desired track (dashed)
+  ctx.strokeStyle = 'rgba(30,144,255,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([4, 6]);
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(desired) * 160, cy - Math.cos(desired) * 160); ctx.stroke();
+  ctx.setLineDash([]);
+  label(ctx, 'desired track', cx + Math.sin(desired) * 130 + 4, cy - Math.cos(desired) * 130, 'rgba(30,144,255,0.4)');
+
+  // wind vector
+  arrow(ctx, cx, cy, cx + windToX * sc, cy - windToY * sc, '#0af0ff', 2);
+  label(ctx, 'v_wind', cx + windToX * sc + 4, cy - windToY * sc, '#0af0ff88');
+
+  // heading (airspeed) vector
+  arrow(ctx, cx, cy, cx + headingX * sc, cy - headingY * sc, '#a855f7', 2.5);
+  label(ctx, 'v_air', cx + headingX * sc + 4, cy - headingY * sc, '#a855f788');
+
+  // ground track (resultant)
+  arrow(ctx, cx, cy, cx + groundX * sc, cy - groundY * sc, '#1e90ff', 2.5);
+  label(ctx, 'v_ground', cx + groundX * sc + 4, cy - groundY * sc, '#1e90ffaa');
+
+  // aircraft symbol (at center, pointed along heading)
+  ctx.save();
+  ctx.translate(cx, cy); ctx.rotate(headingAngle);
+  ctx.fillStyle = '#1e90ff';
+  ctx.beginPath();
+  ctx.moveTo(0, -14); ctx.lineTo(4, 0); ctx.lineTo(0, -3); ctx.lineTo(-4, 0); ctx.closePath();
+  ctx.fill();
+  // wings
+  ctx.fillStyle = 'rgba(30,144,255,0.65)';
+  ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(16, 2); ctx.lineTo(14, 4); ctx.lineTo(0, -2); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(-16, 2); ctx.lineTo(-14, 4); ctx.lineTo(0, -2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // drift angle arc
+  if (Math.abs(headingAngle - trackAngle) > 0.02) {
+    ctx.strokeStyle = 'rgba(30,144,255,0.3)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, 32, -Math.PI / 2 + headingAngle, -Math.PI / 2 + trackAngle); ctx.stroke();
+    const midA = -Math.PI / 2 + (headingAngle + trackAngle) / 2;
+    label(ctx, 'drift', cx + Math.cos(midA) * 38, cy + Math.sin(midA) * 38, 'rgba(30,144,255,0.55)');
+  }
+
+  const headingDeg = ((headingAngle * 180 / Math.PI + 360) % 360).toFixed(0);
+  const trackDeg = ((trackAngle * 180 / Math.PI + 360) % 360).toFixed(0);
+  const driftDeg = (((trackAngle - headingAngle) * 180 / Math.PI + 360) % 360).toFixed(1);
+  setRo('ac-hdg', headingDeg, '°'); setRo('ac-trk', trackDeg, '°');
+  setRo('ac-gs', groundSpeed.toFixed(1), 'm/s'); setRo('ac-drift', driftDeg, '°');
+}
+
+/* ═══════════════════════════════════
+   MAIN LOOP
+═══════════════════════════════════ */
+function loop() {
+  // 1D
+  t1d += DT;
+  if (t1d > 40) { t1d = 0; h1d_a = []; h1d_b = []; h1d_rel = []; }
+  draw1D();
+
+  // River
+  const rmt = rivMaxT();
+  triv += DT;
+  const rS = (() => { const a = RV.aim * Math.PI / 180; return { y: RV.vb * Math.sin(a) * triv }; })();
+  if (rS.y >= RIVER_W || triv > rmt * 1.1) { triv = 0; hriv_x = []; hriv_y = []; rivPath = []; }
+  drawRiver();
+
+  // Rain
+  trainTime += DT;
+  drawRain();
+
+  // Aircraft
+  tair += DT;
+  drawAircraft();
+
+  requestAnimationFrame(loop);
+}
+
+/* ═══════════════════════════════════
+   INIT
+═══════════════════════════════════ */
+window.addEventListener('load', () => {
+  // 1D controls
+  buildReadouts(document.getElementById('ro-1d'), [
+    { id: '1-va', l: 'v_A (obs)', u: 'm/s' },
+    { id: '1-vb', l: 'v_B (obs)', u: 'm/s' },
+    { id: '1-rel', l: 'v_A/B', u: 'm/s' },
+    { id: '1-t', l: 'time', u: 's' },
+  ]);
+  buildSliders(document.getElementById('sl-1d'), [
+    { id: 'c1a', n: 'v_A (ground)', min: -15, max: 15, step: 0.5, v: C1.va, u: 'm/s', c: '#1e90ff' },
+    { id: 'c1b', n: 'v_B (ground)', min: -15, max: 15, step: 0.5, v: C1.vb, u: 'm/s', c: '#a855f7' },
+  ], () => { t1d = 0; h1d_a = []; h1d_b = []; h1d_rel = []; });
+  const sl1 = document.getElementById('sl-1d').querySelectorAll('input');
+  sl1[0].addEventListener('input', e => C1.va = parseFloat(e.target.value));
+  sl1[1].addEventListener('input', e => C1.vb = parseFloat(e.target.value));
+  renderEq(document.getElementById('eq-1d'), 'v_{A/B} = v_{A/G} + v_{G/B} = v_{A/G} - v_{B/G}');
+
+  // River controls
+  buildReadouts(document.getElementById('ro-riv'), [
+    { id: 'r-x', l: 'x drift', u: 'm' },
+    { id: 'r-y', l: 'y cross', u: 'm' },
+    { id: 'r-v', l: 'speed', u: 'm/s' },
+    { id: 'r-t', l: 'time', u: 's' },
+  ]);
+  buildSliders(document.getElementById('sl-riv'), [
+    { id: 'rv', n: 'Boat speed v_b', min: 1, max: 12, step: 0.5, v: RV.vb, u: 'm/s', c: '#a855f7' },
+    { id: 'rc', n: 'Current v_c', min: 0, max: 10, step: 0.5, v: RV.vc, u: 'm/s', c: '#0af0ff' },
+    { id: 'ra', n: 'Aim angle α', min: 45, max: 135, step: 1, v: RV.aim, u: '°', c: '#1e90ff' },
+  ], () => { triv = 0; hriv_x = []; hriv_y = []; rivPath = []; });
+  const slR = document.getElementById('sl-riv').querySelectorAll('input');
+  slR[0].addEventListener('input', e => RV.vb = parseFloat(e.target.value));
+  slR[1].addEventListener('input', e => RV.vc = parseFloat(e.target.value));
+  slR[2].addEventListener('input', e => RV.aim = parseFloat(e.target.value));
+  renderEq(document.getElementById('eq-riv'), '\\vec{v}_{\\text{ground}} = \\vec{v}_{\\text{boat/water}} + \\vec{v}_{\\text{current/ground}}');
+
+  // Rain controls
+  buildReadouts(document.getElementById('ro-rain'), [
+    { id: 'rn-vr', l: 'rain speed', u: 'm/s' },
+    { id: 'rn-vp', l: 'person speed', u: 'm/s' },
+    { id: 'rn-phi', l: 'tilt angle φ', u: '°' },
+    { id: 'rn-app', l: 'apparent |v|', u: 'm/s' },
+  ]);
+  buildSliders(document.getElementById('sl-rain'), [
+    { id: 'rnvr', n: 'Rain speed v_r', min: 2, max: 16, step: 0.5, v: RN.vr, u: 'm/s', c: '#0af0ff' },
+    { id: 'rnvp', n: 'Person speed v_p', min: 0, max: 10, step: 0.25, v: RN.vp, u: 'm/s', c: '#1e90ff' },
+  ], null);
+  const slRn = document.getElementById('sl-rain').querySelectorAll('input');
+  slRn[0].addEventListener('input', e => RN.vr = parseFloat(e.target.value));
+  slRn[1].addEventListener('input', e => RN.vp = parseFloat(e.target.value));
+  renderEq(document.getElementById('eq-rain'), '\\vec{v}_{\\text{rain/person}} = \\vec{v}_{\\text{rain/ground}} - \\vec{v}_{\\text{person/ground}}');
+
+  // Aircraft controls
+  buildReadouts(document.getElementById('ro-air'), [
+    { id: 'ac-hdg', l: 'heading', u: '°' },
+    { id: 'ac-trk', l: 'ground track', u: '°' },
+    { id: 'ac-gs', l: 'groundspeed', u: 'm/s' },
+    { id: 'ac-drift', l: 'drift angle', u: '°' },
+  ]);
+  buildSliders(document.getElementById('sl-air'), [
+    { id: 'acv', n: 'Airspeed v_air', min: 6, max: 30, step: 0.5, v: AC.vair, u: 'm/s', c: '#a855f7' },
+    { id: 'acws', n: 'Wind speed', min: 0, max: 12, step: 0.5, v: AC.wspd, u: 'm/s', c: '#0af0ff' },
+    { id: 'acwd', n: 'Wind FROM (°)', min: 0, max: 360, step: 5, v: AC.wdir, u: '°', c: '#00ccff' },
+    { id: 'actr', n: 'Desired track (°)', min: 0, max: 360, step: 5, v: AC.desired, u: '°', c: '#1e90ff' },
+  ], null);
+  const slAc = document.getElementById('sl-air').querySelectorAll('input');
+  slAc[0].addEventListener('input', e => AC.vair = parseFloat(e.target.value));
+  slAc[1].addEventListener('input', e => AC.wspd = parseFloat(e.target.value));
+  slAc[2].addEventListener('input', e => AC.wdir = parseFloat(e.target.value));
+  slAc[3].addEventListener('input', e => AC.desired = parseFloat(e.target.value));
+  renderEq(document.getElementById('eq-air'), '\\vec{v}_{\\text{ground}} = \\vec{v}_{\\text{airspeed}} + \\vec{v}_{\\text{wind}}');
+
+  loop();
+
+  if (window.renderMathInElement) renderMathInElement(document.body, {
+    delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }]
+  });
+});
+</script>
+</body>
+</html>
