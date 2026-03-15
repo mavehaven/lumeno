@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circular Dynamics — Physics Module 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=IBM+Plex+Mono:wght@300;400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#080f1e;
+  --bg1:#0c1628;
+  --bg2:#0f1e38;
+  --bg3:#162038;
+  --border:#1e3a5f;
+  --border2:#2e4060;
+
+  --text:#e8eef8;
+  --muted:#94a8c4;
+  --faint:#2e4060;
+  --dim:#5a7090;
+
+  --blue:#3b9eff;
+  --blue-light:#6cb8ff;
+  --blue-dim:#1a4a80;
+  --red:#ff4d6a;
+  --green:#00e5a0;
+  --purple:#b06fff;
+  --amber:#ffb830;
+  --teal:#00d4d4;
+
+  --serif:'Playfair Display',Georgia,serif;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'DM Sans',sans-serif;
+}
+
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.75;
+  font-size:15px;
+  overflow-x:hidden;
+}
+
+/* noise overlay */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity:.15;
+}
+
+/* rotating orbit ring behind hero */
+body::after{
+  content:'';position:fixed;
+  width:600px;height:600px;
+  border-radius:50%;
+  border:1px solid rgba(59,158,255,0.04);
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  animation:orbit-ring 40s linear infinite;
+  pointer-events:none;z-index:0;
+}
+@keyframes orbit-ring{to{transform:translate(-50%,-50%) rotate(360deg)}}
+
+.page{max-width:900px;margin:0 auto;padding:0 1.5rem 8rem;position:relative;z-index:1}
+
+/* ── HERO ── */
+.hero{
+  position:relative;
+  padding:5rem 0 4rem;
+  border-bottom:1px solid var(--border);
+  overflow:hidden;
+}
+.hero-bg{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 50% 80% at 80% 30%, rgba(59,158,255,0.08) 0%,transparent 65%),
+    radial-gradient(ellipse 40% 60% at 15% 70%, rgba(176,111,255,0.05) 0%,transparent 60%),
+    radial-gradient(ellipse 30% 40% at 60% 90%, rgba(0,212,212,0.04) 0%,transparent 50%);
+}
+/* animated orbit dot in hero */
+.orbit-hero{
+  position:absolute;right:8%;top:20%;
+  width:180px;height:180px;
+  animation:spin-slow 8s linear infinite;
+  pointer-events:none;opacity:.25;
+}
+@keyframes spin-slow{to{transform:rotate(360deg)}}
+.orbit-hero svg{width:100%;height:100%}
+
+.module-tag{
+  display:inline-flex;align-items:center;gap:.5rem;
+  font-family:var(--mono);font-size:11px;font-weight:400;
+  color:var(--dim);letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid var(--border);border-radius:2px;
+  padding:.25rem .6rem;margin-bottom:1.5rem;
+}
+.module-tag span{color:var(--blue);font-weight:600}
+h1.hero-title{
+  font-family:var(--serif);
+  font-size:clamp(2.8rem,6vw,4.8rem);
+  font-weight:900;line-height:1.05;letter-spacing:-.02em;
+  color:var(--text);margin-bottom:1rem;
+}
+h1.hero-title em{color:var(--blue);font-style:italic;}
+.hero-sub{font-size:1.05rem;color:var(--muted);max-width:580px;line-height:1.7;margin-bottom:2rem}
+.hero-meta{display:flex;gap:2rem;flex-wrap:wrap}
+.meta-item{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.meta-item span{color:var(--muted);font-weight:600}
+
+/* ── NAV ── */
+.chapter-nav{
+  display:flex;gap:.4rem;flex-wrap:wrap;
+  padding:1.5rem 0;
+  position:sticky;top:0;z-index:100;
+  background:linear-gradient(var(--bg) 90%,transparent);
+  border-bottom:1px solid var(--border);
+}
+.pill{
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  padding:.3rem .75rem;border-radius:2px;
+  border:1px solid var(--border);
+  color:var(--dim);text-decoration:none;
+  transition:all .15s;
+}
+.pill:hover,.pill.active{background:var(--blue);color:var(--bg);border-color:var(--blue)}
+
+/* ── SECTIONS ── */
+.section{padding:4rem 0 2rem}
+.section-header{display:flex;gap:1.5rem;align-items:flex-start;margin-bottom:2.5rem}
+.sec-number{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--faint);letter-spacing:.1em;min-width:2.5rem;padding-top:.4rem;text-transform:uppercase}
+.sec-content-header{flex:1}
+h2{font-family:var(--serif);font-size:2rem;font-weight:700;line-height:1.15;color:var(--text);margin-bottom:.5rem}
+.section-intro{font-size:1rem;color:var(--muted);max-width:620px;line-height:1.75}
+.divider{border:none;border-top:1px solid var(--border);margin:3rem 0}
+h3{font-family:var(--serif);font-size:1.15rem;font-weight:700;color:var(--text);margin:2rem 0 .75rem}
+h4{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:1.5rem 0 .5rem}
+p{color:var(--muted);margin-bottom:1rem;line-height:1.8}
+p strong{color:var(--text);font-weight:600}
+
+/* ── CONCEPT CARDS ── */
+.concept-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin:2rem 0}
+.concept-card{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:4px;overflow:hidden;
+  transition:transform .15s,box-shadow .15s;
+  position:relative;
+}
+.concept-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.5)}
+.cc-top{height:3px}
+.cc-body{padding:1.25rem}
+.cc-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.4rem}
+.cc-name{font-family:var(--serif);font-size:1.15rem;font-weight:700;color:var(--text);margin-bottom:.4rem;line-height:1.2}
+.cc-formula{font-family:var(--mono);font-size:.78rem;padding:.25rem .6rem;border-radius:2px;display:inline-block;margin-bottom:.6rem}
+.cc-desc{font-size:.8rem;color:var(--muted);line-height:1.6}
+
+/* ── EQ BLOCKS ── */
+.eq-block{
+  background:var(--bg1);border:1px solid var(--border);
+  border-left:3px solid var(--blue);
+  border-radius:0 4px 4px 0;
+  padding:1.25rem 1.75rem;margin:1.5rem 0;overflow-x:auto;
+}
+.eq-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-bottom:.75rem}
+.eq-block .katex-display{margin:.25rem 0}
+.eq-note{font-size:.8rem;color:var(--dim);margin-top:.6rem;line-height:1.6}
+.eq-note strong{color:var(--muted)}
+.eq-row{display:flex;flex-wrap:wrap;gap:2rem;margin-top:.5rem}
+.eq-col{flex:1;min-width:200px}
+.eq-sub-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;margin-bottom:.35rem}
+
+/* ── CALLOUTS ── */
+.callout{padding:1rem 1.25rem;margin:1.5rem 0;border-radius:3px;font-size:.88rem;line-height:1.7;border:1px solid transparent}
+.callout-blue{background:rgba(59,158,255,0.07);border-color:rgba(59,158,255,0.25);color:var(--muted)}
+.callout-red{background:rgba(255,77,106,0.07);border-color:rgba(255,77,106,0.25);color:var(--muted)}
+.callout-green{background:rgba(0,229,160,0.06);border-color:rgba(0,229,160,0.2);color:var(--muted)}
+.callout-amber{background:rgba(255,184,48,0.06);border-color:rgba(255,184,48,0.2);color:var(--muted)}
+.callout-purple{background:rgba(176,111,255,0.06);border-color:rgba(176,111,255,0.2);color:var(--muted)}
+.callout-teal{background:rgba(0,212,212,0.06);border-color:rgba(0,212,212,0.2);color:var(--muted)}
+.callout-marker{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.35rem}
+.callout-blue .callout-marker{color:var(--blue)}
+.callout-red .callout-marker{color:var(--red)}
+.callout-green .callout-marker{color:var(--green)}
+.callout-amber .callout-marker{color:var(--amber)}
+.callout-purple .callout-marker{color:var(--purple)}
+.callout-teal .callout-marker{color:var(--teal)}
+.callout strong{color:var(--text)}
+
+/* ── DERIVATION ── */
+.deriv-chain{position:relative;margin:2rem 0;padding-left:3rem;counter-reset:deriv}
+.deriv-chain::before{content:'';position:absolute;left:1.1rem;top:1.2rem;bottom:1.2rem;width:1px;background:var(--border)}
+.deriv-step{position:relative;margin-bottom:1.25rem;padding:.9rem 1.25rem;background:var(--bg1);border:1px solid var(--border);border-radius:3px}
+.deriv-step::before{
+  content:counter(deriv);counter-increment:deriv;
+  position:absolute;left:-2.1rem;top:50%;transform:translateY(-50%);
+  width:1.6rem;height:1.6rem;
+  background:var(--bg3);color:var(--blue);
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  border:1px solid var(--border);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.6rem;
+}
+.deriv-math{font-size:.95rem;margin-bottom:.35rem}
+.deriv-reason{font-size:.78rem;color:var(--dim);font-style:italic}
+.deriv-step.hl{border-color:var(--blue);background:rgba(59,158,255,0.05)}
+.deriv-step.hl::before{background:var(--blue);color:var(--bg)}
+
+/* ── WORKED EXAMPLES ── */
+.worked-example{border:1px solid var(--border);border-radius:4px;overflow:hidden;margin:2rem 0}
+.we-header{background:var(--bg3);border-bottom:1px solid var(--border);padding:.75rem 1.25rem;display:flex;align-items:center;justify-content:space-between}
+.we-title{font-family:var(--serif);font-size:1rem;font-weight:700;color:var(--text)}
+.we-tag{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
+.we-body{padding:1.25rem 1.5rem;background:var(--bg1)}
+.we-given{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.we-given-item{font-family:var(--mono);font-size:.82rem;background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:.2rem .6rem;color:var(--muted)}
+.we-steps{counter-reset:westep;list-style:none;padding:0}
+.we-steps li{counter-increment:westep;padding:.6rem 0 .6rem 2.5rem;border-bottom:1px solid rgba(30,58,95,0.5);position:relative;font-size:.88rem;color:var(--muted)}
+.we-steps li::before{content:counter(westep);position:absolute;left:0;top:.65rem;width:1.5rem;height:1.5rem;border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:600;color:var(--dim);text-align:center;line-height:1.5rem}
+.we-steps li:last-child{border-bottom:none}
+.we-ans{margin-top:1rem;padding:.75rem 1rem;background:var(--blue-dim);border:1px solid var(--blue);border-radius:3px;font-family:var(--mono);font-size:.88rem;color:var(--blue-light)}
+
+/* ── VAR TABLE ── */
+.var-table{width:100%;border-collapse:collapse;margin:1.25rem 0;font-size:.85rem}
+.var-table th{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.var-table td{padding:.55rem .75rem;border-bottom:1px solid rgba(30,58,95,0.5);color:var(--muted);vertical-align:middle}
+.var-table tr:last-child td{border-bottom:none}
+.var-sym{font-family:var(--mono);font-weight:600;font-size:.9rem;color:var(--text)}
+.var-unit{font-family:var(--mono);font-size:.8rem;color:var(--dim)}
+
+/* ── CANVAS CARDS ── */
+.canvas-card{background:var(--bg1);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin:1.5rem 0}
+.canvas-card-title{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:.6rem .85rem .2rem}
+.canvas-card canvas{display:block;width:100%}
+
+/* ── FBD ROW ── */
+.fbd-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:1.5rem 0}
+.fbd-card{background:var(--bg1);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.fbd-title{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:.6rem .85rem .2rem}
+canvas.fbd{display:block;width:100%;height:180px}
+
+/* ── APPLICATIONS GRID ── */
+.apps-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:1.5rem 0}
+.app-card{background:var(--bg1);border:1px solid var(--border);border-radius:4px;padding:1rem 1.1rem;transition:border-color .15s}
+.app-card:hover{border-color:var(--border2)}
+.app-icon{font-size:1.5rem;margin-bottom:.4rem}
+.app-title{font-family:var(--serif);font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:.25rem}
+.app-formula{font-family:var(--mono);font-size:.75rem;color:var(--blue);margin-bottom:.35rem}
+.app-body{font-size:.8rem;color:var(--muted);line-height:1.55}
+
+/* ── MAIN SIM ── */
+.sim-wrap{border:1px solid var(--border);border-radius:4px;overflow:hidden;margin:2rem 0}
+.sim-header{background:var(--bg3);border-bottom:1px solid var(--border);padding:.85rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.sim-title{font-family:var(--serif);font-size:1rem;font-weight:700;color:var(--text)}
+.sim-tabs{display:flex;gap:.25rem;flex-wrap:wrap}
+.stab{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .75rem;border-radius:2px;border:1px solid var(--border);color:var(--dim);background:transparent;cursor:pointer;transition:all .15s}
+.stab.active{background:var(--blue);color:var(--bg);border-color:var(--blue)}
+.sim-body{padding:1.25rem;background:var(--bg1)}
+.sim-eq-bar{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.6rem 1rem;margin-bottom:1rem;font-size:.92rem;overflow-x:auto;min-height:2.4rem;display:flex;align-items:center}
+.canvas-wrap{background:var(--bg);border-radius:4px;overflow:hidden;margin-bottom:1rem}
+canvas#sim{display:block;width:100%;height:260px}
+.readouts{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.ro{flex:1;min-width:90px;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.6rem .85rem}
+.ro-lbl{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.ro-val{font-family:var(--mono);font-size:1rem;font-weight:600;color:var(--text);margin-top:2px}
+.ro-val .unit{font-size:.7rem;font-weight:400;color:var(--dim)}
+.sliders-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem}
+.sl-wrap{display:flex;flex-direction:column;gap:3px}
+.sl-top{display:flex;justify-content:space-between;align-items:center}
+.sl-name{font-size:11px;color:var(--muted);font-weight:500}
+.sl-val{font-family:var(--mono);font-size:10px;color:var(--text);font-weight:600}
+input[type=range]{width:100%;height:2px;cursor:pointer;accent-color:var(--blue)}
+.graphs-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.g-card{background:var(--bg);border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.g-lbl{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:.4rem .6rem .1rem}
+canvas.gc{display:block;width:100%;height:72px}
+
+/* ── PLANET TABLE ── */
+.planet-table{width:100%;border-collapse:collapse;font-size:.83rem;margin:1.25rem 0}
+.planet-table th{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.planet-table td{padding:.5rem .75rem;border-bottom:1px solid rgba(30,58,95,0.4);color:var(--muted)}
+.planet-table tr:last-child td{border-bottom:none}
+.planet-table td:first-child{color:var(--text);font-weight:500}
+.mono-val{font-family:var(--mono);font-size:.8rem;color:var(--blue-light)}
+
+/* ── FOOTER ── */
+.module-footer{margin-top:6rem;padding-top:2rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem}
+.footer-nav{display:flex;gap:.5rem}
+.fnav-btn{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.4rem 1rem;border-radius:2px;border:1px solid var(--border);color:var(--dim);background:transparent;cursor:pointer;text-decoration:none;transition:all .15s;display:inline-flex;align-items:center;gap:.4rem}
+.fnav-btn.prev{border-color:var(--border2);color:var(--muted)}
+.fnav-btn.prev:hover{border-color:var(--blue);color:var(--blue)}
+.footer-tag{font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .concept-grid{grid-template-columns:1fr}
+  .fbd-row{grid-template-columns:1fr}
+  .apps-grid{grid-template-columns:1fr}
+  .sliders-grid{grid-template-columns:1fr}
+}
+
+/* ── FADE IN ── */
+.fade-in{opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+.fade-in.visible{opacity:1;transform:none}
+
+.katex{font-size:1.05em}
+.katex-display>.katex{font-size:1.1em}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ══════════════════════════════ HERO ══════════════════════════════ -->
+<div class="hero">
+  <div class="hero-bg"></div>
+
+  <!-- decorative orbit ring -->
+  <div class="orbit-hero">
+    <svg viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="90" cy="90" r="70" stroke="#3b9eff" stroke-width="1" stroke-dasharray="4 6"/>
+      <circle cx="90" cy="20" r="5" fill="#3b9eff" opacity="0.8"/>
+      <circle cx="90" cy="90" r="12" fill="#0c1628" stroke="#3b9eff" stroke-width="1"/>
+      <circle cx="90" cy="90" r="4" fill="#3b9eff"/>
+      <line x1="90" y1="90" x2="90" y2="20" stroke="#3b9eff" stroke-width="0.5" opacity="0.4"/>
+    </svg>
+  </div>
+
+  <div class="module-tag"><span>Module 3</span> · Classical Mechanics</div>
+  <h1 class="hero-title">Circular<br><em>Dynamics</em></h1>
+  <p class="hero-sub">Uniform circular motion is deceptive — an object moving at constant speed can still be accelerating. The force that causes this acceleration points inward, never forward, and understanding it unlocks planetary orbits, banked curves, and the spin of the cosmos.</p>
+  <div class="hero-meta">
+    <div class="meta-item">Prerequisites <span>Newton's Laws, Friction</span></div>
+    <div class="meta-item">Core equations <span>a_c = v²/r, F_c = mv²/r</span></div>
+    <div class="meta-item">Sections <span>8</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ NAV ══════════════════════════════ -->
+<nav class="chapter-nav">
+  <a class="pill" href="#sec-kinematics">Kinematics</a>
+  <a class="pill" href="#sec-centripetal">Centripetal force</a>
+  <a class="pill" href="#sec-deriv">Derivation</a>
+  <a class="pill" href="#sec-fbd">FBDs</a>
+  <a class="pill" href="#sec-applications">Applications</a>
+  <a class="pill" href="#sec-gravity">Gravity & orbits</a>
+  <a class="pill" href="#sec-noninertial">Non-inertial frames</a>
+  <a class="pill" href="#sec-sim">Simulation</a>
+</nav>
+
+<!-- ══════════════════════════════ §1 KINEMATICS ══════════════════════════════ -->
+<section class="section fade-in" id="sec-kinematics">
+  <div class="section-header">
+    <div class="sec-number">§ 01</div>
+    <div class="sec-content-header">
+      <h2>Kinematics of Circular Motion</h2>
+      <p class="section-intro">Before forces, we need the geometry. Circular motion introduces angular quantities that parallel every linear kinematic concept.</p>
+    </div>
+  </div>
+
+  <p>An object in <strong>uniform circular motion</strong> moves at constant speed along a circular path of radius $r$. The word "uniform" means the <em>speed</em> is constant — but since direction continuously changes, the <strong>velocity vector is not constant</strong>. This changing velocity implies acceleration.</p>
+
+  <div class="concept-grid">
+    <div class="concept-card">
+      <div class="cc-top" style="background:var(--blue)"></div>
+      <div class="cc-body">
+        <div class="cc-label" style="color:var(--blue)">Angular position</div>
+        <div class="cc-name">Angle θ</div>
+        <div class="cc-formula" style="background:rgba(59,158,255,0.1);color:var(--blue)">$\theta$ in radians</div>
+        <div class="cc-desc">One full revolution = $2\pi$ rad = 360°. Radians are dimensionless ratios of arc length to radius: $\theta = s/r$.</div>
+      </div>
+    </div>
+    <div class="concept-card">
+      <div class="cc-top" style="background:var(--green)"></div>
+      <div class="cc-body">
+        <div class="cc-label" style="color:var(--green)">Angular velocity</div>
+        <div class="cc-name">ω (omega)</div>
+        <div class="cc-formula" style="background:rgba(0,229,160,0.08);color:var(--green)">$\omega = \dfrac{d\theta}{dt}$</div>
+        <div class="cc-desc">Rate of angular change. Unit: rad/s. Relates to period: $\omega = 2\pi/T$ and to linear speed: $v = \omega r$.</div>
+      </div>
+    </div>
+    <div class="concept-card">
+      <div class="cc-top" style="background:var(--red)"></div>
+      <div class="cc-body">
+        <div class="cc-label" style="color:var(--red)">Period & frequency</div>
+        <div class="cc-name">T and f</div>
+        <div class="cc-formula" style="background:rgba(255,77,106,0.08);color:var(--red)">$T = 1/f = 2\pi/\omega$</div>
+        <div class="cc-desc">Period $T$ is the time for one full revolution. Frequency $f$ is revolutions per second (Hz). These three are all interchangeable.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>The key kinematic relations</h3>
+  <div class="eq-block">
+    <div class="eq-label">Angular–Linear equivalence</div>
+    <div class="eq-row">
+      <div class="eq-col">
+        <div class="eq-sub-label">Linear speed from ω</div>
+        $$v = \omega r$$
+        <div class="eq-note">A point further from the centre moves faster, even at the same $\omega$. This is why the tip of a spinning blade moves faster than the hub.</div>
+      </div>
+      <div class="eq-col">
+        <div class="eq-sub-label">Period from speed</div>
+        $$T = \frac{2\pi r}{v}$$
+        <div class="eq-note">Circumference divided by speed. The time to complete one full circle.</div>
+      </div>
+      <div class="eq-col">
+        <div class="eq-sub-label">Full angular equivalences</div>
+        $$\omega = \frac{2\pi}{T} = 2\pi f$$
+        <div class="eq-note">Three ways to express the same rotational rate.</div>
+      </div>
+    </div>
+  </div>
+
+  <h4>Symbol reference</h4>
+  <table class="var-table">
+    <thead><tr><th>Symbol</th><th>Quantity</th><th>SI Unit</th><th>Linear analogue</th></tr></thead>
+    <tbody>
+      <tr><td class="var-sym">$\theta$</td><td>Angular position</td><td class="var-unit">rad</td><td>$x$ (position)</td></tr>
+      <tr><td class="var-sym">$\omega$</td><td>Angular velocity</td><td class="var-unit">rad s⁻¹</td><td>$v$ (velocity)</td></tr>
+      <tr><td class="var-sym">$\alpha$</td><td>Angular acceleration</td><td class="var-unit">rad s⁻²</td><td>$a$ (acceleration)</td></tr>
+      <tr><td class="var-sym">$r$</td><td>Radius</td><td class="var-unit">m</td><td>—</td></tr>
+      <tr><td class="var-sym">$T$</td><td>Period</td><td class="var-unit">s</td><td>—</td></tr>
+      <tr><td class="var-sym">$f$</td><td>Frequency</td><td class="var-unit">Hz = s⁻¹</td><td>—</td></tr>
+      <tr><td class="var-sym">$v$</td><td>Tangential speed</td><td class="var-unit">m s⁻¹</td><td>$v$ (same)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════ §2 CENTRIPETAL FORCE ══════════════════════════════ -->
+<section class="section fade-in" id="sec-centripetal">
+  <div class="section-header">
+    <div class="sec-number">§ 02</div>
+    <div class="sec-content-header">
+      <h2>Centripetal Acceleration &amp; Force</h2>
+      <p class="section-intro">The acceleration of circular motion always points toward the centre. By Newton's second law, a net inward force must be responsible.</p>
+    </div>
+  </div>
+
+  <p>Even at constant speed, a circularly moving object has an acceleration — because its velocity direction is changing. This <strong>centripetal acceleration</strong> ("centre-seeking") always points perpendicular to the velocity, directly toward the centre of the circle.</p>
+
+  <div class="eq-block">
+    <div class="eq-label">Centripetal acceleration & force</div>
+    <div class="eq-row">
+      <div class="eq-col">
+        <div class="eq-sub-label">Centripetal acceleration</div>
+        $$a_c = \frac{v^2}{r} = \omega^2 r$$
+        <div class="eq-note">Both forms are equivalent via $v = \omega r$. Points radially inward at every instant.</div>
+      </div>
+      <div class="eq-col">
+        <div class="eq-sub-label">Centripetal force (Newton II)</div>
+        $$F_c = \frac{mv^2}{r} = m\omega^2 r$$
+        <div class="eq-note"><strong>Not a new type of force.</strong> This is whatever existing force (gravity, tension, friction, normal) is providing the inward net force.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-red">
+    <span class="callout-marker">✗ The biggest misconception in circular motion</span>
+    <strong>"Centrifugal force"</strong> — the sensation of being flung outward in a turning car — is <strong>not a real force</strong> in an inertial reference frame. It is a <em>fictitious force</em> that appears only in the non-inertial (rotating) frame. In the inertial frame, the car seat pushes you inward (centripetal). We return to this in §7.
+  </div>
+
+  <div class="callout callout-blue">
+    <span class="callout-marker">📐 Direction is everything</span>
+    Centripetal force is always directed <strong>radially inward</strong> — toward the centre. It is always <em>perpendicular</em> to the velocity. Therefore it does <strong>no work</strong> on the object (work = F·d cosθ, and θ = 90°). Speed stays constant; only direction changes.
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════ §3 DERIVATION ══════════════════════════════ -->
+<section class="section fade-in" id="sec-deriv">
+  <div class="section-header">
+    <div class="sec-number">§ 03</div>
+    <div class="sec-content-header">
+      <h2>Derivation of $a_c = v^2/r$</h2>
+      <p class="section-intro">The centripetal acceleration formula can be derived geometrically from the change in the velocity vector — no calculus required, just similar triangles.</p>
+    </div>
+  </div>
+
+  <h3>Geometric derivation</h3>
+  <p>Consider an object moving from point P to point Q on a circle of radius $r$ in a small time $\Delta t$. The arc length is $\Delta s = v\,\Delta t$. The velocity vectors at P and Q have the same magnitude $v$ but differ in direction by the same angle $\Delta\theta$ as the arc subtends at the centre.</p>
+
+  <div class="deriv-chain">
+    <div class="deriv-step">
+      <div class="deriv-math">$|\Delta\mathbf{v}| = v\,\Delta\theta$ &ensp;for small $\Delta\theta$</div>
+      <div class="deriv-reason">The velocity vectors form an isoceles triangle of two sides $v$ and apex angle $\Delta\theta$. The chord length ≈ arc length = $v\,\Delta\theta$ for small angles.</div>
+    </div>
+    <div class="deriv-step">
+      <div class="deriv-math">$a = \dfrac{|\Delta\mathbf{v}|}{\Delta t} = \dfrac{v\,\Delta\theta}{\Delta t} = v\,\omega$</div>
+      <div class="deriv-reason">Since $\omega = \Delta\theta/\Delta t$ (definition of angular velocity)</div>
+    </div>
+    <div class="deriv-step">
+      <div class="deriv-math">$a_c = v\omega = v \cdot \dfrac{v}{r}$</div>
+      <div class="deriv-reason">Substituting $\omega = v/r$ (from $v = \omega r$)</div>
+    </div>
+    <div class="deriv-step hl">
+      <div class="deriv-math">$$\boxed{a_c = \frac{v^2}{r}}$$</div>
+      <div class="deriv-reason">Direction: $\Delta\mathbf{v}$ points toward the centre of the circle (perpendicular to velocity, inward) — this can be seen from the geometry of the vector triangle.</div>
+    </div>
+  </div>
+
+  <h3>Vector calculus derivation</h3>
+  <p>Using position vector $\mathbf{r}(t) = r(\cos\omega t\,\hat{i} + \sin\omega t\,\hat{j})$:</p>
+  <div class="deriv-chain">
+    <div class="deriv-step">
+      <div class="deriv-math">$\mathbf{v} = \dfrac{d\mathbf{r}}{dt} = r\omega(-\sin\omega t\,\hat{i} + \cos\omega t\,\hat{j})$</div>
+      <div class="deriv-reason">Differentiate with respect to time. Note $|\mathbf{v}| = r\omega = v$. Velocity is tangential (perpendicular to position vector).</div>
+    </div>
+    <div class="deriv-step">
+      <div class="deriv-math">$\mathbf{a} = \dfrac{d\mathbf{v}}{dt} = -r\omega^2(\cos\omega t\,\hat{i} + \sin\omega t\,\hat{j})$</div>
+      <div class="deriv-reason">Differentiate velocity. Notice the result is $-\omega^2\mathbf{r}$: it points opposite to the position vector, i.e. toward the centre.</div>
+    </div>
+    <div class="deriv-step hl">
+      <div class="deriv-math">$$\mathbf{a} = -\omega^2\mathbf{r} \implies |\mathbf{a}| = \omega^2 r = \frac{v^2}{r}$$</div>
+      <div class="deriv-reason">The magnitude equals $\omega^2 r$ and it always points toward the centre. This is the centripetal acceleration, derived rigorously.</div>
+    </div>
+  </div>
+
+  <!-- Live vector diagram -->
+  <div class="canvas-card">
+    <div class="canvas-card-title">Live vector diagram — position, velocity &amp; acceleration</div>
+    <canvas id="vector-canvas" height="220"></canvas>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════ §4 FBD ══════════════════════════════ -->
+<section class="section fade-in" id="sec-fbd">
+  <div class="section-header">
+    <div class="sec-number">§ 04</div>
+    <div class="sec-content-header">
+      <h2>Free Body Diagrams for Circular Motion</h2>
+      <p class="section-intro">The key question in any circular motion problem: <em>which real force provides the centripetal force?</em> The answer is always one of the forces already present.</p>
+    </div>
+  </div>
+
+  <p>Solving circular motion problems follows a clear procedure: draw the FBD, identify the net inward force, set it equal to $mv^2/r$. The centripetal force requirement is an <em>equation to satisfy</em>, not a force to draw.</p>
+
+  <div class="fbd-row">
+    <div class="fbd-card">
+      <div class="fbd-title">Horizontal circle — ball on a string</div>
+      <canvas class="fbd" id="fbd-string"></canvas>
+    </div>
+    <div class="fbd-card">
+      <div class="fbd-title">Vertical circle — top of a loop</div>
+      <canvas class="fbd" id="fbd-loop-top"></canvas>
+    </div>
+    <div class="fbd-card">
+      <div class="fbd-title">Vertical circle — bottom of a loop</div>
+      <canvas class="fbd" id="fbd-loop-bot"></canvas>
+    </div>
+    <div class="fbd-card">
+      <div class="fbd-title">Banked curve — no friction</div>
+      <canvas class="fbd" id="fbd-banked"></canvas>
+    </div>
+  </div>
+
+  <!-- Worked Example 1 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 1 — Ball on a horizontal string</div>
+      <div class="we-tag">Tension provides centripetal force</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">A 0.3 kg ball is swung in a horizontal circle on a 0.8 m string at 4 rev/s. Find the tension in the string.</p>
+      <div class="we-given">
+        <span class="we-given-item">m = 0.3 kg</span>
+        <span class="we-given-item">r = 0.8 m</span>
+        <span class="we-given-item">f = 4 Hz</span>
+      </div>
+      <ol class="we-steps">
+        <li>Angular velocity: $\omega = 2\pi f = 2\pi(4) = 25.13\ \text{rad s}^{-1}$</li>
+        <li>Linear speed: $v = \omega r = (25.13)(0.8) = 20.1\ \text{m s}^{-1}$</li>
+        <li>Centripetal acceleration: $a_c = v^2/r = (20.1)^2/0.8 = 505\ \text{m s}^{-2}$</li>
+        <li>The tension provides the centripetal force: $T = ma_c = (0.3)(505) = 151.5\ \text{N}$</li>
+        <li>Alternatively: $T = m\omega^2 r = (0.3)(25.13)^2(0.8) = 151.5\ \text{N}$ ✓</li>
+      </ol>
+      <div class="we-ans">T = 151.5 N ≈ 152 N</div>
+    </div>
+  </div>
+
+  <!-- Worked Example 2 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 2 — Vertical loop, minimum speed at top</div>
+      <div class="we-tag">Normal force + gravity</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">A roller coaster loop has radius 12 m. Find the minimum speed at the top of the loop so the passengers don't leave their seats.</p>
+      <div class="we-given">
+        <span class="we-given-item">r = 12 m</span>
+        <span class="we-given-item">at the top</span>
+        <span class="we-given-item">minimum speed → N = 0</span>
+      </div>
+      <ol class="we-steps">
+        <li>At the top of the loop, both gravity and the normal force point downward (toward centre).</li>
+        <li>Newton II inward: $mg + N = mv^2/r$</li>
+        <li>Minimum speed occurs when $N = 0$ (passengers just barely stay in contact).</li>
+        <li>$mg = mv^2_\text{min}/r \Rightarrow v_\text{min} = \sqrt{gr} = \sqrt{9.8 \times 12}$</li>
+        <li>$v_\text{min} = \sqrt{117.6} = 10.85\ \text{m s}^{-1} \approx 39\ \text{km/h}$</li>
+      </ol>
+      <div class="we-ans">v_min = √(gr) = 10.85 m/s at the top of the loop</div>
+    </div>
+  </div>
+
+  <!-- Worked Example 3 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 3 — Car rounding a flat curve</div>
+      <div class="we-tag">Friction provides centripetal force</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">A 1200 kg car rounds a flat curve of radius 80 m at 20 m/s. What minimum coefficient of static friction is required?</p>
+      <div class="we-given">
+        <span class="we-given-item">m = 1200 kg</span>
+        <span class="we-given-item">r = 80 m</span>
+        <span class="we-given-item">v = 20 m/s</span>
+        <span class="we-given-item">flat curve</span>
+      </div>
+      <ol class="we-steps">
+        <li>On a flat curve, the only inward force is static friction: $f_s = mv^2/r$</li>
+        <li>$f_s = (1200)(20)^2/80 = 1200 \times 400/80 = 6000\ \text{N}$</li>
+        <li>Normal force: $N = mg = (1200)(9.8) = 11760\ \text{N}$</li>
+        <li>Required: $f_s \leq \mu_s N \Rightarrow \mu_s \geq f_s/N = 6000/11760$</li>
+        <li>$\mu_s \geq 0.51$</li>
+      </ol>
+      <div class="we-ans">μ_s ≥ 0.51 required to maintain the turn</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════ §5 APPLICATIONS ══════════════════════════════ -->
+<section class="section fade-in" id="sec-applications">
+  <div class="section-header">
+    <div class="sec-number">§ 05</div>
+    <div class="sec-content-header">
+      <h2>Applications of Circular Dynamics</h2>
+      <p class="section-intro">Circular dynamics appears in virtually every domain of engineering and physics. The question is always: what real force is providing the centripetal requirement?</p>
+    </div>
+  </div>
+
+  <div class="apps-grid">
+    <div class="app-card">
+      <div class="app-icon">🏎</div>
+      <div class="app-title">Banked curves</div>
+      <div class="app-formula">$\tan\theta = v^2/(rg)$</div>
+      <div class="app-body">The normal force from a banked road has a horizontal component that provides centripetal force, reducing reliance on friction. Ideal banking angle depends only on speed and radius, not vehicle mass.</div>
+    </div>
+    <div class="app-card">
+      <div class="app-icon">🎡</div>
+      <div class="app-title">Vertical loops</div>
+      <div class="app-formula">$N = m(v^2/r \mp g)$</div>
+      <div class="app-body">At the top: $N = mv^2/r - mg$ (normal and gravity both inward). At the bottom: $N = mv^2/r + mg$ (normal inward, gravity outward). You feel heaviest at the bottom.</div>
+    </div>
+    <div class="app-card">
+      <div class="app-icon">🌍</div>
+      <div class="app-title">Orbital motion</div>
+      <div class="app-formula">$v = \sqrt{GM/r}$</div>
+      <div class="app-body">Gravity provides centripetal force for satellite orbits. The orbital speed depends only on the planet's mass and orbital radius — independent of satellite mass. LEO ≈ 7.9 km/s.</div>
+    </div>
+    <div class="app-card">
+      <div class="app-icon">💫</div>
+      <div class="app-title">Centrifuges</div>
+      <div class="app-formula">$a = \omega^2 r$ (up to $10^6\,g$)</div>
+      <div class="app-body">Medical centrifuges spin samples at high $\omega$ to produce effective gravitational fields thousands of times Earth's. Denser particles migrate outward faster. Ultracentrifuges reach $10^6 g$.</div>
+    </div>
+    <div class="app-card">
+      <div class="app-icon">✈️</div>
+      <div class="app-title">Aircraft banking</div>
+      <div class="app-formula">$L\cos\theta = mg$, $L\sin\theta = mv^2/r$</div>
+      <div class="app-body">A banked aircraft uses the horizontal component of lift as centripetal force. The vertical component of lift must still equal weight, so total lift increases during a turn — hence the sensation of extra weight.</div>
+    </div>
+    <div class="app-card">
+      <div class="app-icon">⚗️</div>
+      <div class="app-title">Conical pendulum</div>
+      <div class="app-formula">$T = 2\pi\sqrt{L\cos\theta/g}$</div>
+      <div class="app-body">A mass on a string sweeping a horizontal circle. Tension resolves into vertical (balancing weight) and horizontal (centripetal). The period depends on the angle — not the mass or string length directly.</div>
+    </div>
+  </div>
+
+  <h3>Banked curve — the full derivation</h3>
+  <p>A banked curve at angle $\theta$ lets a car turn without any friction. The normal force alone provides the centripetal component:</p>
+  <div class="deriv-chain">
+    <div class="deriv-step">
+      <div class="deriv-math">Vertical: $\quad N\cos\theta = mg$</div>
+      <div class="deriv-reason">No vertical acceleration — vertical components balance</div>
+    </div>
+    <div class="deriv-step">
+      <div class="deriv-math">Horizontal (inward): $\quad N\sin\theta = \dfrac{mv^2}{r}$</div>
+      <div class="deriv-reason">The horizontal component of N provides the centripetal force</div>
+    </div>
+    <div class="deriv-step">
+      <div class="deriv-math">Dividing: $\quad \tan\theta = \dfrac{v^2}{rg}$</div>
+      <div class="deriv-reason">$m$ and $N$ cancel — the ideal banking angle is independent of vehicle mass</div>
+    </div>
+    <div class="deriv-step hl">
+      <div class="deriv-math">$$\boxed{v_\text{ideal} = \sqrt{rg\tan\theta}}$$</div>
+      <div class="deriv-reason">At this speed, no friction is needed. Going faster requires outward friction; going slower requires inward friction.</div>
+    </div>
+  </div>
+
+  <!-- Worked Example 4 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 4 — Banked curve ideal speed</div>
+      <div class="we-tag">Banked curve</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">A highway curve of radius 200 m is banked at 12°. Find the ideal speed for no friction.</p>
+      <div class="we-given">
+        <span class="we-given-item">r = 200 m</span>
+        <span class="we-given-item">θ = 12°</span>
+        <span class="we-given-item">no friction condition</span>
+      </div>
+      <ol class="we-steps">
+        <li>$v_\text{ideal} = \sqrt{rg\tan\theta} = \sqrt{200 \times 9.8 \times \tan(12°)}$</li>
+        <li>$\tan(12°) = 0.2126$</li>
+        <li>$v = \sqrt{200 \times 9.8 \times 0.2126} = \sqrt{416.7} = 20.4\ \text{m s}^{-1}$</li>
+        <li>Convert: $20.4 \times 3.6 = 73.6\ \text{km h}^{-1}$</li>
+      </ol>
+      <div class="we-ans">v_ideal = 20.4 m/s ≈ 74 km/h</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════ §6 GRAVITY & ORBITS ══════════════════════════════ -->
+<section class="section fade-in" id="sec-gravity">
+  <div class="section-header">
+    <div class="sec-number">§ 06</div>
+    <div class="sec-content-header">
+      <h2>Gravity &amp; Orbital Mechanics</h2>
+      <p class="section-intro">Newton's law of gravitation combined with circular motion gives us the orbital mechanics of every moon, planet, and satellite in the solar system.</p>
+    </div>
+  </div>
+
+  <div class="eq-block">
+    <div class="eq-label">Newton's Law of Gravitation</div>
+    $$F_g = \frac{Gm_1m_2}{r^2}$$
+    <div class="eq-note">$G = 6.674 \times 10^{-11}\ \text{N m}^2\text{kg}^{-2}$ (gravitational constant). Force is attractive, acts along the line joining the centres, and is mutual.</div>
+  </div>
+
+  <h3>Orbital speed</h3>
+  <p>For a satellite of mass $m$ orbiting a planet of mass $M$ at radius $r$, gravity provides the centripetal force:</p>
+  <div class="deriv-chain">
+    <div class="deriv-step">
+      <div class="deriv-math">$\dfrac{GMm}{r^2} = \dfrac{mv^2}{r}$</div>
+      <div class="deriv-reason">Gravity = centripetal force requirement</div>
+    </div>
+    <div class="deriv-step">
+      <div class="deriv-math">$\dfrac{GM}{r} = v^2$</div>
+      <div class="deriv-reason">Cancel $m$ (the satellite mass drops out entirely — orbital speed is independent of satellite mass)</div>
+    </div>
+    <div class="deriv-step hl">
+      <div class="deriv-math">$$\boxed{v_\text{orb} = \sqrt{\frac{GM}{r}}}$$</div>
+      <div class="deriv-reason">Higher orbit → smaller orbital speed. Counterintuitive: farther out means moving more slowly.</div>
+    </div>
+  </div>
+
+  <h3>Kepler's Third Law — derived</h3>
+  <div class="deriv-chain">
+    <div class="deriv-step">
+      <div class="deriv-math">$T = \dfrac{2\pi r}{v} = \dfrac{2\pi r}{\sqrt{GM/r}} = 2\pi\sqrt{\dfrac{r^3}{GM}}$</div>
+      <div class="deriv-reason">Period = circumference ÷ orbital speed</div>
+    </div>
+    <div class="deriv-step hl">
+      <div class="deriv-math">$$\boxed{T^2 = \frac{4\pi^2}{GM}\,r^3}$$</div>
+      <div class="deriv-reason">Kepler's Third Law: the square of the orbital period is proportional to the cube of the orbital radius. This held empirically before Newton — now we understand <em>why</em>.</div>
+    </div>
+  </div>
+
+  <div class="callout callout-purple">
+    <span class="callout-marker">🌌 Geostationary orbit</span>
+    A geostationary satellite has $T = 24\ \text{h}$ and orbits directly above the equator. Solving Kepler's Third Law for $r$ with $T = 86400\ \text{s}$ and $M_\text{Earth} = 5.97 \times 10^{24}\ \text{kg}$ gives $r \approx 42{,}164\ \text{km}$ — about 35,786 km above the surface. All TV and weather satellites at this altitude appear stationary from the ground.
+  </div>
+
+  <h3>Orbital data — solar system</h3>
+  <table class="planet-table">
+    <thead><tr><th>Body</th><th>Orbital radius (AU)</th><th>Period (years)</th><th>T²/r³ check</th><th>Orbital speed (km/s)</th></tr></thead>
+    <tbody>
+      <tr><td>Mercury</td><td class="mono-val">0.387</td><td class="mono-val">0.241</td><td class="mono-val">≈ 1.00</td><td class="mono-val">47.9</td></tr>
+      <tr><td>Venus</td><td class="mono-val">0.723</td><td class="mono-val">0.615</td><td class="mono-val">≈ 1.00</td><td class="mono-val">35.0</td></tr>
+      <tr><td>Earth</td><td class="mono-val">1.000</td><td class="mono-val">1.000</td><td class="mono-val">1.00</td><td class="mono-val">29.8</td></tr>
+      <tr><td>Mars</td><td class="mono-val">1.524</td><td class="mono-val">1.881</td><td class="mono-val">≈ 1.00</td><td class="mono-val">24.1</td></tr>
+      <tr><td>Jupiter</td><td class="mono-val">5.203</td><td class="mono-val">11.86</td><td class="mono-val">≈ 1.00</td><td class="mono-val">13.1</td></tr>
+      <tr><td>Saturn</td><td class="mono-val">9.537</td><td class="mono-val">29.46</td><td class="mono-val">≈ 1.00</td><td class="mono-val">9.7</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Worked Example 5 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 5 — ISS orbital speed</div>
+      <div class="we-tag">Orbital mechanics</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">The ISS orbits at approximately 420 km above Earth's surface. Find its orbital speed and period. ($M_E = 5.97\times10^{24}$ kg, $R_E = 6.371\times10^6$ m)</p>
+      <div class="we-given">
+        <span class="we-given-item">altitude h = 420 km</span>
+        <span class="we-given-item">M_E = 5.97×10²⁴ kg</span>
+        <span class="we-given-item">R_E = 6371 km</span>
+      </div>
+      <ol class="we-steps">
+        <li>Orbital radius: $r = R_E + h = 6371 + 420 = 6791\ \text{km} = 6.791 \times 10^6\ \text{m}$</li>
+        <li>$v = \sqrt{GM/r} = \sqrt{(6.674\times10^{-11})(5.97\times10^{24})/(6.791\times10^6)}$</li>
+        <li>Numerator: $GM = 3.982\times10^{14}\ \text{m}^3\text{s}^{-2}$</li>
+        <li>$v = \sqrt{3.982\times10^{14}/6.791\times10^6} = \sqrt{5.864\times10^7} = 7657\ \text{m s}^{-1} \approx 7.7\ \text{km s}^{-1}$</li>
+        <li>Period: $T = 2\pi r/v = 2\pi(6.791\times10^6)/7657 = 5570\ \text{s} \approx 92.8\ \text{min}$</li>
+      </ol>
+      <div class="we-ans">v ≈ 7.66 km/s &nbsp;|&nbsp; T ≈ 92.8 min (≈ 15.5 orbits per day)</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════ §7 NON-INERTIAL FRAMES ══════════════════════════════ -->
+<section class="section fade-in" id="sec-noninertial">
+  <div class="section-header">
+    <div class="sec-number">§ 07</div>
+    <div class="sec-content-header">
+      <h2>Non-Inertial Frames &amp; Pseudo-Forces</h2>
+      <p class="section-intro">In a rotating reference frame, objects appear to experience outward "centrifugal" forces and sideways "Coriolis" forces. These are not real forces — but they are essential for analysing rotating systems.</p>
+    </div>
+  </div>
+
+  <p>Recall from Module 1 that Newton's laws only hold in <strong>inertial frames</strong>. A rotating frame is non-inertial — things appear to accelerate without a real force. To apply Newton II in such a frame, we add <em>fictitious forces</em> equal and opposite to the frame's own acceleration effects.</p>
+
+  <h3>Centrifugal force (fictitious)</h3>
+  <p>In a frame rotating at angular velocity $\omega$, every object of mass $m$ at distance $r$ from the axis appears to experience an outward centrifugal force:</p>
+  <div class="eq-block">
+    <div class="eq-label">Centrifugal pseudo-force (rotating frame only)</div>
+    $$\mathbf{F}_\text{cf} = m\omega^2 r \quad (\text{directed radially outward})$$
+    <div class="eq-note">This is exactly equal and opposite to the centripetal acceleration term. In the rotating frame, this pseudo-force balances the real inward forces, explaining why objects appear stationary in the rotating frame even without net force.</div>
+  </div>
+
+  <h3>Coriolis force (fictitious)</h3>
+  <p>An object moving with velocity $\mathbf{v}'$ in a rotating frame also experiences a Coriolis force perpendicular to its velocity:</p>
+  <div class="eq-block">
+    <div class="eq-label">Coriolis pseudo-force</div>
+    $$\mathbf{F}_\text{Cor} = -2m\,\boldsymbol{\omega} \times \mathbf{v}'$$
+    <div class="eq-note">$\boldsymbol{\omega}$ is the rotation vector (pointing along the rotation axis). This force causes deflection of moving air masses (winds, ocean currents) and the rotation of Foucault pendulums. On Earth's surface, it deflects moving objects rightward in the Northern Hemisphere.</div>
+  </div>
+
+  <div class="callout callout-teal">
+    <span class="callout-marker">🌀 Coriolis in everyday life</span>
+    The Coriolis effect causes hurricanes to rotate counterclockwise in the Northern Hemisphere (cyclonically) and clockwise in the Southern. The drainage direction of a sink is <em>not</em> reliably determined by Coriolis — the forces are too small relative to the initial rotation imparted while filling. Large-scale atmospheric and oceanic circulation, however, is dominated by it.
+  </div>
+
+  <div class="callout callout-amber">
+    <span class="callout-marker">⚖️ Inertial vs rotating frame — same physics</span>
+    Both approaches give the same observable predictions. In the <strong>inertial frame</strong>: the object accelerates inward, centripetal force is real. In the <strong>rotating frame</strong>: the object appears stationary, centrifugal and Coriolis forces are fictitious but mathematically valid. Neither is "more correct" — they are different computational tools.
+  </div>
+
+  <!-- Worked Example 6 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 6 — Apparent weight on the equator</div>
+      <div class="we-tag">Rotating frame / effective gravity</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">By how much does Earth's rotation reduce apparent weight at the equator? ($R_E = 6.371\times10^6$ m, $T = 86400$ s)</p>
+      <div class="we-given">
+        <span class="we-given-item">R_E = 6.371×10⁶ m</span>
+        <span class="we-given-item">T = 86400 s</span>
+        <span class="we-given-item">m = 70 kg (example)</span>
+      </div>
+      <ol class="we-steps">
+        <li>$\omega = 2\pi/T = 2\pi/86400 = 7.27\times10^{-5}\ \text{rad s}^{-1}$</li>
+        <li>Centripetal acceleration needed: $a_c = \omega^2 R_E = (7.27\times10^{-5})^2(6.371\times10^6) = 0.0337\ \text{m s}^{-2}$</li>
+        <li>From Newton II: $mg - N = ma_c$ (the surface must provide centripetal force)</li>
+        <li>$N = m(g - a_c) = 70(9.8 - 0.034) = 70 \times 9.766 = 683.6\ \text{N}$</li>
+        <li>Reduction: $70 \times 0.034 = 2.4\ \text{N}$ or about <strong>0.34%</strong> of weight</li>
+      </ol>
+      <div class="we-ans">Apparent weight reduced by ≈ 2.4 N (0.34%) at the equator</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════════════ §8 SIMULATION ══════════════════════════════ -->
+<section class="section fade-in" id="sec-sim">
+  <div class="section-header">
+    <div class="sec-number">§ 08</div>
+    <div class="sec-content-header">
+      <h2>Interactive Simulation</h2>
+      <p class="section-intro">All dynamics computed from $F = ma$ each frame. Force vectors drawn at true instantaneous magnitudes. Explore circular motion, vertical loops, orbits, and conical pendulums.</p>
+    </div>
+  </div>
+
+  <div class="sim-wrap">
+    <div class="sim-header">
+      <div class="sim-title">Circular Dynamics Lab</div>
+      <div class="sim-tabs">
+        <button class="stab active" id="stab-circle" onclick="setMode('circle')">Circular</button>
+        <button class="stab" id="stab-loop" onclick="setMode('loop')">Vertical loop</button>
+        <button class="stab" id="stab-orbit" onclick="setMode('orbit')">Orbit</button>
+        <button class="stab" id="stab-conical" onclick="setMode('conical')">Conical pendulum</button>
+      </div>
+    </div>
+    <div class="sim-body">
+      <div class="sim-eq-bar" id="sim-eq-bar"></div>
+      <div class="canvas-wrap"><canvas id="sim"></canvas></div>
+      <div class="readouts" id="readouts"></div>
+      <div class="sliders-grid" id="sliders"></div>
+      <div class="graphs-row">
+        <div class="g-card"><div class="g-lbl" id="g1lbl">v — t</div><canvas class="gc" id="gvt"></canvas></div>
+        <div class="g-card"><div class="g-lbl" id="g2lbl">F_c — t</div><canvas class="gc" id="gft"></canvas></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<div class="module-footer">
+  <div class="footer-tag">Physics · Module 3 of 3</div>
+  <div class="footer-nav">
+    <a class="fnav-btn prev" href="friction.html">← Friction &amp; Surfaces</a>
+  </div>
+</div>
+
+</div><!-- /page -->
+
+<!-- ═══════════════════════ SCRIPTS ═══════════════════════ -->
+<script>
+const DPR = window.devicePixelRatio || 1;
+const G_CONST = 6.674e-11;
+const G = 9.8;
+const TAU = Math.PI * 2;
+
+/* scroll fade */
+const obs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); });
+},{threshold:.07});
+document.querySelectorAll('.fade-in').forEach(el=>obs.observe(el));
+
+/* canvas utils */
+function setupCanvas(canvas, w, h){
+  canvas.width = w*DPR; canvas.height = h*DPR;
+  canvas.style.width = w+'px'; canvas.style.height = h+'px';
+  const ctx = canvas.getContext('2d'); ctx.scale(DPR,DPR);
+  return ctx;
+}
+
+function arrow(ctx, x1,y1,x2,y2,col,lw=1.5){
+  const a = Math.atan2(y2-y1,x2-x1);
+  ctx.save(); ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const s=7; ctx.beginPath(); ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-s*Math.cos(a-.42),y2-s*Math.sin(a-.42));
+  ctx.lineTo(x2-s*Math.cos(a+.42),y2-s*Math.sin(a+.42));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+function lbl(ctx,x,y,txt,col,sz=9,align='center'){
+  ctx.save(); ctx.fillStyle=col; ctx.font=`${sz}px 'DM Sans',sans-serif`;
+  ctx.textAlign=align; ctx.fillText(txt,x,y); ctx.restore();
+}
+
+const C = {
+  block:'#0c1628', blockBorder:'#1e3a5f', blockText:'#3b9eff',
+  centripetal:'#ff4d6a', velocity:'#00e5a0', tension:'#3b9eff',
+  weight:'#ff4d6a', normal:'#00e5a0', orbit:'#b06fff',
+  trail:'rgba(59,158,255,0.12)', ground:'rgba(59,158,255,0.15)',
+  grid:'rgba(59,158,255,0.04)',
+};
+
+/* ════ LIVE VECTOR DIAGRAM (§3) ════ */
+let vectorAngle = 0;
+const vcCanvas = document.getElementById('vector-canvas');
+
+function drawVectorDiagram(){
+  const pw = vcCanvas.parentElement.offsetWidth;
+  const ctx = setupCanvas(vcCanvas, pw, 220);
+  const W=pw, H=220;
+  const cx=W/2, cy=H/2, r=72;
+
+  // orbit circle
+  ctx.strokeStyle='rgba(59,158,255,0.2)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,TAU); ctx.stroke();
+
+  // centre dot
+  ctx.fillStyle='#1e3a5f'; ctx.beginPath(); ctx.arc(cx,cy,4,0,TAU); ctx.fill();
+  lbl(ctx,cx,cy+14,'O','#2e4060',8);
+
+  const px = cx + r*Math.cos(vectorAngle);
+  const py = cy + r*Math.sin(vectorAngle);
+
+  // radius line
+  ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(px,py); ctx.stroke();
+  ctx.setLineDash([]);
+  lbl(ctx,(cx+px)/2-8,(cy+py)/2-8,'r','#2e4060',8);
+
+  // object
+  ctx.fillStyle=C.block; ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(px,py,11,0,TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=C.blockText; ctx.font="bold 9px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center'; ctx.fillText('m',px,py+3);
+
+  // velocity (tangential, perpendicular to radius)
+  const vScale=42;
+  const vx=-Math.sin(vectorAngle)*vScale, vy=Math.cos(vectorAngle)*vScale;
+  arrow(ctx,px,py,px+vx,py+vy,'#00e5a0',2);
+  lbl(ctx,px+vx+8,py+vy,'v','#00e5a0',10,'left');
+
+  // centripetal acceleration (toward centre)
+  const acScale=32;
+  const acx=(cx-px)/r*acScale, acy=(cy-py)/r*acScale;
+  arrow(ctx,px,py,px+acx,py+acy,'#ff4d6a',2);
+  lbl(ctx,px+acx/2-12,py+acy/2,'a_c','#ff4d6a',9,'right');
+
+  // angle arc
+  ctx.strokeStyle='#2e4060'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,18,0,vectorAngle); ctx.stroke();
+  lbl(ctx,cx+24,cy+8,'θ','#2e4060',8);
+
+  vectorAngle += 0.012;
+}
+
+/* ════ FBD CANVASES ════ */
+function drawFBDString(id){
+  const c=document.getElementById(id); if(!c)return;
+  const pw=c.parentElement.offsetWidth;
+  const ctx=setupCanvas(c,pw,180);
+  const cx=pw/2, cy=100;
+  // circle (orbit path)
+  ctx.strokeStyle='rgba(59,158,255,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,60,0,TAU); ctx.stroke();
+  // string
+  ctx.strokeStyle='#2e4060'; ctx.lineWidth=1; ctx.setLineDash([2,3]);
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+60,cy); ctx.stroke(); ctx.setLineDash([]);
+  // centre dot
+  ctx.fillStyle='#1e3a5f'; ctx.beginPath(); ctx.arc(cx,cy,5,0,TAU); ctx.fill();
+  lbl(ctx,cx,cy+14,'pivot','#2e4060',8);
+  // ball
+  ctx.fillStyle=C.block; ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(cx+60,cy,13,0,TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=C.blockText; ctx.font="bold 9px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center'; ctx.fillText('m',cx+60,cy+3);
+  // tension (left, toward centre)
+  arrow(ctx,cx+60,cy,cx+60-45,cy,C.tension,2);
+  lbl(ctx,cx+60-50,cy-9,'T',C.tension,9,'right');
+  // centripetal arrow
+  arrow(ctx,cx+60,cy+22,cx+60-35,cy+22,'#ff4d6a',1.5);
+  lbl(ctx,cx+60-36,cy+18,'F_c','#ff4d6a',8,'right');
+  lbl(ctx,cx,cy+155,'T = mv²/r','#2e4060',9);
+}
+
+function drawFBDLoopTop(id){
+  const c=document.getElementById(id); if(!c)return;
+  const pw=c.parentElement.offsetWidth;
+  const ctx=setupCanvas(c,pw,180);
+  const cx=pw/2, cy=120;
+  // loop circle
+  ctx.strokeStyle='rgba(59,158,255,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,55,0,TAU); ctx.stroke();
+  // ball at top
+  const bx=cx, by=cy-55;
+  ctx.fillStyle=C.block; ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(bx,by,12,0,TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=C.blockText; ctx.font="bold 9px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center'; ctx.fillText('m',bx,by+3);
+  // weight down
+  arrow(ctx,bx,by+12,bx,by+50,C.weight,2);
+  lbl(ctx,bx+10,by+52,'W',C.weight,9,'left');
+  // normal down (at top of loop, track pushes down)
+  arrow(ctx,bx,by+12,bx,by+32,'#00e5a0',2);
+  lbl(ctx,bx-8,by+26,'N','#00e5a0',9,'right');
+  // net = centripetal (down)
+  lbl(ctx,cx,cy+28,'W + N = mv²/r ↓','#2e4060',8);
+  lbl(ctx,cx,cy+40,'(both toward centre)','#2e4060',8);
+}
+
+function drawFBDLoopBot(id){
+  const c=document.getElementById(id); if(!c)return;
+  const pw=c.parentElement.offsetWidth;
+  const ctx=setupCanvas(c,pw,180);
+  const cx=pw/2, cy=60;
+  // loop circle
+  ctx.strokeStyle='rgba(59,158,255,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,55,0,TAU); ctx.stroke();
+  // ball at bottom
+  const bx=cx, by=cy+55;
+  ctx.fillStyle=C.block; ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(bx,by,12,0,TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=C.blockText; ctx.font="bold 9px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center'; ctx.fillText('m',bx,by+3);
+  // normal up (centripetal, toward centre = upward)
+  arrow(ctx,bx,by-12,bx,by-60,'#00e5a0',2);
+  lbl(ctx,bx-8,by-48,'N','#00e5a0',9,'right');
+  // weight down
+  arrow(ctx,bx,by+12,bx,by+50,C.weight,2);
+  lbl(ctx,bx+10,by+52,'W',C.weight,9,'left');
+  lbl(ctx,cx,cy-8,'N − W = mv²/r ↑','#2e4060',8);
+  lbl(ctx,cx,cy-20,'(N > W; you feel heavy)','#2e4060',8);
+}
+
+function drawFBDBanked(id){
+  const c=document.getElementById(id); if(!c)return;
+  const pw=c.parentElement.offsetWidth;
+  const ctx=setupCanvas(c,pw,180);
+  const cx=pw/2, cy=100;
+  const theta=22*Math.PI/180;
+  // road surface
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(-theta);
+  ctx.strokeStyle='rgba(59,158,255,0.2)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(-70,0); ctx.lineTo(70,0); ctx.stroke();
+  ctx.fillStyle=C.block; ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.roundRect(-20,-18,40,36,4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=C.blockText; ctx.font="bold 10px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center'; ctx.fillText('m',0,5); ctx.restore();
+  // N perpendicular to road
+  const nx=-Math.sin(theta)*58, ny=-Math.cos(theta)*58;
+  arrow(ctx,cx,cy,cx+nx,cy+ny,'#00e5a0',2);
+  lbl(ctx,cx+nx+4,cy+ny-4,'N','#00e5a0',9,'left');
+  // weight down
+  arrow(ctx,cx,cy,cx,cy+58,C.weight,2);
+  lbl(ctx,cx+6,cy+64,'W','#ff4d6a',9,'left');
+  // N horizontal component (centripetal)
+  arrow(ctx,cx,cy+30,cx+nx,cy+30,'#3b9eff',1.5);
+  lbl(ctx,cx+nx/2,cy+22,'N sinθ = F_c','#3b9eff',8,'center');
+  // angle label
+  ctx.strokeStyle='#2e4060'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,20,-(Math.PI/2+theta),-(Math.PI/2)); ctx.stroke();
+  lbl(ctx,cx+8,cy-14,'θ','#2e4060',8);
+}
+
+/* ════ SIMULATION ════ */
+const MODES = {
+  circle:{
+    latex:'F_c = \\dfrac{mv^2}{r} = m\\omega^2 r',
+    controls:[
+      {id:'mass', name:'Mass m',   min:.5, max:10, step:.5, val:2, unit:'kg',col:'#3b9eff'},
+      {id:'radius',name:'Radius r',min:.5, max:5,  step:.25,val:2, unit:'m', col:'#00e5a0'},
+      {id:'omega', name:'ω (rad/s)',min:.5, max:6,  step:.25,val:2, unit:'',  col:'#ffb830'},
+    ]
+  },
+  loop:{
+    latex:'N = \\dfrac{mv^2}{r} \\mp mg',
+    controls:[
+      {id:'mass',  name:'Mass m',   min:.5,max:10, step:.5, val:2, unit:'kg',col:'#3b9eff'},
+      {id:'radius',name:'Radius r', min:1, max:8,  step:.5, val:4, unit:'m', col:'#00e5a0'},
+      {id:'omega', name:'ω (rad/s)',min:.5,max:4,  step:.1, val:1.8,unit:'', col:'#ffb830'},
+    ]
+  },
+  orbit:{
+    latex:'v = \\sqrt{GM/r},\\quad T^2 \\propto r^3',
+    controls:[
+      {id:'orbitR',name:'Orbit radius',min:.5,max:5,step:.25,val:2, unit:'AU',col:'#b06fff'},
+    ]
+  },
+  conical:{
+    latex:'T = 2\\pi\\sqrt{\\dfrac{L\\cos\\theta}{g}}',
+    controls:[
+      {id:'mass',  name:'Mass m',     min:.1,max:5,  step:.1,  val:1, unit:'kg',col:'#3b9eff'},
+      {id:'length',name:'String L',   min:.3,max:3,  step:.1,  val:1.2,unit:'m',col:'#00e5a0'},
+      {id:'theta', name:'Angle θ',    min:5, max:75, step:1,   val:35,unit:'°', col:'#ffb830'},
+    ]
+  }
+};
+
+let mode='circle';
+let ctrl={mass:2,radius:2,omega:2,orbitR:2,length:1.2,theta:35};
+let state={};
+let hist={v:[],f:[]};
+let trail=[];
+
+const simC=document.getElementById('sim');
+const sCtx=simC.getContext('2d');
+const gvtC=document.getElementById('gvt');
+const gftC=document.getElementById('gft');
+const gvtX=gvtC.getContext('2d');
+const gftX=gftC.getContext('2d');
+
+function resizeSim(){
+  const sw=simC.parentElement.offsetWidth;
+  simC.width=sw*DPR; simC.height=260*DPR;
+  simC.style.width=sw+'px'; simC.style.height='260px';
+  sCtx.scale(DPR,DPR);
+  [gvtC,gftC].forEach(c=>{
+    const pw=c.parentElement.offsetWidth;
+    c.width=pw*DPR; c.height=72*DPR;
+    c.getContext('2d').scale(DPR,DPR);
+    c.style.width=pw+'px'; c.style.height='72px';
+  });
+}
+
+function initState(){
+  hist={v:[],f:[]};
+  trail=[];
+  const W=simC.width/DPR;
+  if(mode==='circle'||mode==='loop'){
+    state={angle:0,t:0};
+  } else if(mode==='orbit'){
+    state={angle:0,t:0};
+  } else {
+    state={angle:0,t:0};
+  }
+}
+
+const DT=1/60;
+
+function simStep(){
+  state.t+=DT;
+  if(mode==='circle'){
+    state.angle+=ctrl.omega*DT;
+    const v=ctrl.omega*ctrl.radius;
+    const fc=ctrl.mass*v*v/ctrl.radius;
+    hist.v.push([state.t,v]);
+    hist.f.push([state.t,fc]);
+  } else if(mode==='loop'){
+    state.angle+=ctrl.omega*DT;
+    const v=ctrl.omega*ctrl.radius;
+    const fc=ctrl.mass*v*v/ctrl.radius;
+    hist.v.push([state.t,v]);
+    hist.f.push([state.t,fc]);
+  } else if(mode==='orbit'){
+    // Kepler: scale omega inversely with r^1.5
+    const baseOmega=0.4;
+    const omega=baseOmega/Math.pow(ctrl.orbitR,1.5);
+    state.angle+=omega*DT;
+    const v=omega*ctrl.orbitR;
+    hist.v.push([state.t,v]);
+    hist.f.push([state.t,ctrl.orbitR]);
+  } else {
+    // conical pendulum
+    const rad=ctrl.theta*Math.PI/180;
+    const r=ctrl.length*Math.sin(rad);
+    const period=TAU*Math.sqrt(ctrl.length*Math.cos(rad)/G);
+    const omega=TAU/period;
+    state.angle+=omega*DT;
+    const v=omega*r;
+    hist.v.push([state.t,v]);
+    hist.f.push([state.t,ctrl.mass*v*v/r]);
+  }
+  // trail for orbit mode
+  if(mode==='orbit'){
+    const W=simC.width/DPR, H=simC.height/DPR;
+    const cx=W/2,cy=H/2;
+    const scale=Math.min(W,H)*0.18;
+    trail.push({x:cx+ctrl.orbitR*scale*Math.cos(state.angle),y:cy+ctrl.orbitR*scale*Math.sin(state.angle)});
+    if(trail.length>300) trail.shift();
+  }
+  if(hist.v.length>500){ hist.v.shift(); hist.f.shift(); }
+}
+
+function drawSim(){
+  const W=simC.width/DPR, H=simC.height/DPR;
+  sCtx.clearRect(0,0,W,H);
+  // grid
+  sCtx.strokeStyle=C.grid; sCtx.lineWidth=1;
+  for(let y=0;y<H;y+=40){sCtx.beginPath();sCtx.moveTo(0,y);sCtx.lineTo(W,y);sCtx.stroke();}
+
+  const cx=W/2, cy=H/2;
+
+  if(mode==='circle'){
+    const scale=Math.min(W,H)*0.30;
+    const r=Math.min(ctrl.radius,3.5)*scale/3.5;
+    const px=cx+r*Math.cos(state.angle);
+    const py=cy+r*Math.sin(state.angle);
+    const v=ctrl.omega*ctrl.radius;
+    // orbit circle
+    sCtx.strokeStyle='rgba(59,158,255,0.15)'; sCtx.lineWidth=1;
+    sCtx.beginPath(); sCtx.arc(cx,cy,r,0,TAU); sCtx.stroke();
+    // string
+    sCtx.strokeStyle='#1e3a5f'; sCtx.lineWidth=1.5; sCtx.setLineDash([3,4]);
+    sCtx.beginPath(); sCtx.moveTo(cx,cy); sCtx.lineTo(px,py); sCtx.stroke(); sCtx.setLineDash([]);
+    // centre
+    sCtx.fillStyle='#2e4060'; sCtx.beginPath(); sCtx.arc(cx,cy,5,0,TAU); sCtx.fill();
+    // ball
+    sCtx.fillStyle=C.block; sCtx.strokeStyle='#3b9eff44'; sCtx.lineWidth=2;
+    sCtx.beginPath(); sCtx.arc(px,py,14,0,TAU); sCtx.fill(); sCtx.stroke();
+    sCtx.fillStyle='#3b9eff'; sCtx.font="bold 10px 'IBM Plex Mono',monospace";
+    sCtx.textAlign='center'; sCtx.fillText('m',px,py+3);
+    // velocity arrow (tangential)
+    const vs=Math.min(v*10,60);
+    arrow(sCtx,px,py,px-Math.sin(state.angle)*vs,py+Math.cos(state.angle)*vs,'#00e5a0',2);
+    lbl(sCtx,px-Math.sin(state.angle)*vs-6,py+Math.cos(state.angle)*vs,'v','#00e5a0',9,'right');
+    // centripetal arrow (toward centre)
+    const cs=45;
+    arrow(sCtx,px,py,px+(cx-px)/r*cs,py+(cy-py)/r*cs,'#ff4d6a',2);
+    lbl(sCtx,px+(cx-px)/r*30,py+(cy-py)/r*26,'F_c','#ff4d6a',8,'center');
+    // readout
+    lbl(sCtx,cx,H-12,'ω = '+ctrl.omega.toFixed(1)+' rad/s   v = '+v.toFixed(1)+' m/s','#5a7090',9);
+
+  } else if(mode==='loop'){
+    const maxR=Math.min(W,H)*0.33;
+    const r=Math.min(ctrl.radius,5)*maxR/5;
+    const px=cx+r*Math.cos(state.angle);
+    const py=cy+r*Math.sin(state.angle);
+    const v=ctrl.omega*ctrl.radius;
+    const fc=ctrl.mass*v*v/ctrl.radius;
+    // loop
+    sCtx.strokeStyle='rgba(59,158,255,0.2)'; sCtx.lineWidth=2;
+    sCtx.beginPath(); sCtx.arc(cx,cy,r,0,TAU); sCtx.stroke();
+    // ball
+    sCtx.fillStyle=C.block; sCtx.strokeStyle='#3b9eff44'; sCtx.lineWidth=2;
+    sCtx.beginPath(); sCtx.arc(px,py,13,0,TAU); sCtx.fill(); sCtx.stroke();
+    sCtx.fillStyle='#3b9eff'; sCtx.font="bold 10px 'IBM Plex Mono',monospace";
+    sCtx.textAlign='center'; sCtx.fillText('m',px,py+3);
+    // velocity
+    const vs=40;
+    arrow(sCtx,px,py,px-Math.sin(state.angle)*vs,py+Math.cos(state.angle)*vs,'#00e5a0',2);
+    // weight
+    arrow(sCtx,px,py,px,py+ctrl.mass*G*0.5,'#ff4d6a',2);
+    lbl(sCtx,px+8,py+ctrl.mass*G*0.5,'W','#ff4d6a',9,'left');
+    // normal (toward centre)
+    const nx=(cx-px)/r*40, ny=(cy-py)/r*40;
+    arrow(sCtx,px,py,px+nx,py+ny,'#00e5a0',2);
+    lbl(sCtx,px+nx+5,py+ny,'N','#00e5a0',9,'left');
+    // position label
+    const angDeg=(state.angle*180/Math.PI)%360;
+    const posLabel= (angDeg>-30&&angDeg<30||angDeg>330)?'Bottom':
+                    (angDeg>150&&angDeg<210)?'Top':
+                    (angDeg>60&&angDeg<120)?'Side':'Side';
+    lbl(sCtx,cx,H-12,'Position: '+posLabel+'   N = '+(fc-(Math.sign(Math.sin(state.angle))*ctrl.mass*G)).toFixed(1)+' N','#5a7090',9);
+
+  } else if(mode==='orbit'){
+    const scale=Math.min(W,H)*0.18;
+    // star
+    const starR=12+2*Math.sin(state.t*2);
+    const grad=sCtx.createRadialGradient(cx,cy,0,cx,cy,starR*2.5);
+    grad.addColorStop(0,'rgba(255,184,48,0.5)');
+    grad.addColorStop(1,'rgba(255,184,48,0)');
+    sCtx.fillStyle=grad; sCtx.beginPath(); sCtx.arc(cx,cy,starR*2.5,0,TAU); sCtx.fill();
+    sCtx.fillStyle='#ffb830'; sCtx.beginPath(); sCtx.arc(cx,cy,starR,0,TAU); sCtx.fill();
+    lbl(sCtx,cx,cy+20,'M','#ffb83088',8);
+    // orbit path
+    const orbitPx=ctrl.orbitR*scale;
+    sCtx.strokeStyle='rgba(176,111,255,0.2)'; sCtx.lineWidth=1;
+    sCtx.beginPath(); sCtx.arc(cx,cy,orbitPx,0,TAU); sCtx.stroke();
+    // trail
+    if(trail.length>2){
+      sCtx.beginPath(); sCtx.moveTo(trail[0].x,trail[0].y);
+      trail.forEach(p=>sCtx.lineTo(p.x,p.y));
+      sCtx.strokeStyle='rgba(176,111,255,0.3)'; sCtx.lineWidth=1.5; sCtx.stroke();
+    }
+    // satellite
+    const sx=cx+orbitPx*Math.cos(state.angle);
+    const sy=cy+orbitPx*Math.sin(state.angle);
+    sCtx.fillStyle=C.block; sCtx.strokeStyle='#b06fff'; sCtx.lineWidth=2;
+    sCtx.beginPath(); sCtx.arc(sx,sy,10,0,TAU); sCtx.fill(); sCtx.stroke();
+    // velocity arrow
+    const baseOmega=0.4, omega=baseOmega/Math.pow(ctrl.orbitR,1.5);
+    const vs=50;
+    arrow(sCtx,sx,sy,sx-Math.sin(state.angle)*vs*0.6,sy+Math.cos(state.angle)*vs*0.6,'#00e5a0',2);
+    // gravity arrow (toward star)
+    arrow(sCtx,sx,sy,sx+(cx-sx)*0.35,sy+(cy-sy)*0.35,'#ff4d6a',2);
+    lbl(sCtx,sx+(cx-sx)*0.18,sy+(cy-sy)*0.18+10,'F_g','#ff4d6a',8,'center');
+    // Kepler period
+    const T=(TAU/omega).toFixed(1);
+    const v2=(omega*ctrl.orbitR).toFixed(2);
+    lbl(sCtx,cx,H-20,'r = '+ctrl.orbitR+' AU   v ∝ 1/√r = '+v2+'   T = '+T+' yr','#5a7090',9);
+    lbl(sCtx,cx,H-8,'Kepler: T² ∝ r³','#2e4060',8);
+
+  } else {
+    // conical pendulum
+    const rad=ctrl.theta*Math.PI/180;
+    const r=ctrl.length*Math.sin(rad);
+    const pivotY=60;
+    const stringScale=70;
+    const bx=cx+r*stringScale*Math.cos(state.angle);
+    const by=pivotY+ctrl.length*Math.cos(rad)*stringScale;
+    // pivot
+    sCtx.fillStyle='#2e4060'; sCtx.beginPath(); sCtx.arc(cx,pivotY,5,0,TAU); sCtx.fill();
+    // orbit circle (projected)
+    sCtx.strokeStyle='rgba(59,158,255,0.12)'; sCtx.lineWidth=1;
+    sCtx.beginPath(); sCtx.ellipse(cx,by,r*stringScale,r*stringScale*0.25,0,0,TAU); sCtx.stroke();
+    // string
+    sCtx.strokeStyle='#1e3a5f'; sCtx.lineWidth=1.5; sCtx.setLineDash([2,3]);
+    sCtx.beginPath(); sCtx.moveTo(cx,pivotY); sCtx.lineTo(bx,by); sCtx.stroke(); sCtx.setLineDash([]);
+    // ball
+    sCtx.fillStyle=C.block; sCtx.strokeStyle='#3b9eff55'; sCtx.lineWidth=2;
+    sCtx.beginPath(); sCtx.arc(bx,by,13,0,TAU); sCtx.fill(); sCtx.stroke();
+    sCtx.fillStyle='#3b9eff'; sCtx.font="bold 10px 'IBM Plex Mono',monospace";
+    sCtx.textAlign='center'; sCtx.fillText('m',bx,by+3);
+    // tension (along string toward pivot)
+    const tLen=40;
+    const tx=(cx-bx)/Math.sqrt((cx-bx)**2+(pivotY-by)**2)*tLen;
+    const ty=(pivotY-by)/Math.sqrt((cx-bx)**2+(pivotY-by)**2)*tLen;
+    arrow(sCtx,bx,by,bx+tx,by+ty,'#3b9eff',2);
+    lbl(sCtx,bx+tx/2-8,by+ty/2,'T','#3b9eff',9,'right');
+    // weight
+    arrow(sCtx,bx,by,bx,by+40,'#ff4d6a',2);
+    lbl(sCtx,bx+6,by+48,'W','#ff4d6a',9,'left');
+    // T vertical component (dashed)
+    const period=TAU*Math.sqrt(ctrl.length*Math.cos(rad)/G);
+    const omega2=TAU/period;
+    const v2=omega2*r;
+    lbl(sCtx,cx,H-20,'θ = '+ctrl.theta+'°   r = '+(r*stringScale/stringScale).toFixed(2)+' m   T = '+period.toFixed(2)+' s','#5a7090',9);
+  }
+}
+
+function drawGraph(can,ctx2,data,col){
+  const w=can.width/DPR, h=can.height/DPR;
+  ctx2.clearRect(0,0,w,h);
+  if(data.length<3) return;
+  const xs=data.map(d=>d[0]), ys=data.map(d=>d[1]);
+  const maxx=xs[xs.length-1]||1;
+  const miny=Math.min(...ys), maxy=Math.max(...ys);
+  const yr=maxy-miny||1;
+  const pad=2;
+  const tx=v=>pad+(v/maxx)*(w-2*pad);
+  const ty=v=>h-pad-((v-miny)/yr)*(h-2*pad);
+  ctx2.fillStyle=col+'18'; ctx2.beginPath();
+  ctx2.moveTo(tx(xs[0]),ty(0));
+  data.forEach(d=>ctx2.lineTo(tx(d[0]),ty(d[1])));
+  ctx2.lineTo(tx(xs[xs.length-1]),ty(0)); ctx2.closePath(); ctx2.fill();
+  ctx2.strokeStyle=col; ctx2.lineWidth=1.5; ctx2.lineJoin='round';
+  ctx2.beginPath();
+  data.forEach((d,i)=>i===0?ctx2.moveTo(tx(d[0]),ty(d[1])):ctx2.lineTo(tx(d[0]),ty(d[1])));
+  ctx2.stroke();
+  ctx2.beginPath(); ctx2.arc(tx(xs[xs.length-1]),ty(ys[ys.length-1]),3,0,TAU);
+  ctx2.fillStyle=col; ctx2.fill();
+}
+
+function updateReadouts(){
+  const div=document.getElementById('readouts');
+  div.innerHTML='';
+  const ro=(l,v,u)=>{
+    const d=document.createElement('div'); d.className='ro';
+    d.innerHTML=`<div class="ro-lbl">${l}</div><div class="ro-val">${v}<span class="unit"> ${u}</span></div>`;
+    div.appendChild(d);
+  };
+  if(mode==='circle'){
+    const v=ctrl.omega*ctrl.radius;
+    const fc=ctrl.mass*v*v/ctrl.radius;
+    const ac=v*v/ctrl.radius;
+    ro('speed v',v.toFixed(2),'m/s');
+    ro('ω',ctrl.omega.toFixed(2),'rad/s');
+    ro('a_c',ac.toFixed(2),'m/s²');
+    ro('F_c',fc.toFixed(2),'N');
+    ro('period T',(TAU/ctrl.omega).toFixed(2),'s');
+  } else if(mode==='loop'){
+    const v=ctrl.omega*ctrl.radius;
+    const fc=ctrl.mass*v*v/ctrl.radius;
+    const Ntop=fc-ctrl.mass*G;
+    const Nbot=fc+ctrl.mass*G;
+    ro('speed v',v.toFixed(2),'m/s');
+    ro('F_c',fc.toFixed(1),'N');
+    ro('N at top',Math.max(0,Ntop).toFixed(1),'N');
+    ro('N at bot',Nbot.toFixed(1),'N');
+    ro('v_min',Math.sqrt(G*ctrl.radius).toFixed(2),'m/s');
+  } else if(mode==='orbit'){
+    const baseOmega=0.4, omega=baseOmega/Math.pow(ctrl.orbitR,1.5);
+    const T=TAU/omega, v=omega*ctrl.orbitR;
+    ro('orbit r',ctrl.orbitR.toFixed(2),'AU');
+    ro('period T',T.toFixed(2),'yr');
+    ro('speed v',v.toFixed(3),'AU/yr');
+    ro('T²/r³',(T*T/Math.pow(ctrl.orbitR,3)).toFixed(3),'—');
+  } else {
+    const rad=ctrl.theta*Math.PI/180;
+    const r=ctrl.length*Math.sin(rad);
+    const period=TAU*Math.sqrt(ctrl.length*Math.cos(rad)/G);
+    const omega=TAU/period;
+    const v=omega*r;
+    const T_str=ctrl.mass*G/Math.cos(rad);
+    ro('radius r',r.toFixed(3),'m');
+    ro('period T',period.toFixed(3),'s');
+    ro('speed v',v.toFixed(3),'m/s');
+    ro('tension T',T_str.toFixed(2),'N');
+  }
+}
+
+function buildControls(){
+  const m=MODES[mode];
+  const div=document.getElementById('sliders'); div.innerHTML='';
+  m.controls.forEach(c=>{
+    const v=ctrl[c.id]!==undefined?ctrl[c.id]:c.val;
+    const el=document.createElement('div'); el.className='sl-wrap';
+    el.innerHTML=`<div class="sl-top"><span class="sl-name">${c.name}</span><span class="sl-val" id="sv-${c.id}">${v}${c.unit?' '+c.unit:''}</span></div>
+      <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${v}" style="accent-color:${c.col}">`;
+    div.appendChild(el);
+    el.querySelector('input').addEventListener('input',function(){
+      ctrl[c.id]=parseFloat(this.value);
+      document.getElementById('sv-'+c.id).textContent=this.value+(c.unit?' '+c.unit:'');
+    });
+  });
+  const bar=document.getElementById('sim-eq-bar'); bar.innerHTML='';
+  if(window.katex){ try{katex.render(m.latex,bar,{throwOnError:false,displayMode:false});}catch(e){} }
+  document.getElementById('g1lbl').textContent=mode==='orbit'?'angular pos — t':'v — t';
+  document.getElementById('g2lbl').textContent=mode==='orbit'?'r — t':'F_c — t';
+}
+
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
+  const mp={circle:'stab-circle',loop:'stab-loop',orbit:'stab-orbit',conical:'stab-conical'};
+  document.getElementById(mp[m]).classList.add('active');
+  buildControls(); resizeSim(); initState();
+}
+
+/* main loop */
+function loop(){
+  simStep(); drawSim();
+  drawGraph(gvtC,gvtX,hist.v,'#3b9eff');
+  drawGraph(gftC,gftX,hist.f,mode==='orbit'?'#b06fff':'#ff4d6a');
+  updateReadouts();
+  drawVectorDiagram();
+  requestAnimationFrame(loop);
+}
+
+/* active nav */
+const sections2=document.querySelectorAll('section[id]');
+const pills2=document.querySelectorAll('.pill');
+window.addEventListener('scroll',()=>{
+  let cur='';
+  sections2.forEach(s=>{ if(window.scrollY>=s.offsetTop-120) cur=s.id; });
+  pills2.forEach(p=>{ p.classList.toggle('active',p.getAttribute('href')==='#'+cur); });
+},{passive:true});
+
+window.addEventListener('resize',()=>{
+  resizeSim();
+  drawFBDString('fbd-string');
+  drawFBDLoopTop('fbd-loop-top');
+  drawFBDLoopBot('fbd-loop-bot');
+  drawFBDBanked('fbd-banked');
+});
+
+window.addEventListener('load',()=>{
+  resizeSim();
+  drawFBDString('fbd-string');
+  drawFBDLoopTop('fbd-loop-top');
+  drawFBDLoopBot('fbd-loop-bot');
+  drawFBDBanked('fbd-banked');
+  buildControls(); initState(); loop();
+});
+</script>
+</body>
+</html>
