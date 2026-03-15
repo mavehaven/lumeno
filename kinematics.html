@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kinematics Module 1</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0f0f0f;color:#e8e6df;padding:1rem}
+:root{--accent:#F5A623;--accent2:#4A90D9;--accent3:#7ED321}
+.module{max-width:780px;margin:0 auto}
+.section-label{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#888;margin-bottom:.5rem}
+#sim-wrap{position:relative;border:0.5px solid #333;border-radius:12px;overflow:hidden;background:#1a1a1a;margin-bottom:1rem}
+#simCanvas{display:block;width:100%;height:220px}
+.canvas-label{position:absolute;top:10px;left:14px;font-family:'Space Mono',monospace;font-size:11px;color:#666;pointer-events:none}
+.readout-row{display:flex;gap:10px;padding:0 0 .75rem;flex-wrap:wrap}
+.readout{flex:1;min-width:90px;background:#1a1a1a;border:0.5px solid #2a2a2a;border-radius:8px;padding:.5rem .75rem}
+.readout-label{font-size:10px;color:#888;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+.readout-val{font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:#e8e6df;margin-top:2px}
+.readout-val span{font-size:10px;font-weight:400;color:#888}
+.ctrl-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem .75rem;margin-bottom:.75rem}
+.ctrl{display:flex;flex-direction:column;gap:4px}
+.ctrl-row{display:flex;align-items:center;justify-content:space-between}
+.ctrl-name{font-size:12px;font-weight:500;color:#888}
+.ctrl-num{font-family:'Space Mono',monospace;font-size:12px;color:#e8e6df}
+input[type=range]{width:100%;cursor:pointer}
+.eq-strip{border:0.5px solid #2a2a2a;border-radius:8px;padding:.6rem .875rem;background:#111;margin-bottom:.75rem}
+.eq-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.graph-row{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.75rem}
+.graph-wrap{border:0.5px solid #2a2a2a;border-radius:8px;overflow:hidden;background:#1a1a1a}
+.graph-title{font-size:10px;font-weight:500;color:#888;padding:.4rem .6rem .2rem;text-transform:uppercase;letter-spacing:.07em}
+canvas.graph{display:block;width:100%;height:80px}
+.btn-row{display:flex;gap:.4rem;margin-bottom:.75rem}
+.mode-btn{flex:1;padding:.35rem 0;font-size:11px;font-weight:500;border:0.5px solid #333;border-radius:6px;cursor:pointer;background:transparent;color:#888;transition:all .15s}
+.mode-btn.active{background:#1a1a1a;color:#e8e6df;border-color:#555}
+.theory-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-top:.5rem}
+.tc{border:0.5px solid #2a2a2a;border-radius:8px;padding:.6rem .75rem;background:#1a1a1a}
+.tc-head{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:4px}
+.tc-body{font-size:11px;color:#888;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="module">
+<div class="section-label">Module 1 · Kinematics</div>
+
+<div class="btn-row">
+  <button class="mode-btn active" id="btn-uniform" onclick="setMode('uniform')">Uniform motion</button>
+  <button class="mode-btn" id="btn-accel" onclick="setMode('accel')">Uniform acceleration</button>
+  <button class="mode-btn" id="btn-proj" onclick="setMode('proj')">Projectile</button>
+</div>
+
+<div id="sim-wrap">
+  <canvas id="simCanvas"></canvas>
+  <div class="canvas-label" id="canvas-label">x = x₀ + vt</div>
+</div>
+
+<div class="readout-row" id="readout-row">
+  <div class="readout"><div class="readout-label">Position</div><div class="readout-val" id="r-x">0 <span>m</span></div></div>
+  <div class="readout"><div class="readout-label">Velocity</div><div class="readout-val" id="r-v">0 <span>m/s</span></div></div>
+  <div class="readout"><div class="readout-label">Time</div><div class="readout-val" id="r-t">0 <span>s</span></div></div>
+  <div class="readout" id="r-accel-box"><div class="readout-label">Acceleration</div><div class="readout-val" id="r-a">0 <span>m/s²</span></div></div>
+</div>
+
+<div class="eq-strip" id="eq-strip">
+  <div class="eq-row" id="eq-row"></div>
+</div>
+
+<div class="ctrl-grid" id="ctrl-grid"></div>
+
+<div class="graph-row">
+  <div class="graph-wrap"><div class="graph-title">x–t</div><canvas class="graph" id="gxt"></canvas></div>
+  <div class="graph-wrap"><div class="graph-title">v–t</div><canvas class="graph" id="gvt"></canvas></div>
+</div>
+
+<div class="theory-cards" id="theory-cards"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script>
+const MODES={
+  uniform:{
+    label:'x = x₀ + vt',
+    latex:'x = x_0 + vt',
+    controls:[
+      {id:'v0',name:'Velocity v',min:-10,max:10,step:0.5,val:4,unit:'m/s',color:'#F5A623'},
+    ],
+    theory:[
+      {head:'Displacement',color:'#F5A623',body:'Δx = v·t — distance covered grows linearly with time.'},
+      {head:'Velocity',color:'#4A90D9',body:'Constant — no force acts. The slope of the x–t graph.'},
+      {head:'Acceleration',color:'#7ED321',body:'Zero — uniform motion means no change in velocity.'},
+    ],
+    showAccel:false,
+  },
+  accel:{
+    label:'v = v₀ + at   ·   x = v₀t + ½at²',
+    latex:'v = v_0 + at \\quad x = v_0 t + \\tfrac{1}{2}at^2',
+    controls:[
+      {id:'v0',name:'Initial vel v₀',min:-8,max:8,step:0.5,val:3,unit:'m/s',color:'#F5A623'},
+      {id:'a0',name:'Acceleration a',min:-8,max:8,step:0.5,val:2,unit:'m/s²',color:'#7ED321'},
+    ],
+    theory:[
+      {head:'Suvat equations',color:'#F5A623',body:'Five linked equations — know 3 of {s,u,v,a,t} to find the rest.'},
+      {head:'v–t slope',color:'#4A90D9',body:'Slope of v–t graph = acceleration. Area under it = displacement.'},
+      {head:'Parabolic path',color:'#7ED321',body:'x–t is a parabola when a ≠ 0. Curvature encodes a.'},
+    ],
+    showAccel:true,
+  },
+  proj:{
+    label:'Projectile: aₓ=0, aᵧ=−g',
+    latex:'a_x = 0 \\quad a_y = -g',
+    controls:[
+      {id:'v0',name:'Launch speed',min:2,max:15,step:0.5,val:9,unit:'m/s',color:'#F5A623'},
+      {id:'ang',name:'Angle θ',min:10,max:80,step:1,val:45,unit:'°',color:'#4A90D9'},
+    ],
+    theory:[
+      {head:'Independence',color:'#F5A623',body:'Horizontal & vertical motions are completely independent.'},
+      {head:'Symmetry',color:'#4A90D9',body:'Time to peak = time to land (on flat ground). Peak at t = vᵧ₀/g.'},
+      {head:'Range max',color:'#7ED321',body:'Maximum range occurs at θ = 45°. Try it — drag the slider.'},
+    ],
+    showAccel:true,
+  }
+};
+
+let mode='uniform';
+let ctrls={v0:4,a0:2,ang:45};
+let t=0,animId=null;
+let hist={x:[],v:[],t:[]};
+const G=9.8,DT=1/60,TMAX=5;
+
+const canvas=document.getElementById('simCanvas');
+const ctx=canvas.getContext('2d');
+const gxt=document.getElementById('gxt');
+const ctxxt=gxt.getContext('2d');
+const gvt=document.getElementById('gvt');
+const ctxvt=gvt.getContext('2d');
+
+function getState(ti){
+  const v0=ctrls.v0,a0=ctrls.a0,ang=ctrls.ang*Math.PI/180;
+  if(mode==='uniform') return {x:v0*ti,y:0,vx:v0,vy:0};
+  if(mode==='accel'){const x=v0*ti+0.5*a0*ti*ti;const v=v0+a0*ti;return{x,y:0,vx:v,vy:0};}
+  if(mode==='proj'){
+    const spd=ctrls.v0;
+    const vx0=spd*Math.cos(ang),vy0=spd*Math.sin(ang);
+    const px=vx0*ti;
+    const py=vy0*ti-0.5*G*ti*ti;
+    const vy=vy0-G*ti;
+    return{x:px,y:Math.max(0,py),vx:vx0,vy:py<0?0:vy};
+  }
+}
+
+function resize(){
+  const dpr=window.devicePixelRatio||1;
+  const w=canvas.parentElement.offsetWidth;
+  const h=220;
+  canvas.width=w*dpr;canvas.height=h*dpr;
+  ctx.scale(dpr,dpr);canvas.style.width=w+'px';canvas.style.height=h+'px';
+  [gxt,gvt].forEach(c=>{
+    const pw=c.parentElement.offsetWidth;
+    c.width=pw*dpr;c.height=80*dpr;
+    const cx=c.getContext('2d');cx.scale(dpr,dpr);
+    c.style.width=pw+'px';c.style.height='80px';
+  });
+}
+
+function drawSim(){
+  const w=canvas.width/(window.devicePixelRatio||1);
+  const h=canvas.height/(window.devicePixelRatio||1);
+  ctx.clearRect(0,0,w,h);
+  const S=getState(t);
+
+  if(mode==='proj'){
+    ctx.strokeStyle='rgba(128,128,128,0.25)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,h-30);ctx.lineTo(w,h-30);ctx.stroke();
+    ctx.beginPath();ctx.strokeStyle='rgba(245,166,35,0.15)';ctx.lineWidth=1.5;
+    const tmax2=getMaxT();
+    for(let ti=0;ti<=tmax2;ti+=tmax2/60){
+      const s=getState(ti);
+      const cx=40+s.x*(w-80)/Math.max(1,getMaxX());
+      const cy=(h-30)-(s.y*(h-60)/Math.max(0.1,getMaxY()));
+      ti===0?ctx.moveTo(cx,cy):ctx.lineTo(cx,cy);
+    }
+    ctx.stroke();
+    const cx=40+S.x*(w-80)/Math.max(1,getMaxX());
+    const cy=Math.min(h-30,(h-30)-S.y*(h-60)/Math.max(0.1,getMaxY()));
+    ctx.beginPath();ctx.arc(cx,cy,9,0,Math.PI*2);
+    ctx.fillStyle='#F5A623';ctx.fill();
+    drawArrow(ctx,cx,cy,cx+S.vx*8,cy-S.vy*8,'#4A90D9');
+  } else {
+    ctx.strokeStyle='rgba(128,128,128,0.25)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,h/2+20);ctx.lineTo(w,h/2+20);ctx.stroke();
+    ctx.setLineDash([6,8]);ctx.strokeStyle='rgba(128,128,128,0.15)';ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();
+    ctx.setLineDash([]);
+    const range=Math.max(1,Math.abs(ctrls.v0)*TMAX+Math.abs(ctrls.a0)*TMAX*TMAX*0.5);
+    const cx=w/2+S.x*(w*0.4)/range;
+    const cy=h/2;
+    ctx.beginPath();ctx.arc(Math.min(w-20,Math.max(20,cx)),cy,11,0,Math.PI*2);
+    ctx.fillStyle='#F5A623';ctx.fill();
+    if(Math.abs(S.vx)>0.05) drawArrow(ctx,Math.min(w-20,Math.max(20,cx)),cy,Math.min(w-20,Math.max(20,cx))+S.vx*14,cy,'#4A90D9');
+    if(mode==='accel'&&Math.abs(ctrls.a0)>0.05){
+      const bx=Math.min(w-20,Math.max(20,cx));
+      drawArrow(ctx,bx,cy+26,bx+ctrls.a0*10,cy+26,'#7ED321');
+    }
+  }
+}
+
+function drawArrow(ctx,x1,y1,x2,y2,color){
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.fillStyle=color;
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  const ang=Math.atan2(y2-y1,x2-x1);
+  ctx.beginPath();ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-8*Math.cos(ang-0.4),y2-8*Math.sin(ang-0.4));
+  ctx.lineTo(x2-8*Math.cos(ang+0.4),y2-8*Math.sin(ang+0.4));
+  ctx.closePath();ctx.fill();
+}
+
+function getMaxT(){
+  if(mode==='proj'){const vy0=ctrls.v0*Math.sin(ctrls.ang*Math.PI/180);return Math.max(0.5,2*vy0/G);}
+  return TMAX;
+}
+function getMaxX(){
+  if(mode==='proj'){const v=ctrls.v0,a=ctrls.ang*Math.PI/180;return Math.max(1,v*Math.cos(a)*getMaxT());}
+  return Math.max(1,Math.abs(ctrls.v0)*TMAX+Math.abs(ctrls.a0)*TMAX*TMAX*0.5);
+}
+function getMaxY(){
+  if(mode!=='proj') return 1;
+  const vy0=ctrls.v0*Math.sin(ctrls.ang*Math.PI/180);
+  return Math.max(0.1,vy0*vy0/(2*G));
+}
+
+function drawGraph(can,ctxx,data,color){
+  const w=can.width/(window.devicePixelRatio||1);
+  const h=can.height/(window.devicePixelRatio||1);
+  ctxx.clearRect(0,0,w,h);
+  if(data.length<2) return;
+  const pad=2;
+  const xs=data.map(d=>d[0]),ys=data.map(d=>d[1]);
+  const maxx=xs[xs.length-1]||1;
+  const miny=Math.min(...ys),maxy=Math.max(...ys);
+  const yr=maxy-miny||1;
+  const toX=v=>pad+(v/maxx)*(w-2*pad);
+  const toY=v=>h-pad-((v-miny)/yr)*(h-2*pad);
+  if(miny<0&&maxy>0){ctxx.strokeStyle='rgba(128,128,128,0.2)';ctxx.lineWidth=0.5;ctxx.beginPath();ctxx.moveTo(0,toY(0));ctxx.lineTo(w,toY(0));ctxx.stroke();}
+  ctxx.fillStyle=color+'22';
+  ctxx.beginPath();ctxx.moveTo(toX(xs[0]),toY(0));
+  data.forEach(d=>ctxx.lineTo(toX(d[0]),toY(d[1])));
+  ctxx.lineTo(toX(xs[xs.length-1]),toY(0));ctxx.closePath();ctxx.fill();
+  ctxx.strokeStyle=color;ctxx.lineWidth=1.5;ctxx.lineJoin='round';
+  ctxx.beginPath();data.forEach((d,i)=>{i===0?ctxx.moveTo(toX(d[0]),toY(d[1])):ctxx.lineTo(toX(d[0]),toY(d[1]));});
+  ctxx.stroke();
+  if(data.length>0){const ys2=data.map(d=>d[1]);ctxx.beginPath();ctxx.arc(toX(xs[xs.length-1]),toY(ys2[ys2.length-1]),3,0,Math.PI*2);ctxx.fillStyle=color;ctxx.fill();}
+}
+
+function updateReadouts(){
+  const S=getState(t);
+  document.getElementById('r-x').innerHTML=S.x.toFixed(1)+' <span>m</span>';
+  const spd=Math.sqrt(S.vx*S.vx+S.vy*S.vy);
+  document.getElementById('r-v').innerHTML=spd.toFixed(1)+' <span>m/s</span>';
+  document.getElementById('r-t').innerHTML=t.toFixed(1)+' <span>s</span>';
+  const ab=document.getElementById('r-accel-box');
+  if(MODES[mode].showAccel){
+    ab.style.display='';
+    document.getElementById('r-a').innerHTML=(mode==='proj'?(-G).toFixed(1):ctrls.a0.toFixed(1))+' <span>m/s²</span>';
+  } else { ab.style.display='none'; }
+}
+
+function buildControls(){
+  const m=MODES[mode];
+  const grid=document.getElementById('ctrl-grid');
+  grid.innerHTML='';
+  m.controls.forEach(c=>{
+    const div=document.createElement('div');div.className='ctrl';
+    div.innerHTML=`<div class="ctrl-row"><span class="ctrl-name">${c.name}</span><span class="ctrl-num" id="num-${c.id}">${ctrls[c.id]||c.val} ${c.unit}</span></div>
+    <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${ctrls[c.id]||c.val}" id="sl-${c.id}" style="accent-color:${c.color}">`;
+    grid.appendChild(div);
+    div.querySelector('input').addEventListener('input',function(){
+      ctrls[c.id]=parseFloat(this.value);
+      document.getElementById('num-'+c.id).textContent=this.value+' '+c.unit;
+      hist={x:[],v:[],t:[]};t=0;
+    });
+  });
+  const eq=document.getElementById('eq-row');
+  eq.innerHTML='';
+  try{
+    const span=document.createElement('span');span.style.fontSize='14px';
+    katex.render(m.latex,span,{throwOnError:false,displayMode:false});
+    eq.appendChild(span);
+  }catch(e){eq.textContent=m.label;}
+  const tc=document.getElementById('theory-cards');tc.innerHTML='';
+  m.theory.forEach(card=>{
+    const d=document.createElement('div');d.className='tc';
+    d.innerHTML=`<div class="tc-head" style="color:${card.color}">${card.head}</div><div class="tc-body">${card.body}</div>`;
+    tc.appendChild(d);
+  });
+  document.getElementById('canvas-label').textContent=m.label;
+}
+
+function setMode(m){
+  mode=m;hist={x:[],v:[],t:[]};t=0;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+m).classList.add('active');
+  buildControls();
+}
+
+function loop(){
+  t+=DT;if(t>getMaxT()) t=0;
+  const S=getState(t);
+  hist.t.push(t);hist.x.push([t,S.x]);hist.v.push([t,Math.sqrt(S.vx*S.vx+S.vy*S.vy)]);
+  if(hist.t.length>300){hist.x.shift();hist.v.shift();hist.t.shift();}
+  drawSim();
+  drawGraph(gxt,ctxxt,hist.x,'#F5A623');
+  drawGraph(gvt,ctxvt,hist.v,'#4A90D9');
+  updateReadouts();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize',resize);
+resize();buildControls();loop();
+</script>
+</body>
+</html>
