@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhysicsSim | Interactive Physics</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        
+        /* Dark mode styles */
+        .dark {
+            background-color: #111827;
+            color: #fff;
+        }
+        
+        .dark .bg-white\/90 {
+            background-color: rgba(17, 24, 39, 0.9);
+        }
+        
+        .dark .bg-gray-50 {
+            background-color: #1f2937;
+        }
+        
+        .dark .text-gray-900 {
+            color: #fff;
+        }
+        
+        .dark .text-gray-500 {
+            color: #9ca3af;
+        }
+        
+        .dark .bg-gray-200 {
+            background-color: #374151;
+        }
+        
+        .dark .bg-white {
+            background-color: #111827;
+        }
+
+        /* Logo inversion for dark mode */
+        .dark .logo {
+            filter: invert(1);
+        }
+        
+        /* Search results styles */
+        .search-results {
+            max-height: 400px;
+            overflow-y: auto;
+            backdrop-filter: blur(8px);
+        }
+        
+        .search-results::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .search-results::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .search-results::-webkit-scrollbar-thumb {
+            background-color: rgba(156, 163, 175, 0.5);
+            border-radius: 4px;
+        }
+        
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .nav-link {
+            position: relative;
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background-color: currentColor;
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover::after {
+            width: 100%;
+        }
+
+        .sim-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sim-card:hover {
+            transform: scale(1.02);
+        }
+
+        .section-title {
+            font-size: 48px;
+            line-height: 1.1;
+            letter-spacing: -0.015em;
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-900">
+    <!-- Navigation -->
+    <header class="fixed w-full bg-white border-b border-gray-200 z-50">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center space-x-3">
+                        <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="PhysicsSim" class="logo h-8">
+                    </a>
+                </div>
+
+                <div class="hidden md:flex items-center space-x-8">
+                    <div class="relative">
+                        <input type="text" 
+                               id="search" 
+                               placeholder="Search physics..." 
+                               class="w-48 px-4 py-2 rounded-lg text-sm bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <div id="searchResults" class="search-results hidden absolute top-full left-0 right-0 mt-2 bg-white/90 rounded-lg shadow-lg z-50"></div>
+                    </div>
+
+                    <button id="themeToggle" class="p-2 rounded-full hover:bg-gray-100">
+                        <svg id="sunIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                        <svg id="moonIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="md:hidden">
+                    <button id="mobile-menu-button" class="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="mobile-menu" class="hidden md:hidden">
+                <div class="px-2 pt-2 pb-3 space-y-1">
+                    <div class="p-2">
+                        <input type="text" 
+                               id="mobile-search"
+                               placeholder="Search physics..." 
+                               class="w-full px-4 py-2 rounded-lg text-sm bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <a href="#mechanics" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50">Mechanics</a>
+                    <a href="#electromagnetism" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50">Electromagnetism</a>
+                    <a href="#thermodynamics" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50">Thermodynamics</a>
+                    <a href="#optics" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50">Optics & Waves</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-6">
+        <div class="max-w-7xl mx-auto">
+            <h1 class="section-title font-semibold mb-6">
+                Experience Physics.<br>
+                Like Never Before.
+            </h1>
+            <p class="text-xl text-gray-500 max-w-2xl">
+                Interactive tools and visualizations that make complex physical concepts clear and engaging.
+            </p>
+        </div>
+    </section>
+
+    <!-- Mechanics Section -->
+    <section id="mechanics" class="py-20 px-6 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-3xl font-semibold mb-12">Mechanics</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <a href="projectile_motion.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018405258x257693540142452480/linear%20algebra.png" alt="Projectile Motion" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Projectile Motion</h3>
+                    <p class="text-sm text-gray-500">Simulate trajectories and launch angles</p>
+                </a>
+
+                <a href="newtons_laws.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018370917x465291529971208400/Quadratic%20Expressions.png" alt="Newton's Laws" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Newton's Laws</h3>
+                    <p class="text-sm text-gray-500">Explore forces, acceleration, and action-reaction</p>
+                </a>
+
+                <a href="circular_motion.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018390921x905673167667615500/polynomials.png" alt="Circular Motion" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Circular Motion</h3>
+                    <p class="text-sm text-gray-500">Visualize centripetal force and orbits</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Electromagnetism Section -->
+    <section id="electromagnetism" class="py-20 px-6">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-3xl font-semibold mb-12">Electromagnetism</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <a href="ohms_law.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018443920x702693302274996400/derivatives.png" alt="Ohm's Law" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Ohm's Law</h3>
+                    <p class="text-sm text-gray-500">Explore voltage, current, and resistance</p>
+                </a>
+
+                <a href="coulombs_law.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018427176x149967431747671580/integrals.png" alt="Coulomb's Law" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Coulomb's Law</h3>
+                    <p class="text-sm text-gray-500">Visualize electrostatic forces between charges</p>
+                </a>
+
+                <a href="magnetic_fields.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018814072x578763772696039300/triangle%20geometry.png" alt="Magnetic Fields" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Magnetic Fields</h3>
+                    <p class="text-sm text-gray-500">See field lines and forces on moving charges</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Thermodynamics Section -->
+    <section id="thermodynamics" class="py-20 px-6 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-3xl font-semibold mb-12">Thermodynamics</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <a href="ideal_gas_law.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018989153x233794588508926530/transformations.png" alt="Ideal Gas Law" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Ideal Gas Law</h3>
+                    <p class="text-sm text-gray-500">Manipulate pressure, volume, and temperature</p>
+                </a>
+
+                <a href="heat_transfer.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746019566913x146406189390019500/probability.png" alt="Heat Transfer" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Heat Transfer</h3>
+                    <p class="text-sm text-gray-500">Explore conduction, convection, and radiation</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Optics & Waves Section -->
+    <section id="optics" class="py-20 px-6">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-3xl font-semibold mb-12">Optics & Waves</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <a href="lens_equation.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746019380943x430740556631429300/regression.png" alt="Lens Equation" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Lens Equation</h3>
+                    <p class="text-sm text-gray-500">Simulate image formation with lenses</p>
+                </a>
+
+                <a href="wave_interference.html" class="sim-card group">
+                    <div class="aspect-w-16 aspect-h-9 mb-4">
+                        <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
+                            <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018390921x905673167667615500/polynomials.png" alt="Wave Interference" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Wave Interference</h3>
+                    <p class="text-sm text-gray-500">Visualize constructive and destructive interference</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Simulation data for search functionality
+        const simulations = [
+            { title: "Projectile Motion", category: "Mechanics", url: "projectile_motion.html", description: "Simulate trajectories and launch angles" },
+            { title: "Newton's Laws", category: "Mechanics", url: "newtons_laws.html", description: "Explore forces, acceleration, and action-reaction" },
+            { title: "Circular Motion", category: "Mechanics", url: "circular_motion.html", description: "Visualize centripetal force and orbits" },
+            { title: "Ohm's Law", category: "Electromagnetism", url: "ohms_law.html", description: "Explore voltage, current, and resistance" },
+            { title: "Coulomb's Law", category: "Electromagnetism", url: "coulombs_law.html", description: "Visualize electrostatic forces between charges" },
+            { title: "Magnetic Fields", category: "Electromagnetism", url: "magnetic_fields.html", description: "See field lines and forces on moving charges" },
+            { title: "Ideal Gas Law", category: "Thermodynamics", url: "ideal_gas_law.html", description: "Manipulate pressure, volume, and temperature" },
+            { title: "Heat Transfer", category: "Thermodynamics", url: "heat_transfer.html", description: "Explore conduction, convection, and radiation" },
+            { title: "Lens Equation", category: "Optics & Waves", url: "lens_equation.html", description: "Simulate image formation with lenses" },
+            { title: "Wave Interference", category: "Optics & Waves", url: "wave_interference.html", description: "Visualize constructive and destructive interference" }
+        ];
+
+        // Search functionality
+        const searchInput = document.getElementById('search');
+        const searchResults = document.getElementById('searchResults');
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            
+            if (query.length < 2) {
+                searchResults.classList.add('hidden');
+                return;
+            }
+
+            const filteredResults = simulations.filter(sim => 
+                sim.title.toLowerCase().includes(query) || 
+                sim.description.toLowerCase().includes(query) ||
+                sim.category.toLowerCase().includes(query)
+            );
+
+            if (filteredResults.length > 0) {
+                searchResults.innerHTML = filteredResults.map(sim => `
+                    <a href="${sim.url}" class="block p-4 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <div class="font-medium">${sim.title}</div>
+                        <div class="text-sm text-gray-500">${sim.category} - ${sim.description}</div>
+                    </a>
+                `).join('');
+                searchResults.classList.remove('hidden');
+            } else {
+                searchResults.innerHTML = `
+                    <div class="p-4 text-gray-500">
+                        No simulations found for "${e.target.value}"
+                    </div>
+                `;
+                searchResults.classList.remove('hidden');
+            }
+        });
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.classList.add('hidden');
+            }
+        });
+
+        // Dark mode toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const sunIcon = document.getElementById('sunIcon');
+        const moonIcon = document.getElementById('moonIcon');
+
+        // Check for saved theme preference or default to system preference
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            sunIcon.classList.remove('hidden');
+            moonIcon.classList.add('hidden');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            sunIcon.classList.toggle('hidden');
+            moonIcon.classList.toggle('hidden');
+            
+            // Save preference
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        });
+
+        // Mobile menu toggle
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!mobileMenuButton.contains(e.target) && !mobileMenu.contains(e.target)) {
+                mobileMenu.classList.add('hidden');
+            }
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 768) {
+                mobileMenu.classList.add('hidden');
+            }
+        });
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>
