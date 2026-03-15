@@ -1,0 +1,2309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CV Forge — Professional CV Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Epilogue:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Azeret+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Firebase SDKs -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  // ── CONFIGURE YOUR FIREBASE PROJECT HERE ──────────────────────────────────
+  // Replace these values with your own from Firebase Console →
+  // Project Settings → Your apps → SDK setup → Config
+  const firebaseConfig = {
+    apiKey:            "YOUR_API_KEY",
+    authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId:         "YOUR_PROJECT_ID",
+    storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId:             "YOUR_APP_ID"
+  };
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // Expose helpers to global scope so non-module JS can call them
+  window._fb = {
+    async saveCV(sessionId, data) {
+      await setDoc(doc(db, 'cv_drafts', sessionId), {
+        ...data,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    },
+    async loadCV(sessionId) {
+      const snap = await getDoc(doc(db, 'cv_drafts', sessionId));
+      return snap.exists() ? snap.data() : null;
+    },
+    async logExport(sessionId, name) {
+      await addDoc(collection(db, 'cv_exports'), {
+        sessionId, name,
+        exportedAt: serverTimestamp()
+      });
+    }
+  };
+  window._fbReady = true;
+  window.dispatchEvent(new Event('fbReady'));
+</script>
+<style>
+:root {
+  --ink: #0a0a0a;
+  --ink-2: #1c1c1c;
+  --ink-3: #525252;
+  --ink-4: #a0a0a0;
+  --paper: #f8f8f8;
+  --paper-2: #f0f0f0;
+  --paper-3: #e4e4e4;
+  --line: #e0e0e0;
+  --accent: #0057ff;
+  --accent-dark: #0040cc;
+  --accent-light: #e8f0ff;
+  --danger: #e53e3e;
+  --success: #1a9e5c;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 3px 10px rgba(0,0,0,0.07);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.09);
+  --shadow-xl: 0 32px 80px rgba(0,0,0,0.13);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'Epilogue', sans-serif;
+  --font-mono: 'Azeret Mono', monospace;
+  --sidebar-w: 316px;
+  --transition: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* CV Theme vars — user-controlled */
+  --cv-accent: #0057ff;
+  --cv-accent-rgb: 0,87,255;
+  --cv-font-head: 'Syne', sans-serif;
+  --cv-font-body: 'Epilogue', sans-serif;
+  --cv-layout: 'single';
+  --cv-spacing: 1.6;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--paper-3); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-4); }
+
+/* ─── LAYOUT ─── */
+.app-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+}
+
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(248,248,248,0.96);
+  backdrop-filter: blur(16px) saturate(1.2);
+  border-bottom: 1px solid var(--line);
+  padding: 0 24px;
+  height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.topbar-logo {
+  display: flex; align-items: center;
+}
+.topbar-logo-img {
+  height: 36px; width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ─── LANG SELECT ─── */
+.lang-select {
+  padding: 5px 10px; font-size: 12px; font-weight: 500;
+  font-family: var(--font-body);
+  color: var(--ink-2); background: var(--paper);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  cursor: pointer; outline: none;
+  transition: border-color var(--transition);
+  -webkit-appearance: none; appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a0a0a0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.lang-select:hover, .lang-select:focus { border-color: var(--accent); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  font-family: var(--font-body); font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none; transition: all var(--transition);
+  text-decoration: none; white-space: nowrap;
+}
+.btn-ghost {
+  background: transparent; color: var(--ink-3);
+  border: 1px solid var(--line);
+}
+.btn-ghost:hover { background: var(--paper-2); color: var(--ink); border-color: var(--paper-3); }
+.btn-primary {
+  background: var(--ink); color: var(--paper);
+  border: 1px solid var(--ink);
+}
+.btn-primary:hover { background: var(--ink-2); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn-accent {
+  background: var(--accent); color: #fff;
+  border: 1px solid var(--accent-dark);
+  font-weight: 600;
+}
+.btn-accent:hover { background: var(--accent-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(200,169,110,0.4); }
+.btn-sm { padding: 5px 11px; font-size: 12px; }
+.btn-lg { padding: 12px 28px; font-size: 15px; }
+
+/* ─── WORKSPACE ─── */
+.workspace {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+/* ─── SIDEBAR / EDITOR ─── */
+.editor-sidebar {
+  background: var(--paper-2);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.editor-tabs {
+  display: flex; border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.editor-tabs::-webkit-scrollbar { height: 0; }
+
+.editor-tab {
+  padding: 10px 14px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--ink-4);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: all var(--transition);
+  user-select: none;
+}
+.editor-tab:hover { color: var(--ink-2); }
+.editor-tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+
+.editor-body {
+  flex: 1; overflow-y: auto; padding: 20px;
+}
+
+.editor-panel { display: none; }
+.editor-panel.active { display: block; }
+
+/* ─── FORM ELEMENTS ─── */
+.field-group { margin-bottom: 16px; }
+.field-label {
+  display: block; margin-bottom: 5px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.field-label sup { color: var(--accent); margin-left: 2px; }
+
+.field-input, .field-textarea, .field-select {
+  width: 100%; padding: 9px 12px;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); font-family: var(--font-body);
+  font-size: 13px; color: var(--ink); transition: all var(--transition);
+  outline: none;
+}
+.field-input:focus, .field-textarea:focus, .field-select:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px rgba(200,169,110,0.15);
+}
+.field-input::placeholder, .field-textarea::placeholder { color: var(--ink-4); }
+.field-textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ─── SECTION CARDS ─── */
+.section-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.section-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; cursor: pointer;
+  user-select: none;
+}
+.section-card-head:hover { background: var(--paper-2); }
+
+.section-card-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: var(--ink-2);
+}
+.section-card-icon {
+  width: 26px; height: 26px;
+  background: var(--paper-2); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+.section-card-toggle {
+  width: 20px; height: 20px; display: flex;
+  align-items: center; justify-content: center;
+  color: var(--ink-4); font-size: 10px;
+  transition: transform var(--transition);
+}
+.section-card.open .section-card-toggle { transform: rotate(180deg); }
+
+.section-card-body { display: none; padding: 14px; border-top: 1px solid var(--line); }
+.section-card.open .section-card-body { display: block; }
+
+/* Experience/Education Entry */
+.entry-block {
+  background: var(--paper-2); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 12px; margin-bottom: 10px;
+}
+.entry-block-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.entry-label { font-size: 11px; font-weight: 600; color: var(--ink-4); text-transform: uppercase; letter-spacing: 0.05em; }
+.btn-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--ink-4); font-size: 14px; padding: 2px;
+  transition: color var(--transition); line-height: 1;
+}
+.btn-remove:hover { color: var(--danger); }
+
+.btn-add {
+  width: 100%; padding: 8px;
+  border: 1px dashed var(--line); border-radius: var(--radius-sm);
+  background: transparent; color: var(--ink-4);
+  font-family: var(--font-body); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all var(--transition);
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+}
+.btn-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+/* ─── DESIGN CONTROLS ─── */
+.design-section { margin-bottom: 24px; }
+.design-section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-4);
+  margin-bottom: 10px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Template Cards */
+.template-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 8px;
+}
+.template-card {
+  border: 2px solid var(--line); border-radius: var(--radius-sm);
+  overflow: hidden; cursor: pointer;
+  transition: all var(--transition); position: relative;
+}
+.template-card:hover { border-color: var(--accent-dark); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.template-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.template-card.selected::after {
+  content: '✓';
+  position: absolute; top: 5px; right: 5px;
+  width: 18px; height: 18px;
+  background: var(--accent); color: #fff;
+  border-radius: 50%; font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.template-thumb {
+  width: 100%; aspect-ratio: 3/4;
+  display: flex; flex-direction: column;
+  padding: 8px; gap: 3px; position: relative;
+}
+.template-name {
+  font-size: 11px; font-weight: 600; text-align: center;
+  padding: 5px; background: var(--paper); color: var(--ink-2);
+  border-top: 1px solid var(--line);
+}
+
+/* Thumb previews */
+.t-line { border-radius: 2px; }
+.t-header { width: 50%; height: 8px; border-radius: 2px; margin: 0 auto 4px; }
+.t-sub { width: 35%; height: 4px; border-radius: 2px; margin: 0 auto 6px; opacity: 0.5; }
+.t-divider { height: 1px; margin: 4px 0; }
+.t-section-title { width: 40%; height: 5px; border-radius: 2px; margin-bottom: 3px; }
+.t-text-full { width: 100%; height: 3px; border-radius: 2px; margin-bottom: 2px; opacity: 0.4; }
+.t-text-partial { width: 70%; height: 3px; border-radius: 2px; margin-bottom: 2px; opacity: 0.4; }
+.t-text-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; opacity: 0.7; }
+
+/* Sidebar template */
+.t-two-col { display: flex; gap: 4px; height: 100%; }
+.t-sidebar-col { width: 35%; padding: 4px; border-radius: 2px; }
+.t-main-col { flex: 1; padding: 4px; }
+
+/* Compact template */
+.t-compact-header { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.t-avatar { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+
+/* Color swatches */
+.color-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 8px; }
+.color-swatch {
+  aspect-ratio: 1; border-radius: 50%;
+  cursor: pointer; border: 2px solid transparent;
+  transition: all var(--transition); position: relative;
+}
+.color-swatch:hover { transform: scale(1.15); box-shadow: var(--shadow-md); }
+.color-swatch.selected {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink);
+}
+.color-custom-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.color-custom-row label { font-size: 11px; color: var(--ink-3); flex-shrink: 0; }
+
+/* Font select */
+.font-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.font-card {
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  cursor: pointer; transition: all var(--transition); text-align: center;
+}
+.font-card:hover { border-color: var(--accent); background: var(--accent-light); }
+.font-card.selected { border-color: var(--accent); background: var(--accent-light); box-shadow: 0 0 0 1px var(--accent); }
+.font-card-name { font-size: 16px; margin-bottom: 1px; line-height: 1.2; }
+.font-card-label { font-size: 10px; color: var(--ink-4); font-family: var(--font-body) !important; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* Spacing & size sliders */
+.slider-row { display: flex; align-items: center; gap: 10px; }
+.slider-row label { font-size: 11px; color: var(--ink-3); min-width: 60px; }
+.slider-row span { font-size: 11px; color: var(--ink-4); min-width: 28px; text-align: right; font-family: var(--font-mono); }
+input[type=range] {
+  flex: 1; height: 4px; accent-color: var(--accent);
+  cursor: pointer; background: var(--paper-3);
+  border-radius: 99px; outline: none; border: none;
+  -webkit-appearance: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%; background: var(--accent);
+  border: 2px solid #fff; box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+
+/* Toggle switch */
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0;
+}
+.toggle-label { font-size: 12px; color: var(--ink-2); }
+.toggle-switch {
+  width: 36px; height: 20px; background: var(--paper-3);
+  border-radius: 99px; position: relative; cursor: pointer;
+  transition: background var(--transition); flex-shrink: 0;
+}
+.toggle-switch.on { background: var(--accent); }
+.toggle-switch::after {
+  content: ''; position: absolute;
+  top: 3px; left: 3px;
+  width: 14px; height: 14px;
+  background: #fff; border-radius: 50%;
+  transition: transform var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+.toggle-switch.on::after { transform: translateX(16px); }
+
+/* ─── PREVIEW AREA ─── */
+.preview-area {
+  background: var(--paper-3);
+  display: flex; flex-direction: column;
+  overflow: hidden; position: relative;
+}
+
+.preview-toolbar {
+  height: 48px; background: var(--paper-2);
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; flex-shrink: 0;
+}
+.preview-toolbar-left { display: flex; align-items: center; gap: 6px; }
+.preview-toolbar-right { display: flex; align-items: center; gap: 6px; }
+
+.zoom-display {
+  font-size: 12px; color: var(--ink-4);
+  font-family: var(--font-mono); min-width: 36px;
+}
+
+.preview-zoom-controls { display: flex; gap: 2px; }
+.zoom-btn {
+  width: 26px; height: 26px; border: 1px solid var(--line);
+  background: var(--paper); border-radius: 4px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--ink-3); transition: all var(--transition);
+}
+.zoom-btn:hover { background: var(--paper-2); color: var(--ink); }
+
+.preview-scroll {
+  flex: 1; overflow: auto;
+  display: flex; justify-content: center;
+  align-items: flex-start;
+  padding: 32px;
+}
+
+.cv-sheet {
+  background: #fff;
+  width: 794px; /* A4 width at 96dpi */
+  min-height: 1123px; /* A4 height */
+  box-shadow: var(--shadow-xl);
+  border-radius: 2px;
+  position: relative;
+  transform-origin: top center;
+  font-family: var(--cv-font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+}
+
+/* ─── CV TEMPLATES ─── */
+
+/* === MODERN TEMPLATE === */
+.cv-sheet.tpl-modern { font-family: var(--cv-font-body); }
+
+.cv-sheet.tpl-modern .cv-header-wrap {
+  padding: 44px 48px 36px;
+  border-bottom: 3px solid var(--cv-accent);
+  position: relative;
+}
+.cv-sheet.tpl-modern .cv-meta-grid {
+  display: flex; align-items: flex-start; gap: 28px;
+}
+.cv-sheet.tpl-modern .cv-photo {
+  width: 90px; height: 90px; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0;
+  border: 3px solid var(--cv-accent);
+}
+.cv-sheet.tpl-modern .cv-photo-placeholder {
+  width: 90px; height: 90px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(var(--cv-accent-rgb),0.08);
+  border: 3px solid rgba(var(--cv-accent-rgb),0.2);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(var(--cv-accent-rgb),0.4); font-size: 28px;
+}
+.cv-sheet.tpl-modern .cv-name-wrap { flex: 1; }
+.cv-sheet.tpl-modern .cv-full-name {
+  font-family: var(--cv-font-head);
+  font-size: 32px; font-weight: 700; line-height: 1.1;
+  color: var(--cv-accent); margin-bottom: 4px; letter-spacing: -0.02em;
+}
+.cv-sheet.tpl-modern .cv-job-title {
+  font-size: 14px; color: #777; font-weight: 400;
+  margin-bottom: 12px; letter-spacing: 0.02em;
+}
+.cv-sheet.tpl-modern .cv-contact-row {
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+}
+.cv-sheet.tpl-modern .cv-contact-item {
+  font-size: 11.5px; color: #666; display: flex; align-items: center; gap: 4px;
+}
+.cv-sheet.tpl-modern .cv-contact-icon { color: var(--cv-accent); font-size: 11px; }
+.cv-sheet.tpl-modern .cv-body { padding: 32px 48px; }
+.cv-sheet.tpl-modern .cv-section { margin-bottom: 28px; }
+.cv-sheet.tpl-modern .cv-section-title {
+  font-family: var(--cv-font-head); font-size: 15px; font-weight: 700;
+  color: var(--cv-accent); letter-spacing: 0.05em; text-transform: uppercase;
+  padding-bottom: 6px; border-bottom: 1.5px solid var(--cv-accent);
+  margin-bottom: 14px;
+}
+.cv-sheet.tpl-modern .cv-entry { margin-bottom: 16px; }
+.cv-sheet.tpl-modern .cv-entry-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; }
+.cv-sheet.tpl-modern .cv-entry-title { font-size: 13.5px; font-weight: 600; color: #1a1a1a; }
+.cv-sheet.tpl-modern .cv-entry-date { font-size: 11.5px; color: #888; font-style: italic; white-space: nowrap; }
+.cv-sheet.tpl-modern .cv-entry-sub { font-size: 12.5px; color: #666; margin-bottom: 5px; }
+.cv-sheet.tpl-modern .cv-entry-desc { font-size: 12.5px; color: #444; line-height: 1.55; }
+.cv-sheet.tpl-modern .cv-skills-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.cv-sheet.tpl-modern .cv-skill-tag {
+  padding: 4px 11px; border-radius: 99px;
+  background: rgba(var(--cv-accent-rgb),0.08);
+  color: var(--cv-accent); font-size: 11.5px; font-weight: 500;
+  border: 1px solid rgba(var(--cv-accent-rgb),0.2);
+}
+.cv-sheet.tpl-modern .cv-summary { font-size: 13px; color: #444; line-height: 1.65; }
+
+/* === EXECUTIVE TEMPLATE === */
+.cv-sheet.tpl-executive { font-family: var(--cv-font-body); }
+
+.cv-sheet.tpl-executive .cv-header-wrap {
+  background: var(--cv-accent);
+  padding: 48px 52px 40px;
+  color: #fff;
+}
+.cv-sheet.tpl-executive .cv-meta-grid {
+  display: flex; align-items: center; gap: 28px;
+}
+.cv-sheet.tpl-executive .cv-photo {
+  width: 96px; height: 96px; border-radius: var(--radius-sm);
+  object-fit: cover; flex-shrink: 0;
+  border: 3px solid rgba(255,255,255,0.4);
+}
+.cv-sheet.tpl-executive .cv-photo-placeholder {
+  width: 96px; height: 96px; border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.15); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.5); font-size: 30px;
+  border: 2px solid rgba(255,255,255,0.2);
+}
+.cv-sheet.tpl-executive .cv-full-name {
+  font-family: var(--cv-font-head); font-size: 34px; font-weight: 700;
+  color: #fff; margin-bottom: 4px; letter-spacing: -0.02em;
+}
+.cv-sheet.tpl-executive .cv-job-title {
+  font-size: 14px; color: rgba(255,255,255,0.75);
+  margin-bottom: 14px; font-weight: 300; letter-spacing: 0.05em;
+}
+.cv-sheet.tpl-executive .cv-contact-row { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.cv-sheet.tpl-executive .cv-contact-item { font-size: 11.5px; color: rgba(255,255,255,0.8); display: flex; align-items: center; gap: 4px; }
+.cv-sheet.tpl-executive .cv-contact-icon { color: rgba(255,255,255,0.6); }
+.cv-sheet.tpl-executive .cv-body { padding: 36px 52px; }
+.cv-sheet.tpl-executive .cv-section { margin-bottom: 28px; }
+.cv-sheet.tpl-executive .cv-section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--cv-accent);
+  margin-bottom: 12px;
+}
+.cv-sheet.tpl-executive .cv-entry { margin-bottom: 16px; padding-left: 14px; border-left: 2px solid rgba(var(--cv-accent-rgb),0.2); }
+.cv-sheet.tpl-executive .cv-entry-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px; }
+.cv-sheet.tpl-executive .cv-entry-title { font-size: 13.5px; font-weight: 600; color: #1a1a1a; }
+.cv-sheet.tpl-executive .cv-entry-date { font-size: 11px; color: #999; background: rgba(var(--cv-accent-rgb),0.06); padding: 2px 7px; border-radius: 99px; }
+.cv-sheet.tpl-executive .cv-entry-sub { font-size: 12px; color: var(--cv-accent); font-weight: 500; margin-bottom: 4px; }
+.cv-sheet.tpl-executive .cv-entry-desc { font-size: 12px; color: #555; line-height: 1.55; }
+.cv-sheet.tpl-executive .cv-skills-wrap { display: flex; flex-wrap: wrap; gap: 5px; }
+.cv-sheet.tpl-executive .cv-skill-tag {
+  padding: 5px 13px; border-radius: 3px;
+  background: rgba(var(--cv-accent-rgb),0.06); color: var(--cv-accent);
+  font-size: 11.5px; font-weight: 500; border-bottom: 2px solid rgba(var(--cv-accent-rgb),0.3);
+}
+.cv-sheet.tpl-executive .cv-summary { font-size: 13px; color: #444; line-height: 1.65; }
+
+/* === SIDEBAR TEMPLATE === */
+.cv-sheet.tpl-sidebar { font-family: var(--cv-font-body); display: flex; min-height: 1123px; }
+
+.cv-sheet.tpl-sidebar .cv-sidebar-col {
+  width: 260px; flex-shrink: 0;
+  background: var(--cv-accent);
+  padding: 40px 24px; color: #fff; min-height: 100%;
+}
+.cv-sheet.tpl-sidebar .cv-main-col { flex: 1; padding: 40px 36px; min-height: 100%; }
+.cv-sheet.tpl-sidebar .cv-photo {
+  width: 80px; height: 80px; border-radius: 50%;
+  object-fit: cover; margin: 0 auto 16px; display: block;
+  border: 3px solid rgba(255,255,255,0.4);
+}
+.cv-sheet.tpl-sidebar .cv-photo-placeholder {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: rgba(255,255,255,0.15); margin: 0 auto 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; color: rgba(255,255,255,0.5);
+  border: 2px solid rgba(255,255,255,0.2);
+}
+.cv-sheet.tpl-sidebar .cv-full-name {
+  font-family: var(--cv-font-head); font-size: 20px; font-weight: 700;
+  color: #fff; margin-bottom: 3px; text-align: center; line-height: 1.2;
+}
+.cv-sheet.tpl-sidebar .cv-job-title { font-size: 11.5px; color: rgba(255,255,255,0.7); text-align: center; margin-bottom: 20px; letter-spacing: 0.03em; }
+.cv-sheet.tpl-sidebar .cv-sidebar-section { margin-bottom: 22px; }
+.cv-sheet.tpl-sidebar .cv-sidebar-section-title {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(255,255,255,0.5);
+  margin-bottom: 10px; padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+.cv-sheet.tpl-sidebar .cv-contact-item { font-size: 11.5px; color: rgba(255,255,255,0.85); margin-bottom: 6px; display: flex; align-items: flex-start; gap: 6px; }
+.cv-sheet.tpl-sidebar .cv-contact-icon { color: rgba(255,255,255,0.5); margin-top: 1px; }
+.cv-sheet.tpl-sidebar .cv-skill-bar-wrap { margin-bottom: 8px; }
+.cv-sheet.tpl-sidebar .cv-skill-bar-label { font-size: 11.5px; color: rgba(255,255,255,0.85); margin-bottom: 3px; }
+.cv-sheet.tpl-sidebar .cv-skill-bar-track { height: 4px; background: rgba(255,255,255,0.2); border-radius: 99px; }
+.cv-sheet.tpl-sidebar .cv-skill-bar-fill { height: 100%; border-radius: 99px; background: rgba(255,255,255,0.7); }
+.cv-sheet.tpl-sidebar .cv-sidebar-skills-list .cv-skill-tag { font-size: 11px; color: rgba(255,255,255,0.85); padding: 2px 0; display: block; }
+.cv-sheet.tpl-sidebar .cv-section { margin-bottom: 24px; }
+.cv-sheet.tpl-sidebar .cv-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--cv-accent); margin-bottom: 12px;
+  padding-bottom: 6px; border-bottom: 2px solid var(--cv-accent);
+}
+.cv-sheet.tpl-sidebar .cv-entry { margin-bottom: 14px; }
+.cv-sheet.tpl-sidebar .cv-entry-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1px; }
+.cv-sheet.tpl-sidebar .cv-entry-title { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+.cv-sheet.tpl-sidebar .cv-entry-date { font-size: 11px; color: #999; }
+.cv-sheet.tpl-sidebar .cv-entry-sub { font-size: 12px; color: #666; margin-bottom: 4px; }
+.cv-sheet.tpl-sidebar .cv-entry-desc { font-size: 12px; color: #555; line-height: 1.5; }
+.cv-sheet.tpl-sidebar .cv-summary { font-size: 12.5px; color: #444; line-height: 1.65; }
+
+/* === MINIMAL TEMPLATE === */
+.cv-sheet.tpl-minimal { font-family: var(--cv-font-body); }
+.cv-sheet.tpl-minimal .cv-header-wrap { padding: 56px 56px 28px; }
+.cv-sheet.tpl-minimal .cv-full-name {
+  font-family: var(--cv-font-head); font-size: 40px; font-weight: 400;
+  color: #1a1a1a; letter-spacing: -0.03em; margin-bottom: 4px;
+}
+.cv-sheet.tpl-minimal .cv-job-title { font-size: 14px; color: #999; font-weight: 300; margin-bottom: 16px; }
+.cv-sheet.tpl-minimal .cv-contact-row { display: flex; flex-wrap: wrap; gap: 3px 0; }
+.cv-sheet.tpl-minimal .cv-contact-item { font-size: 11.5px; color: #888; }
+.cv-sheet.tpl-minimal .cv-contact-sep { font-size: 11px; color: #ccc; padding: 0 8px; }
+.cv-sheet.tpl-minimal .cv-body { padding: 8px 56px 40px; }
+.cv-sheet.tpl-minimal .cv-section { margin-bottom: 28px; display: grid; grid-template-columns: 140px 1fr; gap: 0 24px; align-items: start; }
+.cv-sheet.tpl-minimal .cv-section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--cv-accent);
+  padding-top: 3px; text-align: right;
+}
+.cv-sheet.tpl-minimal .cv-section-body { border-left: 1px solid #e0e0e0; padding-left: 20px; }
+.cv-sheet.tpl-minimal .cv-entry { margin-bottom: 14px; }
+.cv-sheet.tpl-minimal .cv-entry-title { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+.cv-sheet.tpl-minimal .cv-entry-date { font-size: 11px; color: #aaa; margin-bottom: 2px; }
+.cv-sheet.tpl-minimal .cv-entry-sub { font-size: 12px; color: #666; margin-bottom: 4px; }
+.cv-sheet.tpl-minimal .cv-entry-desc { font-size: 12px; color: #555; line-height: 1.55; }
+.cv-sheet.tpl-minimal .cv-skills-wrap { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.cv-sheet.tpl-minimal .cv-skill-tag { font-size: 12px; color: #555; }
+.cv-sheet.tpl-minimal .cv-skill-tag::before { content: '— '; color: var(--cv-accent); }
+.cv-sheet.tpl-minimal .cv-summary { font-size: 13px; color: #555; line-height: 1.65; }
+.cv-sheet.tpl-minimal .cv-photo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; float: right; margin: 0 0 12px 20px; border: 2px solid #eee; }
+.cv-sheet.tpl-minimal .cv-photo-placeholder { display: none; }
+
+/* ─── PROGRESS INDICATOR ─── */
+.progress-bar { display: flex; gap: 4px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.progress-step {
+  flex: 1; height: 3px; border-radius: 99px;
+  background: var(--paper-3); transition: background 0.4s ease;
+}
+.progress-step.filled { background: var(--accent); }
+
+/* ─── UPLOAD AREA ─── */
+.upload-area {
+  border: 2px dashed var(--line); border-radius: var(--radius-sm);
+  padding: 16px; text-align: center; cursor: pointer;
+  transition: all var(--transition); position: relative;
+}
+.upload-area:hover, .upload-area.drag-over {
+  border-color: var(--accent); background: var(--accent-light);
+}
+.upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.upload-label { font-size: 12px; color: var(--ink-4); pointer-events: none; }
+.upload-label strong { color: var(--accent); }
+.upload-preview { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin: 0 auto 8px; display: block; border: 2px solid var(--accent); }
+
+/* ─── TOAST ─── */
+.toast-container { position: fixed; top: 72px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 10px 16px; border-radius: var(--radius-sm);
+  background: var(--ink); color: var(--paper);
+  font-size: 13px; box-shadow: var(--shadow-lg);
+  animation: toastIn 0.3s ease; pointer-events: none;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+
+/* ─── PRINT STYLES ─── */
+@media print {
+  body > *:not(.print-target) { display: none !important; }
+  .print-target { display: block !important; width: 100% !important; }
+  .cv-sheet {
+    width: 100% !important; box-shadow: none !important;
+    transform: none !important; border-radius: 0 !important;
+    min-height: auto !important;
+  }
+  @page { margin: 0; size: A4; }
+}
+
+/* ─── RESPONSIVE ─── */
+
+/* Mobile bottom nav */
+.mobile-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  height: 56px;
+  flex-direction: row;
+  align-items: stretch;
+}
+.mobile-nav-btn {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; border: none; background: none;
+  cursor: pointer; font-family: var(--font-body);
+  color: var(--ink-4); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  transition: color var(--transition);
+  padding: 0; position: relative;
+}
+.mobile-nav-btn.active { color: var(--accent); }
+.mobile-nav-btn.active::after {
+  content: ''; position: absolute; top: 0; left: 20%; right: 20%;
+  height: 2px; background: var(--accent); border-radius: 0 0 2px 2px;
+}
+.mobile-nav-icon { font-size: 18px; line-height: 1; }
+
+/* Mobile drawer overlay */
+.mobile-overlay {
+  display: none; position: fixed; inset: 0; z-index: 149;
+  background: rgba(0,0,0,0.4);
+  opacity: 0; transition: opacity 0.25s ease;
+}
+.mobile-overlay.visible { opacity: 1; }
+
+/* Preview panel shown/hidden on mobile */
+.preview-panel-mobile {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  /* ── TOPBAR ── */
+  .topbar { padding: 0 14px; height: 52px; }
+  .topbar-logo-img { height: 30px; }
+  .topbar-actions .btn-ghost:not(.btn-demo) { display: none; }
+  #fbSaveBtn { display: none; }
+  .lang-select { font-size: 11px; padding: 4px 22px 4px 8px; }
+
+  /* ── WORKSPACE: single column, editor fills screen ── */
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 52px - 56px); /* topbar + mobile nav */
+    overflow: hidden;
+  }
+
+  /* ── EDITOR SIDEBAR fills full width on mobile ── */
+  .editor-sidebar {
+    width: 100%; height: 100%;
+    border-right: none;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── PREVIEW AREA: hidden by default, shown via JS ── */
+  .preview-area {
+    display: none;
+    position: fixed;
+    top: 52px; left: 0; right: 0;
+    bottom: 56px;
+    z-index: 100;
+    background: var(--paper-3);
+    flex-direction: column;
+  }
+  .preview-area.mobile-visible {
+    display: flex;
+  }
+
+  /* ── MOBILE NAV: show ── */
+  .mobile-nav { display: flex; }
+
+  /* ── CV sheet: scale to fit mobile preview ── */
+  .preview-scroll {
+    padding: 16px;
+    align-items: flex-start;
+  }
+
+  /* ── Editor tabs: scrollable, no shrink ── */
+  .editor-tabs { flex-shrink: 0; }
+  .editor-tab { padding: 10px 12px; font-size: 10px; }
+
+  /* ── Field rows: stack on very small screens ── */
+  .field-row { grid-template-columns: 1fr; }
+
+  /* ── Template grid: 2 cols still fine ── */
+  .template-grid { grid-template-columns: 1fr 1fr; }
+
+  /* ── Font options: 2x2 grid ── */
+  .font-options { grid-template-columns: 1fr 1fr; }
+
+  /* ── Color row: more cols on mobile ── */
+  .color-row { grid-template-columns: repeat(6, 1fr); }
+
+  /* ── Topbar export button ── */
+  .btn-accent { padding: 6px 12px; font-size: 12px; }
+
+  /* ── Toast: full width on mobile ── */
+  .toast-container { left: 12px; right: 12px; top: 60px; }
+  .toast { text-align: center; }
+}
+
+@media (max-width: 480px) {
+  .topbar { padding: 0 12px; }
+  .editor-body { padding: 14px; }
+  .field-row { grid-template-columns: 1fr; }
+  .template-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .font-options { grid-template-columns: 1fr 1fr; }
+  .section-card-body { padding: 10px; }
+  .entry-block { padding: 10px; }
+  .design-section { margin-bottom: 18px; }
+  .slider-row label { min-width: 52px; font-size: 10px; }
+}
+
+/* ── SECTION REORDER (unchanged, keep below responsive) ── */
+.section-order-list { display: flex; flex-direction: column; gap: 6px; }
+.section-order-item {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  cursor: grab; transition: all var(--transition);
+}
+.section-order-item:hover { border-color: var(--accent); background: var(--accent-light); }
+.section-order-item.dragging { opacity: 0.5; cursor: grabbing; }
+.drag-handle { color: var(--ink-4); font-size: 12px; }
+.section-order-name { font-size: 12px; font-weight: 500; flex: 1; }
+.section-visibility { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+
+/* ─── EMPTY STATE ─── */
+.cv-empty-hint {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.cv-sheet.has-content .cv-empty-hint { display: none; }
+
+/* ─── WATERMARK ─── */
+.cv-sheet .cv-watermark {
+  position: absolute; bottom: 18px; right: 22px;
+  font-size: 9px; color: #ccc; letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+<!-- ─── TOPBAR ─── -->
+<header class="topbar">
+  <div class="topbar-logo">
+    <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png"
+         alt="CV Forge Logo" class="topbar-logo-img">
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;">
+    <!-- Language selector — proper select dropdown, no broken toggle -->
+    <select id="langSelect" class="lang-select" onchange="setLang(this.value)">
+      <option value="en">🇬🇧 English</option>
+      <option value="zu">🇿🇦 isiZulu</option>
+      <option value="af">🇿🇦 Afrikaans</option>
+      <option value="xh">🇿🇦 isiXhosa</option>
+      <option value="st">🇿🇦 Sesotho</option>
+    </select>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm btn-demo" onclick="autofillDemo()">✨ Demo</button>
+      <button class="btn btn-ghost btn-sm" onclick="clearAll()">Clear</button>
+      <button class="btn btn-ghost btn-sm" id="fbSaveBtn" onclick="saveToFirebase()">☁ Save</button>
+      <button class="btn btn-accent btn-sm" onclick="printCV()">⬇ Export PDF</button>
+    </div>
+  </div>
+</header>
+
+<!-- ─── WORKSPACE ─── -->
+<div class="workspace">
+
+  <!-- ─── EDITOR SIDEBAR ─── -->
+  <aside class="editor-sidebar">
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-step" id="ps1"></div>
+      <div class="progress-step" id="ps2"></div>
+      <div class="progress-step" id="ps3"></div>
+      <div class="progress-step" id="ps4"></div>
+      <div class="progress-step" id="ps5"></div>
+    </div>
+
+    <div class="editor-tabs" id="editorTabs">
+      <div class="editor-tab active" data-panel="content" onclick="switchTab(this,'content')">Content</div>
+      <div class="editor-tab" data-panel="design" onclick="switchTab(this,'design')">Design</div>
+      <div class="editor-tab" data-panel="layout" onclick="switchTab(this,'layout')">Layout</div>
+      <div class="editor-tab" data-panel="settings" onclick="switchTab(this,'settings')">Settings</div>
+    </div>
+
+    <div class="editor-body">
+
+      <!-- Mobile: preview prompt bar -->
+      <div id="mobilePreviewBar" style="display:none;margin-bottom:12px;padding:10px 12px;background:var(--accent-light);border:1px solid rgba(0,87,255,0.2);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--accent);font-weight:500;">See how your CV looks →</span>
+        <button class="btn btn-accent btn-sm" onclick="showMobilePanel('preview')">Preview</button>
+      </div>
+
+      <!-- ─── CONTENT PANEL ─── -->
+      <div class="editor-panel active" id="panel-content">
+
+        <!-- Personal Info -->
+        <div class="section-card open" id="sc-personal">
+          <div class="section-card-head" onclick="toggleCard('sc-personal')">
+            <div class="section-card-title"><div class="section-card-icon">👤</div><span data-i18n="personal">Personal Info</span></div>
+            <div class="section-card-toggle">▼</div>
+          </div>
+          <div class="section-card-body">
+            <div class="upload-area" id="uploadArea">
+              <input type="file" accept="image/*" id="photoInput" onchange="handlePhoto(event)">
+              <img id="uploadPreview" class="upload-preview" style="display:none">
+              <div class="upload-label" id="uploadLabel">
+                <div style="font-size:22px;margin-bottom:4px;">📷</div>
+                <strong>Upload photo</strong> or drag &amp; drop<br>
+                <span style="font-size:10px;color:var(--ink-4);">JPG, PNG · max 5MB</span>
+              </div>
+            </div>
+            <div style="height:12px"></div>
+            <div class="field-group">
+              <label class="field-label" data-i18n="fullName">Full Name <sup>*</sup></label>
+              <input class="field-input" id="f-name" placeholder="Jane Doe" oninput="render()">
+            </div>
+            <div class="field-group">
+              <label class="field-label" data-i18n="jobTitle">Job Title</label>
+              <input class="field-input" id="f-jobtitle" placeholder="Senior Product Designer" oninput="render()">
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label" data-i18n="email">Email</label>
+                <input class="field-input" id="f-email" type="email" placeholder="jane@example.com" oninput="render()">
+              </div>
+              <div class="field-group">
+                <label class="field-label" data-i18n="phone">Phone</label>
+                <input class="field-input" id="f-phone" type="tel" placeholder="+27 81 234 5678" oninput="render()">
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label" data-i18n="location">Location</label>
+                <input class="field-input" id="f-location" placeholder="Cape Town, SA" oninput="render()">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Website / LinkedIn</label>
+                <input class="field-input" id="f-website" placeholder="linkedin.com/in/jane" oninput="render()">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="section-card open" id="sc-summary">
+          <div class="section-card-head" onclick="toggleCard('sc-summary')">
+            <div class="section-card-title"><div class="section-card-icon">📝</div><span data-i18n="summary">Summary</span></div>
+            <div class="section-card-toggle">▼</div>
+          </div>
+          <div class="section-card-body">
+            <div class="field-group">
+              <textarea class="field-textarea" id="f-summary" rows="4" placeholder="A brief, compelling overview of your professional background, key strengths, and career goals..." oninput="render()"></textarea>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="aiSuggestSummary()" style="width:100%;justify-content:center;">✨ AI Suggest</button>
+          </div>
+        </div>
+
+        <!-- Experience -->
+        <div class="section-card open" id="sc-exp">
+          <div class="section-card-head" onclick="toggleCard('sc-exp')">
+            <div class="section-card-title"><div class="section-card-icon">💼</div><span data-i18n="experience">Experience</span></div>
+            <div class="section-card-toggle">▼</div>
+          </div>
+          <div class="section-card-body">
+            <div id="exp-list"></div>
+            <button class="btn-add" onclick="addEntry('exp')">＋ Add Position</button>
+          </div>
+        </div>
+
+        <!-- Education -->
+        <div class="section-card" id="sc-edu">
+          <div class="section-card-head" onclick="toggleCard('sc-edu')">
+            <div class="section-card-title"><div class="section-card-icon">🎓</div><span data-i18n="education">Education</span></div>
+            <div class="section-card-toggle">▼</div>
+          </div>
+          <div class="section-card-body">
+            <div id="edu-list"></div>
+            <button class="btn-add" onclick="addEntry('edu')">＋ Add Education</button>
+          </div>
+        </div>
+
+        <!-- Skills -->
+        <div class="section-card" id="sc-skills">
+          <div class="section-card-head" onclick="toggleCard('sc-skills')">
+            <div class="section-card-title"><div class="section-card-icon">⚡</div><span data-i18n="skills">Skills</span></div>
+            <div class="section-card-toggle">▼</div>
+          </div>
+          <div class="section-card-body">
+            <div class="field-group">
+              <label class="field-label">Skills <span style="font-weight:300;text-transform:none;letter-spacing:0">(comma-separated)</span></label>
+              <textarea class="field-textarea" id="f-skills" rows="3" placeholder="UX Research, Figma, Product Strategy, Team Leadership..." oninput="render()"></textarea>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Skill Display Style</label>
+              <div style="display:flex;gap:6px;">
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+                  <input type="radio" name="skillStyle" value="tags" checked onchange="render()"> Tags
+                </label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+                  <input type="radio" name="skillStyle" value="bars" onchange="render()"> Bars
+                </label>
+                <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+                  <input type="radio" name="skillStyle" value="list" onchange="render()"> List
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Certifications / Custom -->
+        <div class="section-card" id="sc-certs">
+          <div class="section-card-head" onclick="toggleCard('sc-certs')">
+            <div class="section-card-title"><div class="section-card-icon">🏆</div><span>Certifications</span></div>
+            <div class="section-card-toggle">▼</div>
+          </div>
+          <div class="section-card-body">
+            <div class="field-group">
+              <textarea class="field-textarea" id="f-certs" rows="3" placeholder="AWS Certified Solutions Architect · 2023&#10;Google Analytics Certified · 2022" oninput="render()"></textarea>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /panel-content -->
+
+      <!-- ─── DESIGN PANEL ─── -->
+      <div class="editor-panel" id="panel-design">
+
+        <div class="design-section">
+          <div class="design-section-title">Template</div>
+          <div class="template-grid">
+            <!-- Modern -->
+            <div class="template-card selected" data-tpl="modern" onclick="selectTemplate('modern',this)">
+              <div class="template-thumb" id="thumb-modern"></div>
+              <div class="template-name">Modern</div>
+            </div>
+            <!-- Executive -->
+            <div class="template-card" data-tpl="executive" onclick="selectTemplate('executive',this)">
+              <div class="template-thumb" id="thumb-executive"></div>
+              <div class="template-name">Executive</div>
+            </div>
+            <!-- Sidebar -->
+            <div class="template-card" data-tpl="sidebar" onclick="selectTemplate('sidebar',this)">
+              <div class="template-thumb" id="thumb-sidebar"></div>
+              <div class="template-name">Sidebar</div>
+            </div>
+            <!-- Minimal -->
+            <div class="template-card" data-tpl="minimal" onclick="selectTemplate('minimal',this)">
+              <div class="template-thumb" id="thumb-minimal"></div>
+              <div class="template-name">Minimal</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="design-section">
+          <div class="design-section-title">Accent Color</div>
+          <div class="color-row" id="colorSwatches"></div>
+          <div class="color-custom-row">
+            <label>Custom:</label>
+            <input type="color" id="colorCustom" value="#1a1a2e" style="height:28px;width:48px;border:1px solid var(--line);border-radius:4px;cursor:pointer;padding:2px;" oninput="applyColor(this.value)">
+            <input class="field-input" id="colorHexInput" value="#1a1a2e" placeholder="#000000" oninput="validateHex(this.value)" style="flex:1;padding:5px 9px;font-family:var(--font-mono);font-size:12px;">
+          </div>
+        </div>
+
+        <div class="design-section">
+          <div class="design-section-title">Heading Font</div>
+          <div class="font-options" id="headFontOptions"></div>
+        </div>
+
+        <div class="design-section">
+          <div class="design-section-title">Body Font</div>
+          <div class="font-options" id="bodyFontOptions"></div>
+        </div>
+
+      </div><!-- /panel-design -->
+
+      <!-- ─── LAYOUT PANEL ─── -->
+      <div class="editor-panel" id="panel-layout">
+
+        <div class="design-section">
+          <div class="design-section-title">Typography Scale</div>
+          <div class="field-group">
+            <div class="slider-row">
+              <label>Name size</label>
+              <input type="range" min="20" max="48" value="32" id="sl-namesize" oninput="applySliders()">
+              <span id="sv-namesize">32</span>
+            </div>
+            <div class="slider-row">
+              <label>Body size</label>
+              <input type="range" min="10" max="16" value="13" id="sl-bodysize" step="0.5" oninput="applySliders()">
+              <span id="sv-bodysize">13</span>
+            </div>
+            <div class="slider-row">
+              <label>Line height</label>
+              <input type="range" min="1.2" max="2.0" value="1.55" step="0.05" id="sl-lineheight" oninput="applySliders()">
+              <span id="sv-lineheight">1.55</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="design-section">
+          <div class="design-section-title">Spacing</div>
+          <div class="field-group">
+            <div class="slider-row">
+              <label>Page margin</label>
+              <input type="range" min="20" max="72" value="48" id="sl-margin" oninput="applySliders()">
+              <span id="sv-margin">48</span>
+            </div>
+            <div class="slider-row">
+              <label>Section gap</label>
+              <input type="range" min="12" max="48" value="28" id="sl-secgap" oninput="applySliders()">
+              <span id="sv-secgap">28</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="design-section">
+          <div class="design-section-title">Section Order &amp; Visibility</div>
+          <div class="section-order-list" id="sectionOrderList"></div>
+        </div>
+
+        <div class="design-section">
+          <div class="design-section-title">Visual Options</div>
+          <div class="toggle-row">
+            <span class="toggle-label">Show photo</span>
+            <div class="toggle-switch on" id="tog-photo" onclick="toggleOpt(this,'photo')"></div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Section dividers</span>
+            <div class="toggle-switch on" id="tog-dividers" onclick="toggleOpt(this,'dividers')"></div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Skill tags</span>
+            <div class="toggle-switch on" id="tog-skills" onclick="toggleOpt(this,'skills')"></div>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Watermark</span>
+            <div class="toggle-switch" id="tog-watermark" onclick="toggleOpt(this,'watermark')"></div>
+          </div>
+        </div>
+
+      </div><!-- /panel-layout -->
+
+      <!-- ─── SETTINGS PANEL ─── -->
+      <div class="editor-panel" id="panel-settings">
+        <div class="design-section">
+          <div class="design-section-title">CV Language</div>
+          <div class="field-group">
+            <select class="field-select" id="cvLang" onchange="render()">
+              <option value="en">English</option>
+              <option value="zu">isiZulu</option>
+              <option value="af">Afrikaans</option>
+              <option value="xh">isiXhosa</option>
+              <option value="st">Sesotho</option>
+            </select>
+          </div>
+        </div>
+        <div class="design-section">
+          <div class="design-section-title">Page Format</div>
+          <div class="field-group">
+            <select class="field-select" id="pageFormat" onchange="applyFormat()">
+              <option value="a4">A4 (210 × 297mm)</option>
+              <option value="letter">Letter (8.5 × 11in)</option>
+            </select>
+          </div>
+        </div>
+        <div class="design-section">
+          <div class="design-section-title">Save &amp; Load</div>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="saveToFirebase()">☁ Save to Cloud</button>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="loadFromFirebase()">☁ Load from Cloud</button>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="saveToLocal()">💾 Save locally</button>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="exportJSON()">⬇ Export JSON</button>
+        </div>
+        <div class="design-section">
+          <div class="design-section-title">ATS / Best Practices</div>
+          <div style="font-size:12px;color:var(--ink-3);line-height:1.6">
+            <p style="margin-bottom:8px">✅ Use standard section headings</p>
+            <p style="margin-bottom:8px">✅ Keep to 1–2 pages</p>
+            <p style="margin-bottom:8px">✅ Quantify achievements with numbers</p>
+            <p style="margin-bottom:8px">✅ Include relevant keywords from the job post</p>
+            <p>✅ Use action verbs: Led, Designed, Increased...</p>
+          </div>
+        </div>
+      </div><!-- /panel-settings -->
+
+    </div><!-- /editor-body -->
+  </aside>
+
+  <!-- ─── PREVIEW AREA ─── -->
+  <main class="preview-area">
+    <div class="preview-toolbar">
+      <div class="preview-toolbar-left">
+        <div class="preview-zoom-controls">
+          <button class="zoom-btn" onclick="adjustZoom(-0.1)">−</button>
+          <button class="zoom-btn" onclick="adjustZoom(0.1)">+</button>
+          <button class="zoom-btn" onclick="fitZoom()" title="Fit to screen">⊡</button>
+        </div>
+        <span class="zoom-display" id="zoomDisplay">75%</span>
+      </div>
+      <div class="preview-toolbar-right">
+        <span style="font-size:11px;color:var(--ink-4);margin-right:4px" id="pageCount">Page 1</span>
+        <button class="btn btn-primary btn-sm" onclick="printCV()">🖨 Print / Export</button>
+      </div>
+    </div>
+
+    <div class="preview-scroll" id="previewScroll">
+      <div class="cv-sheet tpl-modern" id="cvSheet">
+        <!-- Rendered by JS -->
+        <div class="cv-watermark" id="cvWatermark" style="display:none">CV Forge</div>
+      </div>
+    </div>
+  </main>
+
+</div><!-- /workspace -->
+</div><!-- /app-shell -->
+
+<!-- Mobile overlay (dims editor when preview is shown) -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="showMobilePanel('editor')"></div>
+
+<!-- Mobile bottom nav -->
+<nav class="mobile-nav" id="mobileNav">
+  <button class="mobile-nav-btn active" id="mnEdit" onclick="showMobilePanel('editor')">
+    <span class="mobile-nav-icon">✏️</span>Edit
+  </button>
+  <button class="mobile-nav-btn" id="mnPreview" onclick="showMobilePanel('preview')">
+    <span class="mobile-nav-icon">👁</span>Preview
+  </button>
+  <button class="mobile-nav-btn" id="mnDesign" onclick="showMobilePanel('design')">
+    <span class="mobile-nav-icon">🎨</span>Design
+  </button>
+  <button class="mobile-nav-btn" id="mnExport" onclick="printCV()">
+    <span class="mobile-nav-icon">⬇️</span>Export
+  </button>
+</nav>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const state = {
+  template: 'modern',
+  color: '#0057ff',
+  headFont: 'Syne',
+  bodyFont: 'Epilogue',
+  zoom: 0.72,
+  lang: 'en',
+  opts: { photo: true, dividers: true, skills: true, watermark: false },
+  sliders: { namesize: 32, bodysize: 13, lineheight: 1.55, margin: 48, secgap: 28 },
+  sectionOrder: ['summary','experience','education','skills','certifications'],
+  sectionVisible: { summary:true, experience:true, education:true, skills:true, certifications:true },
+  photoDataUrl: null,
+  expEntries: [],
+  eduEntries: [],
+};
+
+const i18n = {
+  en: { personal:'Personal Info', summary:'Summary', experience:'Experience', education:'Education', skills:'Skills', fullName:'Full Name', jobTitle:'Job Title', email:'Email', phone:'Phone', location:'Location', cvSummaryTitle:'Professional Summary', cvExpTitle:'Work Experience', cvEduTitle:'Education', cvSkillsTitle:'Skills', cvCertsTitle:'Certifications' },
+  zu: { personal:'Ulwazi Lomuntu Siqu', summary:'Isifinyezo', experience:'Ulwazi Lomsebenzi', education:'Imfundo', skills:'Amakhono', fullName:'Igama Eligcwele', jobTitle:'Isihloko', email:'I-imeyili', phone:'Ifoni', location:'Indawo', cvSummaryTitle:'Isifinyezo Somsebenzi', cvExpTitle:'Ulwazi Lomsebenzi', cvEduTitle:'Imfundo', cvSkillsTitle:'Amakhono', cvCertsTitle:'Izitifiketi' },
+  af: { personal:'Persoonlike Inligting', summary:'Opsomming', experience:'Werkservaring', education:'Onderwys', skills:'Vaardighede', fullName:'Volle Naam', jobTitle:'Postitiel', email:'E-pos', phone:'Foon', location:'Ligging', cvSummaryTitle:'Professionele Opsomming', cvExpTitle:'Werkservaring', cvEduTitle:'Onderwys', cvSkillsTitle:'Vaardighede', cvCertsTitle:'Sertifikate' },
+  xh: { personal:'Ulwazi Lobuqu', summary:'Isishwankathelo', experience:'Amava Omsebenzi', education:'Imfundo', skills:'Izakhono', fullName:'Igama Eligcweleyo', jobTitle:'Isihloko', email:'I-imeyile', phone:'Ucingo', location:'Indawo', cvSummaryTitle:'Isishwankathelo Somsebenzi', cvExpTitle:'Amava Omsebenzi', cvEduTitle:'Imfundo', cvSkillsTitle:'Izakhono', cvCertsTitle:'Izatifikethi' },
+  st: { personal:'Tlhahisoleseding', summary:'Kakaretso', experience:'Boiphihlelo', education:'Thuto', skills:'Dithuto', fullName:'Lebitso Le Feletseng', jobTitle:'Sehlooho', email:'Imeile', phone:'Mohala', location:'Sebaka', cvSummaryTitle:'Kakaretso ya Seporofeshenale', cvExpTitle:'Boiphihlelo ba Mosebetsi', cvEduTitle:'Thuto', cvSkillsTitle:'Dithuto', cvCertsTitle:'Diqinisekiso' }
+};
+
+function t(key) { return (i18n[state.lang]||i18n.en)[key] || key; }
+
+// ═══════════════════════════════════════════
+// COLOR PALETTE
+// ═══════════════════════════════════════════
+const colorPalette = [
+  { hex: '#0057ff', name: 'Electric Blue' },
+  { hex: '#0033cc', name: 'Royal Blue' },
+  { hex: '#00b4d8', name: 'Cyan' },
+  { hex: '#0a0a0a', name: 'Black' },
+  { hex: '#1c1c1c', name: 'Graphite' },
+  { hex: '#3d3d3d', name: 'Charcoal' },
+  { hex: '#0057b7', name: 'Cobalt' },
+  { hex: '#003f88', name: 'Midnight' },
+  { hex: '#0096c7', name: 'Ocean' },
+  { hex: '#e53e3e', name: 'Red' },
+  { hex: '#1a9e5c', name: 'Green' },
+  { hex: '#6e00ff', name: 'Violet' },
+];
+
+function initColorSwatches() {
+  const wrap = document.getElementById('colorSwatches');
+  wrap.innerHTML = colorPalette.map(c => `
+    <div class="color-swatch ${c.hex===state.color?'selected':''}"
+      style="background:${c.hex}" title="${c.name}"
+      onclick="applyColor('${c.hex}',this)"></div>
+  `).join('');
+}
+
+function applyColor(hex, el) {
+  state.color = hex;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  document.getElementById('colorHexInput').value = hex;
+  document.getElementById('colorCustom').value = hex;
+  const rgb = hexToRgb(hex);
+  document.documentElement.style.setProperty('--cv-accent', hex);
+  if (rgb) document.documentElement.style.setProperty('--cv-accent-rgb', `${rgb.r},${rgb.g},${rgb.b}`);
+  render();
+}
+
+function validateHex(val) {
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) applyColor(val);
+}
+
+function hexToRgb(hex) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? { r:parseInt(r[1],16), g:parseInt(r[2],16), b:parseInt(r[3],16) } : null;
+}
+
+// ═══════════════════════════════════════════
+// FONTS
+// ═══════════════════════════════════════════
+const headFonts = [
+  { name: 'Syne', label: 'Geometric', preview: 'Ag' },
+  { name: 'Epilogue', label: 'Variable', preview: 'Ag' },
+  { name: 'Azeret Mono', label: 'Mono', preview: 'Ag' },
+  { name: 'Georgia', label: 'Serif', preview: 'Ag' },
+];
+const bodyFonts = [
+  { name: 'Epilogue', label: 'Clean', preview: 'Ag' },
+  { name: 'Syne', label: 'Geometric', preview: 'Ag' },
+  { name: 'Azeret Mono', label: 'Mono', preview: 'Ag' },
+  { name: 'Georgia', label: 'Serif', preview: 'Ag' },
+];
+
+function initFontOptions() {
+  document.getElementById('headFontOptions').innerHTML = headFonts.map(f => `
+    <div class="font-card ${f.name===state.headFont?'selected':''}" onclick="setHeadFont('${f.name}',this)">
+      <div class="font-card-name" style="font-family:'${f.name}'">${f.preview}</div>
+      <div class="font-card-label">${f.label}</div>
+    </div>
+  `).join('');
+  document.getElementById('bodyFontOptions').innerHTML = bodyFonts.map(f => `
+    <div class="font-card ${f.name===state.bodyFont?'selected':''}" onclick="setBodyFont('${f.name}',this)">
+      <div class="font-card-name" style="font-family:'${f.name}'">${f.preview}</div>
+      <div class="font-card-label">${f.label}</div>
+    </div>
+  `).join('');
+}
+
+function setHeadFont(name, el) {
+  state.headFont = name;
+  document.querySelectorAll('#headFontOptions .font-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.documentElement.style.setProperty('--cv-font-head', `'${name}', Georgia, serif`);
+  render();
+}
+function setBodyFont(name, el) {
+  state.bodyFont = name;
+  document.querySelectorAll('#bodyFontOptions .font-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.documentElement.style.setProperty('--cv-font-body', `'${name}', sans-serif`);
+  render();
+}
+
+// ═══════════════════════════════════════════
+// TEMPLATE THUMBS
+// ═══════════════════════════════════════════
+function renderThumbs() {
+  const c = state.color;
+  const cLight = c + '22';
+  const cMid = c + '55';
+
+  document.getElementById('thumb-modern').innerHTML = `
+    <div style="padding:6px;display:flex;flex-direction:column;gap:3px;background:#fff;height:100%">
+      <div style="display:flex;align-items:center;gap:5px;padding-bottom:4px;border-bottom:2px solid ${c}">
+        <div style="width:16px;height:16px;border-radius:50%;background:${cLight};border:1.5px solid ${c};flex-shrink:0"></div>
+        <div>
+          <div style="height:5px;width:50px;background:${c};border-radius:2px;margin-bottom:2px"></div>
+          <div style="height:3px;width:35px;background:${cMid};border-radius:2px"></div>
+        </div>
+      </div>
+      ${[0,0,0].map(()=>`<div style="margin-bottom:2px"><div style="height:3px;width:40%;background:${c};border-radius:2px;margin-bottom:2px"></div><div style="height:2px;width:90%;background:#ddd;border-radius:2px;margin-bottom:1px"></div><div style="height:2px;width:75%;background:#ddd;border-radius:2px"></div></div>`).join('')}
+    </div>`;
+
+  document.getElementById('thumb-executive').innerHTML = `
+    <div style="height:100%;display:flex;flex-direction:column;background:#fff">
+      <div style="background:${c};padding:8px;color:#fff">
+        <div style="height:6px;width:55%;background:rgba(255,255,255,0.9);border-radius:2px;margin-bottom:2px"></div>
+        <div style="height:3px;width:40%;background:rgba(255,255,255,0.5);border-radius:2px"></div>
+      </div>
+      <div style="flex:1;padding:6px;display:flex;flex-direction:column;gap:4px">
+        ${[0,0,0].map(()=>`<div><div style="height:3px;width:35%;background:${c};border-radius:2px;margin-bottom:2px"></div><div style="height:2px;width:90%;background:#ddd;border-radius:2px;margin-bottom:1px;margin-left:8px"></div><div style="height:2px;width:70%;background:#ddd;border-radius:2px;margin-left:8px"></div></div>`).join('')}
+      </div>
+    </div>`;
+
+  document.getElementById('thumb-sidebar').innerHTML = `
+    <div style="display:flex;height:100%">
+      <div style="width:35%;background:${c};padding:5px;display:flex;flex-direction:column;gap:3px">
+        <div style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.3);margin:0 auto 4px"></div>
+        <div style="height:3px;width:80%;background:rgba(255,255,255,0.7);border-radius:2px;margin:0 auto 2px"></div>
+        ${[0,0,0,0].map(()=>`<div style="height:2px;width:90%;background:rgba(255,255,255,0.3);border-radius:2px"></div>`).join('')}
+      </div>
+      <div style="flex:1;background:#fff;padding:5px;display:flex;flex-direction:column;gap:3px">
+        ${[0,0,0].map(()=>`<div><div style="height:3px;width:40%;background:${c};border-radius:2px;margin-bottom:2px"></div><div style="height:2px;width:95%;background:#ddd;border-radius:2px;margin-bottom:1px"></div><div style="height:2px;width:70%;background:#ddd;border-radius:2px"></div></div>`).join('')}
+      </div>
+    </div>`;
+
+  document.getElementById('thumb-minimal').innerHTML = `
+    <div style="padding:8px;background:#fff;height:100%;display:flex;flex-direction:column;gap:5px">
+      <div style="height:8px;width:65%;background:#1a1a1a;border-radius:2px;margin-bottom:1px"></div>
+      <div style="height:3px;width:45%;background:#aaa;border-radius:2px;margin-bottom:4px"></div>
+      ${[0,0,0].map(()=>`<div style="display:flex;gap:3px"><div style="width:30%;text-align:right"><div style="height:2.5px;width:90%;background:${c};border-radius:2px;margin-left:auto"></div></div><div style="flex:1;padding-left:4px;border-left:1px solid #e5e5e5"><div style="height:2px;width:90%;background:#ddd;border-radius:2px;margin-bottom:1px"></div><div style="height:2px;width:70%;background:#ddd;border-radius:2px"></div></div></div>`).join('')}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════
+// TEMPLATE SELECT
+// ═══════════════════════════════════════════
+function selectTemplate(name, el) {
+  state.template = name;
+  document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const sheet = document.getElementById('cvSheet');
+  sheet.className = `cv-sheet tpl-${name}`;
+  render();
+  toast(`Template: ${name.charAt(0).toUpperCase()+name.slice(1)}`);
+}
+
+// ═══════════════════════════════════════════
+// ENTRIES (Experience / Education)
+// ═══════════════════════════════════════════
+function addEntry(type) {
+  const id = Date.now();
+  if (type === 'exp') {
+    state.expEntries.push({ id, title:'', company:'', from:'', to:'', desc:'' });
+    renderEntryList('exp');
+  } else {
+    state.eduEntries.push({ id, degree:'', school:'', year:'', desc:'' });
+    renderEntryList('edu');
+  }
+}
+
+function removeEntry(type, id) {
+  if (type === 'exp') state.expEntries = state.expEntries.filter(e=>e.id!==id);
+  else state.eduEntries = state.eduEntries.filter(e=>e.id!==id);
+  renderEntryList(type);
+  render();
+}
+
+function renderEntryList(type) {
+  const entries = type==='exp' ? state.expEntries : state.eduEntries;
+  const container = document.getElementById(type+'-list');
+  container.innerHTML = '';
+  entries.forEach((e, i) => {
+    const div = document.createElement('div');
+    div.className = 'entry-block';
+    div.innerHTML = type==='exp' ? `
+      <div class="entry-block-head">
+        <span class="entry-label">Position ${i+1}</span>
+        <button class="btn-remove" onclick="removeEntry('exp',${e.id})" title="Remove">✕</button>
+      </div>
+      <div class="field-group"><input class="field-input" placeholder="Job Title" value="${esc(e.title)}" oninput="updateEntry('exp',${e.id},'title',this.value)"></div>
+      <div class="field-row">
+        <div class="field-group"><input class="field-input" placeholder="Company" value="${esc(e.company)}" oninput="updateEntry('exp',${e.id},'company',this.value)"></div>
+        <div class="field-group"><input class="field-input" placeholder="Industry" value="${esc(e.industry||'')}" oninput="updateEntry('exp',${e.id},'industry',this.value)"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><input class="field-input" placeholder="From (e.g. Jan 2020)" value="${esc(e.from)}" oninput="updateEntry('exp',${e.id},'from',this.value)"></div>
+        <div class="field-group"><input class="field-input" placeholder="To (or Present)" value="${esc(e.to)}" oninput="updateEntry('exp',${e.id},'to',this.value)"></div>
+      </div>
+      <div class="field-group"><textarea class="field-textarea" placeholder="Key responsibilities and achievements..." rows="3" oninput="updateEntry('exp',${e.id},'desc',this.value)">${esc(e.desc)}</textarea></div>
+    ` : `
+      <div class="entry-block-head">
+        <span class="entry-label">Education ${i+1}</span>
+        <button class="btn-remove" onclick="removeEntry('edu',${e.id})" title="Remove">✕</button>
+      </div>
+      <div class="field-group"><input class="field-input" placeholder="Degree / Qualification" value="${esc(e.degree)}" oninput="updateEntry('edu',${e.id},'degree',this.value)"></div>
+      <div class="field-group"><input class="field-input" placeholder="Institution" value="${esc(e.school)}" oninput="updateEntry('edu',${e.id},'school',this.value)"></div>
+      <div class="field-row">
+        <div class="field-group"><input class="field-input" placeholder="Year (e.g. 2018)" value="${esc(e.year)}" oninput="updateEntry('edu',${e.id},'year',this.value)"></div>
+        <div class="field-group"><input class="field-input" placeholder="GPA / Grade" value="${esc(e.gpa||'')}" oninput="updateEntry('edu',${e.id},'gpa',this.value)"></div>
+      </div>
+      <div class="field-group"><textarea class="field-textarea" placeholder="Relevant modules, thesis, honours..." rows="2" oninput="updateEntry('edu',${e.id},'desc',this.value)">${esc(e.desc)}</textarea></div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function updateEntry(type, id, field, val) {
+  const arr = type==='exp' ? state.expEntries : state.eduEntries;
+  const e = arr.find(e=>e.id===id);
+  if (e) e[field] = val;
+  render();
+}
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════════════════════════════════════════
+// SECTION ORDER
+// ═══════════════════════════════════════════
+function renderSectionOrder() {
+  const list = document.getElementById('sectionOrderList');
+  list.innerHTML = state.sectionOrder.map(sec => `
+    <div class="section-order-item" draggable="true" data-sec="${sec}"
+      ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)">
+      <span class="drag-handle">⠿</span>
+      <span class="section-order-name">${sec.charAt(0).toUpperCase()+sec.slice(1)}</span>
+      <input type="checkbox" class="section-visibility" ${state.sectionVisible[sec]?'checked':''}
+        onchange="toggleSection('${sec}',this.checked)">
+    </div>
+  `).join('');
+}
+
+let draggedSec = null;
+function dragStart(e) { draggedSec = e.currentTarget.dataset.sec; e.currentTarget.classList.add('dragging'); }
+function dragOver(e) { e.preventDefault(); }
+function dragDrop(e) {
+  const target = e.currentTarget.dataset.sec;
+  if (!draggedSec || draggedSec===target) return;
+  const from = state.sectionOrder.indexOf(draggedSec);
+  const to = state.sectionOrder.indexOf(target);
+  state.sectionOrder.splice(from,1);
+  state.sectionOrder.splice(to,0,draggedSec);
+  document.querySelectorAll('.section-order-item.dragging').forEach(e=>e.classList.remove('dragging'));
+  renderSectionOrder();
+  render();
+}
+function toggleSection(sec, visible) {
+  state.sectionVisible[sec] = visible;
+  render();
+}
+
+// ═══════════════════════════════════════════
+// SLIDERS
+// ═══════════════════════════════════════════
+function applySliders() {
+  ['namesize','bodysize','lineheight','margin','secgap'].forEach(k => {
+    const el = document.getElementById('sl-'+k);
+    const val = parseFloat(el.value);
+    state.sliders[k] = val;
+    document.getElementById('sv-'+k).textContent = val;
+  });
+  render();
+}
+
+// ═══════════════════════════════════════════
+// TOGGLE OPTIONS
+// ═══════════════════════════════════════════
+function toggleOpt(el, key) {
+  state.opts[key] = !state.opts[key];
+  el.classList.toggle('on', state.opts[key]);
+  render();
+}
+
+// ═══════════════════════════════════════════
+// MOBILE PANEL SWITCHING
+// ═══════════════════════════════════════════
+function isMobile() { return window.innerWidth <= 860; }
+
+function showMobilePanel(panel) {
+  if (!isMobile()) return;
+  const previewArea = document.querySelector('.preview-area');
+  const editorSidebar = document.querySelector('.editor-sidebar');
+  const overlay = document.getElementById('mobileOverlay');
+
+  // Reset all nav buttons
+  ['mnEdit','mnPreview','mnDesign'].forEach(id => {
+    document.getElementById(id)?.classList.remove('active');
+  });
+
+  if (panel === 'preview') {
+    previewArea.classList.add('mobile-visible');
+    editorSidebar.style.display = 'none';
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    document.getElementById('mnPreview').classList.add('active');
+    fitZoom();
+  } else if (panel === 'design') {
+    previewArea.classList.remove('mobile-visible');
+    editorSidebar.style.display = '';
+    overlay.style.display = 'none';
+    overlay.classList.remove('visible');
+    document.getElementById('mnDesign').classList.add('active');
+    // Switch to design tab
+    const designTab = document.querySelector('[data-panel="design"]');
+    if (designTab) switchTab(designTab, 'design');
+  } else {
+    // editor (default)
+    previewArea.classList.remove('mobile-visible');
+    editorSidebar.style.display = '';
+    overlay.style.display = 'none';
+    overlay.classList.remove('visible');
+    document.getElementById('mnEdit').classList.add('active');
+    // Switch to content tab
+    const contentTab = document.querySelector('[data-panel="content"]');
+    if (contentTab) switchTab(contentTab, 'content');
+  }
+}
+
+// ═══════════════════════════════════════════
+// ZOOM
+// ═══════════════════════════════════════════
+function adjustZoom(delta) {
+  state.zoom = Math.max(0.2, Math.min(1.5, state.zoom + delta));
+  applyZoom();
+}
+function fitZoom() {
+  const scroller = document.getElementById('previewScroll');
+  if (!scroller) return;
+  const padH = isMobile() ? 32 : 64;
+  const available = scroller.clientWidth - padH;
+  state.zoom = Math.min(available / 794, isMobile() ? 0.95 : 1.0);
+  applyZoom();
+}
+function applyZoom() {
+  const sheet = document.getElementById('cvSheet');
+  if (!sheet) return;
+  sheet.style.transform = `scale(${state.zoom})`;
+  // Correct the layout gap caused by scale shrinking the element's paint box
+  const scaledH = 1123 * state.zoom;
+  const naturalH = 1123;
+  sheet.style.marginBottom = `${scaledH - naturalH}px`;
+  const zd = document.getElementById('zoomDisplay');
+  if (zd) zd.textContent = Math.round(state.zoom * 100) + '%';
+}
+
+// ═══════════════════════════════════════════
+// PHOTO
+// ═══════════════════════════════════════════
+function handlePhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { toast('File too large (max 5MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    state.photoDataUrl = ev.target.result;
+    const prev = document.getElementById('uploadPreview');
+    prev.src = state.photoDataUrl;
+    prev.style.display = 'block';
+    document.getElementById('uploadLabel').style.display = 'none';
+    render();
+    toast('Photo uploaded ✓');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ═══════════════════════════════════════════
+// RENDER CV
+// ═══════════════════════════════════════════
+function getVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+function getSkillStyle() { return document.querySelector('input[name="skillStyle"]:checked')?.value || 'tags'; }
+
+function buildPhotoHtml(cls='') {
+  if (!state.opts.photo) return '';
+  if (state.photoDataUrl) return `<img class="cv-photo ${cls}" src="${state.photoDataUrl}" alt="Photo">`;
+  return `<div class="cv-photo-placeholder ${cls}">👤</div>`;
+}
+
+function buildContactHtml(tpl) {
+  const email = getVal('f-email'), phone = getVal('f-phone'),
+        loc = getVal('f-location'), web = getVal('f-website');
+  const items = [];
+  if (email) items.push({icon:'✉', val:email});
+  if (phone) items.push({icon:'📞', val:phone});
+  if (loc) items.push({icon:'📍', val:loc});
+  if (web) items.push({icon:'🔗', val:web});
+  return items.map(i =>
+    `<div class="cv-contact-item"><span class="cv-contact-icon">${i.icon}</span>${i.val}</div>`
+  ).join('');
+}
+
+function buildSkillsHtml(tpl) {
+  const raw = getVal('f-skills');
+  if (!raw || !state.opts.skills || !state.sectionVisible.skills) return '';
+  const tags = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  const style = getSkillStyle();
+  if (tpl === 'sidebar') {
+    return `<div class="cv-sidebar-skills-list">${tags.map(t=>`<span class="cv-skill-tag">${t}</span>`).join('')}</div>`;
+  }
+  if (style === 'bars') {
+    return `<div>${tags.map((t,i)=>`
+      <div class="cv-skill-bar-wrap">
+        <div class="cv-skill-bar-label">${t}</div>
+        <div class="cv-skill-bar-track"><div class="cv-skill-bar-fill" style="width:${70+((i*17)%30)}%;background:var(--cv-accent)"></div></div>
+      </div>`).join('')}</div>`;
+  }
+  return `<div class="cv-skills-wrap">${tags.map(t=>`<span class="cv-skill-tag">${t}</span>`).join('')}</div>`;
+}
+
+function buildSectionHtml(sec, tpl) {
+  if (!state.sectionVisible[sec]) return '';
+  const m = state.sliders;
+  const secStyle = `margin-bottom:${m.secgap}px`;
+
+  if (sec === 'summary') {
+    const s = getVal('f-summary');
+    if (!s) return '';
+    return tpl==='sidebar'
+      ? `<div class="cv-sidebar-section"><div class="cv-sidebar-section-title">${t('cvSummaryTitle')}</div><p style="font-size:11.5px;color:rgba(255,255,255,0.8);line-height:1.6">${s}</p></div>`
+      : tpl==='minimal'
+        ? `<div class="cv-section" style="${secStyle}"><div class="cv-section-title">${t('cvSummaryTitle')}</div><div class="cv-section-body"><p class="cv-summary">${s}</p></div></div>`
+        : `<div class="cv-section" style="${secStyle}"><h4 class="cv-section-title">${t('cvSummaryTitle')}</h4><p class="cv-summary">${s}</p></div>`;
+  }
+
+  if (sec === 'experience') {
+    if (!state.expEntries.length) return '';
+    const entries = state.expEntries.map(e => {
+      const dur = [e.from, e.to].filter(Boolean).join(' – ') || '';
+      const sub = [e.company, e.industry].filter(Boolean).join(' · ') || '';
+      return `<div class="cv-entry">
+        <div class="cv-entry-head">
+          <span class="cv-entry-title">${e.title||'—'}</span>
+          <span class="cv-entry-date">${dur}</span>
+        </div>
+        ${sub ? `<div class="cv-entry-sub">${sub}</div>` : ''}
+        ${e.desc ? `<div class="cv-entry-desc">${e.desc}</div>` : ''}
+      </div>`;
+    }).join('');
+    return tpl==='minimal'
+      ? `<div class="cv-section" style="${secStyle}"><div class="cv-section-title">${t('cvExpTitle')}</div><div class="cv-section-body">${entries}</div></div>`
+      : `<div class="cv-section" style="${secStyle}"><h4 class="cv-section-title">${t('cvExpTitle')}</h4>${entries}</div>`;
+  }
+
+  if (sec === 'education') {
+    if (!state.eduEntries.length) return '';
+    const entries = state.eduEntries.map(e => `
+      <div class="cv-entry">
+        <div class="cv-entry-head">
+          <span class="cv-entry-title">${e.degree||'—'}</span>
+          <span class="cv-entry-date">${e.year||''}</span>
+        </div>
+        <div class="cv-entry-sub">${[e.school, e.gpa].filter(Boolean).join(' · ')}</div>
+        ${e.desc ? `<div class="cv-entry-desc">${e.desc}</div>` : ''}
+      </div>`).join('');
+    return tpl==='minimal'
+      ? `<div class="cv-section" style="${secStyle}"><div class="cv-section-title">${t('cvEduTitle')}</div><div class="cv-section-body">${entries}</div></div>`
+      : `<div class="cv-section" style="${secStyle}"><h4 class="cv-section-title">${t('cvEduTitle')}</h4>${entries}</div>`;
+  }
+
+  if (sec === 'skills') {
+    const skillsHtml = buildSkillsHtml(tpl);
+    if (!skillsHtml) return '';
+    return tpl==='minimal'
+      ? `<div class="cv-section" style="${secStyle}"><div class="cv-section-title">${t('cvSkillsTitle')}</div><div class="cv-section-body">${skillsHtml}</div></div>`
+      : tpl==='sidebar'
+        ? `<div class="cv-sidebar-section"><div class="cv-sidebar-section-title">${t('cvSkillsTitle')}</div>${skillsHtml}</div>`
+        : `<div class="cv-section" style="${secStyle}"><h4 class="cv-section-title">${t('cvSkillsTitle')}</h4>${skillsHtml}</div>`;
+  }
+
+  if (sec === 'certifications') {
+    const raw = getVal('f-certs');
+    if (!raw) return '';
+    const lines = raw.split('\n').filter(Boolean);
+    const html = lines.map(l=>`<div class="cv-entry-desc" style="margin-bottom:4px">• ${l}</div>`).join('');
+    return tpl==='minimal'
+      ? `<div class="cv-section" style="${secStyle}"><div class="cv-section-title">${t('cvCertsTitle')}</div><div class="cv-section-body">${html}</div></div>`
+      : `<div class="cv-section" style="${secStyle}"><h4 class="cv-section-title">${t('cvCertsTitle')}</h4>${html}</div>`;
+  }
+  return '';
+}
+
+function render() {
+  const sheet = document.getElementById('cvSheet');
+  const tpl = state.template;
+  const name = getVal('f-name') || 'Your Name';
+  const job = getVal('f-jobtitle');
+  const m = state.sliders;
+  const wm = state.opts.watermark ? `<div class="cv-watermark">CV Forge</div>` : '';
+
+  // Set the class FIRST so template CSS selectors apply immediately
+  sheet.className = `cv-sheet tpl-${tpl}`;
+
+  // Push slider overrides into a dedicated <style> tag outside the sheet
+  // so they never get wiped by innerHTML replacement
+  let styleEl = document.getElementById('cvDynamicStyle');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'cvDynamicStyle';
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = `
+    .cv-sheet .cv-full-name { font-size:${m.namesize}px !important; }
+    .cv-sheet .cv-entry-desc, .cv-sheet .cv-summary, .cv-sheet p { font-size:${m.bodysize}px !important; line-height:${m.lineheight} !important; }
+  `;
+
+  const allSections = state.sectionOrder.map(s => buildSectionHtml(s, tpl)).join('');
+
+  if (tpl === 'sidebar') {
+    const sidebarSecs = ['summary','skills','certifications'];
+    const mainSecs = ['experience','education'];
+    const sidebarContent = sidebarSecs.map(s=>buildSectionHtml(s,'sidebar')).join('');
+    const mainContent = mainSecs.map(s=>buildSectionHtml(s,'sidebar')).join('');
+    sheet.innerHTML = `
+      <div class="cv-sidebar-col">
+        ${buildPhotoHtml()}
+        <div class="cv-full-name">${name}</div>
+        ${job ? `<div class="cv-job-title">${job}</div>` : ''}
+        <div class="cv-sidebar-section">
+          <div class="cv-sidebar-section-title">Contact</div>
+          ${buildContactHtml('sidebar')}
+        </div>
+        ${sidebarContent}
+      </div>
+      <div class="cv-main-col">
+        ${mainContent}
+      </div>
+      ${wm}`;
+  } else if (tpl === 'minimal') {
+    sheet.innerHTML = `
+      <div class="cv-header-wrap" style="padding:${m.margin}px ${m.margin}px ${Math.round(m.margin*0.6)}px">
+        ${buildPhotoHtml()}
+        <div class="cv-full-name">${name}</div>
+        ${job ? `<div class="cv-job-title">${job}</div>` : ''}
+        <div class="cv-contact-row">
+          ${buildContactHtml('minimal').replace(/<span class="cv-contact-icon">.*?<\/span>/g,'')}
+        </div>
+      </div>
+      <div class="cv-body" style="padding:8px ${m.margin}px ${m.margin}px">
+        ${allSections}
+      </div>
+      ${wm}`;
+  } else {
+    // modern + executive share this outer structure
+    sheet.innerHTML = `
+      <div class="cv-header-wrap" style="padding:${Math.round(m.margin*0.9)}px ${m.margin}px ${Math.round(m.margin*0.75)}px">
+        <div class="cv-meta-grid">
+          ${buildPhotoHtml()}
+          <div class="cv-name-wrap">
+            <div class="cv-full-name">${name}</div>
+            ${job ? `<div class="cv-job-title">${job}</div>` : ''}
+            <div class="cv-contact-row">${buildContactHtml(tpl)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="cv-body" style="padding:${Math.round(m.margin*0.7)}px ${m.margin}px ${m.margin}px">
+        ${allSections}
+      </div>
+      ${wm}`;
+  }
+
+  updateProgress();
+  renderThumbs();
+}
+
+// ═══════════════════════════════════════════
+// PROGRESS
+// ═══════════════════════════════════════════
+function updateProgress() {
+  const checks = [
+    !!getVal('f-name'),
+    !!getVal('f-email') || !!getVal('f-phone'),
+    !!getVal('f-summary'),
+    state.expEntries.length > 0,
+    state.eduEntries.length > 0 || !!getVal('f-skills'),
+  ];
+  checks.forEach((c, i) => {
+    document.getElementById('ps'+(i+1))?.classList.toggle('filled', c);
+  });
+}
+
+// ═══════════════════════════════════════════
+// TABS / CARDS
+// ═══════════════════════════════════════════
+function switchTab(el, panelId) {
+  document.querySelectorAll('.editor-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.editor-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-'+panelId).classList.add('active');
+}
+
+function toggleCard(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════
+// LANGUAGE
+// ═══════════════════════════════════════════
+function setLang(lang) {
+  state.lang = lang;
+  // Sync the select dropdown
+  const sel = document.getElementById('langSelect');
+  if (sel && sel.value !== lang) sel.value = lang;
+  // Sync settings panel dropdown if present
+  const cvLang = document.getElementById('cvLang');
+  if (cvLang && cvLang.value !== lang) cvLang.value = lang;
+  // Update all data-i18n labelled elements in the editor sidebar
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    const tr = (i18n[lang]||i18n.en)[key];
+    if (tr) el.textContent = tr;
+  });
+  // Re-render CV with new language section titles
+  render();
+}
+
+// ═══════════════════════════════════════════
+// PRINT
+// ═══════════════════════════════════════════
+function printCV() {
+  const name = getVal('f-name') || 'CV';
+  if (!name || name === 'Your Name') {
+    toast('Add your name before exporting');
+    return;
+  }
+  const sheet = document.getElementById('cvSheet');
+  const clone = sheet.cloneNode(true);
+  clone.style.transform = 'none';
+  clone.style.margin = '0';
+  clone.style.boxShadow = 'none';
+  clone.style.width = '100%';
+  clone.style.minHeight = 'auto';
+
+  // Grab ALL styles from the page (the full template CSS lives there)
+  const allStyles = Array.from(document.styleSheets).map(ss => {
+    try { return Array.from(ss.cssRules).map(r=>r.cssText).join('\n'); }
+    catch(e) { return ''; }
+  }).join('\n');
+
+  const dynamicStyle = document.getElementById('cvDynamicStyle')?.textContent || '';
+  const win = window.open('', '_blank', 'width=900,height=700');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>${name} — CV</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Epilogue:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Azeret+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+      body { background:#fff; font-family:'${state.bodyFont}',sans-serif; }
+      :root {
+        --cv-accent:${state.color};
+        --cv-accent-rgb:${hexToRgb(state.color)?Object.values(hexToRgb(state.color)).join(','):'0,87,255'};
+        --cv-font-head:'${state.headFont}',sans-serif;
+        --cv-font-body:'${state.bodyFont}',sans-serif;
+      }
+      ${allStyles}
+      ${dynamicStyle}
+      .cv-sheet { width:100% !important; min-height:auto !important; box-shadow:none !important; }
+      @media print { @page { margin:0; size:A4; } body { margin:0; } }
+    </style>
+  </head><body>${clone.outerHTML}<script>setTimeout(()=>{window.print();},800)<\/script></body></html>`);
+  win.document.close();
+  if (window._fbReady) window._fb.logExport(getSessionId(), name + ' (PDF)').catch(()=>{});
+  toast('Opening print dialog…');
+}
+
+// ═══════════════════════════════════════════
+// SAVE / LOAD
+// ═══════════════════════════════════════════
+function saveToLocal() {
+  localStorage.setItem('cvforge_draft', JSON.stringify(collectSaveData()));
+  toast('Draft saved locally ✓');
+}
+
+function loadFromLocal() {
+  const raw = localStorage.getItem('cvforge_draft');
+  if (!raw) { toast('No saved draft found'); return; }
+  try {
+    applyLoadedData(JSON.parse(raw));
+    toast('Local draft loaded ✓');
+  } catch(e) { toast('Error loading draft'); }
+}
+
+function exportJSON() {
+  const name = getVal('f-name') || 'cv';
+  const data = {
+    name, jobtitle: getVal('f-jobtitle'),
+    email: getVal('f-email'), phone: getVal('f-phone'),
+    location: getVal('f-location'), website: getVal('f-website'),
+    summary: getVal('f-summary'), skills: getVal('f-skills').split(',').map(s=>s.trim()).filter(Boolean),
+    experience: state.expEntries, education: state.eduEntries
+  };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name.replace(/\s+/g,'-').toLowerCase()+'-data.json';
+  a.click();
+  if (window._fbReady) window._fb.logExport(getSessionId(), name).catch(()=>{});
+  toast('JSON exported ✓');
+}
+
+// ═══════════════════════════════════════════
+// DEMO / CLEAR
+// ═══════════════════════════════════════════
+function autofillDemo() {
+  const fields = {
+    'f-name': 'Nomvula Dlamini',
+    'f-jobtitle': 'Senior UX Designer',
+    'f-email': 'nomvula.dlamini@gmail.com',
+    'f-phone': '+27 82 345 6789',
+    'f-location': 'Johannesburg, Gauteng',
+    'f-website': 'linkedin.com/in/nomvula',
+    'f-summary': 'Award-winning UX designer with 7+ years crafting intuitive digital products for fintech and e-commerce clients across Sub-Saharan Africa. Proven track record increasing user engagement by 40% through research-led design systems.',
+    'f-skills': 'UX Research, Figma, Design Systems, Prototyping, Accessibility, User Testing, Product Strategy, Adobe XD, Sketch, HTML/CSS',
+    'f-certs': 'Google UX Design Certificate · 2022\nAWSome Day Cloud Practitioner · 2021',
+  };
+  Object.entries(fields).forEach(([id,val]) => {
+    const el = document.getElementById(id); if (el) el.value = val;
+  });
+  state.expEntries = [
+    { id:1, title:'Senior UX Designer', company:'Takealot Group', industry:'E-commerce', from:'Mar 2021', to:'Present', desc:'Led end-to-end redesign of the mobile checkout flow, reducing drop-off by 35%. Managed a team of 3 junior designers and collaborated with 12 cross-functional stakeholders.' },
+    { id:2, title:'UX Designer', company:'Standard Bank', industry:'Financial Services', from:'Jan 2018', to:'Feb 2021', desc:'Designed and shipped 15+ features for the mobile banking app (5M+ users). Established the first internal design system, cutting design-to-dev handoff time by 50%.' },
+  ];
+  state.eduEntries = [
+    { id:1, degree:'B.Des in Interaction Design', school:'University of the Witwatersrand', year:'2017', gpa:'Distinction', desc:'Honours thesis: Designing for low-bandwidth environments in emerging markets.' },
+  ];
+  renderEntryList('exp');
+  renderEntryList('edu');
+  render();
+  toast('Demo data loaded ✓');
+}
+
+function clearAll() {
+  ['f-name','f-jobtitle','f-email','f-phone','f-location','f-website','f-summary','f-skills','f-certs'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  state.expEntries = [];
+  state.eduEntries = [];
+  state.photoDataUrl = null;
+  document.getElementById('uploadPreview').style.display = 'none';
+  document.getElementById('uploadLabel').style.display = 'block';
+  renderEntryList('exp');
+  renderEntryList('edu');
+  render();
+  toast('Cleared');
+}
+
+// ═══════════════════════════════════════════
+// AI SUGGEST
+// ═══════════════════════════════════════════
+function aiSuggestSummary() {
+  const name = getVal('f-name');
+  const job = getVal('f-jobtitle');
+  const skills = getVal('f-skills');
+  if (!job && !skills) { toast('Fill in your job title or skills first'); return; }
+  const suggestions = [
+    `Results-driven ${job||'professional'} with a passion for delivering high-impact solutions. Skilled in ${skills||'cross-functional collaboration'}, with a strong track record of exceeding targets and building lasting stakeholder relationships.`,
+    `Dynamic ${job||'professional'} with hands-on experience driving growth and innovation. Adept at ${skills||'problem-solving and strategic planning'}, consistently delivering measurable outcomes across diverse projects.`,
+    `Dedicated ${job||'professional'} committed to excellence and continuous improvement. Expert in ${skills||'leading teams and managing complex initiatives'}, with a collaborative approach that inspires high performance.`,
+  ];
+  const pick = suggestions[Math.floor(Math.random()*suggestions.length)];
+  document.getElementById('f-summary').value = pick;
+  render();
+  toast('Summary suggestion applied ✓');
+}
+
+// ═══════════════════════════════════════════
+// FIREBASE CLOUD SAVE / LOAD
+// ═══════════════════════════════════════════
+
+// Stable session ID — persisted in localStorage so the same browser
+// always writes/reads the same Firestore document
+function getSessionId() {
+  let id = localStorage.getItem('cvforge_session');
+  if (!id) {
+    id = 'cv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+    localStorage.setItem('cvforge_session', id);
+  }
+  return id;
+}
+
+function collectSaveData() {
+  return {
+    fields: {
+      name:     getVal('f-name'),
+      jobtitle: getVal('f-jobtitle'),
+      email:    getVal('f-email'),
+      phone:    getVal('f-phone'),
+      location: getVal('f-location'),
+      website:  getVal('f-website'),
+      summary:  getVal('f-summary'),
+      skills:   getVal('f-skills'),
+      certs:    getVal('f-certs'),
+    },
+    expEntries: state.expEntries,
+    eduEntries: state.eduEntries,
+    design: {
+      template:       state.template,
+      color:          state.color,
+      headFont:       state.headFont,
+      bodyFont:       state.bodyFont,
+      lang:           state.lang,
+      opts:           state.opts,
+      sliders:        state.sliders,
+      sectionOrder:   state.sectionOrder,
+      sectionVisible: state.sectionVisible,
+    },
+  };
+}
+
+async function saveToFirebase() {
+  if (!window._fbReady) {
+    toast('⚠ Firebase not configured — see code comments');
+    saveToLocal(); // fallback
+    return;
+  }
+  const btn = document.getElementById('fbSaveBtn');
+  if (btn) { btn.textContent = '…saving'; btn.disabled = true; }
+  try {
+    const sessionId = getSessionId();
+    await window._fb.saveCV(sessionId, collectSaveData());
+    saveToLocal(); // also keep local copy
+    toast('☁ Saved to cloud ✓');
+  } catch (e) {
+    console.error('Firebase save error:', e);
+    toast('Cloud save failed — saved locally instead');
+    saveToLocal();
+  } finally {
+    if (btn) { btn.textContent = '☁ Save'; btn.disabled = false; }
+  }
+}
+
+async function loadFromFirebase() {
+  if (!window._fbReady) { loadFromLocal(); return; }
+  try {
+    const sessionId = getSessionId();
+    const data = await window._fb.loadCV(sessionId);
+    if (!data) { toast('No cloud draft found'); loadFromLocal(); return; }
+    applyLoadedData(data);
+    toast('☁ Cloud draft loaded ✓');
+  } catch (e) {
+    console.error('Firebase load error:', e);
+    loadFromLocal();
+  }
+}
+
+function applyLoadedData(data) {
+  if (data.fields) {
+    Object.entries(data.fields).forEach(([k, v]) => {
+      const el = document.getElementById('f-' + k);
+      if (el) el.value = v || '';
+    });
+  }
+  if (data.expEntries) { state.expEntries = data.expEntries; renderEntryList('exp'); }
+  if (data.eduEntries) { state.eduEntries = data.eduEntries; renderEntryList('edu'); }
+  if (data.design) {
+    const d = data.design;
+    if (d.template)       { state.template = d.template; document.querySelector(`[data-tpl="${d.template}"]`)?.classList.add('selected'); }
+    if (d.color)          applyColor(d.color);
+    if (d.headFont)       { state.headFont = d.headFont; document.documentElement.style.setProperty('--cv-font-head', `'${d.headFont}', sans-serif`); }
+    if (d.bodyFont)       { state.bodyFont = d.bodyFont; document.documentElement.style.setProperty('--cv-font-body', `'${d.bodyFont}', sans-serif`); }
+    if (d.lang)           setLang(d.lang);
+    if (d.opts)           Object.assign(state.opts, d.opts);
+    if (d.sliders)        { Object.assign(state.sliders, d.sliders); ['namesize','bodysize','lineheight','margin','secgap'].forEach(k => { const el = document.getElementById('sl-'+k); if(el && d.sliders[k]) { el.value = d.sliders[k]; document.getElementById('sv-'+k).textContent = d.sliders[k]; } }); }
+    if (d.sectionOrder)   state.sectionOrder = d.sectionOrder;
+    if (d.sectionVisible) Object.assign(state.sectionVisible, d.sectionVisible);
+  }
+  renderSectionOrder();
+  render();
+}
+
+// ═══════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════
+function toast(msg) {
+  const c = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
+// ═══════════════════════════════════════════
+// FORMAT
+// ═══════════════════════════════════════════
+function applyFormat() {
+  const fmt = document.getElementById('pageFormat').value;
+  const sheet = document.getElementById('cvSheet');
+  if (fmt === 'letter') { sheet.style.width = '816px'; sheet.style.minHeight = '1056px'; }
+  else { sheet.style.width = '794px'; sheet.style.minHeight = '1123px'; }
+  fitZoom();
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  initColorSwatches();
+  initFontOptions();
+  renderEntryList('exp');
+  renderEntryList('edu');
+  renderSectionOrder();
+  renderThumbs();
+  fitZoom();
+  // apply electric blue defaults
+  applyColor('#0057ff');
+  document.getElementById('colorHexInput').value = '#0057ff';
+  document.getElementById('colorCustom').value = '#0057ff';
+  document.documentElement.style.setProperty('--cv-font-head', "'Syne', sans-serif");
+  document.documentElement.style.setProperty('--cv-font-body', "'Epilogue', sans-serif");
+  render();
+
+  // Try to load from Firebase first; fallback to localStorage
+  const tryLoad = () => {
+    if (window._fbReady) {
+      loadFromFirebase();
+    } else if (localStorage.getItem('cvforge_draft')) {
+      loadFromLocal();
+    }
+  };
+  // Firebase module fires fbReady event when ready
+  if (window._fbReady) {
+    tryLoad();
+  } else {
+    window.addEventListener('fbReady', tryLoad, { once: true });
+    // If Firebase hasn't fired within 3s, fall back to local
+    setTimeout(() => { if (!window._fbReady && localStorage.getItem('cvforge_draft')) loadFromLocal(); }, 3000);
+  }
+
+  // Show mobile preview bar only on mobile
+  function updateMobileUI() {
+    const bar = document.getElementById('mobilePreviewBar');
+    if (bar) bar.style.display = isMobile() ? 'flex' : 'none';
+  }
+  updateMobileUI();
+  window.addEventListener('resize', updateMobileUI);
+
+  // Drag & drop on upload
+  const ua = document.getElementById('uploadArea');
+  ['dragenter','dragover'].forEach(ev => ua.addEventListener(ev, e=>{e.preventDefault();ua.classList.add('drag-over');}));
+  ['dragleave','drop'].forEach(ev => ua.addEventListener(ev, e=>{e.preventDefault();ua.classList.remove('drag-over');}));
+  ua.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      const input = document.getElementById('photoInput');
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      handlePhoto({ target: input });
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    fitZoom();
+    // On resize to desktop, reset any mobile panel state
+    if (!isMobile()) {
+      document.querySelector('.preview-area').classList.remove('mobile-visible');
+      document.querySelector('.editor-sidebar').style.display = '';
+      const overlay = document.getElementById('mobileOverlay');
+      overlay.style.display = 'none';
+      overlay.classList.remove('visible');
+    }
+  });
+
+  // Auto-save: local immediately, Firebase debounced
+  let localTimer, cloudTimer;
+  document.addEventListener('input', () => {
+    clearTimeout(localTimer);
+    clearTimeout(cloudTimer);
+    localTimer = setTimeout(() => saveToLocal(), 1500);
+    cloudTimer = setTimeout(() => {
+      if (window._fbReady) saveToFirebase();
+    }, 5000);
+  });
+});
+</script>
+</body>
+</html>
