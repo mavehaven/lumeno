@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Friction — Physics Module 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=IBM+Plex+Mono:wght@300;400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]})"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#080f1e;
+  --bg1:#0c1628;
+  --bg2:#0f1e38;
+  --bg3:#162038;
+  --border:#1e3a5f;
+  --border2:#2e4060;
+
+  --text:#e8eef8;
+  --muted:#94a8c4;
+  --faint:#2e4060;
+  --dim:#5a7090;
+
+  --blue:#3b9eff;
+  --blue-light:#6cb8ff;
+  --blue-dim:#1a4a80;
+  --red:#ff4d6a;
+  --green:#00e5a0;
+  --purple:#b06fff;
+  --amber:#ffb830;
+
+  --law-s:#3b9eff;
+  --law-k:#ff4d6a;
+  --law-r:#00e5a0;
+
+  --serif:'Playfair Display',Georgia,serif;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'DM Sans',sans-serif;
+}
+
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.75;
+  font-size:15px;
+  overflow-x:hidden;
+}
+
+/* noise */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity:.15;
+}
+
+.page{max-width:900px;margin:0 auto;padding:0 1.5rem 8rem}
+
+/* ── HERO ── */
+.hero{
+  position:relative;
+  padding:5rem 0 4rem;
+  border-bottom:1px solid var(--border);
+  overflow:hidden;
+}
+.hero-bg{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 55% 70% at 75% 40%, rgba(59,158,255,0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 30% 50% at 20% 80%, rgba(255,77,106,0.05) 0%, transparent 60%);
+}
+/* animated scan line */
+.hero::after{
+  content:'';position:absolute;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(59,158,255,0.4),transparent);
+  animation:scan 4s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes scan{
+  0%{top:0;opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{top:100%;opacity:0}
+}
+
+.module-tag{
+  display:inline-flex;align-items:center;gap:.5rem;
+  font-family:var(--mono);font-size:11px;font-weight:400;
+  color:var(--dim);letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid var(--border);border-radius:2px;
+  padding:.25rem .6rem;margin-bottom:1.5rem;
+}
+.module-tag span{color:var(--blue);font-weight:600}
+h1.hero-title{
+  font-family:var(--serif);
+  font-size:clamp(2.8rem,6vw,4.8rem);
+  font-weight:900;line-height:1.05;letter-spacing:-.02em;
+  color:var(--text);margin-bottom:1rem;
+}
+h1.hero-title em{color:var(--blue);font-style:italic;}
+.hero-sub{font-size:1.05rem;color:var(--muted);max-width:580px;line-height:1.7;margin-bottom:2rem}
+.hero-meta{display:flex;gap:2rem;flex-wrap:wrap}
+.meta-item{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.meta-item span{color:var(--muted);font-weight:600}
+
+/* ── NAV ── */
+.chapter-nav{
+  display:flex;gap:.4rem;flex-wrap:wrap;
+  padding:1.5rem 0;
+  position:sticky;top:0;z-index:100;
+  background:linear-gradient(var(--bg) 90%,transparent);
+  border-bottom:1px solid var(--border);
+}
+.pill{
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  padding:.3rem .75rem;border-radius:2px;
+  border:1px solid var(--border);
+  color:var(--dim);text-decoration:none;
+  transition:all .15s;
+}
+.pill:hover,.pill.active{
+  background:var(--blue);color:var(--bg);
+  border-color:var(--blue);
+}
+
+/* ── SECTION ── */
+.section{padding:4rem 0 2rem}
+.section-header{display:flex;gap:1.5rem;align-items:flex-start;margin-bottom:2.5rem}
+.sec-number{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  color:var(--faint);letter-spacing:.1em;min-width:2.5rem;
+  padding-top:.4rem;text-transform:uppercase;
+}
+.sec-content-header{flex:1}
+h2{font-family:var(--serif);font-size:2rem;font-weight:700;line-height:1.15;color:var(--text);margin-bottom:.5rem}
+.section-intro{font-size:1rem;color:var(--muted);max-width:620px;line-height:1.75}
+.divider{border:none;border-top:1px solid var(--border);margin:3rem 0}
+h3{font-family:var(--serif);font-size:1.15rem;font-weight:700;color:var(--text);margin:2rem 0 .75rem}
+h4{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:1.5rem 0 .5rem}
+p{color:var(--muted);margin-bottom:1rem;line-height:1.8}
+p strong{color:var(--text);font-weight:600}
+
+/* ── FRICTION TYPE CARDS ── */
+.ftype-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin:2rem 0}
+.ftype-card{
+  background:var(--bg1);border:1px solid var(--border);
+  border-radius:4px;overflow:hidden;
+  transition:transform .15s,box-shadow .15s;
+}
+.ftype-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.ftype-top{height:3px}
+.ftype-body{padding:1.25rem 1.25rem 1.5rem}
+.ftype-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;margin-bottom:.5rem}
+.ftype-name{font-family:var(--serif);font-size:1.2rem;font-weight:700;color:var(--text);margin-bottom:.5rem}
+.ftype-formula{font-family:var(--mono);font-size:.8rem;padding:.25rem .6rem;border-radius:2px;display:inline-block;margin-bottom:.6rem}
+.ftype-desc{font-size:.8rem;color:var(--muted);line-height:1.6}
+
+/* ── EQ BLOCK ── */
+.eq-block{
+  background:var(--bg1);border:1px solid var(--border);
+  border-left:3px solid var(--blue);
+  border-radius:0 4px 4px 0;
+  padding:1.25rem 1.75rem;margin:1.5rem 0;overflow-x:auto;
+}
+.eq-label{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin-bottom:.75rem}
+.eq-block .katex-display{margin:.25rem 0}
+.eq-note{font-size:.8rem;color:var(--dim);margin-top:.6rem;line-height:1.6}
+.eq-note strong{color:var(--muted)}
+.eq-row{display:flex;flex-wrap:wrap;gap:2rem;margin-top:.5rem}
+.eq-col{flex:1;min-width:200px}
+.eq-sub-label{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:.1em;margin-bottom:.35rem}
+
+/* ── CALLOUTS ── */
+.callout{
+  padding:1rem 1.25rem;margin:1.5rem 0;border-radius:3px;
+  font-size:.88rem;line-height:1.7;border:1px solid transparent;
+}
+.callout-blue{background:rgba(59,158,255,0.07);border-color:rgba(59,158,255,0.25);color:var(--muted)}
+.callout-red{background:rgba(255,77,106,0.07);border-color:rgba(255,77,106,0.25);color:var(--muted)}
+.callout-green{background:rgba(0,229,160,0.06);border-color:rgba(0,229,160,0.2);color:var(--muted)}
+.callout-amber{background:rgba(255,184,48,0.06);border-color:rgba(255,184,48,0.2);color:var(--muted)}
+.callout-marker{
+  font-family:var(--mono);font-size:9px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:.35rem;
+}
+.callout-blue .callout-marker{color:var(--blue)}
+.callout-red .callout-marker{color:var(--red)}
+.callout-green .callout-marker{color:var(--green)}
+.callout-amber .callout-marker{color:var(--amber)}
+.callout strong{color:var(--text)}
+
+/* ── DERIVATION ── */
+.deriv-chain{position:relative;margin:2rem 0;padding-left:3rem;counter-reset:deriv}
+.deriv-chain::before{
+  content:'';position:absolute;left:1.1rem;top:1.2rem;bottom:1.2rem;
+  width:1px;background:var(--border);
+}
+.deriv-step{
+  position:relative;margin-bottom:1.25rem;
+  padding:.9rem 1.25rem .9rem 1.5rem;
+  background:var(--bg1);border:1px solid var(--border);border-radius:3px;
+}
+.deriv-step::before{
+  content:counter(deriv);counter-increment:deriv;
+  position:absolute;left:-2.1rem;top:50%;transform:translateY(-50%);
+  width:1.6rem;height:1.6rem;
+  background:var(--bg3);color:var(--blue);
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  border:1px solid var(--border);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  text-align:center;line-height:1.6rem;
+}
+.deriv-math{font-size:.95rem;margin-bottom:.35rem}
+.deriv-reason{font-size:.78rem;color:var(--dim);font-style:italic}
+.deriv-step.hl{border-color:var(--blue);background:rgba(59,158,255,0.05)}
+.deriv-step.hl::before{background:var(--blue);color:var(--bg)}
+
+/* ── MU TABLE ── */
+.mu-table{width:100%;border-collapse:collapse;font-size:.85rem;margin:1.25rem 0}
+.mu-table th{
+  font-family:var(--mono);font-size:9px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);padding:.5rem .75rem;
+  border-bottom:1px solid var(--border);text-align:left;
+}
+.mu-table td{
+  padding:.55rem .75rem;
+  border-bottom:1px solid rgba(30,58,95,0.5);
+  color:var(--muted);
+}
+.mu-table tr:last-child td{border-bottom:none}
+.mu-table td:first-child{color:var(--text);font-weight:500}
+.mu-val{font-family:var(--mono);font-size:.82rem;color:var(--blue)}
+.mu-bar{
+  display:inline-block;height:6px;border-radius:2px;
+  background:var(--blue);vertical-align:middle;margin-left:.5rem;
+  opacity:.6;
+}
+
+/* ── WORKED EXAMPLES ── */
+.worked-example{border:1px solid var(--border);border-radius:4px;overflow:hidden;margin:2rem 0}
+.we-header{
+  background:var(--bg3);border-bottom:1px solid var(--border);
+  padding:.75rem 1.25rem;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.we-title{font-family:var(--serif);font-size:1rem;font-weight:700;color:var(--text)}
+.we-tag{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
+.we-body{padding:1.25rem 1.5rem;background:var(--bg1)}
+.we-given{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem}
+.we-given-item{
+  font-family:var(--mono);font-size:.82rem;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:2px;padding:.2rem .6rem;color:var(--muted);
+}
+.we-steps{counter-reset:westep;list-style:none;padding:0}
+.we-steps li{
+  counter-increment:westep;
+  padding:.6rem 0 .6rem 2.5rem;
+  border-bottom:1px solid rgba(30,58,95,0.5);
+  position:relative;font-size:.88rem;color:var(--muted);
+}
+.we-steps li::before{
+  content:counter(westep);
+  position:absolute;left:0;top:.65rem;
+  width:1.5rem;height:1.5rem;
+  border:1px solid var(--border);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:9px;font-weight:600;color:var(--dim);
+  text-align:center;line-height:1.5rem;
+}
+.we-steps li:last-child{border-bottom:none}
+.we-ans{
+  margin-top:1rem;padding:.75rem 1rem;
+  background:var(--blue-dim);border:1px solid var(--blue);
+  border-radius:3px;font-family:var(--mono);font-size:.88rem;color:var(--blue-light);
+}
+
+/* ── FBD CANVASES ── */
+.fbd-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:1.5rem 0}
+.fbd-card{background:var(--bg1);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.fbd-title{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:.6rem .85rem .2rem}
+canvas.fbd{display:block;width:100%;height:180px}
+
+/* ── ANGLE EXPLORER ── */
+.angle-wrap{
+  border:1px solid var(--border);border-radius:4px;overflow:hidden;margin:2rem 0;
+}
+.angle-header{
+  background:var(--bg3);border-bottom:1px solid var(--border);
+  padding:.75rem 1.25rem;display:flex;align-items:center;justify-content:space-between;
+}
+.angle-title{font-family:var(--serif);font-size:.95rem;font-weight:700;color:var(--text)}
+.angle-badge{font-family:var(--mono);font-size:9px;color:var(--blue);letter-spacing:.1em;text-transform:uppercase}
+.angle-body{padding:1.25rem;background:var(--bg1)}
+.angle-canvas-row{display:flex;gap:1rem;align-items:flex-start;margin-bottom:1rem;flex-wrap:wrap}
+canvas#angle-canvas{
+  background:var(--bg);border:1px solid var(--border);border-radius:3px;
+  width:260px;height:220px;flex-shrink:0;
+}
+.angle-readouts{flex:1;min-width:200px;display:flex;flex-direction:column;gap:.5rem}
+.aro{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:3px;padding:.6rem .85rem;
+}
+.aro-lbl{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.aro-val{font-family:var(--mono);font-size:.95rem;font-weight:600;color:var(--text);margin-top:2px}
+.aro-val .unit{font-size:.7rem;font-weight:400;color:var(--dim)}
+.aro-val.moving{color:var(--red)}
+.aro-val.static{color:var(--green)}
+.angle-slider-row{display:flex;flex-direction:column;gap:3px;margin-top:.75rem}
+.angle-slider-top{display:flex;justify-content:space-between}
+.asl-name{font-size:11px;color:var(--muted);font-weight:500}
+.asl-val{font-family:var(--mono);font-size:11px;color:var(--text);font-weight:600}
+input[type=range]{width:100%;height:2px;cursor:pointer;accent-color:var(--blue)}
+
+/* ── MAIN SIMULATION ── */
+.sim-wrap{border:1px solid var(--border);border-radius:4px;overflow:hidden;margin:2rem 0}
+.sim-header{
+  background:var(--bg3);border-bottom:1px solid var(--border);
+  padding:.85rem 1.25rem;display:flex;align-items:center;justify-content:space-between;
+}
+.sim-title{font-family:var(--serif);font-size:1rem;font-weight:700;color:var(--text)}
+.sim-tabs{display:flex;gap:.25rem}
+.stab{
+  font-family:var(--mono);font-size:9px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:.3rem .75rem;border-radius:2px;
+  border:1px solid var(--border);
+  color:var(--dim);background:transparent;cursor:pointer;transition:all .15s;
+}
+.stab.active{background:var(--blue);color:var(--bg);border-color:var(--blue)}
+.sim-body{padding:1.25rem;background:var(--bg1)}
+.sim-eq-bar{
+  background:var(--bg);border:1px solid var(--border);border-radius:3px;
+  padding:.6rem 1rem;margin-bottom:1rem;font-size:.92rem;overflow-x:auto;
+  min-height:2.4rem;display:flex;align-items:center;
+}
+.canvas-wrap{background:var(--bg);border-radius:4px;overflow:hidden;margin-bottom:1rem}
+canvas#sim{display:block;width:100%;height:220px}
+.readouts{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.ro{
+  flex:1;min-width:90px;
+  background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:.6rem .85rem;
+}
+.ro-lbl{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.ro-val{font-family:var(--mono);font-size:1rem;font-weight:600;color:var(--text);margin-top:2px}
+.ro-val .unit{font-size:.7rem;font-weight:400;color:var(--dim)}
+.sliders-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem}
+.sl-wrap{display:flex;flex-direction:column;gap:3px}
+.sl-top{display:flex;justify-content:space-between;align-items:center}
+.sl-name{font-size:11px;color:var(--muted);font-weight:500}
+.sl-val{font-family:var(--mono);font-size:10px;color:var(--text);font-weight:600}
+.graphs-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.g-card{background:var(--bg);border:1px solid var(--border);border-radius:3px;overflow:hidden}
+.g-lbl{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:.4rem .6rem .1rem}
+canvas.gc{display:block;width:100%;height:72px}
+
+/* ── PHASE DIAGRAM ── */
+.phase-wrap{
+  background:var(--bg1);border:1px solid var(--border);border-radius:4px;
+  overflow:hidden;margin:1.5rem 0;
+}
+.phase-title{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:.6rem .85rem .2rem}
+canvas#phase-canvas{display:block;width:100%;height:120px}
+
+/* ── VAR TABLE ── */
+.var-table{width:100%;border-collapse:collapse;margin:1.25rem 0;font-size:.85rem}
+.var-table th{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:.5rem .75rem;border-bottom:1px solid var(--border);text-align:left}
+.var-table td{padding:.55rem .75rem;border-bottom:1px solid rgba(30,58,95,0.5);color:var(--muted);vertical-align:middle}
+.var-table tr:last-child td{border-bottom:none}
+.var-sym{font-family:var(--mono);font-weight:600;font-size:.9rem;color:var(--text)}
+.var-unit{font-family:var(--mono);font-size:.8rem;color:var(--dim)}
+
+/* ── FOOTER ── */
+.module-footer{
+  margin-top:6rem;padding-top:2rem;
+  border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;
+}
+.footer-nav{display:flex;gap:.5rem}
+.fnav-btn{
+  font-family:var(--mono);font-size:10px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:.4rem 1rem;border-radius:2px;
+  border:1px solid var(--border);color:var(--dim);
+  background:transparent;cursor:pointer;text-decoration:none;
+  transition:all .15s;display:inline-flex;align-items:center;gap:.4rem;
+}
+.fnav-btn.next{background:var(--blue);color:var(--bg);border-color:var(--blue)}
+.fnav-btn:hover{opacity:.8}
+.footer-tag{font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .ftype-grid{grid-template-columns:1fr}
+  .fbd-row{grid-template-columns:1fr}
+  .sliders-grid{grid-template-columns:1fr}
+  .angle-canvas-row{flex-direction:column}
+  canvas#angle-canvas{width:100%}
+}
+
+/* ── FADE IN ── */
+.fade-in{opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s ease}
+.fade-in.visible{opacity:1;transform:none}
+
+.katex{font-size:1.05em}
+.katex-display>.katex{font-size:1.1em}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ══════════════════════ HERO ══════════════════════ -->
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="module-tag"><span>Module 2</span> · Classical Mechanics</div>
+  <h1 class="hero-title">Friction &amp;<br><em>Surface Forces</em></h1>
+  <p class="hero-sub">Every object touching a surface experiences friction — a force that opposes relative motion and is responsible for everything from tire grip to the heat of a meteor. Understanding it precisely is essential to solving real dynamics problems.</p>
+  <div class="hero-meta">
+    <div class="meta-item">Prerequisites <span>Newton's Laws, Normal Force</span></div>
+    <div class="meta-item">Core equations <span>f = μN, f_s ≤ μ_s N</span></div>
+    <div class="meta-item">Sections <span>7</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════ NAV ══════════════════════ -->
+<nav class="chapter-nav">
+  <a class="pill" href="#sec-nature">Nature of friction</a>
+  <a class="pill" href="#sec-model">The friction model</a>
+  <a class="pill" href="#sec-types">Static vs kinetic</a>
+  <a class="pill" href="#sec-incline">Incline problems</a>
+  <a class="pill" href="#sec-coeff">Coefficient table</a>
+  <a class="pill" href="#sec-rolling">Rolling & drag</a>
+  <a class="pill" href="#sec-sim">Simulation</a>
+</nav>
+
+<!-- ══════════════════════ §1 NATURE ══════════════════════ -->
+<section class="section fade-in" id="sec-nature">
+  <div class="section-header">
+    <div class="sec-number">§ 01</div>
+    <div class="sec-content-header">
+      <h2>The Nature of Friction</h2>
+      <p class="section-intro">Friction is a contact force that acts parallel to a surface, opposing the relative motion (or tendency of motion) between two objects in contact.</p>
+    </div>
+  </div>
+
+  <p>At the microscopic scale, all surfaces — however smooth they appear — are covered in <strong>asperities</strong>: microscopic bumps, ridges, and valleys. When two surfaces are pressed together, these asperities interlock and form microscopic <strong>cold-weld junctions</strong>. Breaking these junctions requires force; this is friction.</p>
+  <p>Additionally, at close contact, <strong>van der Waals forces</strong> (weak electrostatic adhesion between molecules) contribute, particularly for very smooth or very clean surfaces. This is why precision-ground optical surfaces can stick together without any adhesive — a phenomenon called <em>wringing</em>.</p>
+
+  <div class="callout callout-blue">
+    <span class="callout-marker">🔬 Microscopic origin</span>
+    Real contact area between surfaces is <em>far smaller</em> than the apparent (geometric) contact area — sometimes less than 0.01% of it. Friction depends on the <strong>real</strong> contact area, which scales with the normal force, not the apparent area. This is why friction is independent of the size of the object's footprint.
+  </div>
+
+  <h3>What friction is not</h3>
+  <p>Friction is <strong>not</strong> caused by surface roughness alone. A polished surface can have <em>higher</em> friction than a rough one because polishing increases real contact area. The classic friction model is a macroscopic approximation that holds well for most engineering applications but breaks down at very smooth surfaces, very high pressures, or extremely slow speeds.</p>
+
+  <div class="callout callout-amber">
+    <span class="callout-marker">⚠ Limits of the model</span>
+    The standard friction model ($f = \mu N$) assumes: (1) $\mu$ is independent of speed, (2) $\mu$ is independent of contact area, (3) $\mu$ is constant for a given surface pair. All three assumptions fail in extreme conditions. For tyres, bearings, or precision manufacturing, more complex tribological models are needed.
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════ §2 MODEL ══════════════════════ -->
+<section class="section fade-in" id="sec-model">
+  <div class="section-header">
+    <div class="sec-number">§ 02</div>
+    <div class="sec-content-header">
+      <h2>The Friction Model</h2>
+      <p class="section-intro">Coulomb's friction laws (1781) provide the macroscopic model used in almost all classical mechanics problems.</p>
+    </div>
+  </div>
+
+  <div class="ftype-grid">
+    <div class="ftype-card">
+      <div class="ftype-top" style="background:var(--law-s)"></div>
+      <div class="ftype-body">
+        <div class="ftype-label" style="color:var(--law-s)">Static friction</div>
+        <div class="ftype-name">Prevents motion</div>
+        <div class="ftype-formula" style="background:rgba(59,158,255,0.1);color:var(--law-s)">$f_s \leq \mu_s N$</div>
+        <div class="ftype-desc">Adjusts to match the applied force, up to a maximum of $\mu_s N$. The object does not move as long as this condition is satisfied.</div>
+      </div>
+    </div>
+    <div class="ftype-card">
+      <div class="ftype-top" style="background:var(--law-k)"></div>
+      <div class="ftype-body">
+        <div class="ftype-label" style="color:var(--law-k)">Kinetic friction</div>
+        <div class="ftype-name">Opposes sliding</div>
+        <div class="ftype-formula" style="background:rgba(255,77,106,0.1);color:var(--law-k)">$f_k = \mu_k N$</div>
+        <div class="ftype-desc">Once sliding begins, friction becomes constant at $\mu_k N$, regardless of speed (within the basic model). Always $\mu_k &lt; \mu_s$.</div>
+      </div>
+    </div>
+    <div class="ftype-card">
+      <div class="ftype-top" style="background:var(--law-r)"></div>
+      <div class="ftype-body">
+        <div class="ftype-label" style="color:var(--law-r)">Rolling resistance</div>
+        <div class="ftype-name">Opposes rolling</div>
+        <div class="ftype-formula" style="background:rgba(0,229,160,0.08);color:var(--law-r)">$f_r = C_{rr} N$</div>
+        <div class="ftype-desc">Much smaller than sliding friction. Arises from deformation at the contact patch. $C_{rr} \approx 0.01$ for car tyres on tarmac.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>The full friction equation</h3>
+  <div class="eq-block">
+    <div class="eq-label">Friction force — general statement</div>
+    <div class="eq-row">
+      <div class="eq-col">
+        <div class="eq-sub-label">Static regime (not moving)</div>
+        $$f_s \leq \mu_s N$$
+        <div class="eq-note">$f_s$ adjusts automatically to whatever is needed to prevent motion, up to the maximum.</div>
+      </div>
+      <div class="eq-col">
+        <div class="eq-sub-label">Kinetic regime (sliding)</div>
+        $$f_k = \mu_k N$$
+        <div class="eq-note">Exact equality — kinetic friction is constant once motion begins. <strong>Direction is always opposite to velocity.</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Why $\mu_k < \mu_s$?</h3>
+  <p>When surfaces are in static contact, asperity junctions have time to form and grow — adhesion increases with contact time. Once sliding begins, junctions shear and re-form rapidly, but fewer bonds exist at any instant. The force needed to <em>maintain</em> sliding is therefore less than the force needed to <em>initiate</em> it.</p>
+  <p>This is why a heavy box is hardest to get moving, and once it's moving, a slightly smaller force keeps it going. This hysteresis is exploited in door stoppers, anti-skid systems, and walking biomechanics.</p>
+
+  <h4>Symbol reference</h4>
+  <table class="var-table">
+    <thead><tr><th>Symbol</th><th>Quantity</th><th>SI Unit</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="var-sym">$f_s$</td><td>Static friction force</td><td class="var-unit">N</td><td>Variable; $0 \leq f_s \leq \mu_s N$</td></tr>
+      <tr><td class="var-sym">$f_k$</td><td>Kinetic friction force</td><td class="var-unit">N</td><td>Constant once sliding; $f_k = \mu_k N$</td></tr>
+      <tr><td class="var-sym">$\mu_s$</td><td>Static friction coefficient</td><td class="var-unit">dimensionless</td><td>Always $> \mu_k$ for the same pair</td></tr>
+      <tr><td class="var-sym">$\mu_k$</td><td>Kinetic friction coefficient</td><td class="var-unit">dimensionless</td><td>Approximately constant with speed</td></tr>
+      <tr><td class="var-sym">$N$</td><td>Normal force</td><td class="var-unit">N</td><td>Perpendicular to surface; not always $= mg$</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Phase diagram -->
+  <div class="phase-wrap">
+    <div class="phase-title">Friction force vs Applied force — phase diagram</div>
+    <canvas id="phase-canvas"></canvas>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════ §3 STATIC vs KINETIC ══════════════════════ -->
+<section class="section fade-in" id="sec-types">
+  <div class="section-header">
+    <div class="sec-number">§ 03</div>
+    <div class="sec-content-header">
+      <h2>Static vs Kinetic — In Detail</h2>
+      <p class="section-intro">The transition from static to kinetic friction is one of the most practically important phenomena in mechanics. Understanding it prevents costly engineering errors.</p>
+    </div>
+  </div>
+
+  <h3>The static friction regime</h3>
+  <p>Static friction is a <strong>reactive force</strong> — it does not have a fixed value. It takes whatever value is needed to prevent motion, up to its maximum $f_{s,\text{max}} = \mu_s N$.</p>
+  <p>Consider a block on a surface. If you apply a horizontal force $F = 3\ \text{N}$ and $f_{s,\text{max}} = 10\ \text{N}$, then $f_s = 3\ \text{N}$ (exactly opposing the applied force). The net force is zero and the block doesn't move. The friction force is <em>not</em> 10 N — it is exactly 3 N.</p>
+
+  <div class="callout callout-red">
+    <span class="callout-marker">✗ Critical error to avoid</span>
+    <strong>Static friction does not always equal $\mu_s N$.</strong> That is only its maximum value. In most static problems, $f_s &lt; \mu_s N$. Many students apply $f_s = \mu_s N$ universally and get incorrect answers. Use the maximum only when you know the object is <em>on the verge of sliding</em>.
+  </div>
+
+  <h3>Free body diagrams — static and kinetic</h3>
+  <div class="fbd-row">
+    <div class="fbd-card">
+      <div class="fbd-title">Static — sub-maximum applied force</div>
+      <canvas class="fbd" id="fbd-static"></canvas>
+    </div>
+    <div class="fbd-card">
+      <div class="fbd-title">Kinetic — sliding with friction</div>
+      <canvas class="fbd" id="fbd-kinetic"></canvas>
+    </div>
+  </div>
+
+  <h3>Onset of motion — the critical condition</h3>
+  <p>Motion begins when the applied force <em>just exceeds</em> $f_{s,\text{max}}$. At that exact threshold:</p>
+  <div class="eq-block">
+    <div class="eq-label">Condition for impending motion</div>
+    $$F_\text{applied} = f_{s,\text{max}} = \mu_s N$$
+    <div class="eq-note">The instant after this condition is met, friction drops to $f_k = \mu_k N &lt; f_{s,\text{max}}$. The net force suddenly becomes nonzero and the object accelerates.</div>
+  </div>
+
+  <!-- Worked Example 1 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 1 — Is the block moving?</div>
+      <div class="we-tag">Static friction</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">A 10 kg block sits on a surface with $\mu_s = 0.4$, $\mu_k = 0.3$. A horizontal force of 30 N is applied. Does the block move? If so, find its acceleration.</p>
+      <div class="we-given">
+        <span class="we-given-item">m = 10 kg</span>
+        <span class="we-given-item">μ_s = 0.4</span>
+        <span class="we-given-item">μ_k = 0.3</span>
+        <span class="we-given-item">F = 30 N</span>
+      </div>
+      <ol class="we-steps">
+        <li>Normal force: $N = mg = (10)(9.8) = 98\ \text{N}$</li>
+        <li>Maximum static friction: $f_{s,\text{max}} = \mu_s N = (0.4)(98) = 39.2\ \text{N}$</li>
+        <li>Since $F = 30\ \text{N} &lt; f_{s,\text{max}} = 39.2\ \text{N}$, the block does <strong>not</strong> move.</li>
+        <li>Actual static friction: $f_s = 30\ \text{N}$ (exactly opposing the applied force).</li>
+        <li>Net force = 0, acceleration = 0.</li>
+      </ol>
+      <div class="we-ans">Block remains stationary. f_s = 30 N, a = 0</div>
+    </div>
+  </div>
+
+  <!-- Worked Example 2 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 2 — Block starts sliding</div>
+      <div class="we-tag">Kinetic friction</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">Same block as above, but now F = 50 N. Find the acceleration.</p>
+      <div class="we-given">
+        <span class="we-given-item">m = 10 kg</span>
+        <span class="we-given-item">μ_k = 0.3</span>
+        <span class="we-given-item">F = 50 N</span>
+        <span class="we-given-item">N = 98 N</span>
+      </div>
+      <ol class="we-steps">
+        <li>$F = 50\ \text{N} &gt; f_{s,\text{max}} = 39.2\ \text{N}$, so the block slides.</li>
+        <li>Kinetic friction: $f_k = \mu_k N = (0.3)(98) = 29.4\ \text{N}$</li>
+        <li>Net force: $F_\text{net} = F - f_k = 50 - 29.4 = 20.6\ \text{N}$</li>
+        <li>Acceleration: $a = F_\text{net}/m = 20.6/10 = 2.06\ \text{m s}^{-2}$</li>
+      </ol>
+      <div class="we-ans">a = 2.06 m/s² in direction of applied force</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════ §4 INCLINE ══════════════════════ -->
+<section class="section fade-in" id="sec-incline">
+  <div class="section-header">
+    <div class="sec-number">§ 04</div>
+    <div class="sec-content-header">
+      <h2>Friction on an Incline</h2>
+      <p class="section-intro">Inclined plane problems are the most common application of friction in classical mechanics. The key is correctly resolving the normal force.</p>
+    </div>
+  </div>
+
+  <p>On a slope at angle $\theta$, the normal force is <strong>not</strong> equal to $mg$. You must resolve gravity into components perpendicular and parallel to the slope:</p>
+
+  <div class="eq-block">
+    <div class="eq-label">Forces on an incline</div>
+    <div class="eq-row">
+      <div class="eq-col">
+        <div class="eq-sub-label">Normal force (⊥ to slope)</div>
+        $$N = mg\cos\theta$$
+        <div class="eq-note">This is always less than $mg$ for $\theta &gt; 0$.</div>
+      </div>
+      <div class="eq-col">
+        <div class="eq-sub-label">Gravity component (∥ to slope)</div>
+        $$mg\sin\theta$$
+        <div class="eq-note">This drives the object down the slope.</div>
+      </div>
+      <div class="eq-col">
+        <div class="eq-sub-label">Friction (up the slope if sliding down)</div>
+        $$f_k = \mu_k mg\cos\theta$$
+      </div>
+    </div>
+  </div>
+
+  <h3>Net acceleration down the slope</h3>
+  <div class="deriv-chain">
+    <div class="deriv-step">
+      <div class="deriv-math">$F_\text{net} = mg\sin\theta - f_k$</div>
+      <div class="deriv-reason">Net force along slope = driving force − opposing friction</div>
+    </div>
+    <div class="deriv-step">
+      <div class="deriv-math">$F_\text{net} = mg\sin\theta - \mu_k mg\cos\theta$</div>
+      <div class="deriv-reason">Substituting $f_k = \mu_k N = \mu_k mg\cos\theta$</div>
+    </div>
+    <div class="deriv-step">
+      <div class="deriv-math">$F_\text{net} = mg(\sin\theta - \mu_k\cos\theta)$</div>
+      <div class="deriv-reason">Factor out $mg$</div>
+    </div>
+    <div class="deriv-step hl">
+      <div class="deriv-math">$$\boxed{a = g(\sin\theta - \mu_k\cos\theta)}$$</div>
+      <div class="deriv-reason">Divide by $m$ — the mass cancels entirely. Acceleration on a slope with friction is mass-independent.</div>
+    </div>
+  </div>
+
+  <h3>Critical angle — when does the block slide?</h3>
+  <p>The block starts to slide when the gravitational component down the slope exceeds maximum static friction:</p>
+  <div class="eq-block">
+    <div class="eq-label">Critical angle for sliding</div>
+    $$mg\sin\theta_c = \mu_s mg\cos\theta_c \implies \tan\theta_c = \mu_s \implies \theta_c = \arctan(\mu_s)$$
+    <div class="eq-note"><strong>The critical angle depends only on $\mu_s$.</strong> This gives a neat experimental method: tilt a surface until the object just starts to slide, measure the angle, and compute $\mu_s = \tan\theta_c$.</div>
+  </div>
+
+  <!-- Interactive angle explorer -->
+  <div class="angle-wrap">
+    <div class="angle-header">
+      <div class="angle-title">Interactive Angle Explorer</div>
+      <div class="angle-badge">Live · F = ma</div>
+    </div>
+    <div class="angle-body">
+      <div class="angle-canvas-row">
+        <canvas id="angle-canvas" width="520" height="440"></canvas>
+        <div class="angle-readouts">
+          <div class="aro"><div class="aro-lbl">Normal force N</div><div class="aro-val" id="aro-n">—<span class="unit"> N</span></div></div>
+          <div class="aro"><div class="aro-lbl">mg sin θ (down slope)</div><div class="aro-val" id="aro-para">—<span class="unit"> N</span></div></div>
+          <div class="aro"><div class="aro-lbl">Max static friction</div><div class="aro-val" id="aro-fs">—<span class="unit"> N</span></div></div>
+          <div class="aro"><div class="aro-lbl">Status</div><div class="aro-val" id="aro-status">—</div></div>
+          <div class="aro"><div class="aro-lbl">Acceleration</div><div class="aro-val" id="aro-a">—<span class="unit"> m/s²</span></div></div>
+          <div class="aro"><div class="aro-lbl">Critical angle θ_c</div><div class="aro-val" id="aro-crit">—<span class="unit"> °</span></div></div>
+        </div>
+      </div>
+      <div class="angle-slider-row">
+        <div class="angle-slider-top"><span class="asl-name">Angle θ</span><span class="asl-val" id="asl-angle">30°</span></div>
+        <input type="range" id="sl-angle" min="0" max="70" step="1" value="30">
+      </div>
+      <div class="angle-slider-row" style="margin-top:.5rem">
+        <div class="angle-slider-top"><span class="asl-name">Mass m</span><span class="asl-val" id="asl-mass">5 kg</span></div>
+        <input type="range" id="sl-amass" min="1" max="20" step="1" value="5">
+      </div>
+      <div class="angle-slider-row" style="margin-top:.5rem">
+        <div class="angle-slider-top"><span class="asl-name">Static μ_s</span><span class="asl-val" id="asl-mus">0.45</span></div>
+        <input type="range" id="sl-mus" min="0.05" max="1.0" step="0.05" value="0.45">
+      </div>
+    </div>
+  </div>
+
+  <!-- Worked Example 3 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 3 — Block sliding down a slope</div>
+      <div class="we-tag">Incline + friction</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">A 6 kg block slides down a 40° slope. $\mu_k = 0.25$. Find the acceleration.</p>
+      <div class="we-given">
+        <span class="we-given-item">m = 6 kg</span>
+        <span class="we-given-item">θ = 40°</span>
+        <span class="we-given-item">μ_k = 0.25</span>
+      </div>
+      <ol class="we-steps">
+        <li>Normal force: $N = mg\cos40° = (6)(9.8)(0.766) = 45.0\ \text{N}$</li>
+        <li>Kinetic friction: $f_k = \mu_k N = (0.25)(45.0) = 11.25\ \text{N}$ (acts up the slope)</li>
+        <li>Driving force down slope: $mg\sin40° = (6)(9.8)(0.643) = 37.8\ \text{N}$</li>
+        <li>Net force: $F_\text{net} = 37.8 - 11.25 = 26.55\ \text{N}$</li>
+        <li>$a = F_\text{net}/m = 26.55/6 = 4.43\ \text{m s}^{-2}$</li>
+        <li>Verify using the formula: $a = g(\sin40° - 0.25\cos40°) = 9.8(0.643 - 0.191) = 9.8 \times 0.452 = 4.43\ \text{m s}^{-2}$ ✓</li>
+      </ol>
+      <div class="we-ans">a = 4.43 m/s² down the slope</div>
+    </div>
+  </div>
+
+  <!-- Worked Example 4 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 4 — Pushing up a slope</div>
+      <div class="we-tag">Incline, friction reversal</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">The same block is now pushed <em>up</em> the 40° slope at constant velocity by an applied force parallel to the slope. Find the required force.</p>
+      <div class="we-given">
+        <span class="we-given-item">m = 6 kg</span>
+        <span class="we-given-item">θ = 40°</span>
+        <span class="we-given-item">μ_k = 0.25</span>
+        <span class="we-given-item">constant velocity → a = 0</span>
+      </div>
+      <ol class="we-steps">
+        <li>Block moves up → friction acts <strong>down</strong> the slope (opposing motion).</li>
+        <li>For constant velocity: $F_\text{net} = 0 \Rightarrow F = mg\sin\theta + f_k$</li>
+        <li>$f_k = \mu_k mg\cos\theta = (0.25)(6)(9.8)(0.766) = 11.25\ \text{N}$ (now pointing down slope)</li>
+        <li>$F = mg\sin\theta + f_k = 37.8 + 11.25 = 49.1\ \text{N}$</li>
+        <li>Compare to pushing <em>down</em> at constant velocity: $F = mg\sin\theta - f_k = 37.8 - 11.25 = 26.6\ \text{N}$</li>
+      </ol>
+      <div class="we-ans">F = 49.1 N up the slope (vs 26.6 N down at same speed)</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════ §5 COEFFICIENT TABLE ══════════════════════ -->
+<section class="section fade-in" id="sec-coeff">
+  <div class="section-header">
+    <div class="sec-number">§ 05</div>
+    <div class="sec-content-header">
+      <h2>Coefficient of Friction — Reference Table</h2>
+      <p class="section-intro">$\mu$ depends entirely on the surface pair. These values are approximate — real-world values vary with temperature, surface condition, lubrication, and speed.</p>
+    </div>
+  </div>
+
+  <table class="mu-table">
+    <thead><tr><th>Surface Pair</th><th>μ_s (static)</th><th>μ_k (kinetic)</th><th>Relative magnitude</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Rubber on dry concrete</td>
+        <td class="mu-val">0.7 – 0.8</td>
+        <td class="mu-val">0.5 – 0.7</td>
+        <td><span class="mu-bar" style="width:72px"></span></td>
+      </tr>
+      <tr>
+        <td>Steel on steel (dry)</td>
+        <td class="mu-val">0.74</td>
+        <td class="mu-val">0.57</td>
+        <td><span class="mu-bar" style="width:56px"></span></td>
+      </tr>
+      <tr>
+        <td>Wood on wood</td>
+        <td class="mu-val">0.25 – 0.5</td>
+        <td class="mu-val">0.2 – 0.4</td>
+        <td><span class="mu-bar" style="width:38px"></span></td>
+      </tr>
+      <tr>
+        <td>Steel on steel (lubricated)</td>
+        <td class="mu-val">0.15</td>
+        <td class="mu-val">0.08</td>
+        <td><span class="mu-bar" style="width:14px"></span></td>
+      </tr>
+      <tr>
+        <td>Rubber on wet concrete</td>
+        <td class="mu-val">0.4 – 0.5</td>
+        <td class="mu-val">0.2 – 0.35</td>
+        <td><span class="mu-bar" style="width:32px"></span></td>
+      </tr>
+      <tr>
+        <td>Teflon on steel</td>
+        <td class="mu-val">0.04</td>
+        <td class="mu-val">0.04</td>
+        <td><span class="mu-bar" style="width:6px"></span></td>
+      </tr>
+      <tr>
+        <td>Ice on ice</td>
+        <td class="mu-val">0.05 – 0.15</td>
+        <td class="mu-val">0.03 – 0.05</td>
+        <td><span class="mu-bar" style="width:8px"></span></td>
+      </tr>
+      <tr>
+        <td>Synovial joints (human knee)</td>
+        <td class="mu-val">0.001 – 0.003</td>
+        <td class="mu-val">0.001 – 0.003</td>
+        <td><span class="mu-bar" style="width:2px"></span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-green">
+    <span class="callout-marker">🦴 Biological engineering</span>
+    Human synovial joints — lubricated by synovial fluid — have friction coefficients lower than almost any engineered surface, including Teflon. The fluid acts as a <em>hydrostatic bearing</em> at high loads and as a <em>boundary lubricant</em> at low loads. This dual mechanism is why joints last decades under enormous repetitive loads.
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════ §6 ROLLING & DRAG ══════════════════════ -->
+<section class="section fade-in" id="sec-rolling">
+  <div class="section-header">
+    <div class="sec-number">§ 06</div>
+    <div class="sec-content-header">
+      <h2>Rolling Resistance &amp; Fluid Drag</h2>
+      <p class="section-intro">Beyond sliding friction, two other resistive forces appear frequently: rolling resistance (for wheels) and fluid drag (for motion through air or liquid).</p>
+    </div>
+  </div>
+
+  <h3>Rolling resistance</h3>
+  <p>A rolling wheel experiences less friction than a sliding one — this is why wheels exist. Rolling resistance arises from the <strong>deformation of the tyre (or wheel) at the contact patch</strong>: the leading edge of the contact zone is slightly compressed, creating an asymmetric normal force distribution that applies a net retarding torque.</p>
+
+  <div class="eq-block">
+    <div class="eq-label">Rolling resistance</div>
+    $$f_r = C_{rr} \cdot N$$
+    <div class="eq-note">$C_{rr}$ is the rolling resistance coefficient. Typical values: bicycle tyre on tarmac ≈ 0.004, car tyre on tarmac ≈ 0.01–0.02, steel wheel on steel rail ≈ 0.001. Much smaller than $\mu_k$.</div>
+  </div>
+
+  <h3>Fluid drag</h3>
+  <p>When an object moves through air or water, fluid is displaced and a resistive force acts opposite to velocity. At low speeds (viscous regime), drag is proportional to velocity. At high speeds (inertial regime), drag is proportional to $v^2$.</p>
+
+  <div class="eq-block">
+    <div class="eq-label">Drag force models</div>
+    <div class="eq-row">
+      <div class="eq-col">
+        <div class="eq-sub-label">Low speed — Stokes' Law</div>
+        $$F_D = 6\pi\eta r v$$
+        <div class="eq-note">$\eta$ = dynamic viscosity, $r$ = sphere radius. Valid for small, slow objects (dust particles, cells).</div>
+      </div>
+      <div class="eq-col">
+        <div class="eq-sub-label">High speed — quadratic drag</div>
+        $$F_D = \tfrac{1}{2}\rho v^2 C_D A$$
+        <div class="eq-note">$\rho$ = fluid density, $C_D$ = drag coefficient, $A$ = cross-sectional area. Used for cars, aircraft, falling objects.</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>Terminal velocity</h3>
+  <p>A falling object accelerates under gravity but its drag increases with speed. Eventually, drag equals weight and acceleration becomes zero — this is <strong>terminal velocity</strong>:</p>
+  <div class="deriv-chain">
+    <div class="deriv-step">
+      <div class="deriv-math">$mg = \tfrac{1}{2}\rho v_t^2 C_D A$</div>
+      <div class="deriv-reason">At terminal velocity, net force = 0, so drag = weight</div>
+    </div>
+    <div class="deriv-step hl">
+      <div class="deriv-math">$$v_t = \sqrt{\frac{2mg}{\rho C_D A}}$$</div>
+      <div class="deriv-reason">Solve for $v_t$. Terminal velocity increases with mass and decreases with drag area — why skydivers deploy parachutes.</div>
+    </div>
+  </div>
+
+  <div class="callout callout-blue">
+    <span class="callout-marker">🪂 Terminal velocity examples</span>
+    Skydiver (spread-eagle): $v_t \approx 55\ \text{m s}^{-1}$ (200 km/h). Skydiver (head-down): $v_t \approx 85\ \text{m s}^{-1}$. Raindrop (2mm): $v_t \approx 6\ \text{m s}^{-1}$. Ant: $v_t \approx 1\ \text{m s}^{-1}$ — ants survive falls from any height because their terminal velocity is low enough to be survivable.
+  </div>
+
+  <!-- Worked Example 5 -->
+  <div class="worked-example">
+    <div class="we-header">
+      <div class="we-title">Worked Example 5 — Terminal velocity</div>
+      <div class="we-tag">Quadratic drag</div>
+    </div>
+    <div class="we-body">
+      <p style="font-size:.88rem;color:var(--muted);margin-bottom:.75rem">A 80 kg skydiver has $C_D = 1.0$, cross-sectional area $A = 0.7\ \text{m}^2$. Air density $\rho = 1.2\ \text{kg m}^{-3}$. Find terminal velocity.</p>
+      <div class="we-given">
+        <span class="we-given-item">m = 80 kg</span>
+        <span class="we-given-item">C_D = 1.0</span>
+        <span class="we-given-item">A = 0.7 m²</span>
+        <span class="we-given-item">ρ = 1.2 kg/m³</span>
+      </div>
+      <ol class="we-steps">
+        <li>$v_t = \sqrt{\dfrac{2mg}{\rho C_D A}} = \sqrt{\dfrac{2(80)(9.8)}{(1.2)(1.0)(0.7)}}$</li>
+        <li>Numerator: $2 \times 80 \times 9.8 = 1568$</li>
+        <li>Denominator: $1.2 \times 1.0 \times 0.7 = 0.84$</li>
+        <li>$v_t = \sqrt{1568/0.84} = \sqrt{1866.7} \approx 43.2\ \text{m s}^{-1}$</li>
+      </ol>
+      <div class="we-ans">Terminal velocity ≈ 43 m/s ≈ 155 km/h</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ══════════════════════ §7 SIMULATION ══════════════════════ -->
+<section class="section fade-in" id="sec-sim">
+  <div class="section-header">
+    <div class="sec-number">§ 07</div>
+    <div class="sec-content-header">
+      <h2>Interactive Simulation</h2>
+      <p class="section-intro">All forces computed from Newton's laws each frame. Explore static/kinetic transition, incline dynamics, and drag effects in real time.</p>
+    </div>
+  </div>
+
+  <div class="sim-wrap">
+    <div class="sim-header">
+      <div class="sim-title">Friction Lab</div>
+      <div class="sim-tabs">
+        <button class="stab active" id="stab-flat" onclick="setMode('flat')">Flat surface</button>
+        <button class="stab" id="stab-slope" onclick="setMode('slope')">Slope</button>
+        <button class="stab" id="stab-drag" onclick="setMode('drag')">Drag / fall</button>
+        <button class="stab" id="stab-twoblocks" onclick="setMode('twoblocks')">Two blocks</button>
+      </div>
+    </div>
+    <div class="sim-body">
+      <div class="sim-eq-bar" id="sim-eq-bar"></div>
+      <div class="canvas-wrap"><canvas id="sim"></canvas></div>
+      <div class="readouts" id="readouts"></div>
+      <div class="sliders-grid" id="sliders"></div>
+      <div class="graphs-row">
+        <div class="g-card"><div class="g-lbl" id="g1lbl">v — t</div><canvas class="gc" id="gvt"></canvas></div>
+        <div class="g-card"><div class="g-lbl" id="g2lbl">F_net — t</div><canvas class="gc" id="gft"></canvas></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ FOOTER ══════════════════════ -->
+<div class="module-footer">
+  <div class="footer-tag">Physics · Module 2 of 3</div>
+  <div class="footer-nav">
+    <a class="fnav-btn" href="newtons_laws.html">← Newton's Laws</a>
+    <a class="fnav-btn next" href="#">Circular Dynamics →</a>
+  </div>
+</div>
+
+</div><!-- /page -->
+
+<script>
+/* ══════════════ UTILITIES ══════════════ */
+const DPR = window.devicePixelRatio || 1;
+const G = 9.8;
+
+const obs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); });
+},{threshold:.07});
+document.querySelectorAll('.fade-in').forEach(el=>obs.observe(el));
+
+function setupCanvas(canvas, w, h){
+  canvas.width = w * DPR; canvas.height = h * DPR;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d'); ctx.scale(DPR, DPR);
+  return ctx;
+}
+
+function arrow(ctx, x1,y1,x2,y2, col, lw=1.5){
+  const a = Math.atan2(y2-y1, x2-x1);
+  ctx.save(); ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const s=7;
+  ctx.beginPath(); ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-s*Math.cos(a-.42),y2-s*Math.sin(a-.42));
+  ctx.lineTo(x2-s*Math.cos(a+.42),y2-s*Math.sin(a+.42));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+function lbl(ctx, x, y, txt, col, sz=9, align='center'){
+  ctx.save(); ctx.fillStyle=col; ctx.font=`${sz}px 'DM Sans',sans-serif`;
+  ctx.textAlign=align; ctx.fillText(txt,x,y); ctx.restore();
+}
+
+const C = {
+  block:'#0c1628', blockBorder:'#1e3a5f', blockText:'#3b9eff',
+  weight:'#ff4d6a', normal:'#00e5a0', friction:'#6cb8ff',
+  applied:'#3b9eff', velocity:'#b06fff',
+  ground:'rgba(59,158,255,0.15)', muted:'#2e4060', dim:'#5a7090',
+  grid:'rgba(59,158,255,0.04)',
+};
+
+/* ══════════════ PHASE DIAGRAM ══════════════ */
+function drawPhaseDiagram(){
+  const canvas = document.getElementById('phase-canvas');
+  if(!canvas) return;
+  const pw = canvas.parentElement.offsetWidth;
+  const ctx = setupCanvas(canvas, pw, 120);
+  const w = pw, h = 120;
+  const pad = { l:40, r:20, t:15, b:30 };
+  const muS = 0.5, N = 50; // example
+  const fsMax = muS * N;
+  const fkConst = 0.35 * N;
+
+  // axes
+  ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h-pad.b);
+  ctx.lineTo(w-pad.r, h-pad.b); ctx.stroke();
+  lbl(ctx, pad.l-6, pad.t+8, 'f', '#5a7090', 9);
+  lbl(ctx, w-pad.r, h-pad.b+12, 'F_applied', '#5a7090', 9);
+
+  const maxF = fsMax * 1.8;
+  const tx = v => pad.l + (v/maxF)*(w-pad.l-pad.r);
+  const ty = v => h - pad.b - (v/fsMax)*(h-pad.t-pad.b);
+  const fBreak = fsMax;
+
+  // static region: f = F (diagonal)
+  ctx.strokeStyle='#3b9eff'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(tx(0), ty(0)); ctx.lineTo(tx(fBreak), ty(fBreak)); ctx.stroke();
+  lbl(ctx, tx(fBreak*0.45), ty(fBreak*0.45)-8, 'f_s = F', '#3b9eff', 8);
+
+  // peak dot
+  ctx.beginPath(); ctx.arc(tx(fBreak), ty(fBreak), 4, 0, Math.PI*2);
+  ctx.fillStyle='#3b9eff'; ctx.fill();
+  lbl(ctx, tx(fBreak), ty(fBreak)-9, 'μ_s·N', '#6cb8ff', 8);
+
+  // kinetic: horizontal
+  ctx.strokeStyle='#ff4d6a'; ctx.lineWidth=2;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(tx(fBreak), ty(fkConst)); ctx.lineTo(tx(maxF), ty(fkConst)); ctx.stroke();
+  ctx.setLineDash([]);
+  lbl(ctx, tx((fBreak+maxF)/2), ty(fkConst)-8, 'f_k = μ_k·N', '#ff4d6a', 8);
+
+  // drop line at transition
+  ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(tx(fBreak), ty(fBreak)); ctx.lineTo(tx(fBreak), ty(fkConst)); ctx.stroke();
+
+  // region labels
+  ctx.fillStyle='rgba(59,158,255,0.05)';
+  ctx.fillRect(pad.l, pad.t, tx(fBreak)-pad.l, h-pad.b-pad.t);
+  lbl(ctx, tx(fBreak*0.5), h-pad.b-6, 'static', '#2e4060', 8);
+  lbl(ctx, tx((fBreak+maxF)/2), h-pad.b-6, 'kinetic', '#2e4060', 8);
+}
+
+/* ══════════════ FBD CANVASES ══════════════ */
+function drawFBDStatic(id){
+  const canvas = document.getElementById(id);
+  if(!canvas) return;
+  const pw = canvas.parentElement.offsetWidth;
+  const ctx = setupCanvas(canvas, pw, 180);
+  const cx = pw/2, cy = 100;
+  // ground
+  ctx.strokeStyle=C.ground; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(20,cy+26); ctx.lineTo(pw-20,cy+26); ctx.stroke();
+  // block
+  ctx.fillStyle=C.block; ctx.strokeStyle=C.blockBorder; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.roundRect(cx-30,cy-24,60,48,5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=C.blockText; ctx.font="bold 11px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center'; ctx.fillText('m',cx,cy+5);
+  // weight
+  arrow(ctx,cx,cy+24,cx,cy+66,C.weight);
+  lbl(ctx,cx,cy+76,'W',C.weight);
+  // normal
+  arrow(ctx,cx,cy-24,cx,cy-66,C.normal);
+  lbl(ctx,cx,cy-72,'N',C.normal);
+  // small applied force (sub max)
+  arrow(ctx,cx-30,cy,cx-30-55,cy,'#ffb830',2);
+  lbl(ctx,cx-30-65,cy+4,'F','#ffb830',9,'right');
+  // static friction (equal, opposite)
+  arrow(ctx,cx+30,cy,cx+30+55,cy,C.friction,2);
+  lbl(ctx,cx+30+65,cy+4,'f_s',C.friction,9,'left');
+  lbl(ctx,cx,cy+115,'F < μ_s·N   →   a = 0',C.dim,9);
+}
+
+function drawFBDKinetic(id){
+  const canvas = document.getElementById(id);
+  if(!canvas) return;
+  const pw = canvas.parentElement.offsetWidth;
+  const ctx = setupCanvas(canvas, pw, 180);
+  const cx = pw/2, cy = 100;
+  // ground
+  ctx.strokeStyle=C.ground; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(20,cy+26); ctx.lineTo(pw-20,cy+26); ctx.stroke();
+  // block (shifted right to show motion)
+  ctx.fillStyle=C.block; ctx.strokeStyle='#ff4d6a44'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.roundRect(cx-30,cy-24,60,48,5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=C.blockText; ctx.font="bold 11px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center'; ctx.fillText('m',cx,cy+5);
+  // weight
+  arrow(ctx,cx,cy+24,cx,cy+66,C.weight);
+  lbl(ctx,cx,cy+76,'W',C.weight);
+  // normal
+  arrow(ctx,cx,cy-24,cx,cy-66,C.normal);
+  lbl(ctx,cx,cy-72,'N',C.normal);
+  // large applied force
+  arrow(ctx,cx-30,cy,cx-30-75,cy,'#ffb830',2);
+  lbl(ctx,cx-30-85,cy+4,'F','#ffb830',9,'right');
+  // kinetic friction (smaller, opposite)
+  arrow(ctx,cx+30,cy,cx+30+40,cy,C.friction,2);
+  lbl(ctx,cx+30+50,cy+4,'f_k = μ_k·N',C.friction,9,'left');
+  // net force arrow
+  arrow(ctx,cx,cy-38,cx-24,cy-38,'#b06fff',2);
+  lbl(ctx,cx-32,cy-42,'F_net','#b06fff',8,'right');
+  lbl(ctx,cx,cy+115,'F > μ_s·N   →   a = F_net/m',C.dim,9);
+}
+
+/* ══════════════ ANGLE EXPLORER ══════════════ */
+let angleState = { theta:30, mass:5, mus:0.45 };
+
+function drawAngle(){
+  const canvas = document.getElementById('angle-canvas');
+  if(!canvas) return;
+  const pw = canvas.parentElement.offsetWidth;
+  const displayW = Math.min(pw, 260);
+  const displayH = 220;
+  const ctx = setupCanvas(canvas, displayW, displayH);
+  const W = displayW, H = displayH;
+
+  const {theta:deg, mass:m, mus} = angleState;
+  const muk = mus * 0.75;
+  const rad = deg * Math.PI/180;
+  const N = m * G * Math.cos(rad);
+  const fsMax = mus * N;
+  const para = m * G * Math.sin(rad);
+  const critDeg = Math.atan(mus)*180/Math.PI;
+  const sliding = deg > critDeg;
+  const fk = muk * N;
+  const a = sliding ? G*(Math.sin(rad) - muk*Math.cos(rad)) : 0;
+
+  // update readouts
+  document.getElementById('aro-n').childNodes[0].textContent = N.toFixed(1);
+  document.getElementById('aro-para').childNodes[0].textContent = para.toFixed(1);
+  document.getElementById('aro-fs').childNodes[0].textContent = fsMax.toFixed(1);
+  const statusEl = document.getElementById('aro-status');
+  statusEl.childNodes[0].textContent = sliding ? 'SLIDING' : 'STATIC';
+  statusEl.className = 'aro-val ' + (sliding ? 'moving' : 'static');
+  document.getElementById('aro-a').childNodes[0].textContent = a.toFixed(2);
+  document.getElementById('aro-crit').childNodes[0].textContent = critDeg.toFixed(1);
+
+  ctx.clearRect(0,0,W,H);
+
+  // draw slope
+  const originX = 20, originY = H-30;
+  const slopeLen = W-40;
+  const slopeEndX = originX + slopeLen * Math.cos(rad);
+  const slopeEndY = originY - slopeLen * Math.sin(rad);
+
+  // slope fill
+  ctx.fillStyle='#0c1628';
+  ctx.beginPath(); ctx.moveTo(originX,originY);
+  ctx.lineTo(slopeEndX,slopeEndY);
+  ctx.lineTo(slopeEndX, originY); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle='rgba(59,158,255,0.3)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(originX,originY); ctx.lineTo(slopeEndX,slopeEndY); ctx.stroke();
+
+  // angle arc
+  ctx.strokeStyle='#2e4060'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(originX, originY, 28, -rad, 0); ctx.stroke();
+  lbl(ctx, originX+18, originY-8, deg+'°', '#5a7090', 9);
+
+  // block
+  const bpct = 0.52;
+  const bx = originX + slopeLen*bpct*Math.cos(rad);
+  const by = originY - slopeLen*bpct*Math.sin(rad);
+  const bw=32, bh=24;
+  ctx.save(); ctx.translate(bx,by); ctx.rotate(-rad);
+  ctx.fillStyle=C.block;
+  ctx.strokeStyle= sliding ? '#ff4d6a88' : '#1e3a5f';
+  ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.roundRect(-bw/2,-bh,bw,bh,4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=C.blockText; ctx.font="bold 10px 'IBM Plex Mono',monospace";
+  ctx.textAlign='center'; ctx.fillText('m',0,-bh/2+2);
+  ctx.restore();
+
+  // forces
+  const sc = 0.9;
+  // normal (perpendicular to slope)
+  const nx = -Math.sin(rad)*N*sc*0.45;
+  const ny = -Math.cos(rad)*N*sc*0.45;
+  arrow(ctx, bx,by, bx+nx,by+ny, C.normal);
+  lbl(ctx, bx+nx+6, by+ny, 'N', C.normal, 9, 'left');
+
+  // weight (down)
+  arrow(ctx, bx,by, bx,by+m*G*0.4, C.weight);
+  lbl(ctx, bx+4, by+m*G*0.4+10, 'mg', C.weight, 9);
+
+  // friction (along slope, up if sliding down)
+  const fx = Math.cos(rad)*(sliding?fk:Math.min(para,fsMax))*sc*0.45;
+  const fy = -Math.sin(rad)*(sliding?fk:Math.min(para,fsMax))*sc*0.45;
+  arrow(ctx, bx,by, bx+fx,by+fy, C.friction);
+  lbl(ctx, bx+fx+4, by+fy, sliding?'f_k':'f_s', C.friction, 9, 'left');
+
+  // critical angle line
+  const critRad = critDeg*Math.PI/180;
+  ctx.strokeStyle='rgba(255,184,48,0.3)'; ctx.lineWidth=1;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(originX,originY);
+  ctx.lineTo(originX+slopeLen*0.6*Math.cos(critRad), originY-slopeLen*0.6*Math.sin(critRad));
+  ctx.stroke(); ctx.setLineDash([]);
+  lbl(ctx, originX+slopeLen*0.25*Math.cos(critRad)+8, originY-slopeLen*0.25*Math.sin(critRad)-4, 'θ_c', '#ffb83066', 8);
+}
+
+document.getElementById('sl-angle').addEventListener('input', function(){
+  angleState.theta = parseFloat(this.value);
+  document.getElementById('asl-angle').textContent = this.value + '°';
+  drawAngle();
+});
+document.getElementById('sl-amass').addEventListener('input', function(){
+  angleState.mass = parseFloat(this.value);
+  document.getElementById('asl-mass').textContent = this.value + ' kg';
+  drawAngle();
+});
+document.getElementById('sl-mus').addEventListener('input', function(){
+  angleState.mus = parseFloat(this.value);
+  document.getElementById('asl-mus').textContent = this.value;
+  drawAngle();
+});
+
+/* ══════════════ MAIN SIMULATION ══════════════ */
+const MODES = {
+  flat: {
+    latex: 'F_\\text{net} = F - f_k = F - \\mu_k mg',
+    controls: [
+      {id:'mass',  name:'Mass m',    min:.5, max:12, step:.5, val:4,  unit:'kg', col:'#3b9eff'},
+      {id:'force', name:'Applied F', min:0,  max:60, step:1,  val:20, unit:'N',  col:'#ffb830'},
+      {id:'mus',   name:'μ_s',       min:0,  max:.9, step:.05,val:.4, unit:'',   col:'#3b9eff'},
+      {id:'muk',   name:'μ_k',       min:0,  max:.7, step:.05,val:.3, unit:'',   col:'#ff4d6a'},
+    ]
+  },
+  slope: {
+    latex: 'a = g(\\sin\\theta - \\mu_k\\cos\\theta)',
+    controls: [
+      {id:'mass',  name:'Mass m',    min:.5, max:12, step:.5,  val:5,  unit:'kg', col:'#3b9eff'},
+      {id:'angle', name:'Angle θ',   min:5,  max:70, step:1,   val:35, unit:'°',  col:'#ffb830'},
+      {id:'muk',   name:'μ_k',       min:0,  max:.8, step:.05, val:.25,unit:'',   col:'#ff4d6a'},
+    ]
+  },
+  drag: {
+    latex: 'F_\\text{net} = mg - \\tfrac{1}{2}\\rho v^2 C_D A',
+    controls: [
+      {id:'mass',  name:'Mass m',    min:1,  max:100, step:1,  val:70, unit:'kg', col:'#3b9eff'},
+      {id:'cdA',   name:'C_D × A',   min:.01,max:2,  step:.05, val:.7, unit:'m²', col:'#ff4d6a'},
+    ]
+  },
+  twoblocks: {
+    latex: 'a = \\dfrac{F - \\mu_k(m_1+m_2)g}{m_1+m_2}',
+    controls: [
+      {id:'m1',    name:'Mass m₁',   min:.5, max:10, step:.5,  val:3,  unit:'kg', col:'#3b9eff'},
+      {id:'m2',    name:'Mass m₂',   min:.5, max:10, step:.5,  val:5,  unit:'kg', col:'#b06fff'},
+      {id:'force', name:'Applied F', min:0,  max:60, step:1,   val:25, unit:'N',  col:'#ffb830'},
+      {id:'muk',   name:'μ_k',       min:0,  max:.8, step:.05, val:.3, unit:'',   col:'#ff4d6a'},
+    ]
+  }
+};
+
+let mode = 'flat';
+let ctrl = {mass:4, force:20, mus:.4, muk:.3, angle:35, cdA:.7, m1:3, m2:5};
+let state = {};
+let hist = {v:[], f:[]};
+
+const simC = document.getElementById('sim');
+const sCtx = simC.getContext('2d');
+const gvtC = document.getElementById('gvt');
+const gftC = document.getElementById('gft');
+const gvtX = gvtC.getContext('2d');
+const gftX = gftC.getContext('2d');
+
+function resizeSimCanvases(){
+  const sw = simC.parentElement.offsetWidth;
+  simC.width = sw*DPR; simC.height = 220*DPR;
+  simC.style.width = sw+'px'; simC.style.height = '220px';
+  sCtx.scale(DPR,DPR);
+  [gvtC,gftC].forEach(c=>{
+    const pw = c.parentElement.offsetWidth;
+    c.width=pw*DPR; c.height=72*DPR;
+    c.getContext('2d').scale(DPR,DPR);
+    c.style.width=pw+'px'; c.style.height='72px';
+  });
+}
+
+function initState(){
+  hist = {v:[], f:[]};
+  const W = simC.width/DPR;
+  if(mode==='flat') state = {x:60, v:0, t:0, sliding:false};
+  else if(mode==='slope') state = {x:60, v:0, t:0};
+  else if(mode==='drag') state = {y:20, v:0, t:0};
+  else state = {x:50, v:0, t:0}; // twoblocks
+}
+
+const DT = 1/60;
+
+function simStep(){
+  const W = simC.width/DPR, H = simC.height/DPR;
+  state.t += DT;
+
+  if(mode==='flat'){
+    const N = ctrl.mass * G;
+    const fsMax = ctrl.mus * N;
+    const fk = ctrl.muk * N;
+    if(!state.sliding && ctrl.force > fsMax) state.sliding = true;
+    if(state.sliding && state.v <= 0 && ctrl.force <= fk) state.sliding = false;
+    let fnet = 0;
+    if(state.sliding){
+      fnet = ctrl.force - fk;
+    } else {
+      fnet = 0; // static
+    }
+    const a = fnet / ctrl.mass;
+    state.v = Math.max(0, state.v + a*DT);
+    state.x += state.v * DT;
+    if(state.x > W-60){ state.x=60; state.v=0; state.sliding=false; }
+    hist.v.push([state.t, state.v]);
+    hist.f.push([state.t, state.sliding ? fnet : 0]);
+
+  } else if(mode==='slope'){
+    const rad = ctrl.angle * Math.PI/180;
+    const a = G*(Math.sin(rad) - ctrl.muk*Math.cos(rad));
+    if(a > 0){
+      state.v += a*DT;
+      state.x += state.v*DT;
+    }
+    if(state.x > W-60){ state.x=60; state.v=0; }
+    hist.v.push([state.t, state.v]);
+    hist.f.push([state.t, a > 0 ? ctrl.mass*a : 0]);
+
+  } else if(mode==='drag'){
+    const rho=1.2;
+    const drag = 0.5*rho*state.v*state.v*ctrl.cdA;
+    const fnet = ctrl.mass*G - drag;
+    const a = fnet/ctrl.mass;
+    state.v += a*DT;
+    state.y += state.v*DT;
+    const vt = Math.sqrt(2*ctrl.mass*G/(rho*ctrl.cdA));
+    if(state.y > H-60){ state.y=20; state.v=0; }
+    hist.v.push([state.t, state.v]);
+    hist.f.push([state.t, fnet]);
+
+  } else { // twoblocks
+    const N = (ctrl.m1+ctrl.m2)*G;
+    const fk = ctrl.muk*N;
+    const fnet = Math.max(0, ctrl.force - fk);
+    const a = fnet/(ctrl.m1+ctrl.m2);
+    state.v += a*DT;
+    state.x += state.v*DT;
+    if(state.x > W-90){ state.x=50; state.v=0; }
+    hist.v.push([state.t, state.v]);
+    hist.f.push([state.t, fnet]);
+  }
+  if(hist.v.length>500){ hist.v.shift(); hist.f.shift(); }
+}
+
+function drawSim(){
+  const W=simC.width/DPR, H=simC.height/DPR;
+  sCtx.clearRect(0,0,W,H);
+  // grid
+  sCtx.strokeStyle=C.grid; sCtx.lineWidth=1;
+  for(let y=0;y<H;y+=40){ sCtx.beginPath();sCtx.moveTo(0,y);sCtx.lineTo(W,y);sCtx.stroke(); }
+
+  if(mode==='flat'){
+    const by=H-55, bx=state.x;
+    sCtx.strokeStyle=C.ground; sCtx.lineWidth=1;
+    sCtx.beginPath(); sCtx.moveTo(0,by+26); sCtx.lineTo(W,by+26); sCtx.stroke();
+    // block
+    const sliding = state.sliding;
+    sCtx.fillStyle=C.block;
+    sCtx.strokeStyle=sliding?'#ff4d6a88':C.blockBorder;
+    sCtx.lineWidth=1.5;
+    sCtx.beginPath(); sCtx.roundRect(bx-28,by-22,56,44,5); sCtx.fill(); sCtx.stroke();
+    sCtx.fillStyle=C.blockText; sCtx.font="bold 11px 'IBM Plex Mono',monospace";
+    sCtx.textAlign='center'; sCtx.fillText('m',bx,by+5);
+    // forces
+    arrow(sCtx,bx,by+22,bx,by+62,C.weight);
+    sCtx.fillStyle=C.weight; sCtx.font="9px 'DM Sans',sans-serif"; sCtx.fillText('W',bx,by+72);
+    arrow(sCtx,bx,by-22,bx,by-62,C.normal);
+    sCtx.fillStyle=C.normal; sCtx.fillText('N',bx,by-68);
+    if(ctrl.force>0) arrow(sCtx,bx-28,by,bx-28-ctrl.force*1.5,by,'#ffb830',2);
+    if(sliding&&state.v>0.05){
+      const fk=ctrl.muk*ctrl.mass*G;
+      arrow(sCtx,bx+28,by,bx+28+fk*1.8,by,C.friction,2);
+      sCtx.fillStyle=C.friction; sCtx.font="9px 'DM Sans',sans-serif";
+      sCtx.textAlign='left'; sCtx.fillText('f_k',bx+28+fk*1.8+4,by+4);
+    }
+    if(state.v>0.3){
+      arrow(sCtx,bx,by-36,bx+state.v*8,by-36,C.velocity,1.5);
+      sCtx.fillStyle=C.velocity; sCtx.textAlign='left';
+      sCtx.fillText('v',bx+state.v*8+4,by-33);
+    }
+    // state label
+    const stateCol = sliding ? '#ff4d6a' : '#00e5a0';
+    sCtx.fillStyle=stateCol; sCtx.font="bold 9px 'IBM Plex Mono',monospace";
+    sCtx.textAlign='center';
+    sCtx.fillText(sliding?'SLIDING':'STATIC', bx, by+115);
+
+  } else if(mode==='slope'){
+    const rad = ctrl.angle*Math.PI/180;
+    const oX=30, oY=H-20, sLen=W-60;
+    // slope
+    ctx = sCtx;
+    const sEx=oX+sLen*Math.cos(rad), sEy=oY-sLen*Math.sin(rad);
+    ctx.fillStyle='#0c1628';
+    ctx.beginPath(); ctx.moveTo(oX,oY); ctx.lineTo(sEx,sEy); ctx.lineTo(sEx,oY); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(59,158,255,0.2)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(oX,oY); ctx.lineTo(sEx,sEy); ctx.stroke();
+    // block position along slope
+    const bLen = 60 + state.x*0.5;
+    const bLen2 = Math.min(bLen, sLen-50);
+    const bx=oX+bLen2*Math.cos(rad), by=oY-bLen2*Math.sin(rad);
+    ctx.save(); ctx.translate(bx,by); ctx.rotate(-rad);
+    ctx.fillStyle=C.block; ctx.strokeStyle=C.blockBorder; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.roundRect(-26,-20,52,40,5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=C.blockText; ctx.font="bold 11px 'IBM Plex Mono',monospace";
+    ctx.textAlign='center'; ctx.fillText('m',0,5); ctx.restore();
+    // weight
+    arrow(sCtx,bx,by,bx,by+ctrl.mass*G*0.5,C.weight);
+    // normal
+    arrow(sCtx,bx,by,bx-Math.sin(rad)*45,by-Math.cos(rad)*45,C.normal);
+    // friction up slope
+    const fk=ctrl.muk*ctrl.mass*G*Math.cos(rad);
+    arrow(sCtx,bx,by,bx+Math.cos(rad)*fk*0.9,by-Math.sin(rad)*fk*0.9,C.friction,2);
+    sCtx.fillStyle=C.friction; sCtx.font="9px 'DM Sans',sans-serif"; sCtx.textAlign='left';
+    sCtx.fillText('f_k',bx+Math.cos(rad)*fk*0.9+3,by-Math.sin(rad)*fk*0.9-3);
+    // velocity arrow
+    if(state.v>0.5){
+      const vsc=3;
+      arrow(sCtx,bx,by,bx+Math.cos(rad)*state.v*vsc,by-Math.sin(rad)*state.v*vsc,C.velocity,1.5);
+    }
+    // angle arc
+    sCtx.strokeStyle='#2e4060'; sCtx.lineWidth=1;
+    sCtx.beginPath(); sCtx.arc(oX,oY,24,-rad,0); sCtx.stroke();
+    sCtx.fillStyle='#5a7090'; sCtx.font="9px 'DM Sans',sans-serif"; sCtx.textAlign='left';
+    sCtx.fillText(ctrl.angle+'°',oX+14,oY-6);
+
+  } else if(mode==='drag'){
+    const cx=W/2, y=state.y;
+    // figure
+    const r=20;
+    sCtx.beginPath(); sCtx.arc(cx,y,r,0,Math.PI*2);
+    sCtx.fillStyle=C.block; sCtx.strokeStyle=C.blockBorder; sCtx.lineWidth=1.5;
+    sCtx.fill(); sCtx.stroke();
+    sCtx.fillStyle=C.blockText; sCtx.font="bold 9px 'IBM Plex Mono',monospace";
+    sCtx.textAlign='center'; sCtx.fillText('m',cx,y+3);
+    // weight arrow
+    arrow(sCtx,cx,y+r,cx,y+r+ctrl.mass*G*0.25,C.weight);
+    sCtx.fillStyle=C.weight; sCtx.font="9px 'DM Sans',sans-serif";
+    sCtx.fillText('mg',cx,y+r+ctrl.mass*G*0.25+11);
+    // drag arrow (up, grows with v)
+    if(state.v>0.5){
+      const rho=1.2, drag=0.5*rho*state.v*state.v*ctrl.cdA;
+      arrow(sCtx,cx,y-r,cx,y-r-drag*0.4,C.friction,2);
+      sCtx.fillStyle=C.friction; sCtx.font="9px 'DM Sans',sans-serif";
+      sCtx.fillText('F_D',cx,y-r-drag*0.4-6);
+    }
+    // terminal velocity indicator
+    const vt=Math.sqrt(2*ctrl.mass*G/(1.2*ctrl.cdA));
+    const pct=Math.min(state.v/vt,1);
+    sCtx.fillStyle='#0c1628'; sCtx.strokeStyle='#1e3a5f'; sCtx.lineWidth=1;
+    sCtx.fillRect(W-22,10,12,H-20); sCtx.strokeRect(W-22,10,12,H-20);
+    const barH=(H-20)*pct;
+    sCtx.fillStyle=pct>0.9?C.friction:C.velocity;
+    sCtx.fillRect(W-22,H-10-barH,12,barH);
+    sCtx.fillStyle='#5a7090'; sCtx.font="8px 'DM Sans',sans-serif"; sCtx.textAlign='center';
+    sCtx.fillText('v/v_t',W-16,H-2);
+
+  } else { // twoblocks
+    const by=H-60, bx=state.x;
+    sCtx.strokeStyle=C.ground; sCtx.lineWidth=1;
+    sCtx.beginPath(); sCtx.moveTo(0,by+26); sCtx.lineTo(W,by+26); sCtx.stroke();
+    // block m1
+    sCtx.fillStyle=C.block; sCtx.strokeStyle='#1e3a5f'; sCtx.lineWidth=1.5;
+    sCtx.beginPath(); sCtx.roundRect(bx-24,by-20,48,40,5); sCtx.fill(); sCtx.stroke();
+    sCtx.fillStyle=C.blockText; sCtx.font="bold 11px 'IBM Plex Mono',monospace";
+    sCtx.textAlign='center'; sCtx.fillText('m₁',bx,by+5);
+    // block m2 on top
+    const m2h=34;
+    sCtx.fillStyle='#0f1e38'; sCtx.strokeStyle='#b06fff55'; sCtx.lineWidth=1.5;
+    sCtx.beginPath(); sCtx.roundRect(bx-18,by-20-m2h,36,m2h,5); sCtx.fill(); sCtx.stroke();
+    sCtx.fillStyle='#b06fff'; sCtx.font="bold 10px 'IBM Plex Mono',monospace";
+    sCtx.textAlign='center'; sCtx.fillText('m₂',bx,by-20-m2h/2+4);
+    // applied force
+    if(ctrl.force>0) arrow(sCtx,bx-24,by,bx-24-ctrl.force*1.5,by,'#ffb830',2);
+    sCtx.fillStyle='#ffb830'; sCtx.font="9px 'DM Sans',sans-serif"; sCtx.textAlign='right';
+    sCtx.fillText('F',bx-24-ctrl.force*1.5-4,by+4);
+    // friction
+    const totalMass=ctrl.m1+ctrl.m2;
+    const fk=ctrl.muk*totalMass*G;
+    if(state.v>0.05){
+      arrow(sCtx,bx+24,by,bx+24+fk*1.2,by,C.friction,2);
+      sCtx.fillStyle=C.friction; sCtx.textAlign='left';
+      sCtx.fillText('f_k',bx+24+fk*1.2+4,by+4);
+    }
+    // v arrow
+    if(state.v>0.3){
+      arrow(sCtx,bx,by-38,bx+state.v*8,by-38,C.velocity,1.5);
+    }
+  }
+}
+
+function drawGraph(can, ctx2, data, col){
+  const w=can.width/DPR, h=can.height/DPR;
+  ctx2.clearRect(0,0,w,h);
+  if(data.length<3) return;
+  const xs=data.map(d=>d[0]), ys=data.map(d=>d[1]);
+  const maxx=xs[xs.length-1]||1;
+  const miny=Math.min(...ys), maxy=Math.max(...ys);
+  const yr=maxy-miny||1;
+  const pad=2;
+  const tx=v=>pad+(v/maxx)*(w-2*pad);
+  const ty=v=>h-pad-((v-miny)/yr)*(h-2*pad);
+  if(miny<0&&maxy>0){
+    ctx2.strokeStyle='rgba(59,158,255,0.15)'; ctx2.lineWidth=.5;
+    ctx2.beginPath(); ctx2.moveTo(0,ty(0)); ctx2.lineTo(w,ty(0)); ctx2.stroke();
+  }
+  ctx2.fillStyle=col+'18'; ctx2.beginPath();
+  ctx2.moveTo(tx(xs[0]),ty(0));
+  data.forEach(d=>ctx2.lineTo(tx(d[0]),ty(d[1])));
+  ctx2.lineTo(tx(xs[xs.length-1]),ty(0)); ctx2.closePath(); ctx2.fill();
+  ctx2.strokeStyle=col; ctx2.lineWidth=1.5; ctx2.lineJoin='round';
+  ctx2.beginPath();
+  data.forEach((d,i)=>i===0?ctx2.moveTo(tx(d[0]),ty(d[1])):ctx2.lineTo(tx(d[0]),ty(d[1])));
+  ctx2.stroke();
+  ctx2.beginPath(); ctx2.arc(tx(xs[xs.length-1]),ty(ys[ys.length-1]),3,0,Math.PI*2);
+  ctx2.fillStyle=col; ctx2.fill();
+}
+
+function updateReadouts(){
+  const div = document.getElementById('readouts');
+  div.innerHTML='';
+  const ro=(lbl,val,unit)=>{
+    const d=document.createElement('div'); d.className='ro';
+    d.innerHTML=`<div class="ro-lbl">${lbl}</div><div class="ro-val">${val}<span class="unit"> ${unit}</span></div>`;
+    div.appendChild(d);
+  };
+  if(mode==='flat'){
+    const N=ctrl.mass*G;
+    const fsMax=ctrl.mus*N, fk=ctrl.muk*N;
+    const fnet=state.sliding?Math.max(0,ctrl.force-fk):0;
+    const a=fnet/ctrl.mass;
+    ro('velocity', state.v.toFixed(2), 'm/s');
+    ro('accel a', a.toFixed(2), 'm/s²');
+    ro('f_s max', fsMax.toFixed(1), 'N');
+    ro('f_k', fk.toFixed(1), 'N');
+    ro('F_net', fnet.toFixed(1), 'N');
+  } else if(mode==='slope'){
+    const rad=ctrl.angle*Math.PI/180;
+    const N=ctrl.mass*G*Math.cos(rad);
+    const fk=ctrl.muk*N;
+    const a=G*(Math.sin(rad)-ctrl.muk*Math.cos(rad));
+    ro('velocity', state.v.toFixed(2), 'm/s');
+    ro('accel a', Math.max(0,a).toFixed(2), 'm/s²');
+    ro('Normal N', N.toFixed(1), 'N');
+    ro('f_k', fk.toFixed(1), 'N');
+  } else if(mode==='drag'){
+    const rho=1.2, drag=0.5*rho*state.v*state.v*ctrl.cdA;
+    const vt=Math.sqrt(2*ctrl.mass*G/(rho*ctrl.cdA));
+    const fnet=ctrl.mass*G-drag;
+    ro('velocity', state.v.toFixed(1), 'm/s');
+    ro('drag F_D', drag.toFixed(1), 'N');
+    ro('F_net', fnet.toFixed(1), 'N');
+    ro('v_terminal', vt.toFixed(1), 'm/s');
+  } else {
+    const totalM=ctrl.m1+ctrl.m2;
+    const fk=ctrl.muk*totalM*G;
+    const fnet=Math.max(0,ctrl.force-fk);
+    const a=fnet/totalM;
+    ro('velocity', state.v.toFixed(2), 'm/s');
+    ro('accel a', a.toFixed(2), 'm/s²');
+    ro('f_k total', fk.toFixed(1), 'N');
+    ro('F_net', fnet.toFixed(1), 'N');
+  }
+}
+
+function buildControls(){
+  const m = MODES[mode];
+  const div = document.getElementById('sliders');
+  div.innerHTML='';
+  m.controls.forEach(c=>{
+    const v = ctrl[c.id]!==undefined ? ctrl[c.id] : c.val;
+    const el = document.createElement('div'); el.className='sl-wrap';
+    el.innerHTML=`<div class="sl-top"><span class="sl-name">${c.name}</span><span class="sl-val" id="sv-${c.id}">${v}${c.unit?' '+c.unit:''}</span></div>
+      <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${v}" style="accent-color:${c.col}">`;
+    div.appendChild(el);
+    el.querySelector('input').addEventListener('input',function(){
+      ctrl[c.id]=parseFloat(this.value);
+      document.getElementById('sv-'+c.id).textContent=this.value+(c.unit?' '+c.unit:'');
+    });
+  });
+  const bar = document.getElementById('sim-eq-bar');
+  bar.innerHTML='';
+  if(window.katex){
+    try{ katex.render(m.latex, bar, {throwOnError:false,displayMode:false}); } catch(e){}
+  }
+  document.getElementById('g1lbl').textContent = mode==='drag'?'v — t':'v — t';
+  document.getElementById('g2lbl').textContent = mode==='drag'?'F_net — t':'F_net — t';
+}
+
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.stab').forEach(b=>b.classList.remove('active'));
+  const mp={flat:'stab-flat',slope:'stab-slope',drag:'stab-drag',twoblocks:'stab-twoblocks'};
+  document.getElementById(mp[m]).classList.add('active');
+  buildControls(); resizeSimCanvases(); initState();
+}
+
+function loop(){
+  simStep(); drawSim();
+  drawGraph(gvtC, gvtX, hist.v, '#3b9eff');
+  drawGraph(gftC, gftX, hist.f, '#ff4d6a');
+  updateReadouts();
+  requestAnimationFrame(loop);
+}
+
+/* ══════════ INIT ══════════ */
+window.addEventListener('resize',()=>{
+  resizeSimCanvases();
+  drawFBDStatic('fbd-static');
+  drawFBDKinetic('fbd-kinetic');
+  drawAngle();
+  drawPhaseDiagram();
+});
+
+window.addEventListener('load',()=>{
+  resizeSimCanvases();
+  drawFBDStatic('fbd-static');
+  drawFBDKinetic('fbd-kinetic');
+  drawAngle();
+  drawPhaseDiagram();
+  buildControls(); initState(); loop();
+});
+
+/* active nav */
+const sections = document.querySelectorAll('section[id]');
+const pills = document.querySelectorAll('.pill');
+window.addEventListener('scroll',()=>{
+  let cur='';
+  sections.forEach(s=>{ if(window.scrollY>=s.offsetTop-120) cur=s.id; });
+  pills.forEach(p=>{ p.classList.toggle('active', p.getAttribute('href')==='#'+cur); });
+},{passive:true});
+</script>
+</body>
+</html>
