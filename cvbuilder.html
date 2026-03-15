@@ -464,6 +464,7 @@ input[type=range]::-webkit-slider-thumb {
 .preview-scroll {
   flex: 1; overflow: auto;
   display: flex; justify-content: center;
+  align-items: flex-start;
   padding: 32px;
 }
 
@@ -478,6 +479,7 @@ input[type=range]::-webkit-slider-thumb {
   font-family: var(--cv-font-body);
   font-size: 13px;
   line-height: 1.5;
+  flex-shrink: 0;
   overflow: hidden;
   transition: transform 0.2s ease;
 }
@@ -732,20 +734,131 @@ input[type=range]::-webkit-slider-thumb {
 }
 
 /* ─── RESPONSIVE ─── */
-@media (max-width: 900px) {
-  :root { --sidebar-w: 280px; }
-  .workspace { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; }
-  .editor-sidebar { height: auto; max-height: 55vh; }
-  .preview-area { height: 70vw; min-height: 500px; }
-  .topbar { flex-wrap: wrap; height: auto; padding: 10px 16px; gap: 8px; }
+
+/* Mobile bottom nav */
+.mobile-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+  height: 56px;
+  flex-direction: row;
+  align-items: stretch;
+}
+.mobile-nav-btn {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; border: none; background: none;
+  cursor: pointer; font-family: var(--font-body);
+  color: var(--ink-4); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  transition: color var(--transition);
+  padding: 0; position: relative;
+}
+.mobile-nav-btn.active { color: var(--accent); }
+.mobile-nav-btn.active::after {
+  content: ''; position: absolute; top: 0; left: 20%; right: 20%;
+  height: 2px; background: var(--accent); border-radius: 0 0 2px 2px;
+}
+.mobile-nav-icon { font-size: 18px; line-height: 1; }
+
+/* Mobile drawer overlay */
+.mobile-overlay {
+  display: none; position: fixed; inset: 0; z-index: 149;
+  background: rgba(0,0,0,0.4);
+  opacity: 0; transition: opacity 0.25s ease;
+}
+.mobile-overlay.visible { opacity: 1; }
+
+/* Preview panel shown/hidden on mobile */
+.preview-panel-mobile {
+  display: none;
 }
 
-@media (max-width: 600px) {
-  .workspace { grid-template-columns: 1fr; }
-  .cv-sheet { width: 100%; }
+@media (max-width: 860px) {
+  /* ── TOPBAR ── */
+  .topbar { padding: 0 14px; height: 52px; }
+  .topbar-logo-img { height: 30px; }
+  .topbar-actions .btn-ghost:not(.btn-demo) { display: none; }
+  #fbSaveBtn { display: none; }
+  .lang-select { font-size: 11px; padding: 4px 22px 4px 8px; }
+
+  /* ── WORKSPACE: single column, editor fills screen ── */
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 52px - 56px); /* topbar + mobile nav */
+    overflow: hidden;
+  }
+
+  /* ── EDITOR SIDEBAR fills full width on mobile ── */
+  .editor-sidebar {
+    width: 100%; height: 100%;
+    border-right: none;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── PREVIEW AREA: hidden by default, shown via JS ── */
+  .preview-area {
+    display: none;
+    position: fixed;
+    top: 52px; left: 0; right: 0;
+    bottom: 56px;
+    z-index: 100;
+    background: var(--paper-3);
+    flex-direction: column;
+  }
+  .preview-area.mobile-visible {
+    display: flex;
+  }
+
+  /* ── MOBILE NAV: show ── */
+  .mobile-nav { display: flex; }
+
+  /* ── CV sheet: scale to fit mobile preview ── */
+  .preview-scroll {
+    padding: 16px;
+    align-items: flex-start;
+  }
+
+  /* ── Editor tabs: scrollable, no shrink ── */
+  .editor-tabs { flex-shrink: 0; }
+  .editor-tab { padding: 10px 12px; font-size: 10px; }
+
+  /* ── Field rows: stack on very small screens ── */
+  .field-row { grid-template-columns: 1fr; }
+
+  /* ── Template grid: 2 cols still fine ── */
+  .template-grid { grid-template-columns: 1fr 1fr; }
+
+  /* ── Font options: 2x2 grid ── */
+  .font-options { grid-template-columns: 1fr 1fr; }
+
+  /* ── Color row: more cols on mobile ── */
+  .color-row { grid-template-columns: repeat(6, 1fr); }
+
+  /* ── Topbar export button ── */
+  .btn-accent { padding: 6px 12px; font-size: 12px; }
+
+  /* ── Toast: full width on mobile ── */
+  .toast-container { left: 12px; right: 12px; top: 60px; }
+  .toast { text-align: center; }
 }
 
-/* ─── SECTION REORDER ─── */
+@media (max-width: 480px) {
+  .topbar { padding: 0 12px; }
+  .editor-body { padding: 14px; }
+  .field-row { grid-template-columns: 1fr; }
+  .template-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .font-options { grid-template-columns: 1fr 1fr; }
+  .section-card-body { padding: 10px; }
+  .entry-block { padding: 10px; }
+  .design-section { margin-bottom: 18px; }
+  .slider-row label { min-width: 52px; font-size: 10px; }
+}
+
+/* ── SECTION REORDER (unchanged, keep below responsive) ── */
 .section-order-list { display: flex; flex-direction: column; gap: 6px; }
 .section-order-item {
   display: flex; align-items: center; gap: 8px;
@@ -797,7 +910,7 @@ input[type=range]::-webkit-slider-thumb {
       <option value="st">🇿🇦 Sesotho</option>
     </select>
     <div class="topbar-actions">
-      <button class="btn btn-ghost btn-sm" onclick="autofillDemo()">✨ Demo</button>
+      <button class="btn btn-ghost btn-sm btn-demo" onclick="autofillDemo()">✨ Demo</button>
       <button class="btn btn-ghost btn-sm" onclick="clearAll()">Clear</button>
       <button class="btn btn-ghost btn-sm" id="fbSaveBtn" onclick="saveToFirebase()">☁ Save</button>
       <button class="btn btn-accent btn-sm" onclick="printCV()">⬇ Export PDF</button>
@@ -826,6 +939,12 @@ input[type=range]::-webkit-slider-thumb {
     </div>
 
     <div class="editor-body">
+
+      <!-- Mobile: preview prompt bar -->
+      <div id="mobilePreviewBar" style="display:none;margin-bottom:12px;padding:10px 12px;background:var(--accent-light);border:1px solid rgba(0,87,255,0.2);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--accent);font-weight:500;">See how your CV looks →</span>
+        <button class="btn btn-accent btn-sm" onclick="showMobilePanel('preview')">Preview</button>
+      </div>
 
       <!-- ─── CONTENT PANEL ─── -->
       <div class="editor-panel active" id="panel-content">
@@ -1150,6 +1269,25 @@ input[type=range]::-webkit-slider-thumb {
 </div><!-- /workspace -->
 </div><!-- /app-shell -->
 
+<!-- Mobile overlay (dims editor when preview is shown) -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="showMobilePanel('editor')"></div>
+
+<!-- Mobile bottom nav -->
+<nav class="mobile-nav" id="mobileNav">
+  <button class="mobile-nav-btn active" id="mnEdit" onclick="showMobilePanel('editor')">
+    <span class="mobile-nav-icon">✏️</span>Edit
+  </button>
+  <button class="mobile-nav-btn" id="mnPreview" onclick="showMobilePanel('preview')">
+    <span class="mobile-nav-icon">👁</span>Preview
+  </button>
+  <button class="mobile-nav-btn" id="mnDesign" onclick="showMobilePanel('design')">
+    <span class="mobile-nav-icon">🎨</span>Design
+  </button>
+  <button class="mobile-nav-btn" id="mnExport" onclick="printCV()">
+    <span class="mobile-nav-icon">⬇️</span>Export
+  </button>
+</nav>
+
 <!-- Toast container -->
 <div class="toast-container" id="toastContainer"></div>
 
@@ -1468,22 +1606,75 @@ function toggleOpt(el, key) {
 }
 
 // ═══════════════════════════════════════════
+// MOBILE PANEL SWITCHING
+// ═══════════════════════════════════════════
+function isMobile() { return window.innerWidth <= 860; }
+
+function showMobilePanel(panel) {
+  if (!isMobile()) return;
+  const previewArea = document.querySelector('.preview-area');
+  const editorSidebar = document.querySelector('.editor-sidebar');
+  const overlay = document.getElementById('mobileOverlay');
+
+  // Reset all nav buttons
+  ['mnEdit','mnPreview','mnDesign'].forEach(id => {
+    document.getElementById(id)?.classList.remove('active');
+  });
+
+  if (panel === 'preview') {
+    previewArea.classList.add('mobile-visible');
+    editorSidebar.style.display = 'none';
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    document.getElementById('mnPreview').classList.add('active');
+    fitZoom();
+  } else if (panel === 'design') {
+    previewArea.classList.remove('mobile-visible');
+    editorSidebar.style.display = '';
+    overlay.style.display = 'none';
+    overlay.classList.remove('visible');
+    document.getElementById('mnDesign').classList.add('active');
+    // Switch to design tab
+    const designTab = document.querySelector('[data-panel="design"]');
+    if (designTab) switchTab(designTab, 'design');
+  } else {
+    // editor (default)
+    previewArea.classList.remove('mobile-visible');
+    editorSidebar.style.display = '';
+    overlay.style.display = 'none';
+    overlay.classList.remove('visible');
+    document.getElementById('mnEdit').classList.add('active');
+    // Switch to content tab
+    const contentTab = document.querySelector('[data-panel="content"]');
+    if (contentTab) switchTab(contentTab, 'content');
+  }
+}
+
+// ═══════════════════════════════════════════
 // ZOOM
 // ═══════════════════════════════════════════
 function adjustZoom(delta) {
-  state.zoom = Math.max(0.3, Math.min(1.5, state.zoom + delta));
+  state.zoom = Math.max(0.2, Math.min(1.5, state.zoom + delta));
   applyZoom();
 }
 function fitZoom() {
   const scroller = document.getElementById('previewScroll');
-  const available = scroller.clientWidth - 64;
-  state.zoom = Math.min(available / 794, 1.0);
+  if (!scroller) return;
+  const padH = isMobile() ? 32 : 64;
+  const available = scroller.clientWidth - padH;
+  state.zoom = Math.min(available / 794, isMobile() ? 0.95 : 1.0);
   applyZoom();
 }
 function applyZoom() {
-  document.getElementById('cvSheet').style.transform = `scale(${state.zoom})`;
-  document.getElementById('cvSheet').style.marginBottom = `${(state.zoom - 1) * 1123}px`;
-  document.getElementById('zoomDisplay').textContent = Math.round(state.zoom*100)+'%';
+  const sheet = document.getElementById('cvSheet');
+  if (!sheet) return;
+  sheet.style.transform = `scale(${state.zoom})`;
+  // Correct the layout gap caused by scale shrinking the element's paint box
+  const scaledH = 1123 * state.zoom;
+  const naturalH = 1123;
+  sheet.style.marginBottom = `${scaledH - naturalH}px`;
+  const zd = document.getElementById('zoomDisplay');
+  if (zd) zd.textContent = Math.round(state.zoom * 100) + '%';
 }
 
 // ═══════════════════════════════════════════
@@ -1629,12 +1820,21 @@ function render() {
   const m = state.sliders;
   const wm = state.opts.watermark ? `<div class="cv-watermark">CV Forge</div>` : '';
 
-  // CSS overrides for sliders
-  const cssOverrides = `
-    <style>
-      #cvSheet .cv-full-name { font-size:${m.namesize}px !important; }
-      #cvSheet .cv-entry-desc, #cvSheet .cv-summary, #cvSheet p { font-size:${m.bodysize}px !important; line-height:${m.lineheight} !important; }
-    </style>`;
+  // Set the class FIRST so template CSS selectors apply immediately
+  sheet.className = `cv-sheet tpl-${tpl}`;
+
+  // Push slider overrides into a dedicated <style> tag outside the sheet
+  // so they never get wiped by innerHTML replacement
+  let styleEl = document.getElementById('cvDynamicStyle');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'cvDynamicStyle';
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = `
+    .cv-sheet .cv-full-name { font-size:${m.namesize}px !important; }
+    .cv-sheet .cv-entry-desc, .cv-sheet .cv-summary, .cv-sheet p { font-size:${m.bodysize}px !important; line-height:${m.lineheight} !important; }
+  `;
 
   const allSections = state.sectionOrder.map(s => buildSectionHtml(s, tpl)).join('');
 
@@ -1643,7 +1843,7 @@ function render() {
     const mainSecs = ['experience','education'];
     const sidebarContent = sidebarSecs.map(s=>buildSectionHtml(s,'sidebar')).join('');
     const mainContent = mainSecs.map(s=>buildSectionHtml(s,'sidebar')).join('');
-    sheet.innerHTML = cssOverrides + `
+    sheet.innerHTML = `
       <div class="cv-sidebar-col">
         ${buildPhotoHtml()}
         <div class="cv-full-name">${name}</div>
@@ -1659,13 +1859,13 @@ function render() {
       </div>
       ${wm}`;
   } else if (tpl === 'minimal') {
-    sheet.innerHTML = cssOverrides + `
+    sheet.innerHTML = `
       <div class="cv-header-wrap" style="padding:${m.margin}px ${m.margin}px ${Math.round(m.margin*0.6)}px">
         ${buildPhotoHtml()}
         <div class="cv-full-name">${name}</div>
         ${job ? `<div class="cv-job-title">${job}</div>` : ''}
         <div class="cv-contact-row">
-          ${buildContactHtml('minimal').replace(/cv-contact-item/g,'cv-contact-item').replace(/<span class="cv-contact-icon">.*?<\/span>/g,'')}
+          ${buildContactHtml('minimal').replace(/<span class="cv-contact-icon">.*?<\/span>/g,'')}
         </div>
       </div>
       <div class="cv-body" style="padding:8px ${m.margin}px ${m.margin}px">
@@ -1673,7 +1873,8 @@ function render() {
       </div>
       ${wm}`;
   } else {
-    sheet.innerHTML = cssOverrides + `
+    // modern + executive share this outer structure
+    sheet.innerHTML = `
       <div class="cv-header-wrap" style="padding:${Math.round(m.margin*0.9)}px ${m.margin}px ${Math.round(m.margin*0.75)}px">
         <div class="cv-meta-grid">
           ${buildPhotoHtml()}
@@ -1690,7 +1891,6 @@ function render() {
       ${wm}`;
   }
 
-  sheet.className = `cv-sheet tpl-${tpl}`;
   updateProgress();
   renderThumbs();
 }
@@ -1759,18 +1959,36 @@ function printCV() {
   const clone = sheet.cloneNode(true);
   clone.style.transform = 'none';
   clone.style.margin = '0';
+  clone.style.boxShadow = 'none';
+  clone.style.width = '100%';
+  clone.style.minHeight = 'auto';
+
+  // Grab ALL styles from the page (the full template CSS lives there)
+  const allStyles = Array.from(document.styleSheets).map(ss => {
+    try { return Array.from(ss.cssRules).map(r=>r.cssText).join('\n'); }
+    catch(e) { return ''; }
+  }).join('\n');
+
+  const dynamicStyle = document.getElementById('cvDynamicStyle')?.textContent || '';
   const win = window.open('', '_blank', 'width=900,height=700');
   win.document.write(`<!DOCTYPE html><html><head>
     <title>${name} — CV</title>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Epilogue:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Azeret+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-      * { box-sizing:border-box; margin:0; padding:0; }
-      body { background:#fff; }
-      :root { --cv-accent:${state.color}; --cv-accent-rgb:${hexToRgb(state.color)?Object.values(hexToRgb(state.color)).join(','):'26,26,46'}; --cv-font-head:'${state.headFont}',Georgia,serif; --cv-font-body:'${state.bodyFont}',sans-serif; }
-      ${clone.querySelector('style')?.textContent||''}
+      *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+      body { background:#fff; font-family:'${state.bodyFont}',sans-serif; }
+      :root {
+        --cv-accent:${state.color};
+        --cv-accent-rgb:${hexToRgb(state.color)?Object.values(hexToRgb(state.color)).join(','):'0,87,255'};
+        --cv-font-head:'${state.headFont}',sans-serif;
+        --cv-font-body:'${state.bodyFont}',sans-serif;
+      }
+      ${allStyles}
+      ${dynamicStyle}
+      .cv-sheet { width:100% !important; min-height:auto !important; box-shadow:none !important; }
       @media print { @page { margin:0; size:A4; } body { margin:0; } }
     </style>
-  </head><body>${clone.outerHTML}<script>setTimeout(()=>{window.print();},600)<\/script></body></html>`);
+  </head><body>${clone.outerHTML}<script>setTimeout(()=>{window.print();},800)<\/script></body></html>`);
   win.document.close();
   if (window._fbReady) window._fb.logExport(getSessionId(), name + ' (PDF)').catch(()=>{});
   toast('Opening print dialog…');
@@ -2040,6 +2258,14 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { if (!window._fbReady && localStorage.getItem('cvforge_draft')) loadFromLocal(); }, 3000);
   }
 
+  // Show mobile preview bar only on mobile
+  function updateMobileUI() {
+    const bar = document.getElementById('mobilePreviewBar');
+    if (bar) bar.style.display = isMobile() ? 'flex' : 'none';
+  }
+  updateMobileUI();
+  window.addEventListener('resize', updateMobileUI);
+
   // Drag & drop on upload
   const ua = document.getElementById('uploadArea');
   ['dragenter','dragover'].forEach(ev => ua.addEventListener(ev, e=>{e.preventDefault();ua.classList.add('drag-over');}));
@@ -2055,7 +2281,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  window.addEventListener('resize', () => fitZoom());
+  window.addEventListener('resize', () => {
+    fitZoom();
+    // On resize to desktop, reset any mobile panel state
+    if (!isMobile()) {
+      document.querySelector('.preview-area').classList.remove('mobile-visible');
+      document.querySelector('.editor-sidebar').style.display = '';
+      const overlay = document.getElementById('mobileOverlay');
+      overlay.style.display = 'none';
+      overlay.classList.remove('visible');
+    }
+  });
 
   // Auto-save: local immediately, Firebase debounced
   let localTimer, cloudTimer;
