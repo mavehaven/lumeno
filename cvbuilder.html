@@ -5,7 +5,51 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CV Forge — Professional CV Builder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Epilogue:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Epilogue:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Azeret+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Firebase SDKs -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  // ── CONFIGURE YOUR FIREBASE PROJECT HERE ──────────────────────────────────
+  // Replace these values with your own from Firebase Console →
+  // Project Settings → Your apps → SDK setup → Config
+  const firebaseConfig = {
+    apiKey:            "YOUR_API_KEY",
+    authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId:         "YOUR_PROJECT_ID",
+    storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId:             "YOUR_APP_ID"
+  };
+  // ──────────────────────────────────────────────────────────────────────────
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // Expose helpers to global scope so non-module JS can call them
+  window._fb = {
+    async saveCV(sessionId, data) {
+      await setDoc(doc(db, 'cv_drafts', sessionId), {
+        ...data,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    },
+    async loadCV(sessionId) {
+      const snap = await getDoc(doc(db, 'cv_drafts', sessionId));
+      return snap.exists() ? snap.data() : null;
+    },
+    async logExport(sessionId, name) {
+      await addDoc(collection(db, 'cv_exports'), {
+        sessionId, name,
+        exportedAt: serverTimestamp()
+      });
+    }
+  };
+  window._fbReady = true;
+  window.dispatchEvent(new Event('fbReady'));
+</script>
 <style>
 :root {
   --ink: #0a0a0a;
@@ -80,20 +124,31 @@ body {
 }
 
 .topbar-logo {
-  font-family: var(--font-display);
-  font-size: 1.15rem; font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center;
 }
-.topbar-logo span {
-  display: inline-flex; width: 26px; height: 26px;
-  background: var(--accent); border-radius: 4px;
-  align-items: center; justify-content: center;
+.topbar-logo-img {
+  height: 36px; width: auto;
+  object-fit: contain;
+  display: block;
 }
-.topbar-logo span svg { width: 14px; height: 14px; fill: #fff; }
 
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ─── LANG SELECT ─── */
+.lang-select {
+  padding: 5px 10px; font-size: 12px; font-weight: 500;
+  font-family: var(--font-body);
+  color: var(--ink-2); background: var(--paper);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  cursor: pointer; outline: none;
+  transition: border-color var(--transition);
+  -webkit-appearance: none; appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a0a0a0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.lang-select:hover, .lang-select:focus { border-color: var(--accent); }
 
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -632,15 +687,6 @@ input[type=range]::-webkit-slider-thumb {
 .cv-sheet.tpl-minimal .cv-photo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; float: right; margin: 0 0 12px 20px; border: 2px solid #eee; }
 .cv-sheet.tpl-minimal .cv-photo-placeholder { display: none; }
 
-/* ─── LANGUAGE TOGGLE ─── */
-.lang-toggle { display: flex; gap: 0; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
-.lang-btn {
-  padding: 5px 11px; font-size: 11px; font-weight: 600; cursor: pointer;
-  border: none; background: transparent; color: var(--ink-4);
-  transition: all var(--transition);
-}
-.lang-btn.active { background: var(--ink); color: var(--paper); }
-
 /* ─── PROGRESS INDICATOR ─── */
 .progress-bar { display: flex; gap: 4px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .progress-step {
@@ -737,20 +783,23 @@ input[type=range]::-webkit-slider-thumb {
 <!-- ─── TOPBAR ─── -->
 <header class="topbar">
   <div class="topbar-logo">
-    <span>
-      <svg viewBox="0 0 16 16"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm9 2h1v-2h2v2h1v2h-1v1h-2v-1h-1v-2z"/></svg>
-    </span>
-    CV Forge
+    <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png"
+         alt="CV Forge Logo" class="topbar-logo-img">
   </div>
 
-  <div style="display:flex;align-items:center;gap:12px;">
-    <div class="lang-toggle">
-      <button class="lang-btn active" onclick="setLang('en')">EN</button>
-      <button class="lang-btn" onclick="setLang('zu')">ZU</button>
-    </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <!-- Language selector — proper select dropdown, no broken toggle -->
+    <select id="langSelect" class="lang-select" onchange="setLang(this.value)">
+      <option value="en">🇬🇧 English</option>
+      <option value="zu">🇿🇦 isiZulu</option>
+      <option value="af">🇿🇦 Afrikaans</option>
+      <option value="xh">🇿🇦 isiXhosa</option>
+      <option value="st">🇿🇦 Sesotho</option>
+    </select>
     <div class="topbar-actions">
-      <button class="btn btn-ghost btn-sm" onclick="autofillDemo()">✨ Demo Fill</button>
+      <button class="btn btn-ghost btn-sm" onclick="autofillDemo()">✨ Demo</button>
       <button class="btn btn-ghost btn-sm" onclick="clearAll()">Clear</button>
+      <button class="btn btn-ghost btn-sm" id="fbSaveBtn" onclick="saveToFirebase()">☁ Save</button>
       <button class="btn btn-accent btn-sm" onclick="printCV()">⬇ Export PDF</button>
     </div>
   </div>
@@ -1053,8 +1102,9 @@ input[type=range]::-webkit-slider-thumb {
         </div>
         <div class="design-section">
           <div class="design-section-title">Save &amp; Load</div>
-          <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="saveToLocal()">💾 Save draft</button>
-          <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="loadFromLocal()">📂 Load draft</button>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="saveToFirebase()">☁ Save to Cloud</button>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="loadFromFirebase()">☁ Load from Cloud</button>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:8px;" onclick="saveToLocal()">💾 Save locally</button>
           <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="exportJSON()">⬇ Export JSON</button>
         </div>
         <div class="design-section">
@@ -1680,11 +1730,19 @@ function toggleCard(id) {
 // ═══════════════════════════════════════════
 function setLang(lang) {
   state.lang = lang;
-  document.querySelectorAll('.lang-btn').forEach(b => {
-    b.classList.toggle('active', b.textContent.toLowerCase()===lang);
+  // Sync the select dropdown
+  const sel = document.getElementById('langSelect');
+  if (sel && sel.value !== lang) sel.value = lang;
+  // Sync settings panel dropdown if present
+  const cvLang = document.getElementById('cvLang');
+  if (cvLang && cvLang.value !== lang) cvLang.value = lang;
+  // Update all data-i18n labelled elements in the editor sidebar
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    const tr = (i18n[lang]||i18n.en)[key];
+    if (tr) el.textContent = tr;
   });
-  const cvLangSel = document.getElementById('cvLang');
-  if (cvLangSel) cvLangSel.value = lang;
+  // Re-render CV with new language section titles
   render();
 }
 
@@ -1704,7 +1762,7 @@ function printCV() {
   const win = window.open('', '_blank', 'width=900,height=700');
   win.document.write(`<!DOCTYPE html><html><head>
     <title>${name} — CV</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400&family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Epilogue:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Azeret+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
       * { box-sizing:border-box; margin:0; padding:0; }
       body { background:#fff; }
@@ -1714,6 +1772,7 @@ function printCV() {
     </style>
   </head><body>${clone.outerHTML}<script>setTimeout(()=>{window.print();},600)<\/script></body></html>`);
   win.document.close();
+  if (window._fbReady) window._fb.logExport(getSessionId(), name + ' (PDF)').catch(()=>{});
   toast('Opening print dialog…');
 }
 
@@ -1721,46 +1780,23 @@ function printCV() {
 // SAVE / LOAD
 // ═══════════════════════════════════════════
 function saveToLocal() {
-  const data = {
-    fields: {
-      name: getVal('f-name'), jobtitle: getVal('f-jobtitle'),
-      email: getVal('f-email'), phone: getVal('f-phone'),
-      location: getVal('f-location'), website: getVal('f-website'),
-      summary: getVal('f-summary'), skills: getVal('f-skills'), certs: getVal('f-certs'),
-    },
-    expEntries: state.expEntries, eduEntries: state.eduEntries,
-    state: { template: state.template, color: state.color, headFont: state.headFont, bodyFont: state.bodyFont, lang: state.lang, opts: state.opts, sliders: state.sliders, sectionOrder: state.sectionOrder, sectionVisible: state.sectionVisible }
-  };
-  localStorage.setItem('cvforge_draft', JSON.stringify(data));
-  toast('Draft saved ✓');
+  localStorage.setItem('cvforge_draft', JSON.stringify(collectSaveData()));
+  toast('Draft saved locally ✓');
 }
 
 function loadFromLocal() {
   const raw = localStorage.getItem('cvforge_draft');
   if (!raw) { toast('No saved draft found'); return; }
   try {
-    const data = JSON.parse(raw);
-    if (data.fields) {
-      Object.entries(data.fields).forEach(([k,v]) => {
-        const el = document.getElementById('f-'+k);
-        if (el) el.value = v;
-      });
-    }
-    if (data.expEntries) { state.expEntries = data.expEntries; renderEntryList('exp'); }
-    if (data.eduEntries) { state.eduEntries = data.eduEntries; renderEntryList('edu'); }
-    if (data.state) {
-      Object.assign(state, data.state);
-      applyColor(state.color);
-      document.getElementById('colorHexInput').value = state.color;
-    }
-    render();
-    toast('Draft loaded ✓');
+    applyLoadedData(JSON.parse(raw));
+    toast('Local draft loaded ✓');
   } catch(e) { toast('Error loading draft'); }
 }
 
 function exportJSON() {
+  const name = getVal('f-name') || 'cv';
   const data = {
-    name: getVal('f-name'), jobtitle: getVal('f-jobtitle'),
+    name, jobtitle: getVal('f-jobtitle'),
     email: getVal('f-email'), phone: getVal('f-phone'),
     location: getVal('f-location'), website: getVal('f-website'),
     summary: getVal('f-summary'), skills: getVal('f-skills').split(',').map(s=>s.trim()).filter(Boolean),
@@ -1769,8 +1805,9 @@ function exportJSON() {
   const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = (getVal('f-name')||'cv').replace(/\s+/g,'-').toLowerCase()+'-data.json';
+  a.download = name.replace(/\s+/g,'-').toLowerCase()+'-data.json';
   a.click();
+  if (window._fbReady) window._fb.logExport(getSessionId(), name).catch(()=>{});
   toast('JSON exported ✓');
 }
 
@@ -1840,6 +1877,111 @@ function aiSuggestSummary() {
 }
 
 // ═══════════════════════════════════════════
+// FIREBASE CLOUD SAVE / LOAD
+// ═══════════════════════════════════════════
+
+// Stable session ID — persisted in localStorage so the same browser
+// always writes/reads the same Firestore document
+function getSessionId() {
+  let id = localStorage.getItem('cvforge_session');
+  if (!id) {
+    id = 'cv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+    localStorage.setItem('cvforge_session', id);
+  }
+  return id;
+}
+
+function collectSaveData() {
+  return {
+    fields: {
+      name:     getVal('f-name'),
+      jobtitle: getVal('f-jobtitle'),
+      email:    getVal('f-email'),
+      phone:    getVal('f-phone'),
+      location: getVal('f-location'),
+      website:  getVal('f-website'),
+      summary:  getVal('f-summary'),
+      skills:   getVal('f-skills'),
+      certs:    getVal('f-certs'),
+    },
+    expEntries: state.expEntries,
+    eduEntries: state.eduEntries,
+    design: {
+      template:       state.template,
+      color:          state.color,
+      headFont:       state.headFont,
+      bodyFont:       state.bodyFont,
+      lang:           state.lang,
+      opts:           state.opts,
+      sliders:        state.sliders,
+      sectionOrder:   state.sectionOrder,
+      sectionVisible: state.sectionVisible,
+    },
+  };
+}
+
+async function saveToFirebase() {
+  if (!window._fbReady) {
+    toast('⚠ Firebase not configured — see code comments');
+    saveToLocal(); // fallback
+    return;
+  }
+  const btn = document.getElementById('fbSaveBtn');
+  if (btn) { btn.textContent = '…saving'; btn.disabled = true; }
+  try {
+    const sessionId = getSessionId();
+    await window._fb.saveCV(sessionId, collectSaveData());
+    saveToLocal(); // also keep local copy
+    toast('☁ Saved to cloud ✓');
+  } catch (e) {
+    console.error('Firebase save error:', e);
+    toast('Cloud save failed — saved locally instead');
+    saveToLocal();
+  } finally {
+    if (btn) { btn.textContent = '☁ Save'; btn.disabled = false; }
+  }
+}
+
+async function loadFromFirebase() {
+  if (!window._fbReady) { loadFromLocal(); return; }
+  try {
+    const sessionId = getSessionId();
+    const data = await window._fb.loadCV(sessionId);
+    if (!data) { toast('No cloud draft found'); loadFromLocal(); return; }
+    applyLoadedData(data);
+    toast('☁ Cloud draft loaded ✓');
+  } catch (e) {
+    console.error('Firebase load error:', e);
+    loadFromLocal();
+  }
+}
+
+function applyLoadedData(data) {
+  if (data.fields) {
+    Object.entries(data.fields).forEach(([k, v]) => {
+      const el = document.getElementById('f-' + k);
+      if (el) el.value = v || '';
+    });
+  }
+  if (data.expEntries) { state.expEntries = data.expEntries; renderEntryList('exp'); }
+  if (data.eduEntries) { state.eduEntries = data.eduEntries; renderEntryList('edu'); }
+  if (data.design) {
+    const d = data.design;
+    if (d.template)       { state.template = d.template; document.querySelector(`[data-tpl="${d.template}"]`)?.classList.add('selected'); }
+    if (d.color)          applyColor(d.color);
+    if (d.headFont)       { state.headFont = d.headFont; document.documentElement.style.setProperty('--cv-font-head', `'${d.headFont}', sans-serif`); }
+    if (d.bodyFont)       { state.bodyFont = d.bodyFont; document.documentElement.style.setProperty('--cv-font-body', `'${d.bodyFont}', sans-serif`); }
+    if (d.lang)           setLang(d.lang);
+    if (d.opts)           Object.assign(state.opts, d.opts);
+    if (d.sliders)        { Object.assign(state.sliders, d.sliders); ['namesize','bodysize','lineheight','margin','secgap'].forEach(k => { const el = document.getElementById('sl-'+k); if(el && d.sliders[k]) { el.value = d.sliders[k]; document.getElementById('sv-'+k).textContent = d.sliders[k]; } }); }
+    if (d.sectionOrder)   state.sectionOrder = d.sectionOrder;
+    if (d.sectionVisible) Object.assign(state.sectionVisible, d.sectionVisible);
+  }
+  renderSectionOrder();
+  render();
+}
+
+// ═══════════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════════
 function toast(msg) {
@@ -1881,6 +2023,23 @@ document.addEventListener('DOMContentLoaded', () => {
   document.documentElement.style.setProperty('--cv-font-body', "'Epilogue', sans-serif");
   render();
 
+  // Try to load from Firebase first; fallback to localStorage
+  const tryLoad = () => {
+    if (window._fbReady) {
+      loadFromFirebase();
+    } else if (localStorage.getItem('cvforge_draft')) {
+      loadFromLocal();
+    }
+  };
+  // Firebase module fires fbReady event when ready
+  if (window._fbReady) {
+    tryLoad();
+  } else {
+    window.addEventListener('fbReady', tryLoad, { once: true });
+    // If Firebase hasn't fired within 3s, fall back to local
+    setTimeout(() => { if (!window._fbReady && localStorage.getItem('cvforge_draft')) loadFromLocal(); }, 3000);
+  }
+
   // Drag & drop on upload
   const ua = document.getElementById('uploadArea');
   ['dragenter','dragover'].forEach(ev => ua.addEventListener(ev, e=>{e.preventDefault();ua.classList.add('drag-over');}));
@@ -1898,17 +2057,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('resize', () => fitZoom());
 
-  // Auto-save on input
-  let saveTimer;
+  // Auto-save: local immediately, Firebase debounced
+  let localTimer, cloudTimer;
   document.addEventListener('input', () => {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveToLocal, 2000);
+    clearTimeout(localTimer);
+    clearTimeout(cloudTimer);
+    localTimer = setTimeout(() => saveToLocal(), 1500);
+    cloudTimer = setTimeout(() => {
+      if (window._fbReady) saveToFirebase();
+    }, 5000);
   });
-
-  // Try load draft
-  if (localStorage.getItem('cvforge_draft')) {
-    loadFromLocal();
-  }
 });
 </script>
 </body>
