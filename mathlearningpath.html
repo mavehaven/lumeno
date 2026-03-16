@@ -651,7 +651,7 @@
             text-transform: uppercase; margin-top: 1.2rem;
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- 2D canvas simulation — no Three.js needed -->
 </head>
 <body>
 
@@ -713,7 +713,7 @@
         <div class="hero-glow"></div>
 
         <!-- LIVE SIMULATION — full screen background -->
-        <canvas id="mathCanvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;cursor:grab;"></canvas>
+        <canvas id="mathCanvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;cursor:crosshair;"></canvas>
 
         <!-- gradient overlay so copy is legible -->
         <div style="position:absolute;inset:0;z-index:2;pointer-events:none;
@@ -721,29 +721,29 @@
 
         <!-- formula label top-right -->
         <div class="hero-formula" style="z-index:3;">
-            <div class="f-label">Core Notation</div>
-            <div class="f-eq">∫₀^∞ e^(−x²) dx = √π/2</div>
-            <div class="f-eq">∇²f = ∂²f/∂x² + ∂²f/∂y²</div>
-            <div class="f-eq">e^(iπ) + 1 = 0</div>
-            <div class="f-eq">∑_{n=1}^∞ 1/n² = π²/6</div>
+            <div class="f-label">Complex Iteration</div>
+            <div class="f-eq">z_{n+1} = z²_n + c</div>
+            <div class="f-eq">z, c ∈ ℂ</div>
+            <div class="f-eq">|z| → ∞ or bounded</div>
+            <div class="f-eq">∂M = Julia set</div>
         </div>
 
         <!-- Function switcher top-left -->
         <div style="position:absolute;top:5.5rem;left:5%;z-index:3;display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;
             opacity:0;animation:fadeIn 1s ease 1.2s forwards;">
-            <span style="font-family:'Courier Prime',monospace;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.3);">f(x,y) =</span>
-            <button class="fn-btn active" onclick="setFn('sine',this)">sin(r)</button>
-            <button class="fn-btn" onclick="setFn('ripple',this)">cos(x)·sin(y)</button>
-            <button class="fn-btn" onclick="setFn('saddle',this)">x²−y²</button>
-            <button class="fn-btn" onclick="setFn('paraboloid',this)">x²+y²</button>
-            <button class="fn-btn" onclick="setFn('peaks',this)">peaks</button>
+            <span style="font-family:'Courier Prime',monospace;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.3);">z → z² + c</span>
+            <button class="fn-btn active" onclick="setPreset('spiral',this)">spiral</button>
+            <button class="fn-btn" onclick="setPreset('dendrite',this)">dendrite</button>
+            <button class="fn-btn" onclick="setPreset('rabbit',this)">rabbit</button>
+            <button class="fn-btn" onclick="setPreset('dragon',this)">dragon</button>
+            <button class="fn-btn" onclick="setPreset('galaxy',this)">galaxy</button>
         </div>
 
         <!-- Hero copy -->
         <div class="hero-content" style="z-index:3;pointer-events:none;">
             <p class="hero-eyebrow">Mathematics Learning Paths</p>
             <h1>The formula<br>is the <em>word.</em><br><span class="outline">See it move.</span></h1>
-            <p class="hero-sub">Three tiers of immersive mathematics — from algebraic thinking to manifold topology. Abstract concepts made tangible, visual, and alive.</p>
+            <p class="hero-sub">Move your cursor to explore the Julia set — a fractal born from iterating z² + c in the complex plane. Select a preset or chart your own path through infinite mathematical complexity.</p>
             <div class="hero-ctas" style="pointer-events:all;">
                 <a href="#tiers" class="btn-primary">
                     <span>Choose Your Path</span>
@@ -756,10 +756,10 @@
         <!-- Drag hint bottom-right -->
         <div style="position:absolute;bottom:2.5rem;right:5%;z-index:3;display:flex;align-items:center;gap:0.6rem;
             opacity:0;animation:fadeIn 1s ease 1.8s forwards;">
-            <span style="font-family:'Courier Prime',monospace;font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.25);">drag to rotate</span>
+            <span style="font-family:'Courier Prime',monospace;font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.25);">move cursor to explore</span>
             <div style="width:36px;height:36px;border:1px solid rgba(184,255,87,0.3);border-radius:50%;
                 display:flex;align-items:center;justify-content:center;color:var(--accent-math);font-size:0.9rem;">
-                <i class="fas fa-arrows-alt"></i>
+                <i class="fas fa-mouse-pointer"></i>
             </div>
         </div>
     </section>
@@ -1163,151 +1163,128 @@
         el.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
         observer.observe(el);
     });
-    // ── 3D FUNCTION GRAPHER ──
+    // ── JULIA SET EXPLORER ──
     (function() {
         const canvas = document.getElementById('mathCanvas');
         if (!canvas) return;
 
-        let scene, camera, renderer, surface;
-        let rotX = 0.5, rotY = 0.4;
-        let isDragging = false, prevMouse = { x: 0, y: 0 };
-        let animId, currentFn = 'sine', time = 0;
+        const ctx = canvas.getContext('2d');
+        let animId, W, H, imgData;
+        let targetCx = -0.7, targetCy = 0.27;
+        let cx = -0.7, cy = 0.27;
+        let renderScheduled = false;
 
-        const GRID = 80, SIZE = 6;
-        const LIME = new THREE.Color(0xb8ff57);
-        const DARK = new THREE.Color(0x002244);
-
-        const fns = {
-            sine:       (x, z) => Math.sin(Math.sqrt(x*x + z*z) * 2) * 0.8,
-            ripple:     (x, z) => Math.cos(x * 1.8) * Math.sin(z * 1.8) * 0.9,
-            saddle:     (x, z) => (x*x - z*z) * 0.25,
-            paraboloid: (x, z) => -(x*x + z*z) * 0.18 + 1,
-            peaks:      (x, z) => {
-                const p1 = 3*(1-x)*(1-x)*Math.exp(-x*x - (z+1)*(z+1));
-                const p2 = -10*(x/5 - x*x*x - z*z*z*z*z)*Math.exp(-x*x - z*z);
-                const p3 = -Math.exp(-(x+1)*(x+1) - z*z)/3;
-                return (p1+p2+p3) * 0.5;
-            }
+        // Presets — famous Julia set parameters
+        const presets = {
+            spiral:   { cx: -0.7,    cy:  0.27   },
+            dendrite: { cx:  0.0,    cy:  1.0    },
+            rabbit:   { cx: -0.123,  cy:  0.745  },
+            dragon:   { cx: -0.8,    cy:  0.156  },
+            galaxy:   { cx: -0.4,    cy:  0.6    },
         };
 
-        function buildSurface() {
-            if (surface) { scene.remove(surface); surface.geometry.dispose(); surface.material.dispose(); }
+        // Colour palette — dark → lime greens → white at edge
+        function getColour(iter, maxIter) {
+            if (iter === maxIter) return [0, 0, 0];
+            const t = iter / maxIter;
+            // Map t to a lime/gold/white palette
+            const r = Math.floor(t < 0.5 ? t * 2 * 80  : 80  + (t - 0.5) * 2 * 175);
+            const g = Math.floor(t < 0.5 ? t * 2 * 255 : 255);
+            const b = Math.floor(t < 0.5 ? t * 2 * 30  : 30  + (t - 0.5) * 2 * 225);
+            return [r, g, b];
+        }
 
-            const geo = new THREE.PlaneGeometry(SIZE, SIZE, GRID - 1, GRID - 1);
-            geo.rotateX(-Math.PI / 2);
+        function resize() {
+            W = canvas.offsetWidth;
+            H = canvas.offsetHeight;
+            canvas.width  = W;
+            canvas.height = H;
+            imgData = ctx.createImageData(W, H);
+        }
 
-            const count = geo.attributes.position.count;
-            const colors = new Float32Array(count * 3);
-            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        function render() {
+            if (!imgData) return;
+            const maxIter = 120;
+            const zoom = 2.8;
+            const data = imgData.data;
 
-            const mat = new THREE.MeshBasicMaterial({
-                vertexColors: true, wireframe: true,
-                transparent: true, opacity: 0.85
-            });
-            surface = new THREE.Mesh(geo, mat);
-            scene.add(surface);
+            for (let py = 0; py < H; py++) {
+                for (let px = 0; px < W; px++) {
+                    // Map pixel to complex plane
+                    let zx = (px / W - 0.5) * zoom * (W / H);
+                    let zy = (py / H - 0.5) * zoom;
+
+                    let iter = 0;
+                    while (iter < maxIter && zx * zx + zy * zy < 4) {
+                        const tmp = zx * zx - zy * zy + cx;
+                        zy = 2 * zx * zy + cy;
+                        zx = tmp;
+                        iter++;
+                    }
+
+                    const [r, g, b] = getColour(iter, maxIter);
+                    const idx = (py * W + px) * 4;
+                    data[idx]     = r;
+                    data[idx + 1] = g;
+                    data[idx + 2] = b;
+                    data[idx + 3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        // Smooth interpolation toward target c values
+        function animate() {
+            animId = requestAnimationFrame(animate);
+            const dx = targetCx - cx, dy = targetCy - cy;
+            if (Math.abs(dx) > 0.0005 || Math.abs(dy) > 0.0005) {
+                cx += dx * 0.06;
+                cy += dy * 0.06;
+                render();
+            }
         }
 
         function init() {
-            scene = new THREE.Scene();
-            const w = canvas.clientWidth, h = canvas.clientHeight || 460;
-            camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
-            camera.position.set(0, 7, 12);
-            camera.lookAt(0, 0, 0);
-
-            renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-            renderer.setSize(w, h);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.setClearColor(0x050505, 1);
-
-            buildSurface();
-
-            // Drag
-            canvas.addEventListener('mousedown', e => { isDragging = true; prevMouse = { x: e.clientX, y: e.clientY }; });
-            canvas.addEventListener('mousemove', e => {
-                if (!isDragging) return;
-                rotY += (e.clientX - prevMouse.x) * 0.007;
-                rotX += (e.clientY - prevMouse.y) * 0.007;
-                rotX = Math.max(-1.1, Math.min(1.1, rotX));
-                prevMouse = { x: e.clientX, y: e.clientY };
-            });
-            canvas.addEventListener('mouseup', () => isDragging = false);
-            canvas.addEventListener('mouseleave', () => isDragging = false);
-            canvas.addEventListener('touchstart', e => {
-                isDragging = true;
-                prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            }, { passive: true });
-            canvas.addEventListener('touchmove', e => {
-                if (!isDragging) return;
-                rotY += (e.touches[0].clientX - prevMouse.x) * 0.007;
-                rotX += (e.touches[0].clientY - prevMouse.y) * 0.007;
-                rotX = Math.max(-1.1, Math.min(1.1, rotX));
-                prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            }, { passive: true });
-            canvas.addEventListener('touchend', () => isDragging = false);
-            window.addEventListener('resize', () => {
-                const w2 = canvas.clientWidth, h2 = canvas.clientHeight || 460;
-                camera.aspect = w2 / h2; camera.updateProjectionMatrix();
-                renderer.setSize(w2, h2);
-            });
-
+            resize();
+            render();
             animate();
+            window.addEventListener('resize', () => {
+                resize();
+                render();
+            });
         }
 
-        function animate() {
-            animId = requestAnimationFrame(animate);
-            time += 0.012;
+        // Mousemove on canvas — live parameter exploration
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.clientX - rect.left) / rect.width;
+            const my = (e.clientY - rect.top)  / rect.height;
+            // Map mouse to a safe c range that produces interesting Julia sets
+            targetCx = (mx - 0.5) * 1.6 - 0.15;
+            targetCy = (my - 0.5) * 1.2;
+        });
+        canvas.addEventListener('mouseleave', () => {
+            // Return to current preset on mouse leave
+            targetCx = cx; targetCy = cy;
+        });
 
-            const pos = surface.geometry.attributes.position;
-            const col = surface.geometry.attributes.color;
-            const half = SIZE / 2;
-            let minY = Infinity, maxY = -Infinity;
-            const ys = [];
+        // Touch support
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mx = (e.touches[0].clientX - rect.left) / rect.width;
+            const my = (e.touches[0].clientY - rect.top)  / rect.height;
+            targetCx = (mx - 0.5) * 1.6 - 0.15;
+            targetCy = (my - 0.5) * 1.2;
+        }, { passive: false });
 
-            for (let i = 0; i < pos.count; i++) {
-                const x = pos.getX(i), z = pos.getZ(i);
-                let y;
-                if (currentFn === 'sine') {
-                    const r = Math.sqrt(x*x + z*z);
-                    y = Math.sin(r * 2 - time) * 0.8 / (1 + r * 0.15);
-                } else if (currentFn === 'ripple') {
-                    y = Math.cos(x * 1.8 - time * 0.7) * Math.sin(z * 1.8 - time * 0.5) * 0.9;
-                } else {
-                    y = fns[currentFn](x, z);
-                }
-                ys.push(y);
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
-            }
-
-            const range = maxY - minY || 1;
-            const tmpCol = new THREE.Color();
-            for (let i = 0; i < pos.count; i++) {
-                pos.setY(i, ys[i]);
-                const t = (ys[i] - minY) / range;
-                tmpCol.lerpColors(DARK, LIME, t);
-                col.setXYZ(i, tmpCol.r, tmpCol.g, tmpCol.b);
-            }
-            pos.needsUpdate = true;
-            col.needsUpdate = true;
-
-            // Camera orbit
-            const euler = new THREE.Euler(rotX, rotY, 0, 'YXZ');
-            const quat = new THREE.Quaternion().setFromEuler(euler);
-            const base = new THREE.Vector3(0, 7, 12);
-            base.applyQuaternion(quat);
-            camera.position.copy(base);
-            camera.lookAt(0, 0, 0);
-            if (!isDragging) rotY += 0.003;
-
-            renderer.render(scene, camera);
-        }
-
-        window.setFn = function(name, btn) {
-            currentFn = name;
+        window.setPreset = function(name, btn) {
+            const p = presets[name];
+            if (!p) return;
+            targetCx = p.cx;
+            targetCy = p.cy;
             document.querySelectorAll('.fn-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            buildSurface();
         };
 
         window.addEventListener('load', init);
