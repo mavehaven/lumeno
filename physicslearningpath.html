@@ -603,7 +603,90 @@
             .modal-title { font-size: 1.6rem; }
             .modal-price { font-size: 2.6rem; }
         }
+        /* ── DEMO SIMULATION ── */
+        .sim-section {
+            background: var(--light-gray);
+            padding: clamp(5rem, 10vw, 10rem) 5%;
+            text-align: center;
+        }
+        .sim-header { margin-bottom: 2.5rem; }
+        .sim-header h2 {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: clamp(2rem, 4vw, 3.8rem);
+            font-weight: 600; letter-spacing: -0.01em;
+            color: var(--primary); margin-top: 0.5rem; line-height: 1.1;
+        }
+        .sim-wrap {
+            max-width: 920px; margin: 0 auto;
+            border-radius: var(--radius-xl); overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.13);
+            background: #050505;
+        }
+        .sim-canvas-area { position: relative; height: 460px; }
+        #physicsCanvas { width: 100%; height: 100%; display: block; }
+
+        /* Overlaid equation label */
+        .sim-equation {
+            position: absolute; top: 1.2rem; right: 1.5rem;
+            text-align: right; pointer-events: none;
+        }
+        .sim-equation .eq-title {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.58rem; letter-spacing: 2px; text-transform: uppercase;
+            color: rgba(255,255,255,0.2); margin-bottom: 0.3rem;
+        }
+        .sim-equation .eq-line {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.78rem; color: rgba(0,200,255,0.5); line-height: 1.85;
+        }
+
+        /* Controls */
+        .sim-controls {
+            background: #0a0a0a;
+            border-top: 1px solid rgba(255,255,255,0.07);
+            padding: 1.4rem 2rem;
+            display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+        }
+        .sim-slider-group {
+            display: flex; align-items: center; gap: 0.7rem; flex: 1; min-width: 160px;
+        }
+        .sim-slider-group label {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.6rem; letter-spacing: 1.5px; text-transform: uppercase;
+            color: rgba(255,255,255,0.35); white-space: nowrap; min-width: 48px;
+        }
+        .sim-slider {
+            -webkit-appearance: none; appearance: none;
+            flex: 1; height: 3px; background: rgba(255,255,255,0.1);
+            border-radius: 2px; outline: none; cursor: pointer;
+        }
+        .sim-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 14px; height: 14px;
+            border-radius: 50%; background: var(--accent); cursor: pointer;
+        }
+        .sim-slider::-moz-range-thumb {
+            width: 14px; height: 14px; border-radius: 50%;
+            background: var(--accent); border: none; cursor: pointer;
+        }
+        .sim-val {
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.65rem; color: var(--accent);
+            min-width: 28px; text-align: right;
+        }
+        .sim-hint {
+            margin-left: auto;
+            font-family: 'Courier Prime', monospace;
+            font-size: 0.6rem; letter-spacing: 1px;
+            color: rgba(255,255,255,0.2); flex-shrink: 0;
+        }
+        .sim-caption {
+            font-family: 'Courier Prime', monospace; font-size: 0.68rem;
+            letter-spacing: 1px; color: rgba(0,0,0,0.4);
+            text-transform: uppercase; margin-top: 1.2rem;
+        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
@@ -679,30 +762,65 @@
         </ul>
     </nav>
 
-    <!-- Hero -->
+    <!-- Hero + Simulation combined -->
     <section class="hero">
-        <div class="hero-bg"></div>
-        <div class="hero-grid"></div>
-        <div class="hero-gradient"></div>
+        <!-- LIVE WAVE SIMULATION — full screen background -->
+        <canvas id="physicsCanvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;cursor:grab;"></canvas>
 
-        <div class="hero-formula">
-            <div class="f-label">Core Equations</div>
+        <!-- gradient overlay for copy legibility -->
+        <div style="position:absolute;inset:0;z-index:2;pointer-events:none;
+            background: linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.2) 100%);"></div>
+
+        <!-- Equation label top-right -->
+        <div class="hero-formula" style="z-index:3;">
+            <div class="f-label">Wave Superposition</div>
             <div class="f-eq">F = ma</div>
-            <div class="f-eq">E = mc²</div>
+            <div class="f-eq">ψ = A·sin(kr − ωt)</div>
+            <div class="f-eq">I ∝ |ψ₁ + ψ₂|²</div>
             <div class="f-eq">∇ × B = μ₀J</div>
-            <div class="f-eq">ψ = Ae^(ikx−ωt)</div>
         </div>
 
-        <div class="hero-content">
+        <!-- Sliders top-left -->
+        <div style="position:absolute;top:5.5rem;left:5%;z-index:3;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
+            opacity:0;animation:fadeIn 1s ease 1.2s forwards;">
+            <div class="sim-slider-group" style="min-width:130px;">
+                <label>Freq</label>
+                <input type="range" class="sim-slider" id="freqSlider" min="0.8" max="3.5" step="0.1" value="1.8">
+                <span class="sim-val" id="freqVal">1.8</span>
+            </div>
+            <div class="sim-slider-group" style="min-width:130px;">
+                <label>Amp</label>
+                <input type="range" class="sim-slider" id="ampSlider" min="0.4" max="2.0" step="0.1" value="1.4">
+                <span class="sim-val" id="ampVal">1.4</span>
+            </div>
+            <div class="sim-slider-group" style="min-width:130px;">
+                <label>Sep</label>
+                <input type="range" class="sim-slider" id="sepSlider" min="1.0" max="6.0" step="0.2" value="3.5">
+                <span class="sim-val" id="sepVal">3.5</span>
+            </div>
+        </div>
+
+        <!-- Hero copy -->
+        <div class="hero-content" style="z-index:3;pointer-events:none;">
             <p class="hero-eyebrow">Physics Learning Paths</p>
             <h1>See the forces<br>that <em>shape reality.</em></h1>
             <p class="hero-sub">Three tiers of immersive physics education — from Newtonian mechanics to general relativity. Experiment without limits in our virtual laboratory.</p>
-            <div class="hero-ctas">
+            <div class="hero-ctas" style="pointer-events:all;">
                 <a href="#tiers" class="btn-primary">
                     <span>Choose Your Path</span>
                     <i class="fas fa-arrow-down"></i>
                 </a>
                 <a href="index.html" class="btn-ghost">← Back to LumenOS</a>
+            </div>
+        </div>
+
+        <!-- Drag hint -->
+        <div style="position:absolute;bottom:2.5rem;right:5%;z-index:3;display:flex;align-items:center;gap:0.6rem;
+            opacity:0;animation:fadeIn 1s ease 1.8s forwards;">
+            <span style="font-family:'Courier Prime',monospace;font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.25);">drag to rotate</span>
+            <div style="width:36px;height:36px;border:1px solid rgba(0,200,255,0.3);border-radius:50%;
+                display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:0.9rem;">
+                <i class="fas fa-arrows-alt"></i>
             </div>
         </div>
     </section>
@@ -948,20 +1066,6 @@
     </section>
 
     <!-- Video demo -->
-    <section class="video-section">
-        <span class="section-tag light">See it in action</span>
-        <h2 style="font-family:'Cormorant Garamond',Georgia,serif; font-size:clamp(2rem,4vw,3.8rem); font-weight:600; letter-spacing:-0.01em; color:var(--primary); margin-top:0.5rem;">Physics, made visible.</h2>
-        <div class="video-wrap">
-            <div class="video-placeholder">
-                <div class="video-play">
-                    <div class="play-btn"><i class="fas fa-play"></i></div>
-                    <span style="font-family:'Courier Prime',monospace; font-size:0.68rem; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,0.3);">Watch Demo</span>
-                </div>
-            </div>
-        </div>
-        <p class="video-caption">Manipulate variables in real-time · Observe immediate results · No lab needed</p>
-    </section>
-
     <!-- Footer -->
     <footer id="contact">
         <p>© 2024 LumenOS. All rights reserved.</p>
@@ -1119,6 +1223,137 @@
         el.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
         observer.observe(el);
     });
+    // ── WAVE INTERFERENCE SIMULATION ──
+    (function() {
+        const canvas = document.getElementById('physicsCanvas');
+        if (!canvas) return;
+
+        let scene, camera, renderer, waveGrid;
+        let isDragging = false, prevMouse = { x: 0, y: 0 };
+        let rotX = 0.45, rotY = 0.3;
+        let animId;
+
+        // Live params (sliders update these)
+        let FREQ = 1.8, AMP = 1.4, SEP = 3.5;
+        const GRID = 110, SIZE = 18;
+
+        const CYAN = new THREE.Color(0x00c8ff);
+        const DEEP = new THREE.Color(0x001a33);
+
+        function init() {
+            scene = new THREE.Scene();
+            const w = canvas.clientWidth, h = canvas.clientHeight || 460;
+            camera = new THREE.PerspectiveCamera(52, w / h, 0.1, 1000);
+            camera.position.set(0, 13, 21);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(w, h);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(0x000000, 1);
+
+            buildGrid();
+
+            // Sliders
+            const freqEl = document.getElementById('freqSlider');
+            const ampEl  = document.getElementById('ampSlider');
+            const sepEl  = document.getElementById('sepSlider');
+            if (freqEl) freqEl.addEventListener('input', e => { FREQ = parseFloat(e.target.value); document.getElementById('freqVal').textContent = FREQ.toFixed(1); });
+            if (ampEl)  ampEl.addEventListener('input',  e => { AMP  = parseFloat(e.target.value); document.getElementById('ampVal').textContent  = AMP.toFixed(1); });
+            if (sepEl)  sepEl.addEventListener('input',  e => { SEP  = parseFloat(e.target.value); document.getElementById('sepVal').textContent  = SEP.toFixed(1); });
+
+            // Drag
+            canvas.addEventListener('mousedown', e => { isDragging = true; prevMouse = { x: e.clientX, y: e.clientY }; });
+            canvas.addEventListener('mousemove', e => {
+                if (!isDragging) return;
+                rotY += (e.clientX - prevMouse.x) * 0.006;
+                rotX += (e.clientY - prevMouse.y) * 0.006;
+                rotX = Math.max(-1.2, Math.min(1.2, rotX));
+                prevMouse = { x: e.clientX, y: e.clientY };
+            });
+            canvas.addEventListener('mouseup', () => isDragging = false);
+            canvas.addEventListener('mouseleave', () => isDragging = false);
+            canvas.addEventListener('touchstart', e => {
+                isDragging = true;
+                prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }, { passive: true });
+            canvas.addEventListener('touchmove', e => {
+                if (!isDragging) return;
+                rotY += (e.touches[0].clientX - prevMouse.x) * 0.006;
+                rotX += (e.touches[0].clientY - prevMouse.y) * 0.006;
+                rotX = Math.max(-1.2, Math.min(1.2, rotX));
+                prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }, { passive: true });
+            canvas.addEventListener('touchend', () => isDragging = false);
+            window.addEventListener('resize', () => {
+                const w2 = canvas.clientWidth, h2 = canvas.clientHeight || 460;
+                camera.aspect = w2 / h2; camera.updateProjectionMatrix();
+                renderer.setSize(w2, h2);
+            });
+
+            animate();
+        }
+
+        function buildGrid() {
+            if (waveGrid) { scene.remove(waveGrid); waveGrid.geometry.dispose(); waveGrid.material.dispose(); }
+            const geo = new THREE.PlaneGeometry(SIZE, SIZE, GRID - 1, GRID - 1);
+            geo.rotateX(-Math.PI / 2);
+            const count = geo.attributes.position.count;
+            geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+            waveGrid = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+                vertexColors: true, wireframe: true, transparent: true, opacity: 0.78
+            }));
+            scene.add(waveGrid);
+        }
+
+        function animate() {
+            animId = requestAnimationFrame(animate);
+            const t = performance.now() * 0.001;
+            const pos = waveGrid.geometry.attributes.position;
+            const col = waveGrid.geometry.attributes.color;
+            const half = SEP / 2;
+            const src1 = { x: -half, z: -half };
+            const src2 = { x:  half, z:  half };
+            const omega = FREQ * 1.2;
+            const k = FREQ;
+            let minY = Infinity, maxY = -Infinity;
+            const ys = [];
+
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i), z = pos.getZ(i);
+                const r1 = Math.sqrt((x-src1.x)**2 + (z-src1.z)**2) + 0.001;
+                const r2 = Math.sqrt((x-src2.x)**2 + (z-src2.z)**2) + 0.001;
+                const w1 = AMP * Math.sin(k * r1 - omega * t) / (1 + r1 * 0.1);
+                const w2 = AMP * Math.sin(k * r2 - omega * t + Math.PI * 0.4) / (1 + r2 * 0.1);
+                const y = w1 + w2;
+                ys.push(y);
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+
+            const range = maxY - minY || 1;
+            const tmp = new THREE.Color();
+            for (let i = 0; i < pos.count; i++) {
+                pos.setY(i, ys[i]);
+                tmp.lerpColors(DEEP, CYAN, (ys[i] - minY) / range);
+                col.setXYZ(i, tmp.r, tmp.g, tmp.b);
+            }
+            pos.needsUpdate = true; col.needsUpdate = true;
+
+            const pivot = new THREE.Euler(rotX, rotY, 0, 'YXZ');
+            const q = new THREE.Quaternion().setFromEuler(pivot);
+            const base = new THREE.Vector3(0, 13, 21);
+            base.applyQuaternion(q);
+            camera.position.copy(base);
+            camera.lookAt(0, 0, 0);
+            if (!isDragging) rotY += 0.002;
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('load', init);
+        window.addEventListener('beforeunload', () => { if (animId) cancelAnimationFrame(animId); });
+    })();
     </script>
 </body>
 </html>
