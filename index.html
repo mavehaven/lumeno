@@ -30,807 +30,1385 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 
     <style>
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-        html { scroll-behavior: smooth; overflow-x: hidden; }
+       *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 
-        :root {
-            --black: #06080A;
-            --deep: #0C0F13;
-            --surface: #111518;
-            --white: #F2F1EE;
-            --off: #E6E4DF;
-            --mid: #7A7A7A;
-            --dim: #3A3A3A;
-            --faint: #D8D6D0;
-            --accent: #00D4FF;
-            --accent2: #7BFFB0;
-            --accent-dim: rgba(0,212,255,0.10);
-            --accent2-dim: rgba(123,255,176,0.08);
-            --serif: 'Cormorant Garamond', Georgia, serif;
-            --mono: 'DM Mono', 'Courier New', monospace;
-            --syne: 'Syne', sans-serif;
-            --nav-h: 68px;
-            --safe-top: env(safe-area-inset-top, 0px);
-            --safe-bottom: env(safe-area-inset-bottom, 0px);
-        }
+:root {
+    --black: #06080A;
+    --deep: #0C0F13;
+    --surface: #111518;
+    --white: #F2F1EE;
+    --off: #E6E4DF;
+    --mid: #7A7A7A;
+    --dim: #3A3A3A;
+    --faint: #D8D6D0;
+    --accent: #00D4FF;
+    --accent2: #7BFFB0;
+    --accent-dim: rgba(0,212,255,0.10);
+    --accent2-dim: rgba(123,255,176,0.08);
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --mono: 'DM Mono', 'Courier New', monospace;
+    --syne: 'Syne', sans-serif;
+    --nav-h: 68px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
 
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-        }
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
 
-        body {
-            font-family: var(--mono);
-            background: var(--white);
-            color: var(--black);
-            overflow-x: clip;
-            -webkit-font-smoothing: antialiased;
-            cursor: default;
-        }
+body {
+    font-family: var(--mono);
+    background: var(--white);
+    color: var(--black);
+    overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+    cursor: default;
+}
 
-        /* ── LOADER ── */
-        #loader {
-            position: fixed; inset: 0;
-            background: var(--black);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 9999; flex-direction: column; gap: 1.5rem;
-            transition: opacity 0.6s ease, visibility 0.6s ease;
-        }
-        #loader.gone { opacity: 0; visibility: hidden; pointer-events: none; }
-        .loader-wrap {
-            position: relative; width: 64px; height: 64px;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .loader-ring {
-            position: absolute; inset: 0;
-            border: 1px solid rgba(0,212,255,0.18);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 1.4s linear infinite;
-        }
-        .loader-logo {
-            width: 32px; height: 32px; object-fit: contain;
-            filter: invert(1); opacity: 0.9;
-        }
-        .loader-text {
-            font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.2em;
-            text-transform: uppercase; color: rgba(255,255,255,0.25);
-            animation: pulse 1.4s ease-in-out infinite;
-        }
-        @keyframes pulse { 0%,100%{opacity:0.25} 50%{opacity:0.7} }
+/* ── LOADER ── */
+#loader {
+    position: fixed; inset: 0;
+    background: var(--black);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; flex-direction: column; gap: 1.5rem;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+#loader.gone { opacity: 0; visibility: hidden; pointer-events: none; }
+.loader-wrap {
+    position: relative; width: 64px; height: 64px;
+    display: flex; align-items: center; justify-content: center;
+}
+.loader-ring {
+    position: absolute; inset: 0;
+    border: 1px solid rgba(0,212,255,0.18);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1.4s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loader-logo {
+    width: 32px; height: 32px; object-fit: contain;
+    filter: invert(1); opacity: 0.9;
+}
+.loader-text {
+    font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.2em;
+    text-transform: uppercase; color: rgba(255,255,255,0.25);
+    animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:0.25} 50%{opacity:0.7} }
 
-        /* ── NAV ── */
-        nav {
-            position: fixed; top: 0; width: 100%;
-            height: var(--nav-h);
-            padding: 0 5%;
-            display: flex; align-items: center; justify-content: space-between;
-            z-index: 1000; background: transparent;
-            transition: background 0.4s ease, border-color 0.4s ease;
-            border-bottom: 1px solid transparent;
-        }
-        nav.scrolled {
-            background: rgba(6,8,10,0.94);
-            border-bottom-color: rgba(255,255,255,0.06);
-            backdrop-filter: blur(16px);
-        }
-        .nav-logo { height: 26px; width: auto; filter: invert(1); transition: opacity 0.2s; }
-        nav.scrolled .nav-logo { filter: invert(1); }
-        .nav-logo:hover { opacity: 0.7; }
+/* ── NAV ── */
+nav {
+    position: fixed; top: 0; width: 100%;
+    height: var(--nav-h);
+    padding: 0 5%;
+    display: flex; align-items: center; justify-content: space-between;
+    z-index: 1000; background: transparent;
+    transition: background 0.4s ease, border-color 0.4s ease;
+    border-bottom: 1px solid transparent;
+}
+nav.scrolled {
+    background: rgba(6,8,10,0.94);
+    border-bottom-color: rgba(255,255,255,0.06);
+    backdrop-filter: blur(16px);
+}
+.nav-logo { height: 26px; width: auto; filter: invert(1); transition: opacity 0.2s; }
+nav.scrolled .nav-logo { filter: invert(1); }
+.nav-logo:hover { opacity: 0.7; }
 
-        .nav-right { display: flex; align-items: center; gap: 2.5rem; }
-        .nav-links { display: flex; gap: 2rem; list-style: none; align-items: center; }
-        .nav-links a {
-            font-family: var(--syne); font-size: 0.7rem; letter-spacing: 0.06em;
-            text-transform: uppercase; text-decoration: none;
-            color: rgba(255,255,255,0.45); transition: color 0.2s;
-        }
-        .nav-links a:hover { color: var(--accent); }
+.nav-right { display: flex; align-items: center; gap: 2rem; }
+.nav-links { display: flex; gap: 2rem; list-style: none; align-items: center; }
+.nav-links a {
+    font-family: var(--syne); font-size: 0.7rem; letter-spacing: 0.06em;
+    text-transform: uppercase; text-decoration: none;
+    color: rgba(255,255,255,0.45); transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--accent); }
 
-        .nav-sign-in {
-            font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
-            text-transform: uppercase; text-decoration: none; padding: 0.55rem 1.3rem;
-            border: 1px solid rgba(0,212,255,0.3); color: var(--accent);
-            transition: all 0.2s; background: transparent; cursor: pointer;
-            white-space: nowrap; clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
-        }
-        .nav-sign-in:hover { background: var(--accent); color: var(--black); border-color: var(--accent); }
+.nav-sign-in {
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none; padding: 0.55rem 1.3rem;
+    border: 1px solid rgba(0,212,255,0.3); color: var(--accent);
+    transition: all 0.2s; background: transparent; cursor: pointer;
+    white-space: nowrap; clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    display: none;
+}
+.nav-sign-in:hover { background: var(--accent); color: var(--black); border-color: var(--accent); }
+.nav-sign-in.visible { display: inline-flex; align-items: center; }
 
-        .menu-toggle {
-            display: none; background: none; border: none; cursor: pointer;
-            padding: 8px; gap: 5px; flex-direction: column; align-items: center;
-            min-width: 44px; min-height: 44px; justify-content: center;
-            position: relative; z-index: 1001;
-        }
-        .menu-toggle span { display: block; width: 20px; height: 1px; background: rgba(255,255,255,0.6); transition: transform 0.25s, opacity 0.2s; }
-        .menu-toggle.open span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
-        .menu-toggle.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
-        .menu-toggle.open span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+.nav-user-chip {
+    display: none;
+    align-items: center; gap: 0.7rem;
+    padding: 0.35rem 0.9rem 0.35rem 0.35rem;
+    border: 1px solid rgba(0,212,255,0.2);
+    background: rgba(0,212,255,0.05);
+    cursor: pointer; transition: all 0.2s;
+    clip-path: polygon(18px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.nav-user-chip:hover { background: rgba(0,212,255,0.12); border-color: rgba(0,212,255,0.4); }
+.nav-user-chip.visible { display: flex; }
+.nav-user-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--syne); font-size: 0.65rem; font-weight: 700;
+    color: var(--black); flex-shrink: 0; overflow: hidden;
+}
+.nav-user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.nav-user-name {
+    font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.65); white-space: nowrap; max-width: 120px;
+    overflow: hidden; text-overflow: ellipsis;
+}
 
-        /* ── MODAL ── */
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(6,8,10,0.9);
-            display: none; align-items: center; justify-content: center;
-            z-index: 10000; backdrop-filter: blur(12px);
-        }
-        .modal-overlay.active { display: flex; }
-        .login-modal {
-            background: var(--surface); border: 1px solid rgba(0,212,255,0.12);
-            padding: 3rem; width: min(90%, 380px); position: relative;
-            clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
-        }
-        .login-modal h2 {
-            font-family: var(--serif); font-size: 1.9rem; font-weight: 400;
-            color: var(--white); margin-bottom: 2rem; text-align: center;
-        }
-        .close-modal {
-            position: absolute; top: 1rem; right: 1rem; background: none;
-            border: none; color: var(--mid); font-size: 1rem; cursor: pointer;
-            width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-        }
-        .auth-options { display: flex; flex-direction: column; gap: 0.8rem; }
-        .auth-btn {
-            padding: 0.9rem 1.5rem; border: none; cursor: pointer;
-            font-family: var(--mono); font-size: 0.76rem; letter-spacing: 0.05em;
-            display: flex; align-items: center; justify-content: center; gap: 0.6rem;
-            transition: opacity 0.2s; min-height: 48px;
-            clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
-        }
-        .auth-btn.google { background: #4285f4; color: white; }
-        .auth-btn.email { background: var(--accent); color: #000; }
-        .auth-btn:hover { opacity: 0.85; }
-        .profile-icon {
-            width: 34px; height: 34px; border-radius: 50%; background: var(--accent);
-            color: #000; display: none; align-items: center; justify-content: center;
-            cursor: pointer; font-size: 0.8rem;
-        }
+.menu-toggle {
+    display: none; background: none; border: none; cursor: pointer;
+    padding: 8px; gap: 5px; flex-direction: column; align-items: center;
+    min-width: 44px; min-height: 44px; justify-content: center;
+    position: relative; z-index: 1001;
+}
+.menu-toggle span { display: block; width: 20px; height: 1px; background: rgba(255,255,255,0.6); transition: transform 0.25s, opacity 0.2s; }
+.menu-toggle.open span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.menu-toggle.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.menu-toggle.open span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
-        /* ══════════════════════════════════════
-           HERO - Full-screen quantum simulation
-           ══════════════════════════════════════ */
-        .hero {
-            min-height: 100vh; background: var(--black); color: var(--white);
-            display: flex; align-items: flex-end; position: relative; overflow: hidden;
-        }
-        #wave-canvas {
-            position: absolute; inset: 0; width: 100%; height: 100%;
-            z-index: 1; cursor: crosshair; display: block;
-        }
+/* ── AUTH MODAL ── */
+.modal-overlay {
+    position: fixed; inset: 0; background: rgba(6,8,10,0.9);
+    display: none; align-items: center; justify-content: center;
+    z-index: 10000; backdrop-filter: blur(12px);
+}
+.modal-overlay.active { display: flex; }
+.login-modal {
+    background: var(--surface); border: 1px solid rgba(0,212,255,0.12);
+    padding: 3rem; width: min(90%, 380px); position: relative;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+}
+.login-modal h2 {
+    font-family: var(--serif); font-size: 1.9rem; font-weight: 400;
+    color: var(--white); margin-bottom: 2rem; text-align: center;
+}
+.close-modal {
+    position: absolute; top: 1rem; right: 1rem; background: none;
+    border: none; color: var(--mid); font-size: 1rem; cursor: pointer;
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+}
+.auth-options { display: flex; flex-direction: column; gap: 0.8rem; }
+.auth-btn {
+    padding: 0.9rem 1.5rem; border: none; cursor: pointer;
+    font-family: var(--mono); font-size: 0.76rem; letter-spacing: 0.05em;
+    display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+    transition: opacity 0.2s; min-height: 48px;
+    clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+}
+.auth-btn.google { background: #4285f4; color: white; }
+.auth-btn.email { background: var(--accent); color: #000; }
+.auth-btn:hover { opacity: 0.85; }
 
-        .hero-vignette {
-            position: absolute; inset: 0; z-index: 2; pointer-events: none;
-            background: radial-gradient(ellipse 80% 60% at 50% 50%, transparent 30%, rgba(6,8,10,0.7) 100%);
-        }
-        .hero-grad-bottom {
-            position: absolute; bottom: 0; left: 0; right: 0; height: 70%;
-            background: linear-gradient(to top, rgba(6,8,10,1) 0%, rgba(6,8,10,0.6) 45%, transparent 100%);
-            z-index: 2; pointer-events: none;
-        }
+/* ═══════════════════════════════════════════════════════════
+   STEPPED ONBOARDING MODAL
+   ═══════════════════════════════════════════════════════════ */
+#simWelcomeModal {
+    position: fixed; inset: 0;
+    background: rgba(4, 6, 9, 0.92);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9998;
+    backdrop-filter: blur(18px);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+    padding: 1rem;
+}
+#simWelcomeModal.visible {
+    opacity: 1;
+    pointer-events: all;
+}
 
-        /* THE HERO STATEMENT - anchored bottom-left */
-        .hero-content {
-            position: relative; z-index: 3;
-            padding: 0 6% calc(8vh + var(--safe-bottom));
-            max-width: 900px;
-        }
+.onboard-modal {
+    width: 100%;
+    max-width: 700px;
+    background: #080f18;
+    border: 1px solid rgba(0,212,255,0.18);
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+    max-height: 92vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    animation: modalSlideUp 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,212,255,0.15) transparent;
+}
+.onboard-modal::-webkit-scrollbar { width: 4px; }
+.onboard-modal::-webkit-scrollbar-track { background: transparent; }
+.onboard-modal::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.15); border-radius: 2px; }
 
-        .hero-tag {
-            display: inline-flex; align-items: center; gap: 0.8rem;
-            font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.18em;
-            text-transform: uppercase; color: var(--accent);
-            margin-bottom: 2.5rem;
-            opacity: 0; animation: fadeUp 0.8s ease 0.2s forwards;
-        }
-        .hero-tag-line {
-            width: 32px; height: 1px; background: var(--accent); opacity: 0.5;
-        }
+@keyframes modalSlideUp {
+    from { transform: translateY(32px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
 
-        .hero h1 {
-            font-family: var(--serif);
-            font-size: clamp(3.2rem, 6.5vw, 7rem);
-            font-weight: 300; line-height: 1.02; letter-spacing: -0.02em;
-            margin-bottom: 2.5rem;
-            opacity: 0; animation: fadeUp 0.8s ease 0.4s forwards;
-        }
-        .hero h1 .line-ghost {
-            font-style: italic; font-weight: 300;
-            color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.22);
-        }
-        .hero h1 .line-bright { font-weight: 600; color: var(--white); }
-        .hero h1 .line-accent { font-style: italic; color: var(--accent); font-weight: 400; }
+/* Corner accents */
+.onboard-corner {
+    position: absolute; width: 12px; height: 12px;
+    border-color: rgba(0,212,255,0.4); border-style: solid;
+    pointer-events: none; z-index: 5;
+}
+.onboard-corner.tl { top: 0; left: 0; border-width: 1px 0 0 1px; }
+.onboard-corner.tr { top: 18px; right: 0; border-width: 1px 1px 0 0; }
+.onboard-corner.bl { bottom: 0; left: 18px; border-width: 0 0 1px 1px; }
+.onboard-corner.br { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
 
-        /* CORE VALUE PROP - the single most powerful line */
-        .hero-value {
-            font-family: var(--syne); font-size: clamp(0.8rem, 1.2vw, 0.95rem);
-            font-weight: 500; letter-spacing: 0.04em; color: rgba(255,255,255,0.55);
-            max-width: 560px; line-height: 1.9; margin-bottom: 3.5rem;
-            opacity: 0; animation: fadeUp 0.8s ease 0.6s forwards;
-        }
-        .hero-value strong { color: var(--white); font-weight: 600; }
+/* ── STEP PROGRESS BAR ── */
+.onboard-steps-bar {
+    display: flex;
+    align-items: center;
+    padding: 0.85rem 1.5rem;
+    border-bottom: 1px solid rgba(0,212,255,0.08);
+    background: rgba(0,0,0,0.35);
+    position: sticky; top: 0; z-index: 4;
+}
 
-        .hero-actions {
-            display: flex; align-items: center; gap: 2.5rem;
-            opacity: 0; animation: fadeUp 0.8s ease 0.8s forwards;
-        }
-        .btn-primary {
-            display: inline-flex; align-items: center; gap: 0.8rem;
-            padding: 1rem 2.4rem; background: var(--accent); color: var(--black);
-            font-family: var(--syne); font-size: 0.75rem; font-weight: 600;
-            letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none;
-            border: none; cursor: pointer;
-            transition: all 0.25s; white-space: nowrap; min-height: 52px;
-            clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
-        }
-        .btn-primary:hover { background: #fff; transform: translateY(-2px); }
-        .btn-ghost {
-            font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
-            text-transform: uppercase; color: rgba(255,255,255,0.35);
-            text-decoration: none; display: flex; align-items: center; gap: 0.5rem;
-            transition: color 0.2s;
-        }
-        .btn-ghost:hover { color: var(--accent); }
+.ostep-item {
+    display: flex; align-items: center; gap: 8px;
+    flex: 1; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
 
-        /* Live physics label */
-        .physics-badge {
-            position: absolute; top: calc(var(--nav-h) + 2rem); right: 5%;
-            z-index: 3; text-align: right;
-            opacity: 0; animation: fadeIn 1s ease 1.5s forwards;
-        }
-        .physics-badge-inner {
-            display: inline-flex; flex-direction: column; align-items: flex-end;
-            gap: 0.3rem;
-        }
-        .physics-badge-dot {
-            width: 6px; height: 6px; border-radius: 50%; background: var(--accent2);
-            margin-left: auto; box-shadow: 0 0 8px var(--accent2);
-            animation: blink 2s ease-in-out infinite;
-        }
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        .physics-badge span {
-            font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.12em;
-            text-transform: uppercase; color: rgba(255,255,255,0.2);
-        }
-        .physics-badge .eq {
-            font-family: var(--serif); font-style: italic; font-size: 0.8rem;
-            color: rgba(0,212,255,0.4);
-        }
+.ostep-dot {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 1px solid rgba(0,212,255,0.18);
+    background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 9px;
+    color: rgba(255,255,255,0.2);
+    transition: all 0.3s ease; flex-shrink: 0;
+}
+.ostep-dot.active {
+    border-color: var(--accent);
+    background: rgba(0,212,255,0.12);
+    color: var(--accent);
+    box-shadow: 0 0 12px rgba(0,212,255,0.2);
+}
+.ostep-dot.done {
+    border-color: var(--accent2);
+    background: rgba(123,255,176,0.1);
+    color: var(--accent2);
+}
 
-        .scroll-hint {
-            position: absolute; bottom: 2.5rem; right: 6%;
-            z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
-            opacity: 0; animation: fadeUp 0.8s ease 1.2s forwards;
-        }
-        .scroll-line-v {
-            width: 1px; height: 44px; background: rgba(255,255,255,0.1);
-            position: relative; overflow: hidden;
-        }
-        .scroll-line-v::after {
-            content: ''; position: absolute; top: -100%; width: 100%; height: 100%;
-            background: linear-gradient(to bottom, transparent, var(--accent));
-            animation: drip 2.5s ease infinite 1.5s;
-        }
-        @keyframes drip { 0%{top:-100%} 100%{top:100%} }
-        .scroll-hint span {
-            font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.14em;
-            text-transform: uppercase; color: rgba(255,255,255,0.18);
-            writing-mode: vertical-rl; transform: rotate(180deg);
-        }
+.ostep-label {
+    font-family: var(--mono); font-size: 0.58rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: rgba(255,255,255,0.2); transition: color 0.3s;
+    display: none;
+}
+@media (min-width: 420px) { .ostep-label { display: block; } }
+.ostep-item.active .ostep-label { color: rgba(0,212,255,0.75); }
+.ostep-item.done .ostep-label { color: rgba(123,255,176,0.5); }
 
-        @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.ostep-connector {
+    height: 1px; flex: 1; max-width: 48px;
+    background: rgba(0,212,255,0.07);
+    transition: background 0.4s;
+    flex-shrink: 0;
+}
+.ostep-connector.done { background: rgba(123,255,176,0.25); }
 
-        /* ══════════════════════════════════════
-           THE THESIS STATEMENT
-           - What LumenOS IS, in one section
-           ══════════════════════════════════════ */
-        .thesis {
-            background: var(--black); padding: 0 6% 7rem;
-            display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: start;
-        }
-        .thesis-left {
-            padding-top: 6rem; border-top: 1px solid rgba(255,255,255,0.06);
-        }
-        .thesis-right {
-            padding-top: 6rem; border-top: 1px solid rgba(0,212,255,0.15);
-        }
-        .thesis-eyebrow {
-            font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
-            text-transform: uppercase; color: var(--accent); margin-bottom: 2rem;
-            display: flex; align-items: center; gap: 0.8rem;
-        }
-        .thesis-eyebrow::before { content:''; width:24px; height:1px; background: var(--accent); opacity:0.5; }
-        .thesis-left h2 {
-            font-family: var(--serif); font-size: clamp(2.4rem, 4vw, 4.4rem);
-            font-weight: 400; color: var(--white); line-height: 1.08;
-            letter-spacing: -0.01em; margin-bottom: 2rem;
-        }
-        .thesis-left h2 em { font-style: italic; color: var(--accent); }
-        .thesis-left p {
-            font-family: var(--mono); font-size: 0.85rem; color: rgba(255,255,255,0.38);
-            line-height: 1.9; margin-bottom: 1.5rem;
-        }
+/* ── PANELS ── */
+.onboard-panel { display: none; }
+.onboard-panel.active { display: block; }
+.panel-enter {
+    animation: panelEnter 0.38s cubic-bezier(0.16,1,0.3,1) both;
+}
+.panel-enter-back {
+    animation: panelEnterBack 0.38s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes panelEnter {
+    from { opacity: 0; transform: translateX(28px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes panelEnterBack {
+    from { opacity: 0; transform: translateX(-28px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
 
-        /* CSIR Endorsement embedded in thesis */
-        .csir-card {
-            margin-top: 3rem; padding: 2rem 2.5rem;
-            border: 1px solid rgba(255,255,255,0.07);
-            background: rgba(255,255,255,0.02);
-            position: relative; overflow: hidden;
-        }
-        .csir-card::before {
-            content: '"'; position: absolute; top: -1rem; left: 1.5rem;
-            font-family: var(--serif); font-size: 8rem; line-height: 1;
-            color: rgba(0,212,255,0.06); pointer-events: none;
-        }
-        .csir-card blockquote {
-            font-family: var(--serif); font-size: 1.05rem; font-style: italic;
-            font-weight: 300; color: rgba(255,255,255,0.65); line-height: 1.75;
-            margin-bottom: 1.5rem; position: relative;
-        }
-        .csir-byline {
-            display: flex;
-            align-items: center;
-            gap: 1.2rem;
-            flex-wrap: wrap;
-        }
-        .csir-logo-small {
-            height: 32px;
-            filter: grayscale(1) brightness(0.6);
-            transition: filter 0.2s;
-            object-fit: contain;
-        }
-        .csir-logo-small:hover { filter: none; }
-        
-        /* New circular image for Dr Darryl Naidoo */
-        .dr-portrait {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid rgba(0,212,255,0.4);
-            background: #111518;
-            transition: all 0.2s ease;
-            box-shadow: 0 0 0 1px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.2);
-        }
-        .dr-portrait:hover {
-            border-color: var(--accent);
-            transform: scale(1.02);
-        }
-        
-        .csir-byline-text {
-            font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.04em;
-            color: rgba(255,255,255,0.3); line-height: 1.5;
-        }
-        .csir-byline-text strong { color: rgba(255,255,255,0.55); display: block; }
+.onboard-body {
+    padding: 1.8rem 1.8rem 1.4rem;
+}
+@media (min-width: 520px) { .onboard-body { padding: 2.2rem 2.5rem 1.8rem; } }
 
-        /* Impact numbers - right side */
-        .thesis-stats { display: flex; flex-direction: column; gap: 0; }
-        .thesis-stat {
-            padding: 2.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);
-            display: grid; grid-template-columns: auto 1fr; gap: 2rem; align-items: center;
-        }
-        .thesis-stat:first-child { padding-top: 0; }
-        .thesis-stat-val {
-            font-family: var(--serif); font-size: clamp(3rem, 5vw, 5.5rem);
-            font-weight: 500; color: var(--accent); line-height: 1;
-            min-width: 120px;
-        }
-        .thesis-stat-label {
-            font-family: var(--mono); font-size: 0.8rem;
-            color: rgba(255,255,255,0.4); line-height: 1.7;
-        }
-        .thesis-stat-source {
-            font-size: 0.58rem; letter-spacing: 0.08em;
-            color: rgba(255,255,255,0.18); display: block; margin-top: 0.5rem;
-        }
+.onboard-eyebrow {
+    font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--accent);
+    display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem;
+}
+.onboard-eyebrow::before { content:''; width: 20px; height: 1px; background: var(--accent); opacity: 0.5; }
+.onboard-eyebrow .live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent2); box-shadow: 0 0 8px var(--accent2);
+    animation: blink 2s ease-in-out infinite; flex-shrink: 0;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-        /* ══════════════════════════════════════
-           SIMULATIONS SHOWCASE
-           - The #1 selling point, front and centre
-           ══════════════════════════════════════ */
-        .simulations {
-            background: var(--white); padding: 7rem 6%;
-            position: relative; overflow: hidden;
-        }
-        .simulations::before {
-            content:''; position:absolute; top:0; left:0; right:0; height: 3px;
-            background: linear-gradient(to right, transparent 0%, var(--accent) 30%, var(--accent2) 70%, transparent 100%);
-        }
-        .sim-header {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;
-            align-items: end; margin-bottom: 5rem;
-        }
-        .sim-header-left .eyebrow {
-            font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
-            text-transform: uppercase; color: var(--mid); margin-bottom: 1.5rem;
-            display: flex; align-items: center; gap: 0.8rem;
-        }
-        .sim-header-left .eyebrow::before { content:''; width:20px; height:1px; background:var(--mid); }
-        .sim-header-left h2 {
-            font-family: var(--serif); font-size: clamp(2.4rem, 4vw, 4.8rem);
-            font-weight: 500; line-height: 1.05; letter-spacing: -0.01em;
-        }
-        .sim-header-left h2 em { font-style: italic; color: var(--accent); }
-        .sim-header-right p {
-            font-family: var(--mono); font-size: 0.85rem;
-            color: var(--mid); line-height: 1.9;
-        }
-        .sim-header-right .sim-proof {
-            margin-top: 2rem; padding: 1.5rem 2rem;
-            background: var(--black); color: var(--white);
-            clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
-        }
-        .sim-proof-stat {
-            font-family: var(--serif); font-size: 2.8rem; font-weight: 500;
-            color: var(--accent2); line-height: 1; margin-bottom: 0.3rem;
-        }
-        .sim-proof-label {
-            font-family: var(--mono); font-size: 0.7rem; color: rgba(255,255,255,0.4);
-            line-height: 1.6;
-        }
+.onboard-title {
+    font-family: var(--serif);
+    font-size: clamp(2rem, 5.5vw, 3rem);
+    font-weight: 400; color: var(--white);
+    line-height: 1.07; letter-spacing: -0.01em;
+    margin-bottom: 1rem;
+}
+.onboard-title em { font-style: italic; color: var(--accent); font-weight: 400; }
+.onboard-title .ghost {
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(255,255,255,0.2);
+}
 
-        /* Subject tabs */
-        .sim-tabs {
-            display: flex; gap: 0; border-bottom: 1px solid var(--faint); margin-bottom: 3rem;
-        }
-        .sim-tab {
-            padding: 0.9rem 2.2rem;
-            font-family: var(--syne); font-size: 0.72rem; font-weight: 600;
-            letter-spacing: 0.08em; text-transform: uppercase;
-            background: none; border: none; cursor: pointer;
-            color: var(--mid); position: relative; transition: color 0.2s;
-            min-height: 48px;
-        }
-        .sim-tab.active { color: var(--black); }
-        .sim-tab::after {
-            content: ''; position: absolute; bottom: -1px; left: 0;
-            width: 0; height: 2px;
-            background: linear-gradient(to right, var(--accent), var(--accent2));
-            transition: width 0.3s;
-        }
-        .sim-tab.active::after { width: 100%; }
+.onboard-body p {
+    font-family: var(--mono); font-size: 0.8rem;
+    color: rgba(255,255,255,0.38); line-height: 1.85; margin-bottom: 1rem;
+}
 
-        .tab-panel { display: none; }
-        .tab-panel.active { display: block; }
+/* Step 1 stats */
+.onboard-stat-row {
+    display: grid; grid-template-columns: repeat(3,1fr);
+    gap: 1px; background: rgba(0,212,255,0.08);
+    margin: 1.5rem 0;
+}
+.onboard-stat {
+    background: rgba(0,0,0,0.35); padding: 1rem 0.8rem; text-align: center;
+}
+.onboard-stat-val {
+    font-family: var(--serif);
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 500; color: var(--accent); line-height: 1;
+    margin-bottom: 4px;
+}
+.onboard-stat-lbl {
+    font-family: var(--mono); font-size: 0.58rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: rgba(255,255,255,0.2);
+}
 
-        /* Path cards */
-        .paths-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
-            background: var(--faint);
-        }
-        .path-card {
-            background: var(--white); padding: 2.8rem;
-            transition: background 0.25s; position: relative;
-        }
-        .path-card:hover { background: #EDEAE6; }
-        .path-card-tier {
-            position: absolute; top: 0; left: 0; right: 0; height: 3px;
-        }
-        .path-card:nth-child(1) .path-card-tier { background: linear-gradient(to right, rgba(0,212,255,0.4), rgba(0,212,255,0.1)); }
-        .path-card:nth-child(2) .path-card-tier { background: linear-gradient(to right, var(--accent), rgba(0,212,255,0.5)); }
-        .path-card:nth-child(3) .path-card-tier { background: linear-gradient(to right, var(--accent), var(--accent2)); }
+.onboard-badges {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 1.2rem 0;
+}
+.onboard-badge {
+    font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 4px 10px;
+    border: 1px solid rgba(123,255,176,0.2);
+    color: rgba(123,255,176,0.6);
+    clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+}
 
-        .path-level {
-            font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em;
-            text-transform: uppercase; color: var(--mid); margin-bottom: 1.5rem;
-        }
-        .path-card h3 {
-            font-family: var(--serif); font-size: 1.7rem; font-weight: 500;
-            margin-bottom: 0.8rem; line-height: 1.15;
-        }
-        .path-card p { font-size: 0.8rem; color: var(--mid); line-height: 1.75; margin-bottom: 2rem; }
-        .path-features { list-style: none; margin-bottom: 2.5rem; }
-        .path-features li {
-            font-family: var(--mono); font-size: 0.76rem; color: var(--mid);
-            padding: 0.45rem 0; border-bottom: 1px solid var(--faint);
-            display: flex; align-items: center; gap: 0.8rem;
-        }
-        .path-features li::before {
-            content: ''; width: 3px; height: 3px; background: var(--accent);
-            border-radius: 50%; flex-shrink: 0;
-        }
-        .path-price { font-family: var(--serif); font-size: 2.4rem; font-weight: 500; line-height: 1; }
-        .path-period { font-family: var(--mono); font-size: 0.6rem; color: var(--mid); letter-spacing: 0.06em; display: block; margin: 0.4rem 0 1.5rem; }
-        .btn-link {
-            font-family: var(--syne); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em;
-            text-transform: uppercase; color: var(--black); text-decoration: none;
-            display: inline-flex; align-items: center; gap: 0.5rem;
-            border-bottom: 1px solid var(--black); padding-bottom: 2px;
-            transition: color 0.2s, border-color 0.2s;
-        }
-        .btn-link:hover { color: var(--accent); border-color: var(--accent); }
+.csir-endorsement {
+    margin-top: 1.5rem; padding: 1.2rem 1.5rem;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+}
+.csir-endorsement blockquote {
+    font-family: var(--serif); font-style: italic;
+    font-size: 0.85rem; color: rgba(255,255,255,0.45);
+    line-height: 1.6; flex: 1; min-width: 200px;
+}
+.csir-endorsement cite {
+    font-family: var(--mono); font-size: 0.58rem;
+    color: rgba(255,255,255,0.25); font-style: normal;
+    display: block; margin-top: 6px;
+}
 
-        /* ── FREE LESSON ── */
-        .free-lesson {
-            background: var(--black); padding: 5rem 6%;
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 4rem; position: relative;
-        }
-        .free-lesson::before {
-            content: 'TRY FREE';
-            position: absolute; right: 4%; top: 50%; transform: translateY(-50%);
-            font-family: var(--serif); font-size: 8rem; font-weight: 700; font-style: italic;
-            color: rgba(255,255,255,0.03); pointer-events: none; white-space: nowrap;
-        }
-        .free-lesson-left { max-width: 480px; }
-        .free-lesson-eyebrow {
-            font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
-            text-transform: uppercase; color: var(--accent2); margin-bottom: 1.5rem;
-            display: flex; align-items: center; gap: 0.8rem;
-        }
-        .free-lesson-eyebrow::before { content:''; width:20px; height:1px; background:var(--accent2); opacity:0.5; }
-        .free-lesson-left h2 {
-            font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3.2rem);
-            font-weight: 400; color: var(--white); line-height: 1.1; letter-spacing: -0.01em;
-        }
-        .free-lesson-left p { font-family: var(--mono); font-size: 0.82rem; color: rgba(255,255,255,0.3); margin-top: 1rem; line-height: 1.75; }
-        .free-lesson-right { display: flex; flex-direction: column; gap: 1rem; flex-shrink: 0; position: relative; z-index: 1; }
-        .lesson-btn {
-            display: inline-flex; align-items: center; gap: 1rem;
-            padding: 1.1rem 2.2rem;
-            font-family: var(--syne); font-size: 0.72rem; font-weight: 600;
-            letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none;
-            transition: all 0.25s; min-height: 52px; white-space: nowrap;
-            clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
-        }
-        .lesson-btn-maths { background: var(--accent); color: var(--black); }
-        .lesson-btn-physics { background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.18); }
-        .lesson-btn:hover { opacity: 0.85; transform: translateY(-2px); }
+/* Step 2 sim */
+.sim-embed-box {
+    background: #040a12;
+    border: 1px solid rgba(0,212,255,0.12);
+    margin: 1rem 0; overflow: hidden;
+}
+.sim-canvas-host {
+    padding: 0.8rem 1rem 0.4rem; background: #030810;
+}
+#psimCanvasModal {
+    display: block; width: 100%; height: auto;
+    background: #040c18; border-radius: 4px;
+    aspect-ratio: 16 / 6;
+    cursor: crosshair;
+}
 
-        /* ══════════════════════════════════════
-           FOUNDER
-           ══════════════════════════════════════ */
-        .founder {
-            padding: 7rem 6%;
-            background: var(--white);
-            display: grid; grid-template-columns: 1fr 1.2fr; gap: 7rem; align-items: center;
-        }
-        .founder-img {
-            height: 640px; overflow: hidden; position: relative;
-        }
-        .founder-img::before {
-            content: ''; position: absolute; inset: 0;
-            border: 1px solid var(--faint); z-index: 1; pointer-events: none;
-        }
-        .founder-img::after {
-            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 40%;
-            background: linear-gradient(to top, var(--white), transparent);
-            z-index: 2;
-        }
-        .founder-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sim-vector-row {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 0.5rem 1rem;
+}
+.sim-vector-chip {
+    font-family: var(--mono); font-size: 0.62rem;
+    color: var(--accent); background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.12);
+    padding: 3px 10px; border-radius: 2px;
+}
 
-        .founder-text .eyebrow {
-            font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
-            text-transform: uppercase; color: var(--mid); margin-bottom: 2rem;
-            display: flex; align-items: center; gap: 0.8rem;
-        }
-        .founder-text .eyebrow::before { content:''; width:20px; height:1px; background:var(--mid); }
-        .founder-text h2 {
-            font-family: var(--serif); font-size: clamp(2.4rem, 4vw, 4.2rem);
-            font-weight: 500; line-height: 1.07; letter-spacing: -0.01em; margin-bottom: 2rem;
-        }
-        .founder-text p { font-family: var(--mono); font-size: 0.85rem; color: var(--mid); line-height: 1.9; margin-bottom: 1.2rem; }
-        .founder-quote {
-            margin: 2.5rem 0; padding: 2.2rem 2.5rem;
-            border-left: 2px solid var(--accent); background: var(--off);
-            position: relative;
-        }
-        .founder-quote p {
-            font-family: var(--serif); font-size: 1.1rem; font-style: italic;
-            color: var(--black); line-height: 1.75; margin-bottom: 1rem;
-        }
-        .founder-quote cite { font-style: normal; font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.06em; color: var(--mid); }
+.sim-stats-strip {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 0.4rem 1rem;
+    background: rgba(0,0,0,0.25);
+    border-top: 1px solid rgba(255,255,255,0.04);
+}
+.sim-stat-chip {
+    font-family: var(--mono); font-size: 0.62rem;
+    color: rgba(255,255,255,0.35); background: rgba(0,0,0,0.3);
+    padding: 3px 8px; border-radius: 2px;
+}
+.sim-stat-chip strong { color: var(--accent2); }
 
-        /* ══════════════════════════════════════
-           ECONOMIC IMPACT - The Social Mission
-           ══════════════════════════════════════ */
-        .impact {
-            background: var(--black); padding: 7rem 6%;
-            position: relative; overflow: hidden;
-        }
-        .impact::before {
-            content: '';
-            position: absolute; top: 0; left: 6%; right: 6%; height: 1px;
-            background: linear-gradient(to right, transparent, rgba(0,212,255,0.3), rgba(123,255,176,0.3), transparent);
-        }
-        .impact-header { text-align: center; margin-bottom: 6rem; max-width: 700px; margin-inline: auto; }
-        .impact-eyebrow {
-            font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.18em;
-            text-transform: uppercase; margin-bottom: 1.5rem;
-            color: var(--accent2); display: flex; align-items: center; justify-content: center; gap: 0.8rem;
-        }
-        .impact-header h2 {
-            font-family: var(--serif); font-size: clamp(2.4rem, 4.5vw, 5rem);
-            font-weight: 400; color: var(--white); line-height: 1.07;
-            letter-spacing: -0.01em; margin-bottom: 1.5rem;
-        }
-        .impact-header h2 em { font-style: italic; color: var(--accent2); }
-        .impact-header p { font-family: var(--mono); font-size: 0.85rem; color: rgba(255,255,255,0.38); line-height: 1.85; }
+.sim-controls-area { padding: 0.8rem 1rem 1rem; }
+.sim-param-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.sim-param-card {
+    flex: 1; min-width: 120px;
+    background: rgba(0,0,0,0.28);
+    border: 1px solid rgba(0,212,255,0.1);
+    border-radius: 3px; padding: 7px 10px;
+}
+.sim-param-card label {
+    font-family: var(--mono); font-weight: 500; font-size: 0.6rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    display: flex; justify-content: space-between; margin-bottom: 7px;
+    color: rgba(0,212,255,0.8);
+}
+.sim-param-card label span { color: var(--accent2); }
+.sim-param-card input[type="range"] { width: 100%; accent-color: var(--accent); height: 3px; }
 
-        /* Three pillars */
-        .impact-pillars {
-            display: grid; grid-template-columns: repeat(3, 1fr);
-            border-top: 1px solid rgba(255,255,255,0.06);
-            margin-bottom: 6rem;
-        }
-        .impact-pillar {
-            padding: 3rem 2.8rem;
-            border-right: 1px solid rgba(255,255,255,0.06);
-            transition: background 0.3s;
-        }
-        .impact-pillar:last-child { border-right: none; }
-        .impact-pillar:hover { background: rgba(0,212,255,0.02); }
-        .pillar-num {
-            font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.14em;
-            color: var(--accent); margin-bottom: 2.5rem; display: block;
-        }
-        .pillar-icon {
-            width: 46px; height: 46px;
-            border: 1px solid rgba(0,212,255,0.15);
-            display: flex; align-items: center; justify-content: center;
-            color: var(--accent); font-size: 1.05rem; margin-bottom: 2rem;
-        }
-        .impact-pillar h3 {
-            font-family: var(--serif); font-size: 1.7rem; font-weight: 500;
-            color: var(--white); margin-bottom: 1rem; line-height: 1.2;
-        }
-        .impact-pillar > p { font-family: var(--mono); font-size: 0.8rem; color: rgba(255,255,255,0.38); line-height: 1.8; }
+.sim-btn-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.sim-modal-btn {
+    border: none; padding: 0.6rem 1.6rem;
+    font-family: var(--syne); font-weight: 700; font-size: 0.68rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.15s; min-height: 40px;
+    clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+}
+.sim-modal-btn-launch { background: var(--accent); color: var(--black); }
+.sim-modal-btn-launch:hover { background: var(--accent2); transform: translateY(-1px); }
+.sim-modal-btn-reset { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.1); }
+.sim-modal-btn-reset:hover { background: rgba(255,255,255,0.1); color: var(--white); }
+.sim-modal-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-        /* CV Section inside impact */
-        .cv-panel {
-            border: 1px solid rgba(255,255,255,0.07); padding: 4rem;
-            background: rgba(255,255,255,0.015); margin-bottom: 5rem;
-        }
-        .cv-panel-header {
-            display: grid; grid-template-columns: 1fr auto; gap: 3rem; align-items: start;
-            margin-bottom: 3.5rem;
-        }
-        .cv-panel h3 {
-            font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3.5rem);
-            font-weight: 400; color: var(--white); line-height: 1.1; letter-spacing: -0.01em;
-        }
-        .cv-panel h3 em { color: var(--accent); font-style: italic; }
-        .cv-panel-sub { font-family: var(--mono); font-size: 0.82rem; color: rgba(255,255,255,0.32); line-height: 1.75; max-width: 320px; }
+.sim-explainer-strip {
+    display: grid; grid-template-columns: repeat(3,1fr);
+    gap: 0; border-top: 1px solid rgba(0,212,255,0.07);
+}
+@media (max-width: 520px) {
+    .sim-explainer-strip { grid-template-columns: 1fr; }
+}
+.sim-explainer-card {
+    padding: 0.9rem 1rem;
+    border-right: 1px solid rgba(0,212,255,0.07);
+}
+.sim-explainer-card:last-child { border-right: none; }
+.sim-explainer-title {
+    font-family: var(--syne); font-size: 0.58rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--accent); margin-bottom: 5px;
+}
+.sim-explainer-text {
+    font-family: var(--mono); font-size: 0.62rem;
+    color: rgba(255,255,255,0.35); line-height: 1.65;
+}
+.sim-explainer-formula {
+    display: inline-block; margin-top: 5px;
+    font-family: var(--mono); font-size: 0.58rem;
+    color: rgba(123,255,176,0.7);
+    background: rgba(123,255,176,0.06); padding: 2px 7px; border-radius: 2px;
+}
 
-        .languages { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 3rem; }
-        .lang {
-            font-family: var(--mono); font-size: 0.63rem; letter-spacing: 0.06em;
-            padding: 0.35rem 0.9rem;
-            border: 1px solid rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.38);
-            transition: all 0.2s; cursor: default;
-        }
-        .lang.active { border-color: rgba(0,212,255,0.3); color: var(--accent); background: rgba(0,212,255,0.05); }
-        .lang:hover { border-color: rgba(0,212,255,0.4); color: var(--accent); }
+/* Step 3 plans */
+.plan-grid {
+    display: grid; grid-template-columns: 1fr;
+    gap: 1px; background: rgba(0,212,255,0.08);
+    margin: 1.2rem 0;
+}
+@media (min-width: 500px) { .plan-grid { grid-template-columns: 1fr 1fr; } }
 
-        .cv-features { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.05); margin-bottom: 3rem; }
-        .cv-feature { padding: 2rem; background: var(--black); }
-        .cv-feature-icon { color: var(--accent); font-size: 0.9rem; margin-bottom: 1.2rem; }
-        .cv-feature h4 { font-family: var(--serif); font-size: 1.15rem; font-weight: 500; color: var(--white); margin-bottom: 0.7rem; }
-        .cv-feature p { font-family: var(--mono); font-size: 0.76rem; color: rgba(255,255,255,0.32); line-height: 1.7; }
+.plan-card {
+    background: #0a141f; padding: 1.4rem 1.6rem;
+    cursor: pointer; transition: background 0.2s;
+    border: 1px solid transparent; position: relative;
+}
+.plan-card:hover { background: #0d1b2a; }
+.plan-card.featured { border-color: rgba(0,212,255,0.25); background: rgba(0,212,255,0.03); }
+.plan-card-tier { position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+.plan-card.featured .plan-card-tier { background: linear-gradient(to right, var(--accent), var(--accent2)); }
+.plan-card:not(.featured) .plan-card-tier { background: linear-gradient(to right, rgba(0,212,255,0.3), rgba(0,212,255,0.05)); }
+.plan-badge-tag {
+    font-family: var(--mono); font-size: 0.55rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(0,212,255,0.8);
+    border: 1px solid rgba(0,212,255,0.25); padding: 2px 8px;
+    display: inline-block; margin-bottom: 8px;
+    clip-path: polygon(3px 0, 100% 0, calc(100% - 3px) 100%, 0 100%);
+}
+.plan-name {
+    font-family: var(--serif); font-size: 1.45rem; font-weight: 500;
+    color: var(--white); margin-bottom: 4px; line-height: 1.1;
+}
+.plan-level {
+    font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.25); text-transform: uppercase; margin-bottom: 8px;
+}
+.plan-price {
+    font-family: var(--serif); font-size: 2rem; font-weight: 500;
+    color: var(--accent); line-height: 1;
+}
+.plan-price small {
+    font-family: var(--mono); font-size: 0.6rem;
+    color: rgba(255,255,255,0.28); font-weight: 400;
+}
+.plan-desc {
+    font-family: var(--mono); font-size: 0.68rem;
+    color: rgba(255,255,255,0.28); line-height: 1.7; margin-top: 8px;
+}
+.plan-features { list-style: none; margin-top: 10px; }
+.plan-features li {
+    font-family: var(--mono); font-size: 0.65rem;
+    color: rgba(255,255,255,0.32); padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex; align-items: center; gap: 7px;
+}
+.plan-features li::before {
+    content: ''; width: 3px; height: 3px;
+    background: var(--accent2); border-radius: 50%; flex-shrink: 0;
+}
+.plan-features li:last-child { border-bottom: none; }
 
-        /* Opportunities */
-        .opp-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr);
-            gap: 1px; background: rgba(255,255,255,0.05);
-        }
-        .opp-card { padding: 2.8rem; background: var(--black); transition: background 0.25s; }
-        .opp-card:hover { background: rgba(255,255,255,0.02); }
-        .opp-icon { color: var(--accent2); font-size: 1rem; margin-bottom: 1.8rem; }
-        .opp-card h3 { font-family: var(--serif); font-size: 1.45rem; font-weight: 500; color: var(--white); margin-bottom: 0.8rem; line-height: 1.2; }
-        .opp-card > p { font-family: var(--mono); font-size: 0.8rem; color: rgba(255,255,255,0.32); line-height: 1.75; margin-bottom: 1.5rem; }
-        .opp-list { list-style: none; }
-        .opp-list li {
-            font-family: var(--mono); font-size: 0.74rem; color: rgba(255,255,255,0.3);
-            padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.04);
-            display: flex; align-items: center; gap: 0.7rem;
-        }
-        .opp-list li:last-child { border-bottom: none; }
-        .opp-list li::before { content:'—'; color: var(--accent2); font-size: 0.55rem; flex-shrink: 0; }
+.subscribe-btn {
+    width: 100%; padding: 0.9rem 2rem;
+    background: var(--accent); border: none; color: var(--black);
+    font-family: var(--syne); font-weight: 700; font-size: 0.72rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+    clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+    display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+}
+.subscribe-btn:hover { background: var(--accent2); transform: translateY(-1px); }
 
-        /* ── CONSULT CTA ── */
-        .consult-cta {
-            background: var(--deep); padding: 5rem 6%;
-            border-top: 1px solid rgba(255,255,255,0.04);
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-            display: grid; grid-template-columns: 1fr auto; gap: 5rem; align-items: center;
-        }
-        .consult-cta h2 {
-            font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3.5rem);
-            font-weight: 400; color: var(--white); line-height: 1.1; letter-spacing: -0.01em;
-            margin-bottom: 1rem;
-        }
-        .consult-cta p { font-family: var(--mono); font-size: 0.82rem; color: rgba(255,255,255,0.32); line-height: 1.8; max-width: 480px; }
-        .consult-cta-actions { display: flex; flex-direction: column; gap: 1rem; align-items: flex-end; flex-shrink: 0; }
-        .btn-primary-lg {
-            display: inline-flex; align-items: center; gap: 0.8rem;
-            padding: 1.1rem 2.6rem; background: var(--accent); color: var(--black);
-            font-family: var(--syne); font-size: 0.72rem; font-weight: 700;
-            letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none;
-            border: none; cursor: pointer; transition: all 0.25s; white-space: nowrap; min-height: 52px;
-            clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
-        }
-        .btn-primary-lg:hover { background: #fff; transform: translateY(-2px); }
-        .btn-ghost-light {
-            font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.1em;
-            text-transform: uppercase; color: rgba(255,255,255,0.25); text-decoration: none;
-            border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 2px;
-            transition: color 0.2s, border-color 0.2s; white-space: nowrap;
-        }
-        .btn-ghost-light:hover { color: var(--accent); border-color: var(--accent); }
+.browse-free-link {
+    display: block; text-align: center; margin-top: 10px;
+    font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.2); cursor: pointer; padding: 8px 0;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    text-decoration: none; transition: color 0.2s;
+}
+.browse-free-link:hover { color: rgba(255,255,255,0.5); }
 
-        /* ── DATA ── */
-        .data-section { background: var(--black); padding: 5rem 6% 7rem; }
-        .data-header { margin-bottom: 3rem; }
-        .data-header h2 { font-family: var(--serif); font-size: clamp(1.8rem, 3vw, 3rem); font-weight: 400; color: var(--white); letter-spacing: -0.01em; }
-        .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: rgba(255,255,255,0.05); }
-        .chart-cell { background: var(--black); padding: 2.5rem; }
-        .chart-label { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.4rem; }
-        .chart-cell h4 { font-family: var(--serif); font-size: 1.2rem; font-weight: 500; color: var(--white); margin-bottom: 0.3rem; }
-        .chart-source { font-family: var(--mono); font-size: 0.56rem; letter-spacing: 0.05em; color: rgba(255,255,255,0.15); margin-bottom: 1.5rem; display: block; }
-        .chart-wrap { position: relative; height: 200px; }
+/* ── FOOTER NAV ── */
+.onboard-footer {
+    padding: 1rem 1.8rem;
+    border-top: 1px solid rgba(0,212,255,0.07);
+    background: rgba(0,0,0,0.25);
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+@media (min-width: 520px) { .onboard-footer { padding: 1rem 2.5rem; } }
 
-        /* ── FOOTER ── */
-        footer {
-            padding: 3.5rem 6% calc(2.5rem + var(--safe-bottom));
-            background: var(--black);
-            border-top: 1px solid rgba(255,255,255,0.05);
-            display: grid; grid-template-columns: 1fr auto; gap: 3rem; align-items: center;
-        }
-        .footer-left img { height: 22px; filter: invert(1); opacity: 0.4; margin-bottom: 1rem; display: block; }
-        .footer-left p { font-family: var(--mono); font-size: 0.66rem; color: rgba(255,255,255,0.18); letter-spacing: 0.04em; }
-        .footer-right { display: flex; gap: 2rem; align-items: center; }
-        .footer-right a { font-family: var(--mono); font-size: 0.64rem; color: rgba(255,255,255,0.2); text-decoration: none; transition: color 0.2s; letter-spacing: 0.06em; }
-        .footer-right a:hover { color: var(--accent); }
+.onboard-footer-hint {
+    font-family: var(--mono); font-size: 0.6rem;
+    color: rgba(255,255,255,0.18); line-height: 1.5;
+}
+.onboard-nav-btns { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 
-        /* ── SHARED UTILS ── */
-        .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.7s ease, transform 0.7s ease; }
-        .reveal.visible { opacity: 1; transform: translateY(0); }
+.btn-onboard-back {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.35);
+    font-family: var(--syne); font-size: 0.62rem; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.55rem 1.1rem; cursor: pointer;
+    clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+    transition: all 0.2s;
+}
+.btn-onboard-back:hover { color: var(--white); border-color: rgba(255,255,255,0.3); }
 
-        :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.btn-onboard-next {
+    background: var(--accent); border: none; color: var(--black);
+    font-family: var(--syne); font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 0.6rem 1.6rem; cursor: pointer;
+    clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+}
+.btn-onboard-next:hover { background: var(--accent2); }
 
-        /* ── MOBILE ── */
-        @media (max-width: 1000px) {
-            .thesis { grid-template-columns: 1fr; gap: 4rem; }
-            .sim-header { grid-template-columns: 1fr; gap: 2rem; }
-            .founder { grid-template-columns: 1fr; gap: 3rem; }
-            .founder-img { height: 380px; }
-            .impact-pillars { grid-template-columns: 1fr; }
-            .impact-pillar { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
-            .impact-pillar:last-child { border-bottom: none; }
-            .cv-features { grid-template-columns: repeat(2, 1fr); }
-            .opp-grid { grid-template-columns: 1fr; }
-            .charts-grid { grid-template-columns: 1fr; }
-            .consult-cta { grid-template-columns: 1fr; }
-            .consult-cta-actions { align-items: flex-start; flex-direction: row; flex-wrap: wrap; }
-            footer { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 768px) {
-            .menu-toggle { display: flex; }
-            .nav-links {
-                position: fixed; top: 0; right: -100%;
-                width: min(300px, 85vw); height: 100vh;
-                background: rgba(6,8,10,0.98); backdrop-filter: blur(20px);
-                flex-direction: column; align-items: flex-start;
-                padding: calc(var(--nav-h) + 2rem) 6% 2rem;
-                gap: 0; transition: right 0.3s ease; overflow-y: auto; z-index: 999;
-            }
-            .nav-links.open { right: 0; }
-            .nav-links > li { width: 100%; border-bottom: 1px solid rgba(255,255,255,0.06); }
-            .nav-links a { padding: 1rem 0; display: block; color: rgba(255,255,255,0.55); }
-            .paths-grid { grid-template-columns: 1fr; }
-            .cv-panel-header { grid-template-columns: 1fr; }
-            .cv-features { grid-template-columns: 1fr; }
-            .free-lesson { flex-direction: column; align-items: flex-start; }
-        }
-        @media (max-width: 480px) {
-            :root { --nav-h: 58px; }
-            .hero h1 { font-size: 2.4rem; }
-            .hero-actions { flex-direction: column; align-items: flex-start; }
-            .btn-primary { width: 100%; justify-content: center; }
-            .cv-panel { padding: 2rem; }
-            .free-lesson-right { width: 100%; }
-            .lesson-btn { width: 100%; justify-content: center; }
-        }
+/* ── HERO ── */
+.hero {
+    min-height: 100vh; background: var(--black); color: var(--white);
+    display: flex; align-items: flex-end; position: relative; overflow: hidden;
+}
+#wave-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    z-index: 1; cursor: crosshair; display: block;
+}
+.hero-vignette {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background: radial-gradient(ellipse 80% 60% at 50% 50%, transparent 30%, rgba(6,8,10,0.7) 100%);
+}
+.hero-grad-bottom {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 70%;
+    background: linear-gradient(to top, rgba(6,8,10,1) 0%, rgba(6,8,10,0.6) 45%, transparent 100%);
+    z-index: 2; pointer-events: none;
+}
+.hero-content {
+    position: relative; z-index: 3;
+    padding: 0 6% calc(8vh + var(--safe-bottom));
+    max-width: 900px;
+}
+.hero-tag {
+    display: inline-flex; align-items: center; gap: 0.8rem;
+    font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 2.5rem;
+    opacity: 0; animation: fadeUp 0.8s ease 0.2s forwards;
+}
+.hero-tag-line { width: 32px; height: 1px; background: var(--accent); opacity: 0.5; }
+.hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(3.2rem, 6.5vw, 7rem);
+    font-weight: 300; line-height: 1.02; letter-spacing: -0.02em;
+    margin-bottom: 2.5rem;
+    opacity: 0; animation: fadeUp 0.8s ease 0.4s forwards;
+}
+.hero h1 .line-ghost {
+    font-style: italic; font-weight: 300;
+    color: transparent; -webkit-text-stroke: 1px rgba(255,255,255,0.22);
+}
+.hero h1 .line-bright { font-weight: 600; color: var(--white); }
+.hero h1 .line-accent { font-style: italic; color: var(--accent); font-weight: 400; }
+.hero-value {
+    font-family: var(--syne); font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+    font-weight: 500; letter-spacing: 0.04em; color: rgba(255,255,255,0.55);
+    max-width: 560px; line-height: 1.9; margin-bottom: 3.5rem;
+    opacity: 0; animation: fadeUp 0.8s ease 0.6s forwards;
+}
+.hero-value strong { color: var(--white); font-weight: 600; }
+.hero-actions {
+    display: flex; align-items: center; gap: 2.5rem;
+    opacity: 0; animation: fadeUp 0.8s ease 0.8s forwards;
+}
+.btn-primary {
+    display: inline-flex; align-items: center; gap: 0.8rem;
+    padding: 1rem 2.4rem; background: var(--accent); color: var(--black);
+    font-family: var(--syne); font-size: 0.75rem; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none;
+    border: none; cursor: pointer;
+    transition: all 0.25s; white-space: nowrap; min-height: 52px;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+.btn-primary:hover { background: #fff; transform: translateY(-2px); }
+.btn-ghost {
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: rgba(255,255,255,0.35);
+    text-decoration: none; display: flex; align-items: center; gap: 0.5rem;
+    transition: color 0.2s;
+}
+.btn-ghost:hover { color: var(--accent); }
+.physics-badge {
+    position: absolute; top: calc(var(--nav-h) + 2rem); right: 5%;
+    z-index: 3; text-align: right;
+    opacity: 0; animation: fadeIn 1s ease 1.5s forwards;
+}
+.physics-badge-inner {
+    display: inline-flex; flex-direction: column; align-items: flex-end; gap: 0.3rem;
+}
+.physics-badge-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent2);
+    margin-left: auto; box-shadow: 0 0 8px var(--accent2);
+    animation: blink 2s ease-in-out infinite;
+}
+.physics-badge span {
+    font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: rgba(255,255,255,0.2);
+}
+.physics-badge .eq {
+    font-family: var(--serif); font-style: italic; font-size: 0.8rem;
+    color: rgba(0,212,255,0.4);
+}
+.scroll-hint {
+    position: absolute; bottom: 2.5rem; right: 6%;
+    z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+    opacity: 0; animation: fadeUp 0.8s ease 1.2s forwards;
+}
+.scroll-line-v {
+    width: 1px; height: 44px; background: rgba(255,255,255,0.1);
+    position: relative; overflow: hidden;
+}
+.scroll-line-v::after {
+    content: ''; position: absolute; top: -100%; width: 100%; height: 100%;
+    background: linear-gradient(to bottom, transparent, var(--accent));
+    animation: drip 2.5s ease infinite 1.5s;
+}
+@keyframes drip { 0%{top:-100%} 100%{top:100%} }
+.scroll-hint span {
+    font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: rgba(255,255,255,0.18);
+    writing-mode: vertical-rl; transform: rotate(180deg);
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+/* ── THESIS ── */
+.thesis {
+    background: var(--black); padding: 0 6% 7rem;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: start;
+}
+.thesis-left { padding-top: 6rem; border-top: 1px solid rgba(255,255,255,0.06); }
+.thesis-right { padding-top: 6rem; border-top: 1px solid rgba(0,212,255,0.15); }
+.thesis-eyebrow {
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 2rem;
+    display: flex; align-items: center; gap: 0.8rem;
+}
+.thesis-eyebrow::before { content:''; width:24px; height:1px; background: var(--accent); opacity:0.5; }
+.thesis-left h2 {
+    font-family: var(--serif); font-size: clamp(2.4rem, 4vw, 4.4rem);
+    font-weight: 400; color: var(--white); line-height: 1.08;
+    letter-spacing: -0.01em; margin-bottom: 2rem;
+}
+.thesis-left h2 em { font-style: italic; color: var(--accent); }
+.thesis-left p {
+    font-family: var(--mono); font-size: 0.85rem; color: rgba(255,255,255,0.38);
+    line-height: 1.9; margin-bottom: 1.5rem;
+}
+.csir-card {
+    margin-top: 3rem; padding: 2rem 2.5rem;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.02);
+    position: relative; overflow: hidden;
+}
+.csir-card::before {
+    content: '"'; position: absolute; top: -1rem; left: 1.5rem;
+    font-family: var(--serif); font-size: 8rem; line-height: 1;
+    color: rgba(0,212,255,0.06); pointer-events: none;
+}
+.csir-card blockquote {
+    font-family: var(--serif); font-size: 1.05rem; font-style: italic;
+    font-weight: 300; color: rgba(255,255,255,0.65); line-height: 1.75;
+    margin-bottom: 1.5rem; position: relative;
+}
+.csir-byline { display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap; }
+.csir-logo-small {
+    height: 32px; filter: grayscale(1) brightness(0.6);
+    transition: filter 0.2s; object-fit: contain;
+}
+.csir-logo-small:hover { filter: none; }
+.dr-portrait {
+    width: 56px; height: 56px; border-radius: 50%; object-fit: cover;
+    border: 2px solid rgba(0,212,255,0.4); background: #111518;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.2);
+}
+.dr-portrait:hover { border-color: var(--accent); transform: scale(1.02); }
+.csir-byline-text {
+    font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.3); line-height: 1.5;
+}
+.csir-byline-text strong { color: rgba(255,255,255,0.55); display: block; }
+.thesis-stats { display: flex; flex-direction: column; gap: 0; }
+.thesis-stat {
+    padding: 2.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: grid; grid-template-columns: auto 1fr; gap: 2rem; align-items: center;
+}
+.thesis-stat:first-child { padding-top: 0; }
+.thesis-stat-val {
+    font-family: var(--serif); font-size: clamp(3rem, 5vw, 5.5rem);
+    font-weight: 500; color: var(--accent); line-height: 1; min-width: 120px;
+}
+.thesis-stat-label {
+    font-family: var(--mono); font-size: 0.8rem;
+    color: rgba(255,255,255,0.4); line-height: 1.7;
+}
+.thesis-stat-source {
+    font-size: 0.58rem; letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.18); display: block; margin-top: 0.5rem;
+}
+
+/* ── SIMULATIONS ── */
+.simulations {
+    background: var(--white); padding: 7rem 6%;
+    position: relative; overflow: hidden;
+}
+.simulations::before {
+    content:''; position:absolute; top:0; left:0; right:0; height: 3px;
+    background: linear-gradient(to right, transparent 0%, var(--accent) 30%, var(--accent2) 70%, transparent 100%);
+}
+.sim-header {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;
+    align-items: end; margin-bottom: 5rem;
+}
+.sim-header-left .eyebrow {
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--mid); margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 0.8rem;
+}
+.sim-header-left .eyebrow::before { content:''; width:20px; height:1px; background:var(--mid); }
+.sim-header-left h2 {
+    font-family: var(--serif); font-size: clamp(2.4rem, 4vw, 4.8rem);
+    font-weight: 500; line-height: 1.05; letter-spacing: -0.01em;
+}
+.sim-header-left h2 em { font-style: italic; color: var(--accent); }
+.sim-header-right p {
+    font-family: var(--mono); font-size: 0.85rem; color: var(--mid); line-height: 1.9;
+}
+.sim-header-right .sim-proof {
+    margin-top: 2rem; padding: 1.5rem 2rem;
+    background: var(--black); color: var(--white);
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+.sim-proof-stat {
+    font-family: var(--serif); font-size: 2.8rem; font-weight: 500;
+    color: var(--accent2); line-height: 1; margin-bottom: 0.3rem;
+}
+.sim-proof-label {
+    font-family: var(--mono); font-size: 0.7rem; color: rgba(255,255,255,0.4); line-height: 1.6;
+}
+.sim-tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--faint); margin-bottom: 3rem;
+}
+.sim-tab {
+    padding: 0.9rem 2.2rem;
+    font-family: var(--syne); font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    background: none; border: none; cursor: pointer;
+    color: var(--mid); position: relative; transition: color 0.2s;
+    min-height: 48px;
+}
+.sim-tab.active { color: var(--black); }
+.sim-tab::after {
+    content: ''; position: absolute; bottom: -1px; left: 0;
+    width: 0; height: 2px;
+    background: linear-gradient(to right, var(--accent), var(--accent2));
+    transition: width 0.3s;
+}
+.sim-tab.active::after { width: 100%; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.paths-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+    background: var(--faint);
+}
+.path-card {
+    background: var(--white); padding: 2.8rem;
+    transition: background 0.25s; position: relative;
+}
+.path-card:hover { background: #EDEAE6; }
+.path-card-tier { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.path-card:nth-child(1) .path-card-tier { background: linear-gradient(to right, rgba(0,212,255,0.4), rgba(0,212,255,0.1)); }
+.path-card:nth-child(2) .path-card-tier { background: linear-gradient(to right, var(--accent), rgba(0,212,255,0.5)); }
+.path-card:nth-child(3) .path-card-tier { background: linear-gradient(to right, var(--accent), var(--accent2)); }
+.path-level {
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--mid); margin-bottom: 1.5rem;
+}
+.path-card h3 {
+    font-family: var(--serif); font-size: 1.7rem; font-weight: 500;
+    margin-bottom: 0.8rem; line-height: 1.15;
+}
+.path-card p { font-size: 0.8rem; color: var(--mid); line-height: 1.75; margin-bottom: 2rem; }
+.path-features { list-style: none; margin-bottom: 2.5rem; }
+.path-features li {
+    font-family: var(--mono); font-size: 0.76rem; color: var(--mid);
+    padding: 0.45rem 0; border-bottom: 1px solid var(--faint);
+    display: flex; align-items: center; gap: 0.8rem;
+}
+.path-features li::before {
+    content: ''; width: 3px; height: 3px; background: var(--accent);
+    border-radius: 50%; flex-shrink: 0;
+}
+.path-price { font-family: var(--serif); font-size: 2.4rem; font-weight: 500; line-height: 1; }
+.path-period { font-family: var(--mono); font-size: 0.6rem; color: var(--mid); letter-spacing: 0.06em; display: block; margin: 0.4rem 0 1.5rem; }
+.btn-link {
+    font-family: var(--syne); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--black); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    border-bottom: 1px solid var(--black); padding-bottom: 2px;
+    transition: color 0.2s, border-color 0.2s;
+}
+.btn-link:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Physics tab inline sim */
+.physics-tab-content { display: flex; flex-direction: column; gap: 0; }
+.sim-live-banner {
+    background: var(--black); border: 1px solid rgba(0,212,255,0.18); border-bottom: none;
+    padding: 1.5rem 2rem 1.2rem; display: flex; align-items: center;
+    justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.sim-live-banner-left { display: flex; align-items: center; gap: 1rem; }
+.sim-live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent2);
+    box-shadow: 0 0 10px var(--accent2); animation: blink 2s ease-in-out infinite; flex-shrink: 0;
+}
+.sim-live-label { font-family: var(--syne); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--white); }
+.sim-live-sub { font-family: var(--mono); font-size: 0.62rem; color: rgba(255,255,255,0.35); letter-spacing: 0.06em; }
+.sim-live-tag {
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.12em;
+    text-transform: uppercase; padding: 0.3rem 0.9rem;
+    border: 1px solid rgba(0,212,255,0.3); color: var(--accent);
+    clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+}
+.projectile-sim-embed {
+    background: #0a1520; border: 1px solid rgba(0,212,255,0.15); border-top: none;
+    position: relative; overflow: hidden;
+}
+.psim-canvas-wrap { padding: 1.2rem 1.5rem 0.5rem; background: #070e18; }
+#psimCanvas {
+    display: block; width: 100%; height: auto; background: #050c15;
+    border-radius: 8px; box-shadow: 0 0 30px rgba(0,212,255,0.05), 0 6px 20px rgba(0,0,0,0.4); cursor: crosshair;
+}
+.psim-theory {
+    background: rgba(0,212,255,0.04); margin: 0 1.5rem 1rem;
+    border-radius: 4px; padding: 0.8rem 1.2rem;
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start;
+    gap: 12px; font-size: 0.78rem; border-left: 3px solid rgba(0,212,255,0.4);
+}
+.psim-formula-box {
+    background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 4px;
+    font-family: var(--mono); font-size: 0.72rem; font-weight: 500; color: rgba(255,255,255,0.7);
+}
+.psim-live-vector {
+    background: rgba(0,212,255,0.08); border-radius: 4px; padding: 5px 10px;
+    font-family: var(--mono); font-size: 0.72rem; font-weight: 500; color: var(--accent);
+}
+.psim-theory-highlight {
+    background: rgba(123,255,176,0.07); border-radius: 4px; padding: 5px 10px;
+    font-family: var(--mono); font-size: 0.68rem; color: rgba(123,255,176,0.8);
+}
+.psim-controls { padding: 1rem 1.5rem 1.5rem; }
+.psim-param-grid { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.2rem; justify-content: space-between; }
+.psim-param-card {
+    flex: 1; min-width: 160px; background: rgba(0,0,0,0.25);
+    border-radius: 4px; padding: 0.7rem 0.9rem; border: 1px solid rgba(0,212,255,0.1);
+}
+.psim-param-card label {
+    font-family: var(--mono); font-weight: 600; font-size: 0.68rem; letter-spacing: 0.04em;
+    display: flex; justify-content: space-between; margin-bottom: 8px;
+    color: rgba(0,212,255,0.9); text-transform: uppercase;
+}
+.psim-param-card label span { color: var(--accent2); }
+.psim-param-card input[type="range"] { width: 100%; accent-color: var(--accent); height: 3px; }
+.psim-stats {
+    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
+    background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 4px; padding: 10px 16px; margin-bottom: 1rem; font-size: 0.72rem;
+}
+.psim-stat-item {
+    background: rgba(0,0,0,0.3); padding: 3px 12px; border-radius: 2px;
+    font-family: var(--mono); color: rgba(255,255,255,0.45); font-size: 0.68rem;
+}
+.psim-stat-item strong { color: var(--accent2); }
+.psim-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.psim-btn {
+    border: none; padding: 0.7rem 1.8rem; font-family: var(--syne);
+    font-weight: 700; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.15s; min-height: 44px;
+    clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.psim-btn-launch { background: var(--accent); color: var(--black); }
+.psim-btn-launch:hover { background: var(--accent2); transform: translateY(-1px); }
+.psim-btn-launch:active { transform: translateY(1px); }
+.psim-btn-reset { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.1); }
+.psim-btn-reset:hover { background: rgba(255,255,255,0.12); color: var(--white); }
+.psim-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.psim-footnote {
+    font-family: var(--mono); font-size: 0.6rem; text-align: center;
+    margin-top: 0.8rem; color: rgba(255,255,255,0.18); letter-spacing: 0.04em;
+}
+.psim-dynamic-eq { font-size: 0.68rem; margin-top: 5px; font-family: var(--mono); color: rgba(123,255,176,0.65); }
+.sim-course-bridge {
+    background: rgba(0,0,0,0.15); border-top: 1px solid rgba(0,212,255,0.1);
+    padding: 1.5rem 2rem; display: flex; align-items: center;
+    justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.sim-course-bridge p { font-family: var(--mono); font-size: 0.72rem; color: rgba(255,255,255,0.35); line-height: 1.6; }
+.sim-course-bridge p strong { color: rgba(255,255,255,0.6); }
+.sim-course-cta {
+    font-family: var(--syne); font-size: 0.68rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none;
+    padding: 0.6rem 1.4rem; background: transparent;
+    border: 1px solid rgba(0,212,255,0.35); color: var(--accent);
+    transition: all 0.2s; white-space: nowrap;
+    clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+}
+.sim-course-cta:hover { background: var(--accent); color: var(--black); }
+
+.free-lesson {
+    background: var(--black); padding: 5rem 6%;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 4rem; position: relative;
+}
+.free-lesson::before {
+    content: 'TRY FREE'; position: absolute; right: 4%; top: 50%; transform: translateY(-50%);
+    font-family: var(--serif); font-size: 8rem; font-weight: 700; font-style: italic;
+    color: rgba(255,255,255,0.03); pointer-events: none; white-space: nowrap;
+}
+.free-lesson-left { max-width: 480px; }
+.free-lesson-eyebrow {
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--accent2); margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 0.8rem;
+}
+.free-lesson-eyebrow::before { content:''; width:20px; height:1px; background:var(--accent2); opacity:0.5; }
+.free-lesson-left h2 {
+    font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3.2rem);
+    font-weight: 400; color: var(--white); line-height: 1.1; letter-spacing: -0.01em;
+}
+.free-lesson-left p { font-family: var(--mono); font-size: 0.82rem; color: rgba(255,255,255,0.3); margin-top: 1rem; line-height: 1.75; }
+.free-lesson-right { display: flex; flex-direction: column; gap: 1rem; flex-shrink: 0; position: relative; z-index: 1; }
+.lesson-btn {
+    display: inline-flex; align-items: center; gap: 1rem;
+    padding: 1.1rem 2.2rem;
+    font-family: var(--syne); font-size: 0.72rem; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none;
+    transition: all 0.25s; min-height: 52px; white-space: nowrap;
+    clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+.lesson-btn-maths { background: var(--accent); color: var(--black); }
+.lesson-btn-physics { background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.18); }
+.lesson-btn:hover { opacity: 0.85; transform: translateY(-2px); }
+.founder {
+    padding: 7rem 6%; background: var(--white);
+    display: grid; grid-template-columns: 1fr 1.2fr; gap: 7rem; align-items: center;
+}
+.founder-img { height: 640px; overflow: hidden; position: relative; }
+.founder-img::before { content: ''; position: absolute; inset: 0; border: 1px solid var(--faint); z-index: 1; pointer-events: none; }
+.founder-img::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 40%; background: linear-gradient(to top, var(--white), transparent); z-index: 2; }
+.founder-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.founder-text .eyebrow {
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--mid); margin-bottom: 2rem;
+    display: flex; align-items: center; gap: 0.8rem;
+}
+.founder-text .eyebrow::before { content:''; width:20px; height:1px; background:var(--mid); }
+.founder-text h2 { font-family: var(--serif); font-size: clamp(2.4rem, 4vw, 4.2rem); font-weight: 500; line-height: 1.07; letter-spacing: -0.01em; margin-bottom: 2rem; }
+.founder-text p { font-family: var(--mono); font-size: 0.85rem; color: var(--mid); line-height: 1.9; margin-bottom: 1.2rem; }
+.founder-quote { margin: 2.5rem 0; padding: 2.2rem 2.5rem; border-left: 2px solid var(--accent); background: var(--off); }
+.founder-quote p { font-family: var(--serif); font-size: 1.1rem; font-style: italic; color: var(--black); line-height: 1.75; margin-bottom: 1rem; }
+.founder-quote cite { font-style: normal; font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.06em; color: var(--mid); }
+.impact { background: var(--black); padding: 7rem 6%; position: relative; overflow: hidden; }
+.impact::before { content: ''; position: absolute; top: 0; left: 6%; right: 6%; height: 1px; background: linear-gradient(to right, transparent, rgba(0,212,255,0.3), rgba(123,255,176,0.3), transparent); }
+.impact-header { text-align: center; margin-bottom: 6rem; max-width: 700px; margin-inline: auto; }
+.impact-eyebrow { font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 1.5rem; color: var(--accent2); display: flex; align-items: center; justify-content: center; gap: 0.8rem; }
+.impact-header h2 { font-family: var(--serif); font-size: clamp(2.4rem, 4.5vw, 5rem); font-weight: 400; color: var(--white); line-height: 1.07; letter-spacing: -0.01em; margin-bottom: 1.5rem; }
+.impact-header h2 em { font-style: italic; color: var(--accent2); }
+.impact-header p { font-family: var(--mono); font-size: 0.85rem; color: rgba(255,255,255,0.38); line-height: 1.85; }
+.impact-pillars { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgba(255,255,255,0.06); margin-bottom: 6rem; }
+.impact-pillar { padding: 3rem 2.8rem; border-right: 1px solid rgba(255,255,255,0.06); transition: background 0.3s; }
+.impact-pillar:last-child { border-right: none; }
+.impact-pillar:hover { background: rgba(0,212,255,0.02); }
+.pillar-num { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.14em; color: var(--accent); margin-bottom: 2.5rem; display: block; }
+.pillar-icon { width: 46px; height: 46px; border: 1px solid rgba(0,212,255,0.15); display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 1.05rem; margin-bottom: 2rem; }
+.impact-pillar h3 { font-family: var(--serif); font-size: 1.7rem; font-weight: 500; color: var(--white); margin-bottom: 1rem; line-height: 1.2; }
+.impact-pillar > p { font-family: var(--mono); font-size: 0.8rem; color: rgba(255,255,255,0.38); line-height: 1.8; }
+.cv-panel { border: 1px solid rgba(255,255,255,0.07); padding: 4rem; background: rgba(255,255,255,0.015); margin-bottom: 5rem; }
+.cv-panel-header { display: grid; grid-template-columns: 1fr auto; gap: 3rem; align-items: start; margin-bottom: 3.5rem; }
+.cv-panel h3 { font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3.5rem); font-weight: 400; color: var(--white); line-height: 1.1; letter-spacing: -0.01em; }
+.cv-panel h3 em { color: var(--accent); font-style: italic; }
+.cv-panel-sub { font-family: var(--mono); font-size: 0.82rem; color: rgba(255,255,255,0.32); line-height: 1.75; max-width: 320px; }
+.languages { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 3rem; }
+.lang { font-family: var(--mono); font-size: 0.63rem; letter-spacing: 0.06em; padding: 0.35rem 0.9rem; border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.38); transition: all 0.2s; cursor: default; }
+.lang.active { border-color: rgba(0,212,255,0.3); color: var(--accent); background: rgba(0,212,255,0.05); }
+.lang:hover { border-color: rgba(0,212,255,0.4); color: var(--accent); }
+.cv-features { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: rgba(255,255,255,0.05); margin-bottom: 3rem; }
+.cv-feature { padding: 2rem; background: var(--black); }
+.cv-feature-icon { color: var(--accent); font-size: 0.9rem; margin-bottom: 1.2rem; }
+.cv-feature h4 { font-family: var(--serif); font-size: 1.15rem; font-weight: 500; color: var(--white); margin-bottom: 0.7rem; }
+.cv-feature p { font-family: var(--mono); font-size: 0.76rem; color: rgba(255,255,255,0.32); line-height: 1.7; }
+.opp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(255,255,255,0.05); }
+.opp-card { padding: 2.8rem; background: var(--black); transition: background 0.25s; }
+.opp-card:hover { background: rgba(255,255,255,0.02); }
+.opp-icon { color: var(--accent2); font-size: 1rem; margin-bottom: 1.8rem; }
+.opp-card h3 { font-family: var(--serif); font-size: 1.45rem; font-weight: 500; color: var(--white); margin-bottom: 0.8rem; line-height: 1.2; }
+.opp-card > p { font-family: var(--mono); font-size: 0.8rem; color: rgba(255,255,255,0.32); line-height: 1.75; margin-bottom: 1.5rem; }
+.opp-list { list-style: none; }
+.opp-list li { font-family: var(--mono); font-size: 0.74rem; color: rgba(255,255,255,0.3); padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; gap: 0.7rem; }
+.opp-list li:last-child { border-bottom: none; }
+.opp-list li::before { content:'—'; color: var(--accent2); font-size: 0.55rem; flex-shrink: 0; }
+.consult-cta { background: var(--deep); padding: 5rem 6%; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); display: grid; grid-template-columns: 1fr auto; gap: 5rem; align-items: center; }
+.consult-cta h2 { font-family: var(--serif); font-size: clamp(2rem, 3.5vw, 3.5rem); font-weight: 400; color: var(--white); line-height: 1.1; letter-spacing: -0.01em; margin-bottom: 1rem; }
+.consult-cta p { font-family: var(--mono); font-size: 0.82rem; color: rgba(255,255,255,0.32); line-height: 1.8; max-width: 480px; }
+.consult-cta-actions { display: flex; flex-direction: column; gap: 1rem; align-items: flex-end; flex-shrink: 0; }
+.btn-primary-lg { display: inline-flex; align-items: center; gap: 0.8rem; padding: 1.1rem 2.6rem; background: var(--accent); color: var(--black); font-family: var(--syne); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; border: none; cursor: pointer; transition: all 0.25s; white-space: nowrap; min-height: 52px; clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+.btn-primary-lg:hover { background: #fff; transform: translateY(-2px); }
+.btn-ghost-light { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.25); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 2px; transition: color 0.2s, border-color 0.2s; white-space: nowrap; }
+.btn-ghost-light:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ── DATA SECTION ── RESPONSIVE FIXES */
+.data-section {
+    background: var(--black);
+    padding: 5rem 6% 7rem;
+}
+.data-header {
+    margin-bottom: 3rem;
+}
+.data-header h2 {
+    font-family: var(--serif);
+    font-size: clamp(1.8rem, 3vw, 3rem);
+    font-weight: 400;
+    color: var(--white);
+    letter-spacing: -0.01em;
+}
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: rgba(255,255,255,0.05);
+}
+.chart-cell {
+    background: var(--black);
+    padding: 2rem;
+}
+@media (max-width: 800px) {
+    .chart-cell {
+        padding: 1.5rem;
+    }
+}
+@media (max-width: 640px) {
+    .chart-cell {
+        padding: 1.2rem;
+    }
+}
+.chart-label {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+}
+.chart-cell h4 {
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--white);
+    margin-bottom: 0.3rem;
+    line-height: 1.3;
+}
+.chart-source {
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    letter-spacing: 0.05em;
+    color: rgba(255,255,255,0.15);
+    margin-bottom: 1.5rem;
+    display: block;
+}
+.chart-wrap {
+    position: relative;
+    width: 100%;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.chart-wrap canvas {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 280px;
+    object-fit: contain;
+}
+
+footer {
+    padding: 3.5rem 6% calc(2.5rem + var(--safe-bottom));
+    background: var(--black);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 3rem;
+    align-items: center;
+}
+.footer-left img {
+    height: 22px;
+    filter: invert(1);
+    opacity: 0.4;
+    margin-bottom: 1rem;
+    display: block;
+}
+.footer-left p {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    color: rgba(255,255,255,0.18);
+    letter-spacing: 0.04em;
+}
+.footer-right {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+}
+.footer-right a {
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    color: rgba(255,255,255,0.2);
+    text-decoration: none;
+    transition: color 0.2s;
+    letter-spacing: 0.06em;
+}
+.footer-right a:hover {
+    color: var(--accent);
+}
+.reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+/* ── RESPONSIVE OVERRIDES ── */
+@media (max-width: 1000px) {
+    .thesis {
+        grid-template-columns: 1fr;
+        gap: 4rem;
+    }
+    .sim-header {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+    .founder {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+    }
+    .founder-img {
+        height: 380px;
+    }
+    .impact-pillars {
+        grid-template-columns: 1fr;
+    }
+    .impact-pillar {
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .impact-pillar:last-child {
+        border-bottom: none;
+    }
+    .cv-features {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .opp-grid {
+        grid-template-columns: 1fr;
+    }
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+    .consult-cta {
+        grid-template-columns: 1fr;
+    }
+    .consult-cta-actions {
+        align-items: flex-start;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    footer {
+        grid-template-columns: 1fr;
+    }
+}
+@media (max-width: 768px) {
+    .menu-toggle {
+        display: flex;
+    }
+    .nav-links {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: min(300px, 85vw);
+        height: 100vh;
+        background: rgba(6,8,10,0.98);
+        backdrop-filter: blur(20px);
+        flex-direction: column;
+        align-items: flex-start;
+        padding: calc(var(--nav-h) + 2rem) 6% 2rem;
+        gap: 0;
+        transition: right 0.3s ease;
+        overflow-y: auto;
+        z-index: 999;
+    }
+    .nav-links.open {
+        right: 0;
+    }
+    .nav-links > li {
+        width: 100%;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .nav-links a {
+        padding: 1rem 0;
+        display: block;
+        color: rgba(255,255,255,0.55);
+    }
+    .paths-grid {
+        grid-template-columns: 1fr;
+    }
+    .cv-panel-header {
+        grid-template-columns: 1fr;
+    }
+    .cv-features {
+        grid-template-columns: 1fr;
+    }
+    .free-lesson {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .psim-param-grid {
+        gap: 0.8rem;
+    }
+    .psim-param-card {
+        min-width: 130px;
+    }
+    .sim-live-banner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .chart-wrap {
+        min-height: 200px;
+    }
+}
+@media (max-width: 480px) {
+    :root {
+        --nav-h: 58px;
+    }
+    .hero h1 {
+        font-size: 2.4rem;
+    }
+    .hero-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .btn-primary {
+        width: 100%;
+        justify-content: center;
+    }
+    .cv-panel {
+        padding: 2rem;
+    }
+    .free-lesson-right {
+        width: 100%;
+    }
+    .lesson-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    .nav-user-name {
+        display: none;
+    }
+    .onboard-modal {
+        max-height: 96vh;
+    }
+    .onboard-body {
+        padding: 1.4rem 1.2rem 1rem;
+    }
+    .onboard-footer {
+        padding: 0.8rem 1.2rem;
+    }
+    .chart-wrap {
+        min-height: 180px;
+    }
+}
     </style>
 </head>
 <body>
@@ -839,13 +1417,12 @@
     <div id="loader">
         <div class="loader-wrap">
             <div class="loader-ring"></div>
-            <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760617575427x227577865881120960/S.png"
-                 class="loader-logo" alt="">
+            <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760617575427x227577865881120960/S.png" class="loader-logo" alt="">
         </div>
         <p class="loader-text">Initialising simulation</p>
     </div>
 
-    <!-- Modal -->
+    <!-- Auth Modal -->
     <div class="modal-overlay" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="login-modal">
             <button class="close-modal" id="closeModal" aria-label="Close">✕</button>
@@ -861,6 +1438,239 @@
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════
+         STEPPED ONBOARDING MODAL  (3 steps: Welcome → Sim → Plans)
+         ═══════════════════════════════════════════════════════════ -->
+    <div id="simWelcomeModal" role="dialog" aria-modal="true" aria-label="Welcome to LumenOS">
+        <div class="onboard-modal" id="onboardModal">
+
+            <!-- Corner accents -->
+            <div class="onboard-corner tl"></div>
+            <div class="onboard-corner tr"></div>
+            <div class="onboard-corner bl"></div>
+            <div class="onboard-corner br"></div>
+
+            <!-- ── STEP PROGRESS BAR ── -->
+            <div class="onboard-steps-bar" id="onboardStepsBar">
+                <div class="ostep-item active" id="ostep-item-1">
+                    <div class="ostep-dot active" id="ostep-dot-1">1</div>
+                    <span class="ostep-label">Welcome</span>
+                </div>
+                <div class="ostep-connector" id="ostep-conn-1"></div>
+                <div class="ostep-item" id="ostep-item-2">
+                    <div class="ostep-dot" id="ostep-dot-2">2</div>
+                    <span class="ostep-label">Simulation</span>
+                </div>
+                <div class="ostep-connector" id="ostep-conn-2"></div>
+                <div class="ostep-item" id="ostep-item-3">
+                    <div class="ostep-dot" id="ostep-dot-3">3</div>
+                    <span class="ostep-label">Get Started</span>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════
+                 PANEL 1 — WELCOME
+            ══════════════════════════ -->
+            <div class="onboard-panel active" id="onboard-panel-1">
+                <div class="onboard-body">
+                    <div class="onboard-eyebrow">LumenOS · Immersive STEM</div>
+                    <h2 class="onboard-title">
+                        <span class="ghost">The textbook is</span><br>
+                        the worst way<br>
+                        to learn <em>physics.</em>
+                    </h2>
+                    <p>Most edtech adds video to a textbook. LumenOS replaces the textbook entirely — with physics-accurate simulations that respond to learner input in real time. Built for South Africa. Endorsed by the CSIR. Open to the world.</p>
+
+                    <div class="onboard-stat-row">
+                        <div class="onboard-stat">
+                            <div class="onboard-stat-val">+82%</div>
+                            <div class="onboard-stat-lbl">Concept retention</div>
+                        </div>
+                        <div class="onboard-stat">
+                            <div class="onboard-stat-val">40+</div>
+                            <div class="onboard-stat-lbl">Experiments</div>
+                        </div>
+                        <div class="onboard-stat">
+                            <div class="onboard-stat-val">11</div>
+                            <div class="onboard-stat-lbl">SA Languages</div>
+                        </div>
+                    </div>
+
+                    <div class="onboard-badges">
+                        <span class="onboard-badge">Physics</span>
+                        <span class="onboard-badge">Mathematics</span>
+                        <span class="onboard-badge">Quantum</span>
+                        <span class="onboard-badge">Waves &amp; Circuits</span>
+                        <span class="onboard-badge">Optics</span>
+                        <span class="onboard-badge">CSIR Endorsed</span>
+                    </div>
+
+                    <div class="csir-endorsement">
+                        <blockquote>
+                            "There is a continuous need to simplify and heighten learning processes to drive education in STEM environments. The Physics Hub tool that LumenOS provides acts on this need."
+                            <cite>— Dr Darryl Naidoo, Senior Photonics Engineer · CSIR</cite>
+                        </blockquote>
+                    </div>
+                </div>
+                <div class="onboard-footer">
+                    <span class="onboard-footer-hint">Free preview · No account required</span>
+                    <div class="onboard-nav-btns">
+                        <button class="btn-onboard-next" onclick="onboardGoTo(2, false)">
+                            Try a Live Simulation <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════
+                 PANEL 2 — SIMULATION
+            ══════════════════════════ -->
+            <div class="onboard-panel" id="onboard-panel-2">
+                <div class="onboard-body">
+                    <div class="onboard-eyebrow">
+                        <span class="live-dot"></span>
+                        Live Simulation · Projectile Motion · Grade 10–12
+                    </div>
+                    <h2 class="onboard-title" style="font-size:clamp(1.6rem,4.5vw,2.4rem);">
+                        Adjust, launch,<br><em>understand.</em>
+                    </h2>
+                    <p style="margin-bottom:0.5rem;">Set the sliders, hit Launch, watch the physics happen. Try angle = 45° for maximum range — see if it's true.</p>
+
+                    <!-- Canvas sim -->
+                    <div class="sim-embed-box">
+                        <div class="sim-canvas-host">
+                            <canvas id="psimCanvasModal" width="950" height="340" style="width:100%;height:auto;aspect-ratio:950/340;"></canvas>
+                        </div>
+
+                        <div class="sim-vector-row">
+                            <div class="sim-vector-chip">⚡ vₓ = <span id="psimModalVx">—</span> m/s (constant)</div>
+                            <div class="sim-vector-chip">↕ vᵧ = <span id="psimModalVy">—</span> m/s (changing)</div>
+                        </div>
+
+                        <div class="sim-stats-strip">
+                            <div class="sim-stat-chip">⏱ Flight: <strong id="psimModalFlight">0.00</strong> s</div>
+                            <div class="sim-stat-chip">📏 Range: <strong id="psimModalRange">0.00</strong> m</div>
+                            <div class="sim-stat-chip">⛰ Max H: <strong id="psimModalMaxH">0.00</strong> m</div>
+                            <div class="sim-stat-chip">🎯 Peak: <strong id="psimModalPeak">0.00</strong> s</div>
+                        </div>
+
+                        <div class="sim-controls-area">
+                            <div class="sim-param-grid">
+                                <div class="sim-param-card">
+                                    <label>🚀 Speed <span id="psimModalSpeedVal">20.0</span> m/s</label>
+                                    <input type="range" id="psimModalSpeed" min="0" max="48" step="0.5" value="20">
+                                </div>
+                                <div class="sim-param-card">
+                                    <label>📐 Angle <span id="psimModalAngleVal">45.0</span>°</label>
+                                    <input type="range" id="psimModalAngle" min="0" max="90" step="1" value="45">
+                                </div>
+                                <div class="sim-param-card">
+                                    <label>🏔️ Height <span id="psimModalHeightVal">0.0</span> m</label>
+                                    <input type="range" id="psimModalHeight" min="0" max="28" step="0.5" value="0">
+                                </div>
+                            </div>
+                            <div class="sim-btn-row">
+                                <button id="psimModalLaunch" class="sim-modal-btn sim-modal-btn-launch">▶ LAUNCH</button>
+                                <button id="psimModalReset" class="sim-modal-btn sim-modal-btn-reset">⏹ RESET</button>
+                            </div>
+                        </div>
+
+                        <!-- Quick theory strip -->
+                        <div class="sim-explainer-strip">
+                            <div class="sim-explainer-card">
+                                <div class="sim-explainer-title">What is this?</div>
+                                <div class="sim-explainer-text">Throw a ball at an angle and watch it arc. That arc is <strong style="color:rgba(255,255,255,0.6)">projectile motion</strong> — used in everything from sports to rocket design.</div>
+                            </div>
+                            <div class="sim-explainer-card">
+                                <div class="sim-explainer-title">Key insight</div>
+                                <div class="sim-explainer-text">Horizontal and vertical motion are <strong style="color:rgba(255,255,255,0.6)">independent</strong>. Gravity only pulls down — it never slows the sideways motion.</div>
+                                <div class="sim-explainer-formula">g = 9.8 m/s² · No air resistance</div>
+                            </div>
+                            <div class="sim-explainer-card">
+                                <div class="sim-explainer-title">The equation</div>
+                                <div class="sim-explainer-text">y = y₀ + x·tanθ – g·x² / (2v₀²cos²θ)</div>
+                                <div class="sim-explainer-formula">Try 45° for max range</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="onboard-footer">
+                    <span class="onboard-footer-hint">40+ experiments in the full curriculum</span>
+                    <div class="onboard-nav-btns">
+                        <button class="btn-onboard-back" onclick="onboardGoTo(1, true)">← Back</button>
+                        <button class="btn-onboard-next" onclick="onboardGoTo(3, false)">
+                            See Plans <i class="fas fa-arrow-right" style="font-size:0.65rem;"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════
+                 PANEL 3 — GET STARTED
+            ══════════════════════════ -->
+            <div class="onboard-panel" id="onboard-panel-3">
+                <div class="onboard-body">
+                    <div class="onboard-eyebrow">Choose your path</div>
+                    <h2 class="onboard-title">
+                        Start learning.<br><em>Or keep browsing.</em>
+                    </h2>
+                    <p>Full access unlocks 40+ physics experiments, the complete maths curriculum (Grade 6–University), multilingual CV builder, and career consultation tools.</p>
+
+                    <div class="plan-grid">
+                        <div class="plan-card featured">
+                            <div class="plan-card-tier"></div>
+                            <div class="plan-badge-tag">Most Popular</div>
+                            <div class="plan-level">Grade 10 – 1st Year</div>
+                            <div class="plan-name">Advanced</div>
+                            <div class="plan-price">$49.99 <small>/ mo per student</small></div>
+                            <div class="plan-desc">Calculus-based physics, quantum intro, electrodynamics, and full maths curriculum.</div>
+                            <ul class="plan-features">
+                                <li>40+ interactive experiments</li>
+                                <li>Projectile, waves, circuits, optics</li>
+                                <li>Quantum mechanics introduction</li>
+                                <li>Multilingual CV builder</li>
+                                <li>Career consultation tools</li>
+                            </ul>
+                        </div>
+                        <div class="plan-card">
+                            <div class="plan-card-tier"></div>
+                            <div class="plan-level">Grade 6 – 9</div>
+                            <div class="plan-name">Foundational</div>
+                            <div class="plan-price">$29.99 <small>/ mo per student</small></div>
+                            <div class="plan-desc">Newtonian mechanics, electromagnetism, basic thermodynamics, and algebra.</div>
+                            <ul class="plan-features">
+                                <li>Core physics simulations</li>
+                                <li>Number theory &amp; algebra</li>
+                                <li>Wave &amp; sound experiments</li>
+                                <li>Mobile-first, low-data design</li>
+                                <li>11 SA language support</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <button class="subscribe-btn" onclick="document.getElementById('loginModal').classList.add('active'); closeSimModal();">
+                        <i class="fas fa-graduation-cap"></i> Create Account &amp; Subscribe
+                    </button>
+
+                    <a class="browse-free-link" href="#simulations" onclick="closeSimModal(); setTimeout(()=>{switchTab('physics')},300);">
+                        Continue browsing without an account →
+                    </a>
+
+                    <p style="font-size:0.58rem;color:rgba(255,255,255,0.15);text-align:center;margin-top:8px;margin-bottom:0;">
+                        No commitment · Cancel anytime · Free lesson PDFs always available
+                    </p>
+                </div>
+                <div class="onboard-footer">
+                    <span class="onboard-footer-hint">Free lessons at <strong style="color:rgba(255,255,255,0.3)">lumenos.tech/free</strong></span>
+                    <div class="onboard-nav-btns">
+                        <button class="btn-onboard-back" onclick="onboardGoTo(2, true)">← Back</button>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /.onboard-modal -->
+    </div><!-- /#simWelcomeModal -->
+
     <!-- Nav -->
     <nav id="mainNav" role="navigation" aria-label="Main navigation">
         <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" class="nav-logo">
@@ -871,22 +1681,24 @@
                 <li><a href="#impact" onclick="closeMenu()">Impact</a></li>
                 <li><a href="#contact" onclick="closeMenu()">Contact</a></li>
             </ul>
-            <a href="#signin" class="nav-sign-in" id="authButton">Sign In</a>
-            <div class="profile-icon" id="profileIcon" aria-label="Profile"><i class="fas fa-user"></i></div>
+            <button class="nav-sign-in" id="authButton">Sign In</button>
+            <div class="nav-user-chip" id="userChip" onclick="window.location.href='profile.html'">
+                <div class="nav-user-avatar" id="userAvatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <span class="nav-user-name" id="userName">User</span>
+            </div>
             <button class="menu-toggle" id="menuToggle" onclick="toggleMenu()" aria-expanded="false" aria-label="Menu">
                 <span></span><span></span><span></span>
             </button>
         </div>
     </nav>
 
-    <!-- ════════════════════════════════
-         HERO
-         ════════════════════════════════ -->
+    <!-- HERO -->
     <section class="hero" id="hero" aria-label="Hero">
         <canvas id="wave-canvas" aria-hidden="true"></canvas>
         <div class="hero-vignette" aria-hidden="true"></div>
         <div class="hero-grad-bottom" aria-hidden="true"></div>
-
         <div class="physics-badge" aria-hidden="true">
             <div class="physics-badge-inner">
                 <div class="physics-badge-dot"></div>
@@ -894,57 +1706,42 @@
                 <span class="eq">ψ(x,t) = Σ Aₙ · e^i(kₙx−ωt)</span>
             </div>
         </div>
-
         <div class="hero-content">
-            <p class="hero-tag">
-                <span class="hero-tag-line"></span>
-                Immersive Scientific Technologies
-            </p>
+            <p class="hero-tag"><span class="hero-tag-line"></span>Immersive Scientific Technologies</p>
             <h1>
                 <span class="line-ghost">The textbook is</span><br>
                 <span class="line-bright">the worst way</span><br>
                 <span class="line-accent">to learn physics.</span>
             </h1>
             <p class="hero-value">
-                <strong>LumenOS replaces static pages with living simulations</strong> - the only platform where learners interact with quantum mechanics, wave physics, and calculus the way scientists do. Built for South Africa. Endorsed by the CSIR. Open to the world.
+                <strong>LumenOS replaces static pages with living simulations</strong> — the only platform where learners interact with quantum mechanics, wave physics, and calculus the way scientists do. Built for South Africa. Endorsed by the CSIR. Open to the world.
             </p>
             <div class="hero-actions">
-                <a href="#simulations" class="btn-primary">
-                    Explore Simulations <i class="fas fa-arrow-right"></i>
-                </a>
+                <a href="#simulations" class="btn-primary">Explore Simulations <i class="fas fa-arrow-right"></i></a>
                 <a href="#impact" class="btn-ghost">
                     <i class="fas fa-circle" style="font-size:0.4rem;color:var(--accent2)"></i>
                     Our social mission
                 </a>
             </div>
         </div>
-
         <div class="scroll-hint" aria-hidden="true">
             <div class="scroll-line-v"></div>
             <span>Scroll</span>
         </div>
     </section>
 
-    <!-- ════════════════════════════════
-         THESIS
-         ════════════════════════════════ -->
+    <!-- THESIS -->
     <section class="thesis">
         <div class="thesis-left reveal">
             <div class="thesis-eyebrow">What we build</div>
             <h2>Not content.<br><em>Comprehension.</em></h2>
             <p>Most edtech adds video to a textbook. LumenOS replaces the textbook entirely - with interactive, physics-accurate simulations that respond to learner input in real time.</p>
             <p>When a learner adjusts slit width in a double-slit experiment and watches the interference pattern shift, they don't memorise a formula. They understand a law of nature.</p>
-
             <div class="csir-card reveal">
                 <blockquote>"There is a continuous need to simplify and heighten learning processes to drive education in STEM environments. The Physics Hub tool that LumenOS provides acts on this need."</blockquote>
                 <div class="csir-byline">
-                    <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760308483247x953601694204009300/CSIR%20Logo.png"
-                         alt="CSIR" class="csir-logo-small" loading="lazy">
-                    <!-- ADDED: circular image of Dr Darryl Naidoo -->
-                    <img src="//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1774562617075x553870754757075140/darryl.png.avif"
-                         alt="Dr Darryl Naidoo, Senior Photonics Engineer at CSIR"
-                         class="dr-portrait"
-                         loading="lazy">
+                    <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760308483247x953601694204009300/CSIR%20Logo.png" alt="CSIR" class="csir-logo-small" loading="lazy">
+                    <img src="//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1774562617075x553870754757075140/darryl.png.avif" alt="Dr Darryl Naidoo" class="dr-portrait" loading="lazy">
                     <div class="csir-byline-text">
                         <strong>Dr Darryl Naidoo</strong>
                         Senior Photonics Engineer · CSIR
@@ -952,7 +1749,6 @@
                 </div>
             </div>
         </div>
-
         <div class="thesis-right reveal">
             <div class="thesis-eyebrow">The gap we're closing</div>
             <div class="thesis-stats">
@@ -981,9 +1777,7 @@
         </div>
     </section>
 
-    <!-- ════════════════════════════════
-         SIMULATIONS - The core product
-         ════════════════════════════════ -->
+    <!-- SIMULATIONS -->
     <section class="simulations" id="simulations">
         <div class="sim-header reveal">
             <div class="sim-header-left">
@@ -1004,7 +1798,7 @@
             <button class="sim-tab" role="tab" onclick="switchTab('physics')" id="tab-physics">Physics</button>
         </div>
 
-        <!-- Math -->
+        <!-- Math Tab -->
         <div class="tab-panel active" id="panel-math">
             <div class="paths-grid">
                 <div class="path-card reveal">
@@ -1058,9 +1852,70 @@
             </div>
         </div>
 
-        <!-- Physics -->
+        <!-- Physics Tab -->
         <div class="tab-panel" id="panel-physics">
-            <div class="paths-grid">
+            <div class="sim-live-banner">
+                <div class="sim-live-banner-left">
+                    <div class="sim-live-dot"></div>
+                    <div>
+                        <div class="sim-live-label">Live Simulation · Projectile Motion</div>
+                        <div class="sim-live-sub">Grade 10–12 · Kinematics · Interactive Physics Lab</div>
+                    </div>
+                </div>
+                <span class="sim-live-tag">Try it now — free</span>
+            </div>
+            <div class="projectile-sim-embed" id="projectileSim">
+                <div class="psim-inner">
+                    <div class="psim-canvas-wrap">
+                        <canvas id="psimCanvas" width="950" height="420" style="width:100%;height:auto;max-width:950px;aspect-ratio:950/420;"></canvas>
+                    </div>
+                    <div class="psim-theory" id="psimTheoryBox">
+                        <div class="psim-formula-box">
+                            📐 <strong style="color:rgba(0,212,255,0.9)">Trajectory:</strong>
+                            <span style="color:rgba(255,255,255,0.55)"> y = y₀ + x·tanθ – g·x² / (2v₀²cos²θ)</span>
+                            <div class="psim-dynamic-eq" id="psimDynamicEq"></div>
+                        </div>
+                        <div class="psim-live-vector" id="psimVectorLive">
+                            ⚡ vₓ = <span id="psimVxLive">—</span> m/s &nbsp;|&nbsp; vᵧ = <span id="psimVyLive">—</span> m/s
+                        </div>
+                        <div class="psim-theory-highlight">
+                            🧠 <strong>T</strong> = (v₀sinθ + √(v₀²sin²θ + 2gy₀)) / g &nbsp;|&nbsp; <strong>R</strong> = v₀cosθ · T
+                        </div>
+                    </div>
+                    <div class="psim-controls">
+                        <div class="psim-param-grid">
+                            <div class="psim-param-card">
+                                <label>🚀 Speed <span id="psimSpeedVal">20.0</span> m/s</label>
+                                <input type="range" id="psimSpeedSlider" min="0" max="48" step="0.5" value="20">
+                            </div>
+                            <div class="psim-param-card">
+                                <label>📐 Angle <span id="psimAngleVal">45.0</span> °</label>
+                                <input type="range" id="psimAngleSlider" min="0" max="90" step="1" value="45">
+                            </div>
+                            <div class="psim-param-card">
+                                <label>🏔️ Height <span id="psimHeightVal">0.0</span> m</label>
+                                <input type="range" id="psimHeightSlider" min="0" max="28" step="0.5" value="0">
+                            </div>
+                        </div>
+                        <div class="psim-stats">
+                            <div class="psim-stat-item">⏱ Flight: <strong id="psimFlightTime">0.00</strong> s</div>
+                            <div class="psim-stat-item">📏 Range: <strong id="psimRange">0.00</strong> m</div>
+                            <div class="psim-stat-item">⛰ Max H: <strong id="psimMaxHeight">0.00</strong> m</div>
+                            <div class="psim-stat-item">🎯 Peak @: <strong id="psimPeakTime">0.00</strong> s</div>
+                        </div>
+                        <div class="psim-buttons">
+                            <button id="psimLaunchBtn" class="psim-btn psim-btn-launch">▶ LAUNCH</button>
+                            <button id="psimStopBtn" class="psim-btn psim-btn-reset">⏹ RESET</button>
+                        </div>
+                        <p class="psim-footnote">g = 9.8 m/s² · No air resistance · Equations update live with each slider change</p>
+                    </div>
+                </div>
+                <div class="sim-course-bridge">
+                    <p><strong>Enjoyed the simulation?</strong> The full Physics curriculum includes 40+ interactive experiments — waves, circuits, optics, quantum mechanics and more.</p>
+                    <a href="#" class="sim-course-cta">View Physics Courses <i class="fas fa-arrow-right"></i></a>
+                </div>
+            </div>
+            <div class="paths-grid" style="margin-top:1px;">
                 <div class="path-card reveal">
                     <div class="path-card-tier"></div>
                     <p class="path-level">Grade 6 – 9</p>
@@ -1121,28 +1976,19 @@
             <p>Grade 8–10 content. Instantly accessible. No signup needed.</p>
         </div>
         <div class="free-lesson-right">
-            <a class="lesson-btn lesson-btn-maths"
-               href="https://www.pdffiller.com/s/35E1_iyf"
-               target="_blank" rel="noopener noreferrer">
-                <i class="fas fa-square-root-alt"></i>
-                Maths Lesson 1 - Grade 8–10
+            <a class="lesson-btn lesson-btn-maths" href="https://www.pdffiller.com/s/35E1_iyf" target="_blank" rel="noopener noreferrer">
+                <i class="fas fa-square-root-alt"></i> Maths Lesson 1 - Grade 8–10
             </a>
-            <a class="lesson-btn lesson-btn-physics"
-               href="https://www.pdffiller.com/s/rKw-ZPNzhD"
-               target="_blank" rel="noopener noreferrer">
-                <i class="fas fa-atom"></i>
-                Physics Lesson 1 - Grade 8–10
+            <a class="lesson-btn lesson-btn-physics" href="https://www.pdffiller.com/s/rKw-ZPNzhD" target="_blank" rel="noopener noreferrer">
+                <i class="fas fa-atom"></i> Physics Lesson 1 - Grade 8–10
             </a>
         </div>
     </section>
 
-    <!-- ════════════════════════════════
-         FOUNDER
-         ════════════════════════════════ -->
+    <!-- FOUNDER -->
     <section class="founder" id="about">
         <div class="founder-img reveal">
-            <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1773078032041x448415710830725800/Stem.pdf"
-                 alt="Kimber Khoza, Founder of LumenOS" loading="lazy">
+            <img src="//b9fe070413d9eb020045866da2feb86e.cdn.bubble.io/f1773078032041x448415710830725800/Stem.pdf" alt="Kimber Khoza, Founder of LumenOS" loading="lazy">
         </div>
         <div class="founder-text reveal">
             <div class="eyebrow">Founder's Story</div>
@@ -1156,18 +2002,13 @@
         </div>
     </section>
 
-    <!-- ════════════════════════════════
-         ECONOMIC IMPACT - Social mission
-         ════════════════════════════════ -->
+    <!-- IMPACT -->
     <section class="impact" id="impact">
         <div class="impact-header reveal">
-            <div class="impact-eyebrow">
-                <span>The larger mission</span>
-            </div>
+            <div class="impact-eyebrow"><span>The larger mission</span></div>
             <h2>Education is the engine.<br><em>Economy is the destination.</em></h2>
             <p>LumenOS isn't just an edtech product. It's the first component of a social development ecosystem - built to transform South Africa's talent pipeline from the classroom to the boardroom, and ultimately into a generation of engineers, entrepreneurs, and wealth-builders who own their economic future.</p>
         </div>
-
         <div class="impact-pillars">
             <div class="impact-pillar reveal">
                 <span class="pillar-num">01 - Education</span>
@@ -1188,8 +2029,6 @@
                 <p>South Africa needs 800,000 engineers by 2030. LumenOS builds the talent pipeline - developing the next generation from the ground up, not filtering them out.</p>
             </div>
         </div>
-
-        <!-- CV Builder -->
         <div class="cv-panel reveal" id="cv-builder">
             <div class="cv-panel-header">
                 <div>
@@ -1198,21 +2037,14 @@
                 </div>
                 <p class="cv-panel-sub">The digital divide isn't only about connectivity - it's about the invisible walls of language, formatting, and access that keep capable people locked out of the formal economy.</p>
             </div>
-
             <div class="languages">
-                <span class="lang active">isiZulu</span>
-                <span class="lang active">isiXhosa</span>
-                <span class="lang active">Sesotho</span>
-                <span class="lang active">Setswana</span>
-                <span class="lang">Sepedi</span>
-                <span class="lang">Xitsonga</span>
-                <span class="lang">Tshivenda</span>
-                <span class="lang">siSwati</span>
-                <span class="lang">isiNdebele</span>
-                <span class="lang">Afrikaans</span>
+                <span class="lang active">isiZulu</span><span class="lang active">isiXhosa</span>
+                <span class="lang active">Sesotho</span><span class="lang active">Setswana</span>
+                <span class="lang">Sepedi</span><span class="lang">Xitsonga</span>
+                <span class="lang">Tshivenda</span><span class="lang">siSwati</span>
+                <span class="lang">isiNdebele</span><span class="lang">Afrikaans</span>
                 <span class="lang">English</span>
             </div>
-
             <div class="cv-features">
                 <div class="cv-feature">
                     <div class="cv-feature-icon"><i class="fas fa-language"></i></div>
@@ -1235,26 +2067,19 @@
                     <p>Templates aligned to local hiring standards across engineering, tech, healthcare, finance, and public sector.</p>
                 </div>
             </div>
-
             <div style="padding-top:2rem;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:3rem;flex-wrap:wrap;">
                 <p style="font-family:var(--serif);font-size:1.5rem;font-weight:400;color:var(--white);line-height:1.4;flex:1;min-width:200px;">Build your CV in your language.<br><em style="color:var(--accent);">Get hired on your terms.</em></p>
-                <a href="cvbuilder.html" class="btn-primary-lg">
-                    Build Your CV Now <i class="fas fa-arrow-right"></i>
-                </a>
+                <a href="cvbuilder.html" class="btn-primary-lg">Build Your CV Now <i class="fas fa-arrow-right"></i></a>
             </div>
         </div>
-
-        <!-- Opportunities -->
         <div class="opp-grid reveal">
             <div class="opp-card">
                 <div class="opp-icon"><i class="fas fa-chart-line"></i></div>
                 <h3>Upskilling &amp; Portfolio Development</h3>
                 <p>Project-based learning that builds demonstrable, portfolio-ready skills employers actively seek.</p>
                 <ul class="opp-list">
-                    <li>Industry-verified skills badges</li>
-                    <li>GitHub &amp; portfolio integration</li>
-                    <li>Mentor feedback loops</li>
-                    <li>Progress visible to partner employers</li>
+                    <li>Industry-verified skills badges</li><li>GitHub &amp; portfolio integration</li>
+                    <li>Mentor feedback loops</li><li>Progress visible to partner employers</li>
                 </ul>
             </div>
             <div class="opp-card">
@@ -1262,10 +2087,8 @@
                 <h3>Career Consultation</h3>
                 <p>AI-guided consultation helping learners navigate SA's job market and position themselves strategically.</p>
                 <ul class="opp-list">
-                    <li>Personalised career trajectory mapping</li>
-                    <li>Interview preparation</li>
-                    <li>Salary benchmarking by region</li>
-                    <li>STEM-to-career pathway guidance</li>
+                    <li>Personalised career trajectory mapping</li><li>Interview preparation</li>
+                    <li>Salary benchmarking by region</li><li>STEM-to-career pathway guidance</li>
                 </ul>
             </div>
             <div class="opp-card">
@@ -1273,16 +2096,14 @@
                 <h3>Financial Literacy</h3>
                 <p>Structured curriculum for first-generation earners - money management knowledge formal education consistently omits.</p>
                 <ul class="opp-list">
-                    <li>Budgeting, saving and debt management</li>
-                    <li>Understanding SARS, PAYE and UIF</li>
-                    <li>Introduction to the JSE</li>
-                    <li>Building generational wealth</li>
+                    <li>Budgeting, saving and debt management</li><li>Understanding SARS, PAYE and UIF</li>
+                    <li>Introduction to the JSE</li><li>Building generational wealth</li>
                 </ul>
             </div>
         </div>
     </section>
-    
-        <!-- Data -->
+
+    <!-- DATA -->
     <section class="data-section">
         <div class="data-header reveal">
             <span style="font-family:var(--mono);font-size:0.6rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:0.8rem;">Data</span>
@@ -1316,7 +2137,7 @@
         </div>
     </section>
 
-    <!-- Consult CTA -->
+    <!-- CONSULT CTA -->
     <section class="consult-cta">
         <div>
             <span style="font-family:var(--mono);font-size:0.6rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--accent2);display:block;margin-bottom:1rem;">Free Consultation</span>
@@ -1324,16 +2145,12 @@
             <p>Our consultants work with South African entrepreneurs to refine ideas, navigate funding landscapes, and build plans that financial institutions back. Free 30-minute session.</p>
         </div>
         <div class="consult-cta-actions">
-            <a href="consultant.html" class="btn-primary-lg">
-                <i class="fas fa-calendar-alt"></i> Speak to a Consultant
-            </a>
+            <a href="consultant.html" class="btn-primary-lg"><i class="fas fa-calendar-alt"></i> Speak to a Consultant</a>
             <a href="#impact" class="btn-ghost-light">Explore tools first →</a>
         </div>
     </section>
 
-
-
-    <!-- Footer -->
+    <!-- FOOTER -->
     <footer id="contact">
         <div class="footer-left">
             <img src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" loading="lazy">
@@ -1346,7 +2163,9 @@
     </footer>
 
     <script>
-    // ── FIREBASE ──
+    // ═══════════════════════════════════════════
+    // FIREBASE
+    // ═══════════════════════════════════════════
     const firebaseConfig = {
         apiKey: "your-api-key-here",
         authDomain: "your-project.firebaseapp.com",
@@ -1357,30 +2176,69 @@
     };
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-    const loginModal = document.getElementById('loginModal');
-    const closeModalBtn = document.getElementById('closeModal');
-    const authButton = document.getElementById('authButton');
-    const profileIcon = document.getElementById('profileIcon');
 
+    const loginModal    = document.getElementById('loginModal');
+    const closeModalBtn = document.getElementById('closeModal');
+    const authButton    = document.getElementById('authButton');
+    const userChip      = document.getElementById('userChip');
+    const userAvatar    = document.getElementById('userAvatar');
+    const userNameEl    = document.getElementById('userName');
+    const simWelcomeModal = document.getElementById('simWelcomeModal');
+
+    // ── LOADER ──
     window.addEventListener('load', () => {
         setTimeout(() => document.getElementById('loader').classList.add('gone'), 900);
     });
 
+    // ── AUTH STATE ──
+    let authResolved = false;
+
     auth.onAuthStateChanged(user => {
+        authResolved = true;
         if (user) {
-            authButton.style.display = 'none';
-            profileIcon.style.display = 'flex';
-            profileIcon.onclick = () => window.location.href = 'profile.html';
+            authButton.classList.remove('visible');
+            userChip.classList.add('visible');
+            const displayName = user.displayName || user.email?.split('@')[0] || 'User';
+            userNameEl.textContent = displayName;
+            if (user.photoURL) {
+                userAvatar.innerHTML = `<img src="${user.photoURL}" alt="${displayName}" onerror="this.parentElement.innerHTML='<i class=\\"fas fa-user\\"></i>'">`;
+            } else {
+                const initials = displayName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+                userAvatar.innerHTML = `<span>${initials}</span>`;
+            }
+            // Logged in: don't show onboarding modal
+            simWelcomeModal.style.display = 'none';
         } else {
-            authButton.style.display = '';
-            profileIcon.style.display = 'none';
+            authButton.classList.add('visible');
+            userChip.classList.remove('visible');
+            // Show stepped modal after loader
+            setTimeout(() => {
+                simWelcomeModal.classList.add('visible');
+                // Sim canvas is on step 2 — init lazily when user gets there
+            }, 1100);
         }
     });
 
-    authButton.addEventListener('click', e => { e.preventDefault(); loginModal.classList.add('active'); });
+    // Fallback if firebase is slow
+    setTimeout(() => {
+        if (!authResolved) {
+            simWelcomeModal.classList.add('visible');
+        }
+    }, 2500);
+
+    // Auth button
+    authButton.addEventListener('click', e => {
+        e.preventDefault();
+        loginModal.classList.add('active');
+    });
     closeModalBtn.addEventListener('click', () => loginModal.classList.remove('active'));
     loginModal.addEventListener('click', e => { if (e.target === loginModal) loginModal.classList.remove('active'); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') loginModal.classList.remove('active'); });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            loginModal.classList.remove('active');
+            closeSimModal();
+        }
+    });
 
     function signInWithGoogle() {
         auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
@@ -1395,10 +2253,344 @@
             .catch(e => alert(e.message));
     }
 
-    // ── NAV ──
-    const mainNav = document.getElementById('mainNav');
+    // ═══════════════════════════════════════════════════════════════
+    // STEPPED ONBOARDING MODAL LOGIC
+    // ═══════════════════════════════════════════════════════════════
+    let onboardCurrentStep = 1;
+    let modalSimInitialised = false;
+
+    function onboardGoTo(n, isBack) {
+        const prevStep = onboardCurrentStep;
+        onboardCurrentStep = n;
+
+        // Stop any running sim animation
+        if (window._modalSimStop) window._modalSimStop();
+
+        // Panels
+        document.querySelectorAll('.onboard-panel').forEach((p, i) => {
+            p.classList.remove('active');
+        });
+        const nextPanel = document.getElementById('onboard-panel-' + n);
+        nextPanel.classList.add('active');
+        // Apply direction animation
+        nextPanel.classList.remove('panel-enter', 'panel-enter-back');
+        void nextPanel.offsetWidth; // reflow
+        nextPanel.classList.add(isBack ? 'panel-enter-back' : 'panel-enter');
+
+        // Scroll modal to top
+        const modal = document.getElementById('onboardModal');
+        if (modal) modal.scrollTop = 0;
+
+        // Step indicators
+        for (let s = 1; s <= 3; s++) {
+            const dot  = document.getElementById('ostep-dot-' + s);
+            const item = document.getElementById('ostep-item-' + s);
+            dot.className = 'ostep-dot';
+            item.className = 'ostep-item';
+            if (s < n) {
+                dot.classList.add('done');
+                dot.textContent = '✓';
+                item.classList.add('done');
+            } else if (s === n) {
+                dot.classList.add('active');
+                dot.textContent = s;
+                item.classList.add('active');
+            } else {
+                dot.textContent = s;
+            }
+        }
+        // Connectors
+        for (let c = 1; c <= 2; c++) {
+            const conn = document.getElementById('ostep-conn-' + c);
+            conn.className = 'ostep-connector' + (c < n ? ' done' : '');
+        }
+
+        // Lazy-init sim when step 2 is shown
+        if (n === 2) {
+            if (!modalSimInitialised) {
+                setTimeout(() => { initModalSim(); modalSimInitialised = true; }, 80);
+            } else {
+                setTimeout(() => { if (window._modalSimRefresh) window._modalSimRefresh(); }, 80);
+            }
+        }
+    }
+
+    function closeSimModal() {
+        simWelcomeModal.classList.remove('visible');
+        if (window._modalSimStop) window._modalSimStop();
+    }
+
+    // Overlay click to close
+    simWelcomeModal.addEventListener('click', e => {
+        if (e.target === simWelcomeModal) closeSimModal();
+    });
+
+    // ═══════════════════════════════════════════════════════════════
+    // MODAL SIMULATION ENGINE
+    // ═══════════════════════════════════════════════════════════════
+    function initModalSim() {
+        const g = 9.8;
+        const canvas = document.getElementById('psimCanvasModal');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        const speedSlider  = document.getElementById('psimModalSpeed');
+        const angleSlider  = document.getElementById('psimModalAngle');
+        const heightSlider = document.getElementById('psimModalHeight');
+        const speedValEl   = document.getElementById('psimModalSpeedVal');
+        const angleValEl   = document.getElementById('psimModalAngleVal');
+        const heightValEl  = document.getElementById('psimModalHeightVal');
+        const flightEl     = document.getElementById('psimModalFlight');
+        const rangeEl      = document.getElementById('psimModalRange');
+        const maxHEl       = document.getElementById('psimModalMaxH');
+        const peakEl       = document.getElementById('psimModalPeak');
+        const vxEl         = document.getElementById('psimModalVx');
+        const vyEl         = document.getElementById('psimModalVy');
+        const launchBtn    = document.getElementById('psimModalLaunch');
+        const resetBtn     = document.getElementById('psimModalReset');
+
+        // Size canvas to its rendered width
+        function resizeCanvas() {
+            const w = canvas.clientWidth || 600;
+            const h = Math.round(w * (340 / 950));
+            canvas.width = w;
+            canvas.height = h;
+        }
+        resizeCanvas();
+
+        let CW = canvas.width, CH = canvas.height;
+        let animating = false, animFrame = null, simTime = 0, flightTime = 0;
+        let speed = 20, angleDeg = 45, height = 0;
+        let v0x = 0, v0y = 0, range = 0, maxH = 0;
+        let worldXmax = 55, worldYmax = 32;
+        let trajPts = [];
+        let running = true;
+
+        window._modalSimStop = () => {
+            running = false;
+            if (animFrame) cancelAnimationFrame(animFrame);
+            animating = false;
+            if (launchBtn) launchBtn.disabled = false;
+        };
+        window._modalSimRefresh = () => {
+            resizeCanvas(); CW = canvas.width; CH = canvas.height;
+            refresh();
+        };
+
+        function compute() {
+            const rad = angleDeg * Math.PI / 180;
+            v0x = speed * Math.cos(rad);
+            v0y = speed * Math.sin(rad);
+            const disc = v0y * v0y + 2 * g * height;
+            flightTime = disc < 0 ? 0 : (v0y + Math.sqrt(disc)) / g;
+            if (flightTime < 0) flightTime = 0;
+            range = v0x * flightTime;
+            maxH  = height + (v0y * v0y) / (2 * g);
+            if (maxH < height) maxH = height;
+            const timePeak = Math.max(0, v0y / g);
+            if (flightEl)  flightEl.textContent  = flightTime.toFixed(2);
+            if (rangeEl)   rangeEl.textContent   = range.toFixed(2);
+            if (maxHEl)    maxHEl.textContent    = maxH.toFixed(2);
+            if (peakEl)    peakEl.textContent    = timePeak.toFixed(2);
+            if (vxEl)      vxEl.textContent      = v0x.toFixed(2);
+            if (vyEl)      vyEl.textContent      = v0y.toFixed(2);
+        }
+
+        function genTraj(n) {
+            const pts = [];
+            if (flightTime <= 0.001) { pts.push({ x: 0, y: height }); return pts; }
+            const step = flightTime / n;
+            for (let i = 0; i <= n; i++) {
+                const t = i * step;
+                let y = height + v0y * t - 0.5 * g * t * t;
+                if (y < -0.2) break;
+                if (y < 0) y = 0;
+                pts.push({ x: v0x * t, y });
+            }
+            if (flightTime > 0) pts.push({ x: v0x * flightTime, y: 0 });
+            return pts;
+        }
+
+        function updateWorld() {
+            worldXmax = Math.max(range, 4) + 2.5;
+            worldYmax = Math.max(maxH, height, 1.5) + 2.2;
+            if (worldXmax < 8)  worldXmax = 8;
+            if (worldYmax < 4)  worldYmax = 4;
+        }
+
+        function w2c(wx, wy) {
+            return { x: (wx / worldXmax) * CW, y: CH - (wy / worldYmax) * CH };
+        }
+
+        function niceStep(r, n) {
+            let s = r / n;
+            const m = Math.pow(10, Math.floor(Math.log10(s)));
+            const res = s / m;
+            if (res < 1.5) return m;
+            if (res < 3)   return 2 * m;
+            if (res < 7)   return 5 * m;
+            return 10 * m;
+        }
+
+        function drawScene(projPos) {
+            CW = canvas.width; CH = canvas.height;
+            ctx.clearRect(0, 0, CW, CH);
+            ctx.fillStyle = '#040a12';
+            ctx.fillRect(0, 0, CW, CH);
+
+            // Grid
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0,212,255,0.07)';
+            ctx.lineWidth   = 0.5;
+            ctx.font        = `${Math.max(9, CW * 0.012)}px DM Mono, monospace`;
+            ctx.fillStyle   = 'rgba(0,212,255,0.3)';
+            const xStep = niceStep(worldXmax, 6);
+            for (let x = 0; x <= worldXmax + 0.1; x += xStep) {
+                const { x: cx } = w2c(x, 0);
+                ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, CH); ctx.stroke();
+                if (x > 0) ctx.fillText(x.toFixed(0) + 'm', cx + 2, CH - 4);
+            }
+            const yStep = niceStep(worldYmax, 5);
+            for (let y = 0; y <= worldYmax + 0.1; y += yStep) {
+                const { y: cy } = w2c(0, y);
+                ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(CW, cy); ctx.stroke();
+                if (y > 0) ctx.fillText(y.toFixed(0) + 'm', 3, cy - 3);
+            }
+            ctx.restore();
+
+            // Axes
+            ctx.save();
+            ctx.lineWidth     = 1.5;
+            ctx.strokeStyle   = 'rgba(0,212,255,0.3)';
+            const gY = w2c(0, 0).y;
+            ctx.beginPath(); ctx.moveTo(0, gY);  ctx.lineTo(CW, gY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 0);    ctx.lineTo(0, CH);  ctx.stroke();
+            ctx.restore();
+
+            // Trajectory
+            if (trajPts.length > 1) {
+                ctx.save();
+                ctx.beginPath(); ctx.lineWidth = 2.5;
+                ctx.strokeStyle = 'rgba(0,212,255,0.5)';
+                ctx.setLineDash([6, 5]);
+                let first = true;
+                for (const p of trajPts) {
+                    const { x, y } = w2c(p.x, p.y);
+                    first ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                    first = false;
+                }
+                ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+                // Start dot
+                const { x: sx, y: sy } = w2c(trajPts[0].x, trajPts[0].y);
+                ctx.beginPath(); ctx.arc(sx, sy, 6, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(123,255,176,0.9)'; ctx.fill();
+                // End dot
+                const ep = trajPts[trajPts.length - 1];
+                const { x: ex, y: ey } = w2c(ep.x, ep.y);
+                ctx.beginPath(); ctx.arc(ex, ey, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(0,212,255,0.7)'; ctx.fill();
+            }
+
+            // Projectile ball
+            if (projPos) {
+                const { x: px, y: py } = w2c(projPos.x, projPos.y);
+                const grd = ctx.createRadialGradient(px, py, 0, px, py, 20);
+                grd.addColorStop(0, 'rgba(0,212,255,0.35)');
+                grd.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grd;
+                ctx.beginPath(); ctx.arc(px, py, 20, 0, 2 * Math.PI); ctx.fill();
+                ctx.beginPath(); ctx.arc(px, py, 9, 0, 2 * Math.PI);
+                ctx.fillStyle  = 'rgba(0,212,255,0.95)';
+                ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(0,212,255,0.8)';
+                ctx.fill(); ctx.shadowBlur = 0;
+                ctx.beginPath(); ctx.arc(px, py, 3.5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#fff'; ctx.fill();
+            }
+
+            // Axis labels
+            ctx.save();
+            ctx.font = `${Math.max(9, CW * 0.011)}px DM Mono, monospace`;
+            ctx.fillStyle = 'rgba(0,212,255,0.35)';
+            ctx.fillText('x (m)', CW - 40, w2c(0,0).y - 6);
+            ctx.fillText('y (m)', 5, 15);
+            ctx.restore();
+        }
+
+        function refresh() {
+            compute(); updateWorld(); trajPts = genTraj(200); drawScene(null);
+        }
+
+        function startAnim() {
+            if (animating) stopAnim();
+            compute();
+            if (flightTime <= 0.02) { refresh(); return; }
+            updateWorld(); trajPts = genTraj(200);
+            animating = true; running = true; simTime = 0; let last = null;
+            if (launchBtn) launchBtn.disabled = true;
+            if (speedSlider)  speedSlider.disabled  = true;
+            if (angleSlider)  angleSlider.disabled  = true;
+            if (heightSlider) heightSlider.disabled = true;
+
+            function tick(now) {
+                if (!animating || !running) return;
+                if (!last) { last = now; animFrame = requestAnimationFrame(tick); return; }
+                simTime += Math.min(35, now - last) / 1000;
+                last = now;
+                if (simTime >= flightTime) {
+                    drawScene({ x: v0x * flightTime, y: 0 });
+                    stopAnim(); return;
+                }
+                let y = height + v0y * simTime - 0.5 * g * simTime * simTime;
+                if (y < 0) y = 0;
+                drawScene({ x: v0x * simTime, y });
+                if (vxEl) vxEl.textContent = v0x.toFixed(2);
+                if (vyEl) vyEl.textContent = (v0y - g * simTime).toFixed(2);
+                animFrame = requestAnimationFrame(tick);
+            }
+            animFrame = requestAnimationFrame(tick);
+        }
+
+        function stopAnim() {
+            if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+            animating = false;
+            if (launchBtn)    launchBtn.disabled    = false;
+            if (speedSlider)  speedSlider.disabled  = false;
+            if (angleSlider)  angleSlider.disabled  = false;
+            if (heightSlider) heightSlider.disabled = false;
+            refresh();
+        }
+
+        function onSlider() {
+            if (animating) return;
+            speed    = parseFloat(speedSlider.value);
+            angleDeg = parseFloat(angleSlider.value);
+            height   = parseFloat(heightSlider.value);
+            if (speedValEl)  speedValEl.textContent  = speed.toFixed(1);
+            if (angleValEl)  angleValEl.textContent  = angleDeg.toFixed(1);
+            if (heightValEl) heightValEl.textContent = height.toFixed(1);
+            refresh();
+        }
+
+        speedSlider.addEventListener('input', onSlider);
+        angleSlider.addEventListener('input', onSlider);
+        heightSlider.addEventListener('input', onSlider);
+        launchBtn.addEventListener('click', () => { if (animating) stopAnim(); else { onSlider(); startAnim(); } });
+        resetBtn.addEventListener('click',  () => { if (animating) stopAnim(); else refresh(); });
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            resizeCanvas(); CW = canvas.width; CH = canvas.height; refresh();
+        });
+
+        onSlider();
+    }
+
+    // ═══════════════════════════════════════════
+    // NAV
+    // ═══════════════════════════════════════════
+    const mainNav    = document.getElementById('mainNav');
     const menuToggle = document.getElementById('menuToggle');
-    const navLinks = document.getElementById('navLinks');
+    const navLinks   = document.getElementById('navLinks');
 
     window.addEventListener('scroll', () => {
         mainNav.classList.toggle('scrolled', window.scrollY > 60);
@@ -1418,17 +2610,21 @@
     }
     window.addEventListener('resize', () => { if (window.innerWidth > 768) closeMenu(); });
 
-    // ── TABS ──
+    // ═══════════════════════════════════════════
+    // TABS
+    // ═══════════════════════════════════════════
+    let psimInitialised = false;
+
     function switchTab(subject) {
-        document.querySelectorAll('.sim-tab').forEach(b => {
-            b.classList.toggle('active', b.id === 'tab-' + subject);
-        });
-        document.querySelectorAll('.tab-panel').forEach(p => {
-            p.classList.toggle('active', p.id === 'panel-' + subject);
-        });
+        document.querySelectorAll('.sim-tab').forEach(b => b.classList.toggle('active', b.id === 'tab-' + subject));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + subject));
+        if (subject === 'physics') {
+            if (!psimInitialised) { initProjectileSim(); psimInitialised = true; }
+            else if (window.psimRefreshPreview) window.psimRefreshPreview();
+        }
     }
 
-    // ── SMOOTH SCROLL ──
+    // Smooth scroll
     document.querySelectorAll('a[href^="#"]').forEach(a => {
         a.addEventListener('click', e => {
             const t = document.querySelector(a.getAttribute('href'));
@@ -1439,15 +2635,169 @@
         });
     });
 
-    // ── REVEAL ──
+    // Reveal
     const ro = new IntersectionObserver(es => es.forEach(e => {
         if (e.isIntersecting) { e.target.classList.add('visible'); ro.unobserve(e.target); }
     }), { threshold: 0.06, rootMargin: '0px 0px -40px 0px' });
     document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
 
-    // ════════════════════════════════
-    // QUANTUM DOUBLE-SLIT SIMULATION
-    // ════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    // INLINE PHYSICS TAB SIMULATION
+    // ═══════════════════════════════════════════════════════════════
+    function initProjectileSim() {
+        const g = 9.8;
+        const canvas = document.getElementById('psimCanvas');
+        const ctx = canvas.getContext('2d');
+        const speedSlider   = document.getElementById('psimSpeedSlider');
+        const angleSlider   = document.getElementById('psimAngleSlider');
+        const heightSlider  = document.getElementById('psimHeightSlider');
+        const speedValEl    = document.getElementById('psimSpeedVal');
+        const angleValEl    = document.getElementById('psimAngleVal');
+        const heightValEl   = document.getElementById('psimHeightVal');
+        const flightTimeEl  = document.getElementById('psimFlightTime');
+        const rangeEl       = document.getElementById('psimRange');
+        const maxHeightEl   = document.getElementById('psimMaxHeight');
+        const peakTimeEl    = document.getElementById('psimPeakTime');
+        const vxLiveEl      = document.getElementById('psimVxLive');
+        const vyLiveEl      = document.getElementById('psimVyLive');
+        const launchBtn     = document.getElementById('psimLaunchBtn');
+        const stopBtn       = document.getElementById('psimStopBtn');
+        const dynEqEl       = document.getElementById('psimDynamicEq');
+        const CW = 950, CH = 420;
+        canvas.width = CW; canvas.height = CH;
+        let animating = false, animFrame = null, simTime = 0, flightTime = 0;
+        let speed = 20, angleDeg = 45, height = 0;
+        let v0x = 0, v0y = 0, range = 0, maxH = 0, timePeak = 0;
+        let worldXmax = 55, worldYmax = 32;
+        let trajPts = [];
+        function compute() {
+            const rad = angleDeg * Math.PI / 180;
+            v0x = speed * Math.cos(rad); v0y = speed * Math.sin(rad);
+            const disc = v0y * v0y + 2 * g * height;
+            flightTime = disc < 0 ? 0 : (v0y + Math.sqrt(disc)) / g;
+            if (flightTime < 0) flightTime = 0;
+            range = v0x * flightTime;
+            maxH  = height + (v0y * v0y) / (2 * g);
+            if (maxH < height) maxH = height;
+            timePeak = Math.max(0, v0y / g);
+            flightTimeEl.textContent = flightTime.toFixed(2);
+            rangeEl.textContent      = range.toFixed(2);
+            maxHeightEl.textContent  = maxH.toFixed(2);
+            peakTimeEl.textContent   = timePeak.toFixed(2);
+            vxLiveEl.textContent     = v0x.toFixed(2);
+            vyLiveEl.textContent     = v0y.toFixed(2);
+        }
+        function genTraj(n) {
+            const pts = [];
+            if (flightTime <= 0.001) { pts.push({ x: 0, y: height }); return pts; }
+            const step = flightTime / n;
+            for (let i = 0; i <= n; i++) {
+                const t = i * step; const x = v0x * t;
+                let y = height + v0y * t - 0.5 * g * t * t;
+                if (y < -0.2) break; if (y < 0) y = 0; pts.push({ x, y });
+            }
+            if (flightTime > 0) pts.push({ x: v0x * flightTime, y: 0 });
+            return pts;
+        }
+        function updateWorld() {
+            worldXmax = Math.max(range, 5) + 2.5; worldYmax = Math.max(maxH, height, 1.5) + 2.2;
+            if (worldXmax < 1) worldXmax = 15; if (worldYmax < 2) worldYmax = 8;
+        }
+        function w2c(wx, wy) { return { x: (wx / worldXmax) * CW, y: CH - (wy / worldYmax) * CH }; }
+        function niceStep(r, n) {
+            let s = r / n; const m = Math.pow(10, Math.floor(Math.log10(s))); const res = s / m;
+            if (res < 1.5) return m; if (res < 3) return 2 * m; if (res < 7) return 5 * m; return 10 * m;
+        }
+        function drawScene(projPos) {
+            ctx.clearRect(0, 0, CW, CH);
+            ctx.fillStyle = '#050c15'; ctx.fillRect(0, 0, CW, CH);
+            ctx.save(); ctx.strokeStyle = 'rgba(0,212,255,0.07)'; ctx.lineWidth = 0.5;
+            ctx.font = '10px DM Mono, monospace'; ctx.fillStyle = 'rgba(0,212,255,0.35)';
+            const xStep = niceStep(worldXmax, 6);
+            for (let x = 0; x <= worldXmax + 0.1; x += xStep) {
+                const { x: cx } = w2c(x, 0); ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, CH); ctx.stroke();
+                if (x > 0) ctx.fillText(x.toFixed(0) + 'm', cx + 3, CH - 6);
+            }
+            const yStep = niceStep(worldYmax, 5);
+            for (let y = 0; y <= worldYmax + 0.1; y += yStep) {
+                const { y: cy } = w2c(0, y); ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(CW, cy); ctx.stroke();
+                if (y > 0) ctx.fillText(y.toFixed(0) + 'm', 4, cy - 4);
+            }
+            ctx.restore();
+            ctx.save(); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(0,212,255,0.3)';
+            const gY = w2c(0, 0).y;
+            ctx.beginPath(); ctx.moveTo(0, gY); ctx.lineTo(CW, gY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, CH); ctx.stroke(); ctx.restore();
+            if (trajPts.length > 1) {
+                ctx.save(); ctx.beginPath(); ctx.lineWidth = 2.5;
+                ctx.strokeStyle = 'rgba(0,212,255,0.55)'; ctx.setLineDash([6, 5]);
+                let first = true;
+                for (const p of trajPts) { const { x, y } = w2c(p.x, p.y); first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false; }
+                ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+                const sp = trajPts[0]; const { x: sx, y: sy } = w2c(sp.x, sp.y);
+                ctx.beginPath(); ctx.arc(sx, sy, 6, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(123,255,176,0.9)'; ctx.fill();
+                const ep = trajPts[trajPts.length - 1]; const { x: ex, y: ey } = w2c(ep.x, ep.y);
+                ctx.beginPath(); ctx.arc(ex, ey, 5, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(0,212,255,0.7)'; ctx.fill();
+            }
+            if (projPos) {
+                const { x: px, y: py } = w2c(projPos.x, projPos.y);
+                const grd = ctx.createRadialGradient(px, py, 0, px, py, 22);
+                grd.addColorStop(0, 'rgba(0,212,255,0.35)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(px, py, 22, 0, 2 * Math.PI); ctx.fill();
+                ctx.beginPath(); ctx.arc(px, py, 9, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(0,212,255,0.95)'; ctx.shadowBlur = 10; ctx.shadowColor = 'rgba(0,212,255,0.8)';
+                ctx.fill(); ctx.shadowBlur = 0;
+                ctx.beginPath(); ctx.arc(px, py, 3.5, 0, 2 * Math.PI); ctx.fillStyle = '#ffffff'; ctx.fill();
+            }
+            ctx.save(); ctx.font = '11px DM Mono, monospace'; ctx.fillStyle = 'rgba(0,212,255,0.4)';
+            ctx.fillText('x (m)', CW - 42, w2c(0,0).y - 8); ctx.fillText('y (m)', 6, 18); ctx.restore();
+        }
+        function updateDynEq() {
+            const rad = angleDeg * Math.PI / 180; const cosTh = Math.cos(rad); const tanTh = Math.tan(rad);
+            if (Math.abs(cosTh) < 0.001) { if (dynEqEl) dynEqEl.textContent = ''; return; }
+            const coeff = g / (2 * speed * speed * cosTh * cosTh);
+            if (dynEqEl) dynEqEl.innerHTML = `📈 current: y = ${height.toFixed(1)} + x·${tanTh.toFixed(3)} – ${coeff.toFixed(4)}·x²`;
+        }
+        function psimRefreshLocal() { compute(); updateWorld(); trajPts = genTraj(220); drawScene(null); updateDynEq(); }
+        window.psimRefreshPreview = psimRefreshLocal;
+        function startAnim() {
+            if (animating) stopAnim(); compute();
+            if (flightTime <= 0.02) { psimRefreshLocal(); return; }
+            updateWorld(); trajPts = genTraj(220); animating = true; simTime = 0; let last = null;
+            launchBtn.disabled = true; speedSlider.disabled = true; angleSlider.disabled = true; heightSlider.disabled = true;
+            function tick(now) {
+                if (!animating) return; if (!last) { last = now; requestAnimationFrame(tick); return; }
+                simTime += Math.min(35, now - last) / 1000; last = now;
+                if (simTime >= flightTime) { drawScene({ x: v0x * flightTime, y: 0 }); stopAnim(); return; }
+                const x = v0x * simTime; let y = height + v0y * simTime - 0.5 * g * simTime * simTime;
+                if (y < 0) y = 0; drawScene({ x, y });
+                vxLiveEl.textContent = v0x.toFixed(2); vyLiveEl.textContent = (v0y - g * simTime).toFixed(2);
+                animFrame = requestAnimationFrame(tick);
+            }
+            animFrame = requestAnimationFrame(tick);
+        }
+        function stopAnim() {
+            if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+            animating = false; launchBtn.disabled = false;
+            speedSlider.disabled = false; angleSlider.disabled = false; heightSlider.disabled = false;
+            psimRefreshLocal();
+        }
+        function updateFromSliders() {
+            speed = parseFloat(speedSlider.value); angleDeg = parseFloat(angleSlider.value); height = parseFloat(heightSlider.value);
+            speedValEl.textContent = speed.toFixed(1); angleValEl.textContent = angleDeg.toFixed(1); heightValEl.textContent = height.toFixed(1);
+        }
+        function onSlider() { if (animating) return; updateFromSliders(); psimRefreshLocal(); }
+        speedSlider.addEventListener('input', onSlider);
+        angleSlider.addEventListener('input', onSlider);
+        heightSlider.addEventListener('input', onSlider);
+        launchBtn.addEventListener('click', () => { if (animating) stopAnim(); updateFromSliders(); startAnim(); });
+        stopBtn.addEventListener('click', () => { if (animating) stopAnim(); else psimRefreshLocal(); });
+        updateFromSliders(); psimRefreshLocal();
+    }
+
+    // ═══════════════════════════════════════════
+    // QUANTUM DOUBLE-SLIT HERO
+    // ═══════════════════════════════════════════
     (function() {
         const canvas = document.getElementById('wave-canvas');
         const ctx = canvas.getContext('2d');
@@ -1455,329 +2805,150 @@
         let particles = [];
         let interferenceMap = null;
         let tick = 0;
-        let mouseX = 0.5, mouseY = 0.5;
         const PARTICLE_COUNT = 340;
-
-        function resize() {
-            W = canvas.width = canvas.offsetWidth;
-            H = canvas.height = canvas.offsetHeight;
-            buildInterferenceMap();
-        }
-
+        function resize() { W = canvas.width = canvas.offsetWidth; H = canvas.height = canvas.offsetHeight; buildInterferenceMap(); }
         function buildInterferenceMap() {
             interferenceMap = new Float32Array(W * H);
-            const λ = 0.045;
-            const slitSep = 0.28;
-            const slitX = 0.32;
-            const sx = slitX * W;
-            const s1y = H * 0.5 - slitSep * H * 0.5;
-            const s2y = H * 0.5 + slitSep * H * 0.5;
+            const λ = 0.045, slitSep = 0.28, slitX = 0.32;
+            const sx = slitX * W, s1y = H * 0.5 - slitSep * H * 0.5, s2y = H * 0.5 + slitSep * H * 0.5;
             for (let py = 0; py < H; py++) {
                 for (let px = 0; px < W; px++) {
                     const r1 = Math.sqrt((px - sx) ** 2 + (py - s1y) ** 2);
                     const r2 = Math.sqrt((px - sx) ** 2 + (py - s2y) ** 2);
-                    const phase1 = (2 * Math.PI * r1) / (λ * Math.min(W, H));
-                    const phase2 = (2 * Math.PI * r2) / (λ * Math.min(W, H));
-                    const amp = Math.cos(phase1 - phase2);
+                    const amp = Math.cos((2 * Math.PI * r1 - 2 * Math.PI * r2) / (λ * Math.min(W, H)));
                     const prob = ((amp + 1) * 0.5) ** 2;
                     const envX = Math.exp(-Math.max(0, (slitX * W - px)) * 0.015);
                     interferenceMap[py * W + px] = prob * envX;
                 }
             }
         }
-
         function spawnParticle() {
-            const slitSep = 0.28;
-            const slitX = 0.32;
+            const slitSep = 0.28, slitX = 0.32;
             const slit = Math.random() < 0.5 ? 0 : 1;
             const sy = H * 0.5 + (slit === 0 ? -1 : 1) * slitSep * H * 0.5 + (Math.random() - 0.5) * H * 0.04;
-            const targetY = sampleInterferenceY();
+            const targetY = sampleY();
             const targetX = W * (0.68 + Math.random() * 0.2);
             const startX = W * (0.04 + Math.random() * 0.08);
             const startY = H * 0.5 + (Math.random() - 0.5) * H * 0.6;
-            const wpX = slitX * W + (Math.random() - 0.5) * W * 0.015;
-            const wpY = sy;
-            const speed = 0.006 + Math.random() * 0.006;
-            const hue = 185 + Math.random() * 40;
-            return {
-                x: startX, y: startY, wp: { x: wpX, y: wpY },
-                tx: targetX, ty: targetY,
-                phase: 0, t: 0, speed,
-                size: 1 + Math.random() * 2,
-                alpha: 0, hue,
-                tail: [], maxTail: Math.floor(8 + Math.random() * 14),
-                done: false, lifetime: 0, maxLife: 90 + Math.random() * 80,
-            };
+            return { x: startX, y: startY, wp: { x: slitX * W + (Math.random() - 0.5) * W * 0.015, y: sy }, tx: targetX, ty: targetY, phase: 0, t: 0, speed: 0.006 + Math.random() * 0.006, size: 1 + Math.random() * 2, alpha: 0, hue: 185 + Math.random() * 40, tail: [], maxTail: Math.floor(8 + Math.random() * 14), done: false, lifetime: 0, maxLife: 90 + Math.random() * 80 };
         }
-
-        function sampleInterferenceY() {
-            const screenXpx = Math.floor(W * 0.72);
-            let total = 0;
-            for (let y = 0; y < H; y++) total += interferenceMap[y * W + Math.min(screenXpx, W - 1)];
+        function sampleY() {
+            const sx = Math.floor(W * 0.72); let total = 0;
+            for (let y = 0; y < H; y++) total += interferenceMap[y * W + Math.min(sx, W - 1)];
             let r = Math.random() * total, acc = 0;
-            for (let y = 0; y < H; y++) {
-                acc += interferenceMap[y * W + Math.min(screenXpx, W - 1)];
-                if (acc >= r) return y + (Math.random() - 0.5) * 4;
-            }
+            for (let y = 0; y < H; y++) { acc += interferenceMap[y * W + Math.min(sx, W - 1)]; if (acc >= r) return y + (Math.random() - 0.5) * 4; }
             return H * 0.5;
         }
-
         let dots = [];
-
-        function lerp(a, b, t) { return a + (b - a) * t; }
-        function easeInOut(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
-
-        function updateParticle(p) {
-            p.lifetime++;
-            if (p.done) return;
-            p.t += p.speed;
-            const et = easeInOut(Math.min(p.t, 1));
+        const lerp = (a, b, t) => a + (b - a) * t;
+        const ease = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        function updateP(p) {
+            p.lifetime++; if (p.done) return; p.t += p.speed;
             if (p.phase === 0) {
-                p.x = lerp(p.x, p.wp.x, p.speed * 0.9);
-                p.y = lerp(p.y, p.wp.y, p.speed * 0.9);
+                p.x = lerp(p.x, p.wp.x, p.speed * 0.9); p.y = lerp(p.y, p.wp.y, p.speed * 0.9);
                 p.alpha = Math.min(1, p.t * 4);
                 if (Math.abs(p.x - p.wp.x) < 2 && Math.abs(p.y - p.wp.y) < 2) { p.phase = 1; p.t = 0; }
             } else {
-                p.x = lerp(p.wp.x, p.tx, et);
-                p.y = lerp(p.wp.y, p.ty, et);
+                const et = ease(Math.min(p.t, 1));
+                p.x = lerp(p.wp.x, p.tx, et); p.y = lerp(p.wp.y, p.ty, et);
                 p.alpha = 1 - et * 0.4;
-                if (p.t >= 1) {
-                    dots.push({ x: p.tx, y: p.ty, a: 1, hue: p.hue });
-                    if (dots.length > 1600) dots.shift();
-                    p.done = true;
-                }
+                if (p.t >= 1) { dots.push({ x: p.tx, y: p.ty, a: 1, hue: p.hue }); if (dots.length > 1600) dots.shift(); p.done = true; }
             }
-            p.tail.unshift({ x: p.x, y: p.y });
-            if (p.tail.length > p.maxTail) p.tail.pop();
+            p.tail.unshift({ x: p.x, y: p.y }); if (p.tail.length > p.maxTail) p.tail.pop();
         }
-
         function draw() {
-            ctx.clearRect(0, 0, W, H);
-            ctx.fillStyle = '#06080A';
-            ctx.fillRect(0, 0, W, H);
-
-            // Grid
-            ctx.save();
-            ctx.globalAlpha = 0.045;
-            ctx.strokeStyle = '#00D4FF';
-            ctx.lineWidth = 0.5;
-            const gs = Math.round(W / 24);
+            ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#06080A'; ctx.fillRect(0, 0, W, H);
+            ctx.save(); ctx.globalAlpha = 0.045; ctx.strokeStyle = '#00D4FF'; ctx.lineWidth = 0.5;
+            const gs = Math.round(W / 24), gh = Math.round(H / 14);
             for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-            const gh = Math.round(H / 14);
             for (let y = 0; y < H; y += gh) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
             ctx.restore();
-
-            const slitX = W * 0.32;
-            const slitSep = 0.28;
-            const slitHalfGap = H * 0.022;
-            const s1y = H * 0.5 - slitSep * H * 0.5;
-            const s2y = H * 0.5 + slitSep * H * 0.5;
-
-            // Barrier
+            const slitX = W * 0.32, slitSep = 0.28, slitHalfGap = H * 0.022;
+            const s1y = H * 0.5 - slitSep * H * 0.5, s2y = H * 0.5 + slitSep * H * 0.5;
             ctx.save();
             const bg = ctx.createLinearGradient(slitX - 8, 0, slitX + 8, 0);
-            bg.addColorStop(0, 'rgba(0,212,255,0)');
-            bg.addColorStop(0.5, 'rgba(0,212,255,0.5)');
-            bg.addColorStop(1, 'rgba(0,212,255,0)');
+            bg.addColorStop(0, 'rgba(0,212,255,0)'); bg.addColorStop(0.5, 'rgba(0,212,255,0.5)'); bg.addColorStop(1, 'rgba(0,212,255,0)');
             ctx.fillStyle = bg;
             ctx.fillRect(slitX - 4, 0, 8, s1y - slitHalfGap);
             ctx.fillRect(slitX - 4, s1y + slitHalfGap, 8, s2y - slitHalfGap - s1y - slitHalfGap);
             ctx.fillRect(slitX - 4, s2y + slitHalfGap, 8, H - (s2y + slitHalfGap));
             ctx.restore();
-
-            // Slit glow
             [s1y, s2y].forEach(sy => {
                 const glow = ctx.createRadialGradient(slitX, sy, 0, slitX, sy, 70);
-                glow.addColorStop(0, 'rgba(0,212,255,0.3)');
-                glow.addColorStop(1, 'rgba(0,212,255,0)');
-                ctx.save();
-                ctx.globalAlpha = 0.6 + 0.4 * Math.sin(tick * 0.04);
-                ctx.fillStyle = glow;
-                ctx.fillRect(slitX - 70, sy - 70, 140, 140);
-                ctx.restore();
+                glow.addColorStop(0, 'rgba(0,212,255,0.3)'); glow.addColorStop(1, 'rgba(0,212,255,0)');
+                ctx.save(); ctx.globalAlpha = 0.6 + 0.4 * Math.sin(tick * 0.04);
+                ctx.fillStyle = glow; ctx.fillRect(slitX - 70, sy - 70, 140, 140); ctx.restore();
             });
-
-            // Wave rings
             [s1y, s2y].forEach((sy, si) => {
                 for (let r = 0; r < 6; r++) {
-                    const radius = ((tick * 2.2 + r * 55 + si * 27) % 320);
-                    const alpha = (1 - radius / 320) * 0.15;
-                    ctx.save();
-                    ctx.globalAlpha = alpha;
-                    ctx.strokeStyle = '#00D4FF';
-                    ctx.lineWidth = 1;
-                    ctx.setLineDash([4, 6]);
-                    ctx.beginPath();
-                    ctx.arc(slitX, sy, radius, 0, Math.PI * 2);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                    ctx.restore();
+                    const radius = (tick * 2.2 + r * 55 + si * 27) % 320;
+                    ctx.save(); ctx.globalAlpha = (1 - radius / 320) * 0.15;
+                    ctx.strokeStyle = '#00D4FF'; ctx.lineWidth = 1; ctx.setLineDash([4, 6]);
+                    ctx.beginPath(); ctx.arc(slitX, sy, radius, 0, Math.PI * 2); ctx.stroke();
+                    ctx.setLineDash([]); ctx.restore();
                 }
             });
-
-            // Interference overlay
-            ctx.save();
-            ctx.globalAlpha = 0.065;
-            const cs = 4;
+            ctx.save(); ctx.globalAlpha = 0.065; const cs = 4;
             for (let px = Math.floor(slitX); px < W; px += cs) {
                 for (let py = 0; py < H; py += cs) {
                     const v = interferenceMap[py * W + Math.min(px, W - 1)] || 0;
-                    if (v > 0.5) {
-                        ctx.fillStyle = `hsla(190,100%,60%,${v})`;
-                        ctx.fillRect(px, py, cs, cs);
-                    }
+                    if (v > 0.5) { ctx.fillStyle = `hsla(190,100%,60%,${v})`; ctx.fillRect(px, py, cs, cs); }
                 }
             }
             ctx.restore();
-
-            // Screen
             const screenX = W * 0.72;
             ctx.save();
             const sg = ctx.createLinearGradient(screenX - 2, 0, screenX + 2, 0);
-            sg.addColorStop(0, 'rgba(255,255,255,0)');
-            sg.addColorStop(0.5, 'rgba(255,255,255,0.12)');
-            sg.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.fillStyle = sg;
-            ctx.fillRect(screenX - 2, 0, 4, H);
-            ctx.restore();
-
-            // Detection dots
+            sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, 'rgba(255,255,255,0.12)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = sg; ctx.fillRect(screenX - 2, 0, 4, H); ctx.restore();
             dots.forEach(d => {
                 d.a = Math.min(d.a, 0.85);
                 const g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, 5);
-                g.addColorStop(0, `hsla(${d.hue},100%,70%,${d.a})`);
-                g.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = g;
-                ctx.beginPath();
-                ctx.arc(d.x, d.y, 5, 0, Math.PI * 2);
-                ctx.fill();
+                g.addColorStop(0, `hsla(${d.hue},100%,70%,${d.a})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = g; ctx.beginPath(); ctx.arc(d.x, d.y, 5, 0, Math.PI * 2); ctx.fill();
             });
-
-            // Particles
             particles.forEach(p => {
                 if (p.done || p.tail.length < 2) return;
                 for (let i = 0; i < p.tail.length - 1; i++) {
-                    const ta = (1 - i / p.tail.length) * p.alpha * 0.6;
-                    ctx.save();
-                    ctx.globalAlpha = ta;
-                    ctx.strokeStyle = `hsl(${p.hue}, 100%, 65%)`;
-                    ctx.lineWidth = p.size * (1 - i / p.tail.length) * 0.8;
-                    ctx.beginPath();
-                    ctx.moveTo(p.tail[i].x, p.tail[i].y);
-                    ctx.lineTo(p.tail[i + 1].x, p.tail[i + 1].y);
-                    ctx.stroke();
-                    ctx.restore();
+                    ctx.save(); ctx.globalAlpha = (1 - i / p.tail.length) * p.alpha * 0.6;
+                    ctx.strokeStyle = `hsl(${p.hue},100%,65%)`; ctx.lineWidth = p.size * (1 - i / p.tail.length) * 0.8;
+                    ctx.beginPath(); ctx.moveTo(p.tail[i].x, p.tail[i].y); ctx.lineTo(p.tail[i + 1].x, p.tail[i + 1].y);
+                    ctx.stroke(); ctx.restore();
                 }
-                const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 4);
-                g.addColorStop(0, `hsla(${p.hue},100%,80%,${p.alpha})`);
-                g.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.save();
-                ctx.fillStyle = g;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
+                const gd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 4);
+                gd.addColorStop(0, `hsla(${p.hue},100%,80%,${p.alpha})`); gd.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.save(); ctx.fillStyle = gd; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2); ctx.fill(); ctx.restore();
             });
-
-            // Labels
-            ctx.save();
-            ctx.fillStyle = 'rgba(0,212,255,0.45)';
+            ctx.save(); ctx.fillStyle = 'rgba(0,212,255,0.45)';
             ctx.font = `${Math.max(9, W * 0.009)}px 'DM Mono', monospace`;
-            ctx.fillText('SOURCE', W * 0.04, H * 0.12);
-            ctx.fillText('BARRIER', slitX - W * 0.04, H * 0.08);
-            ctx.fillText('SCREEN', screenX + W * 0.015, H * 0.08);
-            ctx.fillStyle = 'rgba(255,255,255,0.12)';
-            ctx.font = `${Math.max(8, W * 0.007)}px 'DM Mono', monospace`;
-            ctx.fillText('ψ(x,t) = Σ Aₙ · e^i(kₙx−ωt)', W * 0.04, H * 0.18);
-            ctx.restore();
-
-            // Mouse ripple
-            const mx = mouseX * W, my = mouseY * H;
-            if (mx > slitX) {
-                const ig = ctx.createRadialGradient(mx, my, 0, mx, my, 100);
-                ig.addColorStop(0, 'rgba(0,212,255,0.05)');
-                ig.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = ig;
-                ctx.beginPath();
-                ctx.arc(mx, my, 100, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            ctx.fillText('SOURCE', W * 0.04, H * 0.12); ctx.fillText('BARRIER', slitX - W * 0.04, H * 0.08); ctx.fillText('SCREEN', screenX + W * 0.015, H * 0.08);
+            ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.font = `${Math.max(8, W * 0.007)}px 'DM Mono', monospace`;
+            ctx.fillText('ψ(x,t) = Σ Aₙ · e^i(kₙx−ωt)', W * 0.04, H * 0.18); ctx.restore();
         }
-
         function loop() {
-            animId = requestAnimationFrame(loop);
-            tick++;
+            animId = requestAnimationFrame(loop); tick++;
             if (particles.length < PARTICLE_COUNT && tick % 4 === 0) particles.push(spawnParticle());
-            particles.forEach(updateParticle);
+            particles.forEach(updateP);
             particles = particles.filter(p => !p.done || p.lifetime < p.maxLife);
             draw();
         }
-
-        canvas.addEventListener('mousemove', e => {
-            const r = canvas.getBoundingClientRect();
-            mouseX = (e.clientX - r.left) / r.width;
-            mouseY = (e.clientY - r.top) / r.height;
-        });
-        canvas.addEventListener('touchmove', e => {
-            const r = canvas.getBoundingClientRect();
-            mouseX = (e.touches[0].clientX - r.left) / r.width;
-            mouseY = (e.touches[0].clientY - r.top) / r.height;
-        }, { passive: true });
-
         window.addEventListener('load', () => { resize(); loop(); });
         window.addEventListener('resize', resize);
         window.addEventListener('beforeunload', () => cancelAnimationFrame(animId));
     })();
 
-    // ── CHARTS ──
+    // ═══════════════════════════════════════════
+    // CHARTS
+    // ═══════════════════════════════════════════
     Chart.defaults.color = 'rgba(255,255,255,0.3)';
     Chart.defaults.font.family = "'DM Mono', monospace";
     Chart.defaults.font.size = 10;
-
     const A = '#00D4FF', AF = 'rgba(0,212,255,0.10)', G = 'rgba(255,255,255,0.04)';
     const A2 = '#7BFFB0', A2F = 'rgba(123,255,176,0.08)';
-
-    new Chart(document.getElementById('unemploymentChart'), {
-        type: 'line',
-        data: {
-            labels: ['Q1 19','Q3 19','Q1 20','Q3 20','Q1 21','Q3 21','Q1 22','Q3 22','Q1 23','Q3 23','Q1 24','Q3 24'],
-            datasets: [{ data: [27.6,29.1,30.1,43.1,46.3,43.6,40.8,38.9,37.2,35.6,34.0,32.9], borderColor: A, backgroundColor: AF, borderWidth: 1.5, pointRadius: 2, pointBackgroundColor: A, fill: true, tension: .4 }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: G }, ticks: { maxTicksLimit: 5 } }, y: { grid: { color: G }, min: 20, max: 55, ticks: { callback: v => v + '%' } } } }
-    });
-
-    new Chart(document.getElementById('skillsChart'), {
-        type: 'bar',
-        data: {
-            labels: ['ICT & Software','Civil Eng.','Electrical','Mechanical','Data Science','Renewables'],
-            datasets: [{ data: [280,145,130,110,95,75], backgroundColor: [A,'rgba(0,212,255,.7)','rgba(0,212,255,.55)','rgba(0,212,255,.4)','rgba(0,212,255,.28)','rgba(0,212,255,.16)'], borderRadius: 2, borderSkipped: false }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { grid: { color: G }, ticks: { callback: v => v + 'K' } }, y: { grid: { display: false } } } }
-    });
-
-    new Chart(document.getElementById('outcomesChart'), {
-        type: 'radar',
-        data: {
-            labels: ['Retention','Problem Solving','Engagement','Test Scores','Confidence','Speed'],
-            datasets: [
-                { label: 'Traditional', data: [45,40,35,55,38,42], borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, pointRadius: 1.5 },
-                { label: 'LumenOS', data: [82,79,91,84,88,86], borderColor: A2, backgroundColor: A2F, borderWidth: 1.5, pointBackgroundColor: A2, pointRadius: 2.5 }
-            ]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 8, padding: 14 } } }, scales: { r: { grid: { color: G }, pointLabels: { font: { size: 8 } }, ticks: { display: false }, min: 0, max: 100 } } }
-    });
-
-    new Chart(document.getElementById('economyChart'), {
-        type: 'line',
-        data: {
-            labels: ['2020','2021','2022','2023','2024','2025','2026','2027','2028','2030'],
-            datasets: [
-                { label: 'Digital Economy (R Bn)', data: [420,480,560,650,760,890,1050,1240,1470,2100], borderColor: A, backgroundColor: AF, borderWidth: 1.5, fill: true, tension: .4, pointRadius: 1.5 },
-                { label: 'Skilled Talent Supply', data: [380,400,420,440,465,495,535,590,660,820], borderColor: 'rgba(255,60,172,0.65)', backgroundColor: 'rgba(255,60,172,0.05)', borderWidth: 1.5, borderDash: [4,4], fill: true, tension: .4, pointRadius: 1.5 }
-            ]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 8, padding: 14 } } }, scales: { x: { grid: { color: G } }, y: { grid: { color: G }, ticks: { callback: v => 'R' + v + 'B' } } } }
-    });
+    new Chart(document.getElementById('unemploymentChart'), { type: 'line', data: { labels: ['Q1 19','Q3 19','Q1 20','Q3 20','Q1 21','Q3 21','Q1 22','Q3 22','Q1 23','Q3 23','Q1 24','Q3 24'], datasets: [{ data:[27.6,29.1,30.1,43.1,46.3,43.6,40.8,38.9,37.2,35.6,34.0,32.9], borderColor:A, backgroundColor:AF, borderWidth:1.5, pointRadius:2, pointBackgroundColor:A, fill:true, tension:.4 }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{color:G},ticks:{maxTicksLimit:5}},y:{grid:{color:G},min:20,max:55,ticks:{callback:v=>v+'%'}}} } });
+    new Chart(document.getElementById('skillsChart'), { type: 'bar', data: { labels: ['ICT & Software','Civil Eng.','Electrical','Mechanical','Data Science','Renewables'], datasets: [{ data:[280,145,130,110,95,75], backgroundColor:[A,'rgba(0,212,255,.7)','rgba(0,212,255,.55)','rgba(0,212,255,.4)','rgba(0,212,255,.28)','rgba(0,212,255,.16)'], borderRadius:2, borderSkipped:false }] }, options: { responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{grid:{color:G},ticks:{callback:v=>v+'K'}},y:{grid:{display:false}}} } });
+    new Chart(document.getElementById('outcomesChart'), { type: 'radar', data: { labels: ['Retention','Problem Solving','Engagement','Test Scores','Confidence','Speed'], datasets: [ { label:'Traditional', data:[45,40,35,55,38,42], borderColor:'rgba(255,255,255,0.12)', backgroundColor:'rgba(255,255,255,0.02)', borderWidth:1, pointRadius:1.5 }, { label:'LumenOS', data:[82,79,91,84,88,86], borderColor:A2, backgroundColor:A2F, borderWidth:1.5, pointBackgroundColor:A2, pointRadius:2.5 } ] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:8,padding:14}}}, scales:{r:{grid:{color:G},pointLabels:{font:{size:8}},ticks:{display:false},min:0,max:100}} } });
+    new Chart(document.getElementById('economyChart'), { type: 'line', data: { labels: ['2020','2021','2022','2023','2024','2025','2026','2027','2028','2030'], datasets: [ { label:'Digital Economy (R Bn)', data:[420,480,560,650,760,890,1050,1240,1470,2100], borderColor:A, backgroundColor:AF, borderWidth:1.5, fill:true, tension:.4, pointRadius:1.5 }, { label:'Skilled Talent Supply', data:[380,400,420,440,465,495,535,590,660,820], borderColor:'rgba(255,60,172,0.65)', backgroundColor:'rgba(255,60,172,0.05)', borderWidth:1.5, borderDash:[4,4], fill:true, tension:.4, pointRadius:1.5 } ] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:8,padding:14}}}, scales:{x:{grid:{color:G}},y:{grid:{color:G},ticks:{callback:v=>'R'+v+'B'}}} } });
     </script>
 </body>
 </html>
