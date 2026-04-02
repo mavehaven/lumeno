@@ -4,813 +4,1315 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quadratic Simulator: The Shape Shifter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #4361ee;
             --secondary: #3a0ca3;
             --accent: #f72585;
             --light: #f8f9fa;
-            --dark: #212529;
+            --dark: #0d0d18;
             --success: #4cc9f0;
             --warning: #f8961e;
             --danger: #e63946;
+            --glass: rgba(255,255,255,0.04);
+            --glass-border: rgba(255,255,255,0.08);
+            --glow-blue: rgba(67,97,238,0.4);
+            --glow-pink: rgba(247,37,133,0.4);
+            --glow-teal: rgba(76,201,240,0.4);
         }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: #09090f;
             color: var(--light);
             min-height: 100vh;
-            padding: 20px;
+            font-family: 'Syne', sans-serif;
+            overflow-x: hidden;
         }
-        
+
+        /* Noise texture overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.6;
+        }
+
+        /* Radial ambient glow */
+        body::after {
+            content: '';
+            position: fixed;
+            top: -20%;
+            left: 10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(67,97,238,0.08) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .ambient-right {
+            position: fixed;
+            bottom: -10%;
+            right: 5%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(247,37,133,0.06) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
         .container {
-            max-width: 1400px;
+            max-width: 1500px;
             margin: 0 auto;
+            padding: 24px;
+            position: relative;
+            z-index: 1;
         }
-        
+
+        /* ── HEADER ─────────────────────────────────────── */
         header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            padding: 22px 32px;
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
         }
-        
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, var(--accent), var(--success));
+
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(247,37,133,0.6), rgba(76,201,240,0.6), transparent);
+        }
+
+        .header-left h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(90deg, #fff 30%, var(--success) 100%);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+            line-height: 1.1;
         }
-        
-        .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.8;
+
+        .header-left .subtitle {
+            font-size: 0.85rem;
+            font-family: 'Space Mono', monospace;
+            color: rgba(255,255,255,0.45);
+            margin-top: 4px;
+            letter-spacing: 0.02em;
         }
-        
-        .main-content {
+
+        .header-badge {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .badge-blue { border-color: rgba(67,97,238,0.5); color: #7b9cff; background: rgba(67,97,238,0.1); }
+        .badge-pink { border-color: rgba(247,37,133,0.5); color: #ff6eb4; background: rgba(247,37,133,0.1); }
+        .badge-teal { border-color: rgba(76,201,240,0.5); color: var(--success); background: rgba(76,201,240,0.1); }
+
+        /* ── LAYOUT ──────────────────────────────────────── */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            grid-template-rows: auto auto;
+            gap: 20px;
+        }
+
+        @media (max-width: 1100px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ── PANEL BASE ──────────────────────────────────── */
+        .panel {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .panel-title {
+            font-size: 0.75rem;
+            font-family: 'Space Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: rgba(255,255,255,0.4);
+        }
+
+        /* ── GRAPH ───────────────────────────────────────── */
+        .graph-panel {
+            grid-row: 1 / 3;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #graph-canvas {
+            flex: 1;
+            width: 100%;
+            min-height: 480px;
+            display: block;
+            cursor: crosshair;
+        }
+
+        #graph-canvas:active { cursor: grabbing; }
+
+        .canvas-footer {
+            padding: 10px 20px;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.35);
+        }
+
+        .legend-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        /* ── CONTROLS ────────────────────────────────────── */
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Equation display */
+        .eq-box {
+            padding: 20px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .eq-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255,255,255,0.3);
+            margin-bottom: 12px;
+        }
+
+        .eq-display {
+            font-size: 1.5rem;
+            font-family: 'Space Mono', monospace;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .eq-a { color: var(--accent); }
+        .eq-h { color: var(--success); }
+        .eq-k { color: var(--warning); }
+        .eq-plain { color: rgba(255,255,255,0.7); }
+
+        .form-toggle {
+            display: flex;
+            gap: 6px;
+            margin-top: 12px;
+        }
+
+        .form-btn {
+            flex: 1;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 7px;
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            background: transparent;
+            color: rgba(255,255,255,0.4);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .form-btn.active {
+            background: rgba(67,97,238,0.2);
+            border-color: rgba(67,97,238,0.5);
+            color: #7b9cff;
+        }
+
+        /* Sliders */
+        .sliders-box {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .param-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .param-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .param-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .param-sym {
+            width: 22px; height: 22px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+
+        .sym-a { background: rgba(247,37,133,0.2); color: var(--accent); }
+        .sym-h { background: rgba(76,201,240,0.2); color: var(--success); }
+        .sym-k { background: rgba(248,150,30,0.2); color: var(--warning); }
+
+        .param-desc {
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 0.02em;
+        }
+
+        .param-val {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8rem;
+            padding: 3px 10px;
+            border-radius: 6px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--glass-border);
+            min-width: 55px;
+            text-align: center;
+        }
+
+        .slider-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-bound {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem;
+            color: rgba(255,255,255,0.2);
+            min-width: 18px;
+            text-align: center;
+        }
+
+        input[type=range] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 4px;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #a-slider { background: linear-gradient(90deg, #3a0ca3, var(--accent)); }
+        #h-slider { background: linear-gradient(90deg, #023e8a, var(--success)); }
+        #k-slider { background: linear-gradient(90deg, #7b2d00, var(--warning)); }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.8);
+            cursor: grab;
+            transition: transform 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:active { transform: scale(1.3); cursor: grabbing; }
+        #a-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 10px var(--glow-pink); }
+        #h-slider::-webkit-slider-thumb { background: var(--success); box-shadow: 0 0 10px var(--glow-teal); }
+        #k-slider::-webkit-slider-thumb { background: var(--warning); box-shadow: 0 0 10px rgba(248,150,30,0.5); }
+
+        /* ── FEATURES ────────────────────────────────────── */
+        .features-box {
+            padding: 16px 20px;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            gap: 10px;
+            border-bottom: 1px solid var(--glass-border);
         }
-        
-        @media (max-width: 1100px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        .graph-container {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .graph-title {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            text-align: center;
-            color: var(--success);
-        }
-        
-        #graph-canvas {
-            background: rgba(0, 0, 0, 0.2);
+
+        .feat-card {
+            background: rgba(0,0,0,0.25);
+            border: 1px solid var(--glass-border);
             border-radius: 10px;
-            width: 100%;
-            height: 500px;
-            cursor: grab;
+            padding: 10px 12px;
         }
-        
-        #graph-canvas:active {
-            cursor: grabbing;
+
+        .feat-name {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.58rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.3);
+            margin-bottom: 4px;
         }
-        
-        .controls-container {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-direction: column;
+
+        .feat-val {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #fff;
         }
-        
-        .equation-display {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 25px;
-            text-align: center;
-            font-size: 1.8rem;
-            font-family: 'Cambria Math', serif;
-            border: 1px solid var(--primary);
-            box-shadow: 0 0 15px rgba(67, 97, 238, 0.3);
+
+        /* ── INSIGHT BOX ─────────────────────────────────── */
+        .insight-box {
+            padding: 16px 20px;
+            flex: 1;
         }
-        
-        .parameter {
-            margin-bottom: 25px;
+
+        .insight-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255,255,255,0.25);
+            margin-bottom: 8px;
         }
-        
-        .parameter-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+
+        .insight-text {
+            font-size: 0.82rem;
+            line-height: 1.65;
+            color: rgba(255,255,255,0.6);
+            min-height: 60px;
+            transition: opacity 0.3s ease;
+        }
+
+        .insight-text strong { color: rgba(255,255,255,0.9); }
+        .insight-text .highlight-a { color: var(--accent); }
+        .insight-text .highlight-h { color: var(--success); }
+        .insight-text .highlight-k { color: var(--warning); }
+
+        /* ── THEORY PANEL ────────────────────────────────── */
+        .theory-panel {
+            grid-column: 1 / -1;
+        }
+
+        .theory-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0;
+        }
+
+        @media (max-width: 900px) {
+            .theory-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .theory-card {
+            padding: 20px 22px;
+            border-right: 1px solid var(--glass-border);
+            position: relative;
+            transition: background 0.25s ease;
+        }
+
+        .theory-card:last-child { border-right: none; }
+        .theory-card:hover { background: rgba(255,255,255,0.03); }
+
+        .theory-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .theory-card:hover::before { opacity: 1; }
+        .tc-1::before { background: linear-gradient(90deg, var(--accent), transparent); }
+        .tc-2::before { background: linear-gradient(90deg, var(--success), transparent); }
+        .tc-3::before { background: linear-gradient(90deg, var(--warning), transparent); }
+        .tc-4::before { background: linear-gradient(90deg, var(--primary), transparent); }
+
+        .tc-icon {
+            font-size: 1.4rem;
             margin-bottom: 10px;
+            display: block;
         }
-        
-        .parameter-title {
-            font-size: 1.2rem;
-            font-weight: 600;
+
+        .tc-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin-bottom: 6px;
+            color: rgba(255,255,255,0.9);
         }
-        
-        .parameter-value {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-family: monospace;
-            border: 1px solid var(--primary);
+
+        .tc-body {
+            font-size: 0.75rem;
+            line-height: 1.65;
+            color: rgba(255,255,255,0.45);
         }
-        
-        .slider-container {
+
+        .tc-body strong { color: rgba(255,255,255,0.75); }
+        .tc-body .mono { font-family: 'Space Mono', monospace; font-size: 0.68rem; }
+
+        /* ── DISCRIMINANT METER ──────────────────────────── */
+        .disc-meter {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 10px;
+            padding: 12px 20px;
+            border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
         }
-        
-        .slider {
+
+        .disc-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
+        }
+
+        .disc-bar-wrap {
             flex: 1;
-            -webkit-appearance: none;
-            height: 8px;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.1);
-            outline: none;
+            height: 6px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 6px;
+            overflow: hidden;
         }
-        
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            cursor: pointer;
+
+        .disc-bar {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.3s ease, background 0.3s ease;
         }
-        
-        #a-slider::-webkit-slider-thumb {
-            background: var(--accent);
-            border: 2px solid white;
+
+        .disc-val {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            min-width: 70px;
+            text-align: right;
         }
-        
-        #h-slider::-webkit-slider-thumb {
-            background: var(--success);
-            border: 2px solid white;
+
+        /* ── ROOT DISPLAY ────────────────────────────────── */
+        .roots-display {
+            padding: 12px 20px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.5);
+            border-bottom: 1px solid var(--glass-border);
+            line-height: 1.8;
         }
-        
-        #k-slider::-webkit-slider-thumb {
-            background: var(--warning);
-            border: 2px solid white;
-        }
-        
-        .features-panel {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .features-title {
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-            color: var(--success);
-            text-align: center;
-        }
-        
-        .feature {
+
+        .roots-display span { color: rgba(255,255,255,0.85); }
+        .roots-display .root-val { color: var(--success); }
+        .roots-display .no-roots { color: rgba(247,37,133,0.7); }
+
+        /* Zoom controls */
+        .zoom-controls {
             display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 6px;
         }
-        
-        .feature:last-child {
-            border-bottom: none;
-        }
-        
-        .feature-name {
-            font-weight: 500;
-        }
-        
-        .feature-value {
-            font-family: monospace;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 8px;
-            border-radius: 5px;
-        }
-        
-        .instructions {
-            margin-top: 20px;
-            font-size: 0.9rem;
-            opacity: 0.7;
-            text-align: center;
-        }
-        
-        .form-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .form-button {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
+
+        .zoom-btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border: 1px solid var(--glass-border);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.3);
+            color: rgba(255,255,255,0.5);
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s;
         }
-        
-        .form-button:hover {
-            background: rgba(255, 255, 255, 0.2);
+
+        .zoom-btn:hover {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
         }
-        
-        .form-button.active {
-            background: var(--primary);
-            box-shadow: 0 0 10px rgba(67, 97, 238, 0.5);
+
+        /* Animate in */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
         }
+
+        header { animation: fadeUp 0.4s ease both; }
+        .graph-panel { animation: fadeUp 0.5s 0.05s ease both; }
+        .controls-panel { animation: fadeUp 0.5s 0.1s ease both; }
+        .theory-panel { animation: fadeUp 0.5s 0.15s ease both; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Quadratic Simulator: The Shape Shifter</h1>
-            <p class="subtitle">Explore how parameters transform quadratic functions in real-time</p>
-        </header>
-        
-        <div class="main-content">
-            <div class="graph-container">
-                <h2 class="graph-title">Interactive Parabola</h2>
-                <canvas id="graph-canvas"></canvas>
-                <div class="instructions">
-                    <p>Drag the vertex (red point) to change position. Drag the stretch point (blue point) to change shape.</p>
+<div class="ambient-right"></div>
+
+<div class="container">
+
+    <header>
+        <div class="header-left">
+            <h1>Quadratic Simulator</h1>
+            <p class="subtitle">// vertex form explorer — drag, slide, discover</p>
+        </div>
+        <div class="header-badge">
+            <span class="badge badge-pink">y = a(x−h)² + k</span>
+            <span class="badge badge-blue">Vertex Form</span>
+            <span class="badge badge-teal">Interactive</span>
+        </div>
+    </header>
+
+    <div class="main-grid">
+
+        <!-- ── GRAPH ── -->
+        <div class="panel graph-panel">
+            <div class="panel-header">
+                <span class="panel-title">Graph — Coordinate Plane</span>
+                <div class="zoom-controls">
+                    <button class="zoom-btn" id="zoom-in">＋ Zoom</button>
+                    <button class="zoom-btn" id="zoom-out">－ Zoom</button>
+                    <button class="zoom-btn" id="zoom-reset">Reset</button>
                 </div>
             </div>
-            
-            <div class="controls-container">
-                <div class="equation-display">
-                    y = <span id="a-value">1</span>(x - <span id="h-value">0</span>)² + <span id="k-value">0</span>
+            <canvas id="graph-canvas"></canvas>
+            <div class="canvas-footer">
+                <span><span class="legend-dot" style="background:#e63946;"></span>Vertex (drag me)</span>
+                <span><span class="legend-dot" style="background:#4cc9f0;"></span>Shape handle</span>
+                <span><span class="legend-dot" style="background:rgba(76,201,240,0.4);"></span>Axis of symmetry</span>
+                <span style="margin-left:auto;">Scroll to zoom · Drag canvas to pan</span>
+            </div>
+        </div>
+
+        <!-- ── CONTROLS ── -->
+        <div class="panel controls-panel">
+
+            <!-- Equation -->
+            <div class="eq-box">
+                <div class="eq-label">Current Equation</div>
+                <div class="eq-display" id="eq-display">
+                    <span class="eq-plain">y = </span><span class="eq-a" id="eq-a">1</span><span class="eq-plain">(x − </span><span class="eq-h" id="eq-h">0</span><span class="eq-plain">)² + </span><span class="eq-k" id="eq-k">0</span>
                 </div>
-                
-                <div class="form-buttons">
-                    <button class="form-button active" id="vertex-form-btn">Vertex Form</button>
-                    <button class="form-button" id="standard-form-btn">Standard Form</button>
+                <div class="form-toggle">
+                    <button class="form-btn active" id="vertex-form-btn">Vertex Form</button>
+                    <button class="form-btn" id="standard-form-btn">Standard Form</button>
+                    <button class="form-btn" id="factored-form-btn">Factored Form</button>
                 </div>
-                
-                <div class="parameter">
-                    <div class="parameter-header">
-                        <div class="parameter-title">Parameter a (Vertical Stretch/Compression)</div>
-                        <div class="parameter-value" id="a-display">1.00</div>
-                    </div>
-                    <div class="slider-container">
-                        <span>-5</span>
-                        <input type="range" min="-5" max="5" step="0.1" value="1" class="slider" id="a-slider">
-                        <span>5</span>
-                    </div>
-                    <div class="instructions">
-                        Controls the "steepness" and direction of the parabola
-                    </div>
+            </div>
+
+            <!-- Discriminant -->
+            <div class="disc-meter">
+                <span class="disc-label">Δ = b²−4ac</span>
+                <div class="disc-bar-wrap">
+                    <div class="disc-bar" id="disc-bar"></div>
                 </div>
-                
-                <div class="parameter">
-                    <div class="parameter-header">
-                        <div class="parameter-title">Parameter h (Horizontal Shift)</div>
-                        <div class="parameter-value" id="h-display">0.00</div>
+                <span class="disc-val" id="disc-val"></span>
+            </div>
+
+            <!-- Roots -->
+            <div class="roots-display" id="roots-display"></div>
+
+            <!-- Sliders -->
+            <div class="sliders-box">
+                <!-- a -->
+                <div class="param-row">
+                    <div class="param-meta">
+                        <div class="param-label">
+                            <span class="param-sym sym-a">a</span>
+                            <div>
+                                <div style="color:rgba(255,255,255,0.8);font-size:0.72rem;">Vertical Stretch / Reflection</div>
+                                <div class="param-desc">Controls width and opening direction</div>
+                            </div>
+                        </div>
+                        <div class="param-val eq-a" id="a-display">1.00</div>
                     </div>
-                    <div class="slider-container">
-                        <span>-5</span>
-                        <input type="range" min="-5" max="5" step="0.1" value="0" class="slider" id="h-slider">
-                        <span>5</span>
-                    </div>
-                    <div class="instructions">
-                        Moves the parabola left or right
-                    </div>
-                </div>
-                
-                <div class="parameter">
-                    <div class="parameter-header">
-                        <div class="parameter-title">Parameter k (Vertical Shift)</div>
-                        <div class="parameter-value" id="k-display">0.00</div>
-                    </div>
-                    <div class="slider-container">
-                        <span>-5</span>
-                        <input type="range" min="-5" max="5" step="0.1" value="0" class="slider" id="k-slider">
-                        <span>5</span>
-                    </div>
-                    <div class="instructions">
-                        Moves the parabola up or down
+                    <div class="slider-wrap">
+                        <span class="slider-bound">−5</span>
+                        <input type="range" min="-5" max="5" step="0.05" value="1" id="a-slider">
+                        <span class="slider-bound">5</span>
                     </div>
                 </div>
-                
-                <div class="features-panel">
-                    <h3 class="features-title">Key Features</h3>
-                    <div class="feature">
-                        <span class="feature-name">Vertex:</span>
-                        <span class="feature-value" id="vertex-value">(0.00, 0.00)</span>
+                <!-- h -->
+                <div class="param-row">
+                    <div class="param-meta">
+                        <div class="param-label">
+                            <span class="param-sym sym-h">h</span>
+                            <div>
+                                <div style="color:rgba(255,255,255,0.8);font-size:0.72rem;">Horizontal Shift (Phase)</div>
+                                <div class="param-desc">Moves vertex left ↔ right</div>
+                            </div>
+                        </div>
+                        <div class="param-val eq-h" id="h-display">0.00</div>
                     </div>
-                    <div class="feature">
-                        <span class="feature-name">Axis of Symmetry:</span>
-                        <span class="feature-value" id="axis-value">x = 0.00</span>
+                    <div class="slider-wrap">
+                        <span class="slider-bound">−5</span>
+                        <input type="range" min="-5" max="5" step="0.05" value="0" id="h-slider">
+                        <span class="slider-bound">5</span>
                     </div>
-                    <div class="feature">
-                        <span class="feature-name">Y-Intercept:</span>
-                        <span class="feature-value" id="yint-value">(0.00, 0.00)</span>
+                </div>
+                <!-- k -->
+                <div class="param-row">
+                    <div class="param-meta">
+                        <div class="param-label">
+                            <span class="param-sym sym-k">k</span>
+                            <div>
+                                <div style="color:rgba(255,255,255,0.8);font-size:0.72rem;">Vertical Shift (Translation)</div>
+                                <div class="param-desc">Moves vertex up ↕ down</div>
+                            </div>
+                        </div>
+                        <div class="param-val eq-k" id="k-display">0.00</div>
                     </div>
-                    <div class="feature">
-                        <span class="feature-name">Direction:</span>
-                        <span class="feature-value" id="direction-value">Opens Up</span>
+                    <div class="slider-wrap">
+                        <span class="slider-bound">−5</span>
+                        <input type="range" min="-5" max="5" step="0.05" value="0" id="k-slider">
+                        <span class="slider-bound">5</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Features -->
+            <div class="features-box">
+                <div class="feat-card">
+                    <div class="feat-name">Vertex</div>
+                    <div class="feat-val" id="f-vertex">(0, 0)</div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-name">Axis of Symmetry</div>
+                    <div class="feat-val" id="f-axis">x = 0</div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-name">Y-Intercept</div>
+                    <div class="feat-val" id="f-yint">(0, 0)</div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-name">Direction / Range</div>
+                    <div class="feat-val" id="f-dir">↑ y ≥ 0</div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-name">Domain</div>
+                    <div class="feat-val" id="f-domain">ℝ (all reals)</div>
+                </div>
+                <div class="feat-card">
+                    <div class="feat-name">Focus</div>
+                    <div class="feat-val" id="f-focus">(0, 0.25)</div>
+                </div>
+            </div>
+
+            <!-- Insight -->
+            <div class="insight-box">
+                <div class="insight-label">// Live Insight</div>
+                <div class="insight-text" id="insight-text">Adjust the sliders or drag the parabola to explore.</div>
+            </div>
+
+        </div>
+
+        <!-- ── THEORY CARDS ── -->
+        <div class="panel theory-panel">
+            <div class="panel-header">
+                <span class="panel-title">Core Theory — Why Quadratics Matter</span>
+            </div>
+            <div class="theory-grid">
+                <div class="theory-card tc-1">
+                    <span class="tc-icon">🎯</span>
+                    <div class="tc-title">The Vertex Form Advantage</div>
+                    <div class="tc-body">
+                        <strong>y = a(x − h)² + k</strong> tells you everything instantly. The vertex <span class="mono">(h, k)</span> is where the parabola turns — the minimum if <strong>a > 0</strong>, the maximum if <strong>a &lt; 0</strong>. Standard form hides this; you'd need to complete the square to find it. Vertex form is standard form <em>already solved</em>.
+                    </div>
+                </div>
+                <div class="theory-card tc-2">
+                    <span class="tc-icon">📐</span>
+                    <div class="tc-title">The Parameter a — More Than Steepness</div>
+                    <div class="tc-body">
+                        <strong>|a| &gt; 1</strong>: parabola is <em>narrower</em> (stretched vertically). <strong>|a| &lt; 1</strong>: <em>wider</em> (compressed). <strong>a &lt; 0</strong>: reflected over the x-axis. Crucially, <span class="mono">a = 1/(4p)</span> links it to the <strong>focus</strong> — the optical point where parallel rays concentrate, exploited in satellite dishes, car headlights, and telescopes.
+                    </div>
+                </div>
+                <div class="theory-card tc-3">
+                    <span class="tc-icon">Δ</span>
+                    <div class="tc-title">The Discriminant — Nature of Roots</div>
+                    <div class="tc-body">
+                        From standard form: <span class="mono">Δ = b² − 4ac</span>. <strong>Δ &gt; 0</strong>: two distinct real roots (parabola crosses x-axis twice). <strong>Δ = 0</strong>: one repeated root (tangent to x-axis — vertex IS the root). <strong>Δ &lt; 0</strong>: no real roots (solutions exist in ℂ). The discriminant is a diagnostic — one number summarises intersection behaviour.
+                    </div>
+                </div>
+                <div class="theory-card tc-4">
+                    <span class="tc-icon">🌍</span>
+                    <div class="tc-title">Quadratics in the Real World</div>
+                    <div class="tc-body">
+                        Projectile motion: <span class="mono">h(t) = −½gt² + v₀t + h₀</span> — a quadratic with time. Revenue optimisation, suspension bridge cables, parabolic solar collectors, lens optics, and even the shape of hanging chains (catenary ≈ parabola for small sag) all use these exact principles. <strong>a, h, k</strong> are not abstract — they're physical constants.
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <script>
-        // Get DOM elements
-        const canvas = document.getElementById('graph-canvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Parameter displays
-        const aValue = document.getElementById('a-value');
-        const hValue = document.getElementById('h-value');
-        const kValue = document.getElementById('k-value');
-        
-        // Sliders
-        const aSlider = document.getElementById('a-slider');
-        const hSlider = document.getElementById('h-slider');
-        const kSlider = document.getElementById('k-slider');
-        
-        // Value displays
-        const aDisplay = document.getElementById('a-display');
-        const hDisplay = document.getElementById('h-display');
-        const kDisplay = document.getElementById('k-display');
-        
-        // Feature displays
-        const vertexValue = document.getElementById('vertex-value');
-        const axisValue = document.getElementById('axis-value');
-        const yintValue = document.getElementById('yint-value');
-        const directionValue = document.getElementById('direction-value');
-        
-        // Form buttons
-        const vertexFormBtn = document.getElementById('vertex-form-btn');
-        const standardFormBtn = document.getElementById('standard-form-btn');
-        
-        // Set canvas dimensions
-        function setCanvasSize() {
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-        }
-        
-        // Initialize parameters
-        let a = 1;  // Vertical stretch/compression
-        let h = 0;  // Horizontal shift
-        let k = 0;  // Vertical shift
-        
-        // Canvas transformation variables
-        let scale = 40;  // Pixels per unit
-        let offsetX = canvas.width / 2;
-        let offsetY = canvas.height / 2;
-        
-        // Dragging state
-        let isDraggingVertex = false;
-        let isDraggingStretch = false;
-        let isPanning = false;
-        let lastPanX, lastPanY;
-        
-        // Initialize
-        setCanvasSize();
-        window.addEventListener('resize', setCanvasSize);
-        
-        // Convert math coordinates to canvas coordinates
-        function toCanvasX(x) {
-            return offsetX + x * scale;
-        }
-        
-        function toCanvasY(y) {
-            return offsetY - y * scale;
-        }
-        
-        // Convert canvas coordinates to math coordinates
-        function toMathX(canvasX) {
-            return (canvasX - offsetX) / scale;
-        }
-        
-        function toMathY(canvasY) {
-            return (offsetY - canvasY) / scale;
-        }
-        
-        // Draw the coordinate grid
-        function drawGrid() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw grid background
-            ctx.fillStyle = 'rgba(10, 15, 30, 0.8)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Calculate visible range
-            const minX = toMathX(0);
-            const maxX = toMathX(canvas.width);
-            const minY = toMathY(canvas.height);
-            const maxY = toMathY(0);
-            
-            // Draw grid lines
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.lineWidth = 1;
-            
-            // Vertical lines
-            for (let x = Math.ceil(minX); x <= Math.floor(maxX); x++) {
-                ctx.beginPath();
-                ctx.moveTo(toCanvasX(x), 0);
-                ctx.lineTo(toCanvasX(x), canvas.height);
-                ctx.stroke();
-            }
-            
-            // Horizontal lines
-            for (let y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
-                ctx.beginPath();
-                ctx.moveTo(0, toCanvasY(y));
-                ctx.lineTo(canvas.width, toCanvasY(y));
-                ctx.stroke();
-            }
-            
-            // Draw axes
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.lineWidth = 2;
-            
-            // Y-axis
-            ctx.beginPath();
-            ctx.moveTo(toCanvasX(0), 0);
-            ctx.lineTo(toCanvasX(0), canvas.height);
-            ctx.stroke();
-            
-            // X-axis
-            ctx.beginPath();
-            ctx.moveTo(0, toCanvasY(0));
-            ctx.lineTo(canvas.width, toCanvasY(0));
-            ctx.stroke();
-            
-            // Draw axis labels
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // X-axis labels
-            for (let x = Math.ceil(minX); x <= Math.floor(maxX); x++) {
-                if (x !== 0) {
-                    ctx.fillText(x, toCanvasX(x), toCanvasY(0) + 15);
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('graph-canvas');
+const ctx = canvas.getContext('2d');
+
+// Params
+let a = 1, h = 0, k = 0;
+let scale = 50;
+let offsetX, offsetY;
+
+// Form
+let currentForm = 'vertex';
+
+// Interaction
+let isDraggingVertex = false;
+let isDraggingStretch = false;
+let isPanning = false;
+let lastPanX, lastPanY;
+
+// ── CANVAS SIZE ────────────────────────────────────
+function setSize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    // Account for footer and header heights
+    const headerH = canvas.parentElement.querySelector('.panel-header').offsetHeight;
+    const footerH = canvas.parentElement.querySelector('.canvas-footer').offsetHeight;
+    canvas.width = rect.width;
+    canvas.height = Math.max(300, rect.height - headerH - footerH);
+    offsetX = canvas.width / 2;
+    offsetY = canvas.height / 2;
+}
+
+// ── COORD HELPERS ──────────────────────────────────
+const toCanvasX = x => offsetX + x * scale;
+const toCanvasY = y => offsetY - y * scale;
+const toMathX = cx => (cx - offsetX) / scale;
+const toMathY = cy => (offsetY - cy) / scale;
+
+// ── FORMAT ────────────────────────────────────────
+function fmt(n, dp = 2) {
+    if (Math.abs(n) < 0.001) return '0';
+    let s = n.toFixed(dp);
+    s = s.replace(/\.?0+$/, '');
+    return s;
+}
+
+// ── DRAW GRID ─────────────────────────────────────
+function drawGrid() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(6, 8, 18, 0.95)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const minX = toMathX(0), maxX = toMathX(canvas.width);
+    const minY = toMathY(canvas.height), maxY = toMathY(0);
+
+    // Determine grid step
+    let step = 1;
+    if (scale < 20) step = 2;
+    if (scale < 10) step = 5;
+    if (scale > 100) step = 0.5;
+
+    const startX = Math.floor(minX / step) * step;
+    const startY = Math.floor(minY / step) * step;
+
+    // Minor grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let x = startX; x <= maxX; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(toCanvasX(x), 0);
+        ctx.lineTo(toCanvasX(x), canvas.height);
+        ctx.stroke();
+    }
+    for (let y = startY; y <= maxY; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, toCanvasY(y));
+        ctx.lineTo(canvas.width, toCanvasY(y));
+        ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(toCanvasX(0), 0); ctx.lineTo(toCanvasX(0), canvas.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, toCanvasY(0)); ctx.lineTo(canvas.width, toCanvasY(0)); ctx.stroke();
+
+    // Axis arrows
+    const ax0 = toCanvasX(0), ay0 = toCanvasY(0);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.moveTo(ax0, 8); ctx.lineTo(ax0-4, 18); ctx.lineTo(ax0+4, 18); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(canvas.width-8, ay0); ctx.lineTo(canvas.width-18, ay0-4); ctx.lineTo(canvas.width-18, ay0+4); ctx.closePath(); ctx.fill();
+
+    // Axis labels
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = '11px Space Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('x', canvas.width - 6, ay0 + 5);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('y', ax0 + 5, 12);
+
+    // Tick labels
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = '10px Space Mono, monospace';
+    ctx.textAlign = 'center';
+    for (let x = Math.ceil(startX); x <= maxX; x += step) {
+        if (Math.abs(x) < 0.001) continue;
+        const cx = toCanvasX(x);
+        if (cx < 20 || cx > canvas.width - 20) continue;
+        ctx.fillText(fmt(x, 0), cx, toCanvasY(0) + 12);
+    }
+    ctx.textAlign = 'right';
+    for (let y = Math.ceil(startY); y <= maxY; y += step) {
+        if (Math.abs(y) < 0.001) continue;
+        const cy = toCanvasY(y);
+        if (cy < 12 || cy > canvas.height - 12) continue;
+        ctx.fillText(fmt(y, 0), toCanvasX(0) - 6, cy);
+    }
+}
+
+// ── DRAW PARABOLA ──────────────────────────────────
+function drawParabola() {
+    const minX = toMathX(-10), maxX = toMathX(canvas.width + 10);
+    const steps = 400;
+    const dx = (maxX - minX) / steps;
+
+    // Glow pass
+    ctx.save();
+    ctx.shadowColor = '#4361ee';
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = 'rgba(67,97,238,0.3)';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    let first = true;
+    for (let i = 0; i <= steps; i++) {
+        const x = minX + i * dx;
+        const y = a * (x - h) * (x - h) + k;
+        const cx = toCanvasX(x), cy = toCanvasY(y);
+        if (cy < -200 || cy > canvas.height + 200) { first = true; continue; }
+        first ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+        first = false;
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Main curve
+    ctx.strokeStyle = '#5a78f5';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    first = true;
+    for (let i = 0; i <= steps; i++) {
+        const x = minX + i * dx;
+        const y = a * (x - h) * (x - h) + k;
+        const cx = toCanvasX(x), cy = toCanvasY(y);
+        if (cy < -200 || cy > canvas.height + 200) { first = true; continue; }
+        first ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+        first = false;
+    }
+    ctx.stroke();
+
+    // Axis of symmetry
+    ctx.save();
+    ctx.strokeStyle = 'rgba(76,201,240,0.35)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.moveTo(toCanvasX(h), 0);
+    ctx.lineTo(toCanvasX(h), canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // X-intercept markers
+    const disc = -4 * a * k; // b²-4ac in vertex form, b=0 always? No — in vertex form discriminant = -4ak
+    // Actually discriminant from standard form: b=-2ah, c=ah²+k → Δ = 4a²h² - 4a(ah²+k) = -4ak
+    if (disc >= 0 && Math.abs(a) > 0.001) {
+        const sqrtDisc = Math.sqrt(disc);
+        const x1 = h + sqrtDisc / (2 * Math.abs(a));
+        const x2 = h - sqrtDisc / (2 * Math.abs(a));
+        // Actually roots: 0 = a(x-h)²+k → x = h ± sqrt(-k/a)
+        if (-k / a >= 0) {
+            const r = Math.sqrt(-k / a);
+            [h + r, h - r].forEach(rx => {
+                if (Math.abs(rx - (h + r)) > 0.001 || Math.abs(rx - (h - r)) > 0.001 || true) {
+                    const cx = toCanvasX(rx);
+                    ctx.fillStyle = 'rgba(76,201,240,0.7)';
+                    ctx.beginPath();
+                    ctx.arc(cx, toCanvasY(0), 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
                 }
-            }
-            
-            // Y-axis labels
-            for (let y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
-                if (y !== 0) {
-                    ctx.fillText(y, toCanvasX(0) - 15, toCanvasY(y));
-                }
-            }
-            
-            // Origin label
-            ctx.fillText('0', toCanvasX(0) - 10, toCanvasY(0) + 15);
-        }
-        
-        // Draw the parabola
-        function drawParabola() {
-            // Calculate visible range
-            const minX = toMathX(0);
-            const maxX = toMathX(canvas.width);
-            
-            // Draw the parabola
-            ctx.strokeStyle = '#4361ee';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            
-            let firstPoint = true;
-            const step = (maxX - minX) / 200;
-            
-            for (let x = minX; x <= maxX; x += step) {
-                const y = a * Math.pow(x - h, 2) + k;
-                const canvasX = toCanvasX(x);
-                const canvasY = toCanvasY(y);
-                
-                if (firstPoint) {
-                    ctx.moveTo(canvasX, canvasY);
-                    firstPoint = false;
-                } else {
-                    ctx.lineTo(canvasX, canvasY);
-                }
-            }
-            
-            ctx.stroke();
-            
-            // Draw the vertex
-            const vertexCanvasX = toCanvasX(h);
-            const vertexCanvasY = toCanvasY(k);
-            
-            ctx.fillStyle = '#e63946';
-            ctx.beginPath();
-            ctx.arc(vertexCanvasX, vertexCanvasY, 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            
-            // Draw the stretch point
-            const stretchX = h + 1;
-            const stretchY = a * Math.pow(stretchX - h, 2) + k;
-            const stretchCanvasX = toCanvasX(stretchX);
-            const stretchCanvasY = toCanvasY(stretchY);
-            
-            ctx.fillStyle = '#4cc9f0';
-            ctx.beginPath();
-            ctx.arc(stretchCanvasX, stretchCanvasY, 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            
-            // Draw axis of symmetry
-            ctx.strokeStyle = 'rgba(76, 201, 240, 0.5)';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(toCanvasX(h), 0);
-            ctx.lineTo(toCanvasX(h), canvas.height);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
-        
-        // Update the equation display
-        function updateEquation() {
-            aValue.textContent = formatNumber(a);
-            hValue.textContent = formatNumber(h);
-            kValue.textContent = formatNumber(k);
-            
-            // Update standard form if needed
-            if (standardFormBtn.classList.contains('active')) {
-                updateStandardForm();
-            }
-        }
-        
-        // Update the standard form equation
-        function updateStandardForm() {
-            // Convert vertex form to standard form: y = a(x-h)² + k -> y = ax² - 2ahx + (ah² + k)
-            const aVal = a;
-            const bVal = -2 * a * h;
-            const cVal = a * h * h + k;
-            
-            aValue.textContent = formatNumber(aVal);
-            hValue.textContent = formatNumber(bVal);
-            kValue.textContent = formatNumber(cVal);
-        }
-        
-        // Format numbers for display
-        function formatNumber(num) {
-            if (num === 0) return '0';
-            
-            // Format to 2 decimal places, but remove trailing zeros
-            let formatted = num.toFixed(2);
-            if (formatted.endsWith('.00')) {
-                return formatted.slice(0, -3);
-            } else if (formatted.endsWith('0')) {
-                return formatted.slice(0, -1);
-            }
-            return formatted;
-        }
-        
-        // Update key features display
-        function updateFeatures() {
-            // Vertex
-            vertexValue.textContent = `(${formatNumber(h)}, ${formatNumber(k)})`;
-            
-            // Axis of symmetry
-            axisValue.textContent = `x = ${formatNumber(h)}`;
-            
-            // Y-intercept (x=0)
-            const yIntercept = a * Math.pow(0 - h, 2) + k;
-            yintValue.textContent = `(0, ${formatNumber(yIntercept)})`;
-            
-            // Direction
-            directionValue.textContent = a > 0 ? 'Opens Up' : 'Opens Down';
-            directionValue.style.color = a > 0 ? '#4cc9f0' : '#f8961e';
-        }
-        
-        // Check if a point is near the vertex
-        function isNearVertex(x, y) {
-            const vertexCanvasX = toCanvasX(h);
-            const vertexCanvasY = toCanvasY(k);
-            const distance = Math.sqrt(Math.pow(x - vertexCanvasX, 2) + Math.pow(y - vertexCanvasY, 2));
-            return distance < 15;
-        }
-        
-        // Check if a point is near the stretch point
-        function isNearStretchPoint(x, y) {
-            const stretchX = h + 1;
-            const stretchY = a * Math.pow(stretchX - h, 2) + k;
-            const stretchCanvasX = toCanvasX(stretchX);
-            const stretchCanvasY = toCanvasY(stretchY);
-            const distance = Math.sqrt(Math.pow(x - stretchCanvasX, 2) + Math.pow(y - stretchCanvasY, 2));
-            return distance < 15;
-        }
-        
-        // Handle mouse down event
-        function handleMouseDown(e) {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            if (isNearVertex(x, y)) {
-                isDraggingVertex = true;
-                canvas.style.cursor = 'grabbing';
-            } else if (isNearStretchPoint(x, y)) {
-                isDraggingStretch = true;
-                canvas.style.cursor = 'grabbing';
-            } else {
-                isPanning = true;
-                lastPanX = e.clientX;
-                lastPanY = e.clientY;
-                canvas.style.cursor = 'grabbing';
-            }
-        }
-        
-        // Handle mouse move event
-        function handleMouseMove(e) {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            
-            // Update cursor
-            if (isNearVertex(x, y) || isNearStretchPoint(x, y)) {
-                canvas.style.cursor = 'grab';
-            } else {
-                canvas.style.cursor = 'default';
-            }
-            
-            if (isDraggingVertex) {
-                // Update h and k based on mouse position
-                h = toMathX(x);
-                k = toMathY(y);
-                
-                // Update sliders and displays
-                updateFromVertex();
-                updateEquation();
-                updateFeatures();
-                draw();
-            } else if (isDraggingStretch) {
-                // Calculate new a value based on mouse position
-                const mathX = toMathX(x);
-                const mathY = toMathY(y);
-                
-                // Avoid division by zero
-                if (mathX !== h) {
-                    a = (mathY - k) / Math.pow(mathX - h, 2);
-                    
-                    // Constrain a to reasonable values
-                    if (a > 5) a = 5;
-                    if (a < -5) a = -5;
-                    
-                    // Update sliders and displays
-                    updateFromParameters();
-                    updateEquation();
-                    updateFeatures();
-                    draw();
-                }
-            } else if (isPanning) {
-                // Pan the graph
-                const dx = e.clientX - lastPanX;
-                const dy = e.clientY - lastPanY;
-                
-                offsetX += dx;
-                offsetY += dy;
-                
-                lastPanX = e.clientX;
-                lastPanY = e.clientY;
-                
-                draw();
-            }
-        }
-        
-        // Handle mouse up event
-        function handleMouseUp() {
-            isDraggingVertex = false;
-            isDraggingStretch = false;
-            isPanning = false;
-            canvas.style.cursor = 'default';
-        }
-        
-        // Update parameters from vertex position
-        function updateFromVertex() {
-            // Constrain h and k to slider ranges
-            h = Math.max(-5, Math.min(5, h));
-            k = Math.max(-5, Math.min(5, k));
-            
-            // Update sliders
-            aSlider.value = a;
-            hSlider.value = h;
-            kSlider.value = k;
-            
-            // Update displays
-            aDisplay.textContent = formatNumber(a);
-            hDisplay.textContent = formatNumber(h);
-            kDisplay.textContent = formatNumber(k);
-        }
-        
-        // Update parameters from slider values
-        function updateFromParameters() {
-            a = parseFloat(aSlider.value);
-            h = parseFloat(hSlider.value);
-            k = parseFloat(kSlider.value);
-            
-            // Update displays
-            aDisplay.textContent = formatNumber(a);
-            hDisplay.textContent = formatNumber(h);
-            kDisplay.textContent = formatNumber(k);
-        }
-        
-        // Draw everything
-        function draw() {
-            drawGrid();
-            drawParabola();
-        }
-        
-        // Initialize event listeners
-        function initEventListeners() {
-            // Slider events
-            aSlider.addEventListener('input', function() {
-                updateFromParameters();
-                updateEquation();
-                updateFeatures();
-                draw();
-            });
-            
-            hSlider.addEventListener('input', function() {
-                updateFromParameters();
-                updateEquation();
-                updateFeatures();
-                draw();
-            });
-            
-            kSlider.addEventListener('input', function() {
-                updateFromParameters();
-                updateEquation();
-                updateFeatures();
-                draw();
-            });
-            
-            // Mouse events for canvas
-            canvas.addEventListener('mousedown', handleMouseDown);
-            canvas.addEventListener('mousemove', handleMouseMove);
-            canvas.addEventListener('mouseup', handleMouseUp);
-            canvas.addEventListener('mouseleave', handleMouseUp);
-            
-            // Form button events
-            vertexFormBtn.addEventListener('click', function() {
-                vertexFormBtn.classList.add('active');
-                standardFormBtn.classList.remove('active');
-                updateEquation();
-            });
-            
-            standardFormBtn.addEventListener('click', function() {
-                standardFormBtn.classList.add('active');
-                vertexFormBtn.classList.remove('active');
-                updateEquation();
             });
         }
-        
-        // Initialize the application
-        function init() {
-            setCanvasSize();
-            initEventListeners();
-            updateEquation();
-            updateFeatures();
-            draw();
+    }
+
+    // Y-intercept
+    const yInt = a * h * h + k;
+    ctx.fillStyle = 'rgba(248,150,30,0.8)';
+    ctx.beginPath();
+    ctx.arc(toCanvasX(0), toCanvasY(yInt), 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Vertex
+    const vx = toCanvasX(h), vy = toCanvasY(k);
+    ctx.save();
+    ctx.shadowColor = '#e63946';
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#e63946';
+    ctx.beginPath();
+    ctx.arc(vx, vy, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Vertex label
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '10px Space Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`(${fmt(h)}, ${fmt(k)})`, vx + 13, vy - 6);
+
+    // Stretch handle
+    const sx = h + 1, sy = a + k;
+    const scx = toCanvasX(sx), scy = toCanvasY(sy);
+    ctx.save();
+    ctx.shadowColor = '#4cc9f0';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#4cc9f0';
+    ctx.beginPath();
+    ctx.arc(scx, scy, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Line from vertex to stretch handle
+    ctx.strokeStyle = 'rgba(76,201,240,0.2)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    ctx.moveTo(vx, vy);
+    ctx.lineTo(scx, scy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+}
+
+// ── UPDATE EQUATION DISPLAY ────────────────────────
+function updateEqDisplay() {
+    const eqDiv = document.getElementById('eq-display');
+
+    if (currentForm === 'vertex') {
+        const hSign = h < 0 ? '+' : '−';
+        const kSign = k < 0 ? '−' : '+';
+        eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">(x ${hSign} </span><span class="eq-h">${fmt(Math.abs(h))}</span><span class="eq-plain">)² ${kSign} </span><span class="eq-k">${fmt(Math.abs(k))}</span>`;
+    } else if (currentForm === 'standard') {
+        const B = -2 * a * h;
+        const C = a * h * h + k;
+        const bSign = B < 0 ? '−' : '+';
+        const cSign = C < 0 ? '−' : '+';
+        eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">x² ${bSign} </span><span class="eq-h">${fmt(Math.abs(B))}</span><span class="eq-plain">x ${cSign} </span><span class="eq-k">${fmt(Math.abs(C))}</span>`;
+    } else {
+        // Factored
+        const disc = -k / a;
+        if (disc < 0) {
+            eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">(x − </span><span class="eq-h">${fmt(h)}</span><span class="eq-plain">)² + </span><span class="eq-k">${fmt(k)}</span><span class="eq-plain" style="font-size:0.75rem;"> [no real factors]</span>`;
+        } else if (disc === 0) {
+            eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">(x − </span><span class="eq-h">${fmt(h)}</span><span class="eq-plain">)²</span>`;
+        } else {
+            const r = Math.sqrt(disc);
+            const r1 = h + r, r2 = h - r;
+            const s1 = r1 < 0 ? '+' : '−';
+            const s2 = r2 < 0 ? '+' : '−';
+            eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">(x ${s1} </span><span class="eq-h">${fmt(Math.abs(r1))}</span><span class="eq-plain">)(x ${s2} </span><span class="eq-k">${fmt(Math.abs(r2))}</span><span class="eq-plain">)</span>`;
         }
-        
-        // Start the application
-        init();
-    </script>
+    }
+}
+
+// ── UPDATE DISCRIMINANT ────────────────────────────
+function updateDiscriminant() {
+    // Standard form: A=a, B=-2ah, C=ah²+k → Δ = B²-4AC = 4a²h²-4a(ah²+k) = -4ak
+    const delta = -4 * a * k;
+    const bar = document.getElementById('disc-bar');
+    const val = document.getElementById('disc-val');
+    const roothalf = 200; // arbitrary max for bar scaling
+    const pct = Math.min(100, Math.max(0, (delta + roothalf) / (2 * roothalf) * 100));
+
+    bar.style.width = pct + '%';
+    if (delta > 0.001) {
+        bar.style.background = 'linear-gradient(90deg, #4cc9f0, #4361ee)';
+        val.style.color = '#4cc9f0';
+        val.textContent = `Δ = ${fmt(delta)} > 0`;
+    } else if (delta < -0.001) {
+        bar.style.background = '#f72585';
+        val.style.color = '#f72585';
+        val.textContent = `Δ = ${fmt(delta)} < 0`;
+    } else {
+        bar.style.background = '#f8961e';
+        val.style.color = '#f8961e';
+        val.textContent = 'Δ = 0';
+    }
+
+    // Roots
+    const rootsDiv = document.getElementById('roots-display');
+    const disc2 = -k / a;
+    if (Math.abs(a) < 0.001) {
+        rootsDiv.innerHTML = `<span>a = 0: not a quadratic — horizontal line y = ${fmt(k)}</span>`;
+    } else if (disc2 < 0) {
+        rootsDiv.innerHTML = `<span>Roots: </span><span class="no-roots">No real roots</span> — complex: x = ${fmt(h)} ± ${fmt(Math.sqrt(-disc2))}i`;
+    } else if (Math.abs(disc2) < 0.0001) {
+        rootsDiv.innerHTML = `<span>Root: </span><span class="root-val">x = ${fmt(h)}</span> <span>(double/repeated root — vertex touches axis)</span>`;
+    } else {
+        const r = Math.sqrt(disc2);
+        rootsDiv.innerHTML = `<span>Roots (x-intercepts): </span><span class="root-val">x₁ = ${fmt(h + r)}</span>&ensp;<span class="root-val">x₂ = ${fmt(h - r)}</span>`;
+    }
+}
+
+// ── UPDATE FEATURES ────────────────────────────────
+function updateFeatures() {
+    document.getElementById('f-vertex').textContent = `(${fmt(h)}, ${fmt(k)})`;
+    document.getElementById('f-axis').textContent = `x = ${fmt(h)}`;
+    const yInt = a * h * h + k;
+    document.getElementById('f-yint').textContent = `(0, ${fmt(yInt)})`;
+    const opens = a > 0 ? '↑' : '↓';
+    const range = a > 0 ? `y ≥ ${fmt(k)}` : `y ≤ ${fmt(k)}`;
+    document.getElementById('f-dir').textContent = `${opens}  ${range}`;
+    document.getElementById('f-domain').textContent = 'ℝ (all reals)';
+    // Focus: p = 1/(4a)
+    if (Math.abs(a) > 0.001) {
+        const p = 1 / (4 * a);
+        document.getElementById('f-focus').textContent = `(${fmt(h)}, ${fmt(k + p)})`;
+    }
+}
+
+// ── INSIGHT ENGINE ─────────────────────────────────
+function updateInsight() {
+    const t = document.getElementById('insight-text');
+    let msg = '';
+
+    if (Math.abs(a) < 0.05) {
+        msg = `With <span class="highlight-a">a ≈ 0</span>, the parabola flattens toward a horizontal line. A true quadratic needs a ≠ 0 — otherwise it's linear (or constant).`;
+    } else if (Math.abs(a) > 4) {
+        msg = `<strong>Very steep!</strong> Large <span class="highlight-a">|a| = ${fmt(Math.abs(a))}</span> compresses the parabola horizontally — like zooming in on the vertex. Think of satellite dishes: a high-gain dish has a large <em>a</em>-value, focusing energy tightly.`;
+    } else if (Math.abs(a) < 0.3) {
+        msg = `<strong>Wide and shallow.</strong> Small <span class="highlight-a">|a| = ${fmt(Math.abs(a))}</span> spreads the parabola. In projectile motion, a shallow parabola means low launch angle — maximum range is achieved at 45°, giving a balanced a-value.`;
+    } else if (a < 0) {
+        msg = `<span class="highlight-a">a < 0</span> flips the parabola — it now has a <strong>maximum</strong> at the vertex <span class="highlight-h">(${fmt(h)}, </span><span class="highlight-k">${fmt(k)})</span>. This models profit curves: revenue peaks at the vertex, then falls on either side.`;
+    } else if (Math.abs(h) > 3) {
+        msg = `Large horizontal shift <span class="highlight-h">h = ${fmt(h)}</span>. Note that in standard form <em>y = ax² + bx + c</em>, this shift is <strong>hidden</strong> inside b = −2ah = ${fmt(-2 * a * h)}. That's why vertex form is so powerful — h is explicit.`;
+    } else if (Math.abs(k) > 3) {
+        msg = `<span class="highlight-k">k = ${fmt(k)}</span> is the minimum (or maximum) <strong>y-value</strong> the function ever reaches — the range is y ${a > 0 ? '≥' : '≤'} ${fmt(k)}. The y-intercept is now at y = ${fmt(a * h * h + k)}, moved far from the vertex.`;
+    } else if (Math.abs(k) < 0.1 && Math.abs(h) < 0.1) {
+        msg = `Base position: vertex at the <strong>origin</strong>. The equation simplifies to <span style="font-family:Space Mono;font-size:0.8rem">y = ${fmt(a)}x²</span>. All other quadratics are just this — <em>shifted, stretched, and flipped</em>.`;
+    } else {
+        msg = `Vertex at <span class="highlight-h">(${fmt(h)}, </span><span class="highlight-k">${fmt(k)})</span>, opening <strong>${a > 0 ? 'upward' : 'downward'}</strong>. The axis of symmetry x = ${fmt(h)} divides the parabola into two perfect mirror halves — a property unique to conic sections.`;
+    }
+
+    t.style.opacity = 0;
+    setTimeout(() => { t.innerHTML = msg; t.style.opacity = 1; }, 150);
+}
+
+// ── UI UPDATES ─────────────────────────────────────
+function updateAll() {
+    document.getElementById('a-display').textContent = fmt(a);
+    document.getElementById('h-display').textContent = fmt(h);
+    document.getElementById('k-display').textContent = fmt(k);
+    updateEqDisplay();
+    updateDiscriminant();
+    updateFeatures();
+    updateInsight();
+}
+
+// ── DRAW ───────────────────────────────────────────
+function draw() { drawGrid(); drawParabola(); }
+
+// ── SLIDER EVENTS ──────────────────────────────────
+document.getElementById('a-slider').addEventListener('input', e => { a = parseFloat(e.target.value); updateAll(); draw(); });
+document.getElementById('h-slider').addEventListener('input', e => { h = parseFloat(e.target.value); updateAll(); draw(); });
+document.getElementById('k-slider').addEventListener('input', e => { k = parseFloat(e.target.value); updateAll(); draw(); });
+
+// ── FORM BUTTONS ───────────────────────────────────
+['vertex', 'standard', 'factored'].forEach(form => {
+    document.getElementById(`${form}-form-btn`).addEventListener('click', () => {
+        currentForm = form;
+        document.querySelectorAll('.form-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`${form}-form-btn`).classList.add('active');
+        updateEqDisplay();
+    });
+});
+
+// ── DRAG HELPERS ───────────────────────────────────
+function nearVertex(x, y) {
+    const d = Math.hypot(x - toCanvasX(h), y - toCanvasY(k));
+    return d < 18;
+}
+
+function nearStretch(x, y) {
+    const sx = h + 1, sy = a + k;
+    const d = Math.hypot(x - toCanvasX(sx), y - toCanvasY(sy));
+    return d < 15;
+}
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ── MOUSE EVENTS ────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+    const r = canvas.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    if (nearVertex(x, y)) { isDraggingVertex = true; canvas.style.cursor = 'grabbing'; }
+    else if (nearStretch(x, y)) { isDraggingStretch = true; canvas.style.cursor = 'grabbing'; }
+    else { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; canvas.style.cursor = 'grabbing'; }
+});
+
+canvas.addEventListener('mousemove', e => {
+    const r = canvas.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+
+    if (!isDraggingVertex && !isDraggingStretch && !isPanning) {
+        canvas.style.cursor = (nearVertex(x, y) || nearStretch(x, y)) ? 'grab' : 'crosshair';
+    }
+
+    if (isDraggingVertex) {
+        h = clamp(toMathX(x), -5, 5);
+        k = clamp(toMathY(y), -5, 5);
+        document.getElementById('h-slider').value = h;
+        document.getElementById('k-slider').value = k;
+        updateAll(); draw();
+    } else if (isDraggingStretch) {
+        const mx = toMathX(x), my = toMathY(y);
+        const dx = mx - h;
+        if (Math.abs(dx) > 0.05) {
+            a = clamp((my - k) / (dx * dx), -5, 5);
+            document.getElementById('a-slider').value = a;
+            updateAll(); draw();
+        }
+    } else if (isPanning) {
+        offsetX += e.clientX - lastPanX;
+        offsetY += e.clientY - lastPanY;
+        lastPanX = e.clientX;
+        lastPanY = e.clientY;
+        draw();
+    }
+});
+
+canvas.addEventListener('mouseup', () => { isDraggingVertex = isDraggingStretch = isPanning = false; canvas.style.cursor = 'crosshair'; });
+canvas.addEventListener('mouseleave', () => { isDraggingVertex = isDraggingStretch = isPanning = false; });
+
+// Scroll to zoom
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.1 : 0.91;
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const mathX = toMathX(mx), mathY = toMathY(my);
+    scale *= factor;
+    scale = clamp(scale, 8, 200);
+    offsetX = mx - mathX * scale;
+    offsetY = my + mathY * scale;
+    draw();
+}, { passive: false });
+
+// Zoom buttons
+document.getElementById('zoom-in').addEventListener('click', () => { scale = clamp(scale * 1.25, 8, 200); draw(); });
+document.getElementById('zoom-out').addEventListener('click', () => { scale = clamp(scale * 0.8, 8, 200); draw(); });
+document.getElementById('zoom-reset').addEventListener('click', () => {
+    scale = 50;
+    offsetX = canvas.width / 2;
+    offsetY = canvas.height / 2;
+    draw();
+});
+
+// Touch support
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const r = canvas.getBoundingClientRect();
+    const x = t.clientX - r.left, y = t.clientY - r.top;
+    if (nearVertex(x, y)) isDraggingVertex = true;
+    else if (nearStretch(x, y)) isDraggingStretch = true;
+    else { isPanning = true; lastPanX = t.clientX; lastPanY = t.clientY; }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const r = canvas.getBoundingClientRect();
+    const x = t.clientX - r.left, y = t.clientY - r.top;
+    if (isDraggingVertex) {
+        h = clamp(toMathX(x), -5, 5); k = clamp(toMathY(y), -5, 5);
+        document.getElementById('h-slider').value = h;
+        document.getElementById('k-slider').value = k;
+        updateAll(); draw();
+    } else if (isDraggingStretch) {
+        const mx = toMathX(x), my = toMathY(y);
+        const dx = mx - h;
+        if (Math.abs(dx) > 0.05) {
+            a = clamp((my - k) / (dx * dx), -5, 5);
+            document.getElementById('a-slider').value = a;
+            updateAll(); draw();
+        }
+    } else if (isPanning) {
+        offsetX += t.clientX - lastPanX; offsetY += t.clientY - lastPanY;
+        lastPanX = t.clientX; lastPanY = t.clientY;
+        draw();
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => { isDraggingVertex = isDraggingStretch = isPanning = false; });
+
+// ── INIT ───────────────────────────────────────────
+function init() {
+    setSize();
+    updateAll();
+    draw();
+}
+
+window.addEventListener('resize', () => {
+    setSize();
+    draw();
+});
+
+init();
+</script>
 </body>
 </html>
