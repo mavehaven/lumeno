@@ -79,6 +79,8 @@
         .btn-primary:active { transform: scale(0.98); }
         .dark .btn-primary { background: #3b82f6; }
 
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
         .btn-google {
             width: 100%; padding: 12px; border-radius: 10px;
             background: #fff; color: #374151; font-size: 14px;
@@ -166,12 +168,22 @@
         #upgrade-banner .upgrade-cta:hover { opacity: 0.9; }
 
         .sim-card-wrapper { position: relative; }
+
+        /* ── Loading spinner ── */
+        .spinner {
+            display: inline-block; width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: #fff; border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle; margin-right: 6px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="bg-white text-gray-900">
 
     <!-- ══════════════════════════════════════
-         AUTH OVERLAY (shown when logged out)
+         AUTH OVERLAY
     ══════════════════════════════════════ -->
     <div id="auth-overlay">
         <div class="auth-card">
@@ -192,7 +204,7 @@
             <div class="auth-error mb-4" id="auth-error"></div>
 
             <!-- Google -->
-            <button class="btn-google mb-2" onclick="signInWithGoogle()">
+            <button class="btn-google mb-2" id="btn-google-signin" onclick="signInWithGoogle()">
                 <svg width="18" height="18" viewBox="0 0 48 48">
                     <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                     <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -206,10 +218,13 @@
 
             <!-- Email form -->
             <div class="space-y-3">
-                <input type="email" id="auth-email" class="auth-input" placeholder="Email address">
-                <input type="password" id="auth-password" class="auth-input" placeholder="Password">
+                <input type="email" id="auth-email" class="auth-input" placeholder="Email address"
+                       onkeydown="if(event.key==='Enter') handleEmailAuth()">
+                <input type="password" id="auth-password" class="auth-input" placeholder="Password"
+                       onkeydown="if(event.key==='Enter') handleEmailAuth()">
                 <div id="signup-name-row" style="display:none;">
-                    <input type="text" id="auth-name" class="auth-input" placeholder="Your name (optional)">
+                    <input type="text" id="auth-name" class="auth-input" placeholder="Your name (optional)"
+                           onkeydown="if(event.key==='Enter') handleEmailAuth()">
                 </div>
                 <button class="btn-primary" id="auth-submit-btn" onclick="handleEmailAuth()">Sign In</button>
             </div>
@@ -282,11 +297,11 @@
     </header>
 
     <!-- ══════════════════════════════════════
-         UPGRADE BANNER (free users see after login)
+         UPGRADE BANNER
     ══════════════════════════════════════ -->
     <div id="upgrade-banner" class="hidden">
         <span class="upgrade-text">🔓 You have <strong>3 free simulations</strong>. Upgrade to unlock everything.</span>
-        <button class="upgrade-cta" onclick="showUpgradeModal()">Upgrade to Premium</button>
+        <button class="upgrade-cta" id="banner-upgrade-cta" onclick="trackAndShowUpgrade('upgrade_banner_cta')">Upgrade to Premium</button>
     </div>
 
     <!-- ══════════════════════════════════════
@@ -305,16 +320,16 @@
     </section>
 
     <!-- ══════════════════════════════════════
-         ALGEBRA  (FREE: first 3 cards unlocked)
+         ALGEBRA  (FREE: first 3 cards)
     ══════════════════════════════════════ -->
     <section id="algebra" class="py-20 px-6 bg-gray-50">
         <div class="max-w-7xl mx-auto">
             <h2 class="text-3xl font-semibold mb-12">Algebra</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 
-                <!-- FREE #1 -->
                 <div class="sim-card-wrapper">
-                    <a href="linear_equations.html" class="sim-card group block" data-index="0">
+                    <a href="linear_equations.html" class="sim-card group block"
+                       onclick="trackSimClick('linear_equations', 'Algebra', false)">
                         <div class="aspect-w-16 aspect-h-9 mb-4">
                             <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
                                 <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018405258x257693540142452480/linear%20algebra.png"
@@ -326,9 +341,9 @@
                     </a>
                 </div>
 
-                <!-- FREE #2 -->
                 <div class="sim-card-wrapper">
-                    <a href="quadratic_functions.html" class="sim-card group block" data-index="1">
+                    <a href="quadratic_functions.html" class="sim-card group block"
+                       onclick="trackSimClick('quadratic_functions', 'Algebra', false)">
                         <div class="aspect-w-16 aspect-h-9 mb-4">
                             <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
                                 <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018370917x465291529971208400/Quadratic%20Expressions.png"
@@ -340,9 +355,9 @@
                     </a>
                 </div>
 
-                <!-- FREE #3 -->
                 <div class="sim-card-wrapper">
-                    <a href="polynomials.html" class="sim-card group block" data-index="2">
+                    <a href="polynomials.html" class="sim-card group block"
+                       onclick="trackSimClick('polynomials', 'Algebra', false)">
                         <div class="aspect-w-16 aspect-h-9 mb-4">
                             <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden">
                                 <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018390921x905673167667615500/polynomials.png"
@@ -358,7 +373,7 @@
     </section>
 
     <!-- ══════════════════════════════════════
-         CALCULUS  (LOCKED for free users)
+         CALCULUS  (PREMIUM)
     ══════════════════════════════════════ -->
     <section id="calculus" class="py-20 px-6">
         <div class="max-w-7xl mx-auto">
@@ -366,12 +381,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 
                 <div class="sim-card-wrapper">
-                    <a href="differentials.html" class="sim-card group block locked-sim">
+                    <a href="differentials.html" class="sim-card group block locked-sim"
+                       data-sim-id="derivatives" data-category="Calculus">
                         <div class="aspect-w-16 aspect-h-9 mb-4">
                             <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden relative">
                                 <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018443920x702693302274996400/derivatives.png"
                                      alt="Derivatives" class="w-full h-full object-cover">
-                                <div class="locked-overlay" onclick="showUpgradeModal()">
+                                <div class="locked-overlay" onclick="handleLockedSimClick(event, 'derivatives', 'Calculus')">
                                     <span class="lock-icon">🔒</span>
                                     <span class="lock-label">Premium</span>
                                     <button class="unlock-btn">Unlock</button>
@@ -384,12 +400,13 @@
                 </div>
 
                 <div class="sim-card-wrapper">
-                    <a href="integrals.html" class="sim-card group block locked-sim">
+                    <a href="integrals.html" class="sim-card group block locked-sim"
+                       data-sim-id="integrals" data-category="Calculus">
                         <div class="aspect-w-16 aspect-h-9 mb-4">
                             <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden relative">
                                 <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018427176x149967431747671580/integrals.png"
                                      alt="Integrals" class="w-full h-full object-cover">
-                                <div class="locked-overlay" onclick="showUpgradeModal()">
+                                <div class="locked-overlay" onclick="handleLockedSimClick(event, 'integrals', 'Calculus')">
                                     <span class="lock-icon">🔒</span>
                                     <span class="lock-label">Premium</span>
                                     <button class="unlock-btn">Unlock</button>
@@ -405,7 +422,7 @@
     </section>
 
     <!-- ══════════════════════════════════════
-         GEOMETRY  (LOCKED)
+         GEOMETRY  (PREMIUM)
     ══════════════════════════════════════ -->
     <section id="geometry" class="py-20 px-6 bg-gray-50">
         <div class="max-w-7xl mx-auto">
@@ -413,12 +430,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 
                 <div class="sim-card-wrapper">
-                    <a href="triangles.html" class="sim-card group block locked-sim">
+                    <a href="triangles.html" class="sim-card group block locked-sim"
+                       data-sim-id="triangles" data-category="Geometry">
                         <div class="aspect-w-16 aspect-h-9 mb-4">
                             <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden relative">
                                 <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018814072x578763772696039300/triangle%20geometry.png"
                                      alt="Triangles" class="w-full h-full object-cover">
-                                <div class="locked-overlay" onclick="showUpgradeModal()">
+                                <div class="locked-overlay" onclick="handleLockedSimClick(event, 'triangles', 'Geometry')">
                                     <span class="lock-icon">🔒</span>
                                     <span class="lock-label">Premium</span>
                                     <button class="unlock-btn">Unlock</button>
@@ -431,12 +449,13 @@
                 </div>
 
                 <div class="sim-card-wrapper">
-                    <a href="transformations.html" class="sim-card group block locked-sim">
+                    <a href="transformations.html" class="sim-card group block locked-sim"
+                       data-sim-id="transformations" data-category="Geometry">
                         <div class="aspect-w-16 aspect-h-9 mb-4">
                             <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden relative">
                                 <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746018989153x233794588508926530/transformations.png"
                                      alt="Transformations" class="w-full h-full object-cover">
-                                <div class="locked-overlay" onclick="showUpgradeModal()">
+                                <div class="locked-overlay" onclick="handleLockedSimClick(event, 'transformations', 'Geometry')">
                                     <span class="lock-icon">🔒</span>
                                     <span class="lock-label">Premium</span>
                                     <button class="unlock-btn">Unlock</button>
@@ -452,7 +471,7 @@
     </section>
 
     <!-- ══════════════════════════════════════
-         STATISTICS  (LOCKED)
+         STATISTICS  (PREMIUM)
     ══════════════════════════════════════ -->
     <section id="statistics" class="py-20 px-6">
         <div class="max-w-7xl mx-auto">
@@ -460,12 +479,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 
                 <div class="sim-card-wrapper">
-                    <a href="distributions.html" class="sim-card group block locked-sim">
+                    <a href="distributions.html" class="sim-card group block locked-sim"
+                       data-sim-id="probability_distributions" data-category="Statistics">
                         <div class="aspect-w-16 aspect-h-9 mb-4">
                             <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden relative">
                                 <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746019566913x146406189390019500/probability.png"
                                      alt="Probability Distributions" class="w-full h-full object-cover">
-                                <div class="locked-overlay" onclick="showUpgradeModal()">
+                                <div class="locked-overlay" onclick="handleLockedSimClick(event, 'probability_distributions', 'Statistics')">
                                     <span class="lock-icon">🔒</span>
                                     <span class="lock-label">Premium</span>
                                     <button class="unlock-btn">Unlock</button>
@@ -478,12 +498,13 @@
                 </div>
 
                 <div class="sim-card-wrapper">
-                    <a href="regression.html" class="sim-card group block locked-sim">
+                    <a href="regression.html" class="sim-card group block locked-sim"
+                       data-sim-id="regression_analysis" data-category="Statistics">
                         <div class="aspect-w-16 aspect-h-9 mb-4">
                             <div class="w-full h-full bg-gray-200 rounded-lg overflow-hidden relative">
                                 <img src="//808b9e228081972b8b76151c511368ad.cdn.bubble.io/f1746019380943x430740556631429300/regression.png"
                                      alt="Regression Analysis" class="w-full h-full object-cover">
-                                <div class="locked-overlay" onclick="showUpgradeModal()">
+                                <div class="locked-overlay" onclick="handleLockedSimClick(event, 'regression_analysis', 'Statistics')">
                                     <span class="lock-icon">🔒</span>
                                     <span class="lock-label">Premium</span>
                                     <button class="unlock-btn">Unlock</button>
@@ -517,8 +538,9 @@
                 document at <code>users/{uid}</code>. Wire up your own payment provider
                 (Stripe, PayFast, etc.) to update this field on successful payment.
             </p>
-            <button class="btn-primary mb-3" onclick="closeUpgradeModal()">Got it</button>
-            <button onclick="closeUpgradeModal()"
+            <button class="btn-primary mb-3" id="upgrade-modal-cta"
+                    onclick="trackEvent('upgrade_modal_cta_click'); closeUpgradeModal()">Got it</button>
+            <button onclick="trackEvent('upgrade_modal_dismiss'); closeUpgradeModal()"
                     class="w-full text-sm text-gray-400 hover:text-gray-600 cursor-pointer bg-transparent border-none">
                 Maybe later
             </button>
@@ -526,103 +548,179 @@
     </div>
 
     <!-- ══════════════════════════════════════
-         FIREBASE SDK + APP LOGIC
+         FIREBASE SDKs
     ══════════════════════════════════════ -->
-    <!-- Firebase v9 compat (CDN) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics-compat.js"></script>
 
     <script>
     // ══════════════════════════════════════
-    // 🔧 REPLACE THIS with your Firebase project config
-    //    Console → Project Settings → Your apps → SDK setup
+    // FIREBASE CONFIG
     // ══════════════════════════════════════
     const firebaseConfig = {
-  apiKey: "AIzaSyDRPYFEjIF7SDOn7jDOZvzNZkqhVk8wQz4",
-  authDomain: "lumenos-749a1.firebaseapp.com",
-  projectId: "lumenos-749a1",
-  storageBucket: "lumenos-749a1.firebasestorage.app",
-  messagingSenderId: "857410556058",
-  appId: "1:857410556058:web:fd79774c94b211d727cf23",
-  measurementId: "G-1JBGF5DPJW"
-};
+        apiKey:            "AIzaSyDRPYFEjIF7SDOn7jDOZvzNZkqhVk8wQz4",
+        authDomain:        "lumenos-749a1.firebaseapp.com",
+        projectId:         "lumenos-749a1",
+        storageBucket:     "lumenos-749a1.firebasestorage.app",
+        messagingSenderId: "857410556058",
+        appId:             "1:857410556058:web:fd79774c94b211d727cf23",
+        measurementId:     "G-1JBGF5DPJW"
+    };
 
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db   = firebase.firestore();
+    const auth      = firebase.auth();
+    const db        = firebase.firestore();
+    const analytics = firebase.analytics();
 
-    // ── Auth state listener ──────────────────
+    // ══════════════════════════════════════
+    // ANALYTICS HELPERS
+    // ══════════════════════════════════════
+
+    /**
+     * trackEvent(name, params)
+     * Logs to Firebase Analytics AND writes a lightweight row to
+     * Firestore → analytics/{uid}/events so you can query raw event
+     * data from your own dashboard without GA4 exports.
+     */
+    function trackEvent(name, params = {}) {
+        // Firebase Analytics (GA4)
+        try {
+            analytics.logEvent(name, {
+                ...params,
+                timestamp: Date.now()
+            });
+        } catch (e) {
+            console.warn('[Analytics] logEvent failed:', e);
+        }
+
+        // Firestore mirror (opt-in — remove if you only want GA4)
+        const user = auth.currentUser;
+        if (user) {
+            db.collection('analytics')
+              .doc(user.uid)
+              .collection('events')
+              .add({
+                  event:  name,
+                  params: params,
+                  uid:    user.uid,
+                  ts:     firebase.firestore.FieldValue.serverTimestamp()
+              })
+              .catch(err => console.warn('[Analytics] Firestore write failed:', err));
+        }
+
+        // Console trace in development
+        console.debug(`[Analytics] ${name}`, params);
+    }
+
+    // ── Specific tracking helpers ────────────────────────────────
+
+    /** Called when a free sim card is clicked */
+    function trackSimClick(simId, category, isLocked) {
+        trackEvent('sim_card_click', { sim_id: simId, category, is_locked: isLocked });
+    }
+
+    /** Called when a locked sim overlay is tapped */
+    function handleLockedSimClick(e, simId, category) {
+        e.preventDefault();
+        e.stopPropagation();
+        trackEvent('locked_sim_click', { sim_id: simId, category });
+        showUpgradeModal();
+    }
+
+    /** Upgrade CTA clicked (banner or modal) */
+    function trackAndShowUpgrade(source) {
+        trackEvent('upgrade_intent', { source });
+        showUpgradeModal();
+    }
+
+    // ══════════════════════════════════════
+    // AUTH STATE
+    // ══════════════════════════════════════
     auth.onAuthStateChanged(async (user) => {
         if (!user) {
             showAuthOverlay();
             return;
         }
 
-        // User is logged in — check premium status in Firestore
+        // Set Analytics user ID so sessions are attributed
+        analytics.setUserId(user.uid);
+        analytics.setUserProperties({ email_domain: user.email.split('@')[1] || 'unknown' });
+
         let isPremium = false;
         try {
             const snap = await db.collection('users').doc(user.uid).get();
             if (snap.exists) {
                 isPremium = snap.data().isPremium === true;
             } else {
-                // First login: create user doc
+                // First login: create user document
                 await db.collection('users').doc(user.uid).set({
-                    email: user.email,
+                    email:       user.email,
                     displayName: user.displayName || '',
-                    isPremium: false,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    isPremium:   false,
+                    createdAt:   firebase.firestore.FieldValue.serverTimestamp()
                 });
+                trackEvent('new_user_created', { method: user.providerData[0]?.providerId || 'unknown' });
             }
         } catch (e) {
-            console.warn('Firestore read failed, defaulting to free tier:', e);
+            console.warn('Firestore read failed, defaulting free tier:', e);
         }
 
         hideAuthOverlay();
         updateUI(user, isPremium);
+        trackEvent('session_start', { plan: isPremium ? 'premium' : 'free' });
     });
 
-    // ── UI update after login ────────────────
+    // ══════════════════════════════════════
+    // UI UPDATE
+    // ══════════════════════════════════════
     function updateUI(user, isPremium) {
-        // User bar
-        const userBar   = document.getElementById('user-bar');
-        const userName  = document.getElementById('user-name');
-        const planBadge = document.getElementById('plan-badge');
+        const userBar    = document.getElementById('user-bar');
+        const userName   = document.getElementById('user-name');
+        const planBadge  = document.getElementById('plan-badge');
         const userAvatar = document.getElementById('user-avatar');
 
         const name = user.displayName || user.email.split('@')[0];
-        userName.textContent = name;
+        userName.textContent  = name;
         userAvatar.textContent = name.charAt(0).toUpperCase();
         userBar.classList.add('visible');
 
         if (isPremium) {
             planBadge.textContent = 'PREMIUM';
-            planBadge.className = 'premium-badge';
+            planBadge.className   = 'premium-badge';
             // Remove all lock overlays
             document.querySelectorAll('.locked-overlay').forEach(el => el.remove());
-            // Make locked links follow href
+            // Allow navigation on locked links
             document.querySelectorAll('.locked-sim').forEach(el => {
-                el.removeEventListener('click', interceptLockedClick);
+                el.addEventListener('click', (e) => {
+                    const simId   = el.getAttribute('data-sim-id') || 'unknown';
+                    const cat     = el.getAttribute('data-category') || 'unknown';
+                    trackSimClick(simId, cat, false);
+                    // navigation proceeds normally
+                });
             });
             document.getElementById('upgrade-banner').classList.add('hidden');
         } else {
             planBadge.textContent = 'FREE';
-            planBadge.className = 'free-badge';
-            // Show upgrade banner
+            planBadge.className   = 'free-badge';
             document.getElementById('upgrade-banner').classList.remove('hidden');
-            // Intercept clicks on locked sims
+            // Intercept clicks on locked-sim anchors at the <a> level
             document.querySelectorAll('.locked-sim').forEach(el => {
-                el.addEventListener('click', interceptLockedClick);
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const simId = el.getAttribute('data-sim-id') || 'unknown';
+                    const cat   = el.getAttribute('data-category') || 'unknown';
+                    trackEvent('locked_sim_click', { sim_id: simId, category: cat });
+                    showUpgradeModal();
+                });
             });
         }
     }
 
-    function interceptLockedClick(e) {
-        e.preventDefault();
-        showUpgradeModal();
-    }
-
-    // ── Auth overlay helpers ─────────────────
+    // ══════════════════════════════════════
+    // AUTH OVERLAY
+    // ══════════════════════════════════════
     function showAuthOverlay() { document.getElementById('auth-overlay').classList.remove('hidden'); }
     function hideAuthOverlay() { document.getElementById('auth-overlay').classList.add('hidden'); }
 
@@ -635,6 +733,7 @@
         document.getElementById('auth-submit-btn').textContent = tab === 'signin' ? 'Sign In' : 'Create Account';
         document.getElementById('signup-name-row').style.display = tab === 'signup' ? 'block' : 'none';
         clearAuthError();
+        trackEvent('auth_tab_switch', { tab });
     }
 
     // ── Email / password auth ─────────────────
@@ -643,39 +742,68 @@
         const password = document.getElementById('auth-password').value;
         clearAuthError();
 
-        if (!email || !password) { showAuthError('Please enter your email and password.'); return; }
+        if (!email || !password) {
+            showAuthError('Please enter your email and password.');
+            return;
+        }
+
+        const btn = document.getElementById('auth-submit-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>' + (currentTab === 'signin' ? 'Signing in…' : 'Creating account…');
 
         try {
             if (currentTab === 'signin') {
                 await auth.signInWithEmailAndPassword(email, password);
+                trackEvent('login', { method: 'email_password' });
             } else {
                 const cred = await auth.createUserWithEmailAndPassword(email, password);
                 const displayName = document.getElementById('auth-name').value.trim();
                 if (displayName) await cred.user.updateProfile({ displayName });
+                trackEvent('sign_up', { method: 'email_password' });
             }
         } catch (err) {
+            trackEvent('auth_error', { method: 'email_password', error_code: err.code, tab: currentTab });
             showAuthError(friendlyError(err.code));
+        } finally {
+            btn.disabled = false;
+            btn.textContent = currentTab === 'signin' ? 'Sign In' : 'Create Account';
         }
     }
 
     // ── Google Sign-In ────────────────────────
     async function signInWithGoogle() {
+        const btn = document.getElementById('btn-google-signin');
+        btn.disabled = true;
+        clearAuthError();
+
         const provider = new firebase.auth.GoogleAuthProvider();
         try {
-            await auth.signInWithPopup(provider);
+            const result = await auth.signInWithPopup(provider);
+            const isNew  = result.additionalUserInfo?.isNewUser;
+            trackEvent(isNew ? 'sign_up' : 'login', { method: 'google' });
         } catch (err) {
+            trackEvent('auth_error', { method: 'google', error_code: err.code });
             showAuthError(friendlyError(err.code));
+        } finally {
+            btn.disabled = false;
         }
     }
 
     // ── Sign out ──────────────────────────────
     async function signOut() {
+        trackEvent('logout');
         await auth.signOut();
     }
 
     // ── Upgrade modal ─────────────────────────
-    function showUpgradeModal()  { document.getElementById('upgrade-modal').classList.remove('hidden'); }
-    function closeUpgradeModal() { document.getElementById('upgrade-modal').classList.add('hidden'); }
+    function showUpgradeModal() {
+        document.getElementById('upgrade-modal').classList.remove('hidden');
+        trackEvent('upgrade_modal_open');
+    }
+    function closeUpgradeModal() {
+        document.getElementById('upgrade-modal').classList.add('hidden');
+        trackEvent('upgrade_modal_close');
+    }
 
     // ── Error helpers ─────────────────────────
     function showAuthError(msg) {
@@ -690,38 +818,46 @@
     }
     function friendlyError(code) {
         const map = {
-            'auth/user-not-found':      'No account found with that email.',
-            'auth/wrong-password':      'Incorrect password.',
-            'auth/email-already-in-use':'An account with this email already exists.',
-            'auth/invalid-email':       'Please enter a valid email address.',
-            'auth/weak-password':       'Password must be at least 6 characters.',
-            'auth/popup-closed-by-user':'Sign-in popup closed. Please try again.',
-            'auth/network-request-failed': 'Network error. Check your connection.',
+            'auth/user-not-found':           'No account found with that email.',
+            'auth/wrong-password':           'Incorrect password.',
+            'auth/invalid-credential':       'Incorrect email or password.',
+            'auth/email-already-in-use':     'An account with this email already exists.',
+            'auth/invalid-email':            'Please enter a valid email address.',
+            'auth/weak-password':            'Password must be at least 6 characters.',
+            'auth/popup-closed-by-user':     'Sign-in popup closed. Please try again.',
+            'auth/cancelled-popup-request':  'Only one sign-in popup allowed at a time.',
+            'auth/popup-blocked':            'Popup blocked by browser. Please allow popups and retry.',
+            'auth/network-request-failed':   'Network error. Check your connection.',
+            'auth/too-many-requests':        'Too many attempts. Try again later.',
+            'auth/user-disabled':            'This account has been disabled.',
         };
-        return map[code] || 'Something went wrong. Please try again.';
+        return map[code] || `Something went wrong (${code}). Please try again.`;
     }
 
     // ══════════════════════════════════════
-    // Existing site functionality (search, dark mode, mobile menu)
+    // SEARCH
     // ══════════════════════════════════════
     const simulations = [
-        { title:"Linear Equations",        category:"Algebra",    url:"linear_equations.html",  description:"Master solving linear equations step by step" },
-        { title:"Quadratic Functions",      category:"Algebra",    url:"quadratic_functions.html",description:"Explore parabolas and quadratic equations" },
-        { title:"Polynomials",              category:"Algebra",    url:"polynomials.html",        description:"Understand polynomial operations and graphs" },
-        { title:"Derivatives",              category:"Calculus",   url:"differentials.html",      description:"Visualize rates of change and slopes" },
-        { title:"Integrals",                category:"Calculus",   url:"integrals.html",          description:"Explore area and accumulation functions" },
-        { title:"Triangles",                category:"Geometry",   url:"triangles.html",          description:"Study triangle properties and theorems" },
-        { title:"Transformations",          category:"Geometry",   url:"transformations.html",    description:"Explore geometric transformations" },
-        { title:"Probability Distributions",category:"Statistics", url:"distributions.html",      description:"Learn about normal, binomial, and other distributions" },
-        { title:"Regression Analysis",      category:"Statistics", url:"regression.html",         description:"Explore relationships between variables" }
+        { title:"Linear Equations",          category:"Algebra",    url:"linear_equations.html",   description:"Master solving linear equations step by step" },
+        { title:"Quadratic Functions",        category:"Algebra",    url:"quadratic_functions.html", description:"Explore parabolas and quadratic equations" },
+        { title:"Polynomials",               category:"Algebra",    url:"polynomials.html",          description:"Understand polynomial operations and graphs" },
+        { title:"Derivatives",               category:"Calculus",   url:"differentials.html",        description:"Visualize rates of change and slopes" },
+        { title:"Integrals",                 category:"Calculus",   url:"integrals.html",            description:"Explore area and accumulation functions" },
+        { title:"Triangles",                 category:"Geometry",   url:"triangles.html",            description:"Study triangle properties and theorems" },
+        { title:"Transformations",           category:"Geometry",   url:"transformations.html",      description:"Explore geometric transformations" },
+        { title:"Probability Distributions", category:"Statistics", url:"distributions.html",        description:"Learn about normal, binomial, and other distributions" },
+        { title:"Regression Analysis",       category:"Statistics", url:"regression.html",           description:"Explore relationships between variables" }
     ];
 
     const searchInput   = document.getElementById('search');
     const searchResults = document.getElementById('searchResults');
+    let searchTimer;
 
     searchInput.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase();
+        clearTimeout(searchTimer);
+        const query = e.target.value.toLowerCase().trim();
         if (query.length < 2) { searchResults.classList.add('hidden'); return; }
+
         const filtered = simulations.filter(s =>
             s.title.toLowerCase().includes(query) ||
             s.description.toLowerCase().includes(query) ||
@@ -729,12 +865,18 @@
         );
         searchResults.innerHTML = filtered.length
             ? filtered.map(s => `
-                <a href="${s.url}" class="block p-4 hover:bg-gray-100">
+                <a href="${s.url}" class="block p-4 hover:bg-gray-100"
+                   onclick="trackEvent('search_result_click', { sim_id: '${s.url.replace('.html','')}', query: '${query.replace(/'/g,"\\'")}' })">
                     <div class="font-medium">${s.title}</div>
                     <div class="text-sm text-gray-500">${s.category} – ${s.description}</div>
                 </a>`).join('')
             : `<div class="p-4 text-gray-500">No results for "${e.target.value}"</div>`;
         searchResults.classList.remove('hidden');
+
+        // Debounced search tracking (fire after user pauses typing)
+        searchTimer = setTimeout(() => {
+            trackEvent('search', { query, result_count: filtered.length });
+        }, 600);
     });
 
     document.addEventListener('click', (e) => {
@@ -742,28 +884,38 @@
             searchResults.classList.add('hidden');
     });
 
-    // Dark mode
+    // ══════════════════════════════════════
+    // DARK MODE
+    // ══════════════════════════════════════
     const themeToggle = document.getElementById('themeToggle');
     const sunIcon     = document.getElementById('sunIcon');
     const moonIcon    = document.getElementById('moonIcon');
 
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    if (localStorage.theme === 'dark' ||
+        (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
         sunIcon.classList.remove('hidden');
         moonIcon.classList.add('hidden');
     }
 
     themeToggle.addEventListener('click', () => {
-        document.documentElement.classList.toggle('dark');
-        sunIcon.classList.toggle('hidden');
-        moonIcon.classList.toggle('hidden');
-        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        const isDark = document.documentElement.classList.toggle('dark');
+        sunIcon.classList.toggle('hidden', !isDark);
+        moonIcon.classList.toggle('hidden', isDark);
+        localStorage.theme = isDark ? 'dark' : 'light';
+        trackEvent('theme_toggle', { theme: isDark ? 'dark' : 'light' });
     });
 
-    // Mobile menu
+    // ══════════════════════════════════════
+    // MOBILE MENU
+    // ══════════════════════════════════════
     const mobileMenuBtn = document.getElementById('mobile-menu-button');
     const mobileMenu    = document.getElementById('mobile-menu');
-    mobileMenuBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+
+    mobileMenuBtn.addEventListener('click', () => {
+        const open = mobileMenu.classList.toggle('hidden') === false;
+        trackEvent('mobile_menu_toggle', { action: open ? 'open' : 'close' });
+    });
     document.addEventListener('click', (e) => {
         if (!mobileMenuBtn.contains(e.target) && !mobileMenu.contains(e.target))
             mobileMenu.classList.add('hidden');
@@ -772,11 +924,17 @@
         if (window.innerWidth >= 768) mobileMenu.classList.add('hidden');
     });
 
-    // Smooth scroll
+    // ══════════════════════════════════════
+    // SMOOTH SCROLL
+    // ══════════════════════════════════════
     document.querySelectorAll('a[href^="#"]').forEach(a => {
         a.addEventListener('click', function(e) {
             e.preventDefault();
-            document.querySelector(this.getAttribute('href'))?.scrollIntoView({ behavior:'smooth' });
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth' });
+                trackEvent('nav_scroll', { target: this.getAttribute('href') });
+            }
         });
     });
     </script>
