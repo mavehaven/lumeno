@@ -1,1057 +1,664 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quadratic Simulator: The Root Finder</title>
-    <style>
-        :root {
-            --primary: #4361ee;
-            --secondary: #3a0ca3;
-            --accent: #f72585;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --success: #4cc9f0;
-            --warning: #f8961e;
-            --danger: #e63946;
-            --discriminant-positive: #4ade80;
-            --discriminant-zero: #fbbf24;
-            --discriminant-negative: #f87171;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: var(--light);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, var(--accent), var(--success));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        
-        .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.8;
-        }
-        
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-        
-        @media (max-width: 1100px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        .graph-container {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .graph-title {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            text-align: center;
-            color: var(--success);
-        }
-        
-        #graph-canvas {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            width: 100%;
-            height: 500px;
-            cursor: grab;
-        }
-        
-        #graph-canvas:active {
-            cursor: grabbing;
-        }
-        
-        .controls-container {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .equation-display {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 25px;
-            text-align: center;
-            font-size: 1.8rem;
-            font-family: 'Cambria Math', serif;
-            border: 1px solid var(--primary);
-            box-shadow: 0 0 15px rgba(67, 97, 238, 0.3);
-        }
-        
-        .parameter {
-            margin-bottom: 25px;
-        }
-        
-        .parameter-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .parameter-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-        
-        .parameter-value {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-family: monospace;
-            border: 1px solid var(--primary);
-        }
-        
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .slider {
-            flex: 1;
-            -webkit-appearance: none;
-            height: 8px;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.1);
-            outline: none;
-        }
-        
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-        
-        #a-slider::-webkit-slider-thumb {
-            background: var(--accent);
-            border: 2px solid white;
-        }
-        
-        #b-slider::-webkit-slider-thumb {
-            background: var(--success);
-            border: 2px solid white;
-        }
-        
-        #c-slider::-webkit-slider-thumb {
-            background: var(--warning);
-            border: 2px solid white;
-        }
-        
-        .discriminant-panel {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 25px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-        }
-        
-        .discriminant-positive {
-            border-color: var(--discriminant-positive);
-            box-shadow: 0 0 15px rgba(74, 222, 128, 0.3);
-        }
-        
-        .discriminant-zero {
-            border-color: var(--discriminant-zero);
-            box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
-        }
-        
-        .discriminant-negative {
-            border-color: var(--discriminant-negative);
-            box-shadow: 0 0 15px rgba(248, 113, 113, 0.3);
-        }
-        
-        .discriminant-title {
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        
-        .discriminant-value {
-            font-size: 1.5rem;
-            text-align: center;
-            font-family: monospace;
-            margin-bottom: 10px;
-        }
-        
-        .discriminant-interpretation {
-            text-align: center;
-            font-weight: 500;
-            padding: 8px;
-            border-radius: 8px;
-            margin-top: 10px;
-        }
-        
-        .method-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 25px;
-        }
-        
-        .method-button {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-        
-        .method-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        .method-button.active {
-            background: var(--primary);
-            box-shadow: 0 0 10px rgba(67, 97, 238, 0.5);
-        }
-        
-        .solution-panel {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            min-height: 200px;
-        }
-        
-        .solution-title {
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-            color: var(--success);
-            text-align: center;
-        }
-        
-        .solution-content {
-            font-family: 'Cambria Math', serif;
-            line-height: 1.6;
-            font-size: 1.1rem;
-        }
-        
-        .solution-step {
-            margin-bottom: 10px;
-            padding-left: 10px;
-            border-left: 2px solid var(--primary);
-        }
-        
-        .roots-panel {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .root {
-            text-align: center;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            flex: 1;
-            margin: 0 5px;
-        }
-        
-        .root-value {
-            font-family: monospace;
-            font-size: 1.2rem;
-            font-weight: bold;
-            margin-top: 5px;
-        }
-        
-        .instructions {
-            margin-top: 20px;
-            font-size: 0.9rem;
-            opacity: 0.7;
-            text-align: center;
-        }
-        
-        .form-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .form-button {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .form-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        .form-button.active {
-            background: var(--primary);
-            box-shadow: 0 0 10px rgba(67, 97, 238, 0.5);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quadratic Explorer</title>
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:      #0d0f14;
+  --surface: #13161e;
+  --surf2:   #1a1e2a;
+  --border:  rgba(255,255,255,0.07);
+  --text:    #e8eaf0;
+  --muted:   #6b7280;
+  --a-col:   #f472b6;
+  --b-col:   #60a5fa;
+  --c-col:   #fbbf24;
+  --pos:     #34d399;
+  --zero:    #fbbf24;
+  --neg:     #f87171;
+  --root:    #f472b6;
+  --vertex:  #34d399;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  padding: 22px 36px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.header-badge {
+  background: linear-gradient(135deg,#3b82f6,#8b5cf6);
+  border-radius: 10px; width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; flex-shrink: 0;
+}
+header h1 { font-family: 'DM Serif Display', serif; font-size: 1.45rem; letter-spacing: -0.02em; }
+header p  { font-size: 0.8rem; color: var(--muted); margin-top: 1px; }
+
+.disc-badge {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 30px; padding: 7px 16px; font-size: 0.8rem;
+}
+.disc-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--pos); transition: background 0.4s; flex-shrink: 0;
+}
+.disc-val { font-family: 'DM Mono', monospace; font-size: 0.85rem; }
+.disc-status {
+  font-size: 0.72rem; padding: 2px 9px; border-radius: 20px;
+  background: rgba(52,211,153,0.15); color: var(--pos);
+  transition: background 0.4s, color 0.4s; white-space: nowrap;
+}
+
+.app {
+  display: grid; grid-template-columns: 1fr 400px;
+  flex: 1; min-height: 0;
+}
+@media (max-width: 900px) { .app { grid-template-columns: 1fr; } }
+
+.graph-pane {
+  position: relative; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+#canvas { flex: 1; cursor: grab; display: block; width: 100%; }
+#canvas:active { cursor: grabbing; }
+
+.graph-hints {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  font-size: 0.7rem; color: var(--muted); pointer-events: none;
+  white-space: nowrap; display: flex; gap: 12px;
+}
+.hint-chip {
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+  padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border);
+}
+
+.legend {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(13,15,20,0.8); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 9px 13px; display: flex; flex-direction: column;
+  gap: 5px; pointer-events: none;
+}
+.leg-row { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--muted); }
+.leg-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-line { width: 18px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+.sidebar {
+  display: flex; flex-direction: column;
+  overflow-y: auto; background: var(--surface);
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+.eq-display { padding: 18px 22px; border-bottom: 1px solid var(--border); }
+.sec-label {
+  font-size: 0.68rem; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--muted); margin-bottom: 10px;
+}
+#eq-katex { font-size: 1.2rem; min-height: 2em; display: flex; align-items: center; }
+
+.params {
+  padding: 16px 22px; display: flex; flex-direction: column;
+  gap: 16px; border-bottom: 1px solid var(--border);
+}
+.param-row { display: flex; flex-direction: column; gap: 6px; }
+.param-meta { display: flex; justify-content: space-between; align-items: center; }
+.param-name { font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+.param-name.a { color: var(--a-col); }
+.param-name.b { color: var(--b-col); }
+.param-name.c { color: var(--c-col); }
+.param-hint { font-size: 0.68rem; color: var(--muted); }
+.param-val {
+  font-family: 'DM Mono', monospace; font-size: 0.8rem;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px 9px; min-width: 50px; text-align: center;
+}
+.slider-wrap { display: flex; align-items: center; gap: 8px; }
+.slider-lim { font-size: 0.65rem; color: var(--muted); font-family: 'DM Mono',monospace; width: 16px; text-align: center; }
+input[type=range] { -webkit-appearance: none; flex: 1; height: 4px; border-radius: 4px; outline: none; cursor: pointer; }
+#a-slider { background: linear-gradient(to right, var(--a-col) var(--pct,50%), rgba(255,255,255,0.1) var(--pct,50%)); }
+#b-slider { background: linear-gradient(to right, var(--b-col) var(--pct,50%), rgba(255,255,255,0.1) var(--pct,50%)); }
+#c-slider { background: linear-gradient(to right, var(--c-col) var(--pct,50%), rgba(255,255,255,0.1) var(--pct,50%)); }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 17px; height: 17px;
+  border-radius: 50%; border: 2px solid var(--bg); cursor: pointer; transition: transform 0.15s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+#a-slider::-webkit-slider-thumb { background: var(--a-col); }
+#b-slider::-webkit-slider-thumb { background: var(--b-col); }
+#c-slider::-webkit-slider-thumb { background: var(--c-col); }
+
+.roots-section { padding: 14px 22px; border-bottom: 1px solid var(--border); }
+.roots-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.root-card {
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 13px; transition: border-color 0.3s; overflow: hidden;
+}
+.root-card.real    { border-color: rgba(244,114,182,0.3); }
+.root-card.complex { border-color: rgba(107,114,128,0.3); }
+.root-lbl { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px; }
+.root-katex { min-height: 1.6em; overflow-x: auto; }
+
+.methods-section { padding: 14px 22px 0; flex: 1; display: flex; flex-direction: column; }
+.tabs {
+  display: flex; gap: 3px; margin-bottom: 12px;
+  background: var(--surf2); border-radius: 9px; padding: 3px;
+}
+.tab {
+  flex: 1; padding: 7px 5px; font-size: 0.7rem; font-weight: 500;
+  text-align: center; cursor: pointer; border-radius: 7px; border: none;
+  background: transparent; color: var(--muted); transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+}
+.tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+
+.solution-scroll { flex: 1; overflow-y: auto; padding-bottom: 24px; }
+.solution-scroll::-webkit-scrollbar { width: 4px; }
+.solution-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+.step {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 8px 10px; border-radius: 8px; margin-bottom: 2px;
+}
+.step:hover { background: var(--surf2); }
+.step-num { font-size: 0.62rem; font-family: 'DM Mono',monospace; color: var(--muted); min-width: 16px; padding-top: 3px; }
+.step-body { flex: 1; min-width: 0; }
+.step-prose { font-size: 0.82rem; line-height: 1.5; color: var(--text); margin-bottom: 4px; }
+.step-prose:empty { display: none; }
+
+.step-math-block {
+  margin-top: 5px; padding: 8px 14px;
+  background: rgba(99,102,241,0.07);
+  border-left: 2px solid rgba(99,102,241,0.35);
+  border-radius: 0 6px 6px 0;
+  overflow-x: auto;
+}
+.step-math-block.display { text-align: center; padding: 10px 14px; }
+
+.note-box { margin: 7px 0; padding: 9px 13px; border-radius: 8px; font-size: 0.77rem; line-height: 1.6; }
+.note-box.info { background: rgba(96,165,250,0.08); border-left: 3px solid var(--b-col); color: #93c5fd; }
+.note-box.warn { background: rgba(251,191,36,0.08);  border-left: 3px solid var(--c-col); color: #fde68a; }
+.note-box.good { background: rgba(52,211,153,0.08);  border-left: 3px solid var(--pos);   color: #6ee7b7; }
+.note-box.bad  { background: rgba(248,113,113,0.08); border-left: 3px solid var(--neg);   color: #fca5a5; }
+
+/* KaTeX dark-mode */
+.katex { color: var(--text); }
+.katex-display { margin: 0 !important; }
+</style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Quadratic Simulator: The Root Finder</h1>
-            <p class="subtitle">Discover the roots of quadratic functions using different methods</p>
-        </header>
-        
-        <div class="main-content">
-            <div class="graph-container">
-                <h2 class="graph-title">Quadratic Function & Roots</h2>
-                <canvas id="graph-canvas"></canvas>
-                <div class="instructions">
-                    <p>Drag to pan the graph. Roots are shown where the parabola crosses the x-axis.</p>
-                </div>
-            </div>
-            
-            <div class="controls-container">
-                <div class="equation-display">
-                    y = <span id="a-value">1</span>x² + <span id="b-value">0</span>x + <span id="c-value">0</span>
-                </div>
-                
-                <div class="parameter">
-                    <div class="parameter-header">
-                        <div class="parameter-title">Parameter a</div>
-                        <div class="parameter-value" id="a-display">1.00</div>
-                    </div>
-                    <div class="slider-container">
-                        <span>-5</span>
-                        <input type="range" min="-5" max="5" step="0.1" value="1" class="slider" id="a-slider">
-                        <span>5</span>
-                    </div>
-                </div>
-                
-                <div class="parameter">
-                    <div class="parameter-header">
-                        <div class="parameter-title">Parameter b</div>
-                        <div class="parameter-value" id="b-display">0.00</div>
-                    </div>
-                    <div class="slider-container">
-                        <span>-5</span>
-                        <input type="range" min="-5" max="5" step="0.1" value="0" class="slider" id="b-slider">
-                        <span>5</span>
-                    </div>
-                </div>
-                
-                <div class="parameter">
-                    <div class="parameter-header">
-                        <div class="parameter-title">Parameter c</div>
-                        <div class="parameter-value" id="c-display">0.00</div>
-                    </div>
-                    <div class="slider-container">
-                        <span>-5</span>
-                        <input type="range" min="-5" max="5" step="0.1" value="0" class="slider" id="c-slider">
-                        <span>5</span>
-                    </div>
-                </div>
-                
-                <div class="discriminant-panel" id="discriminant-panel">
-                    <h3 class="discriminant-title">Discriminant</h3>
-                    <div class="discriminant-value">D = b² - 4ac = <span id="discriminant-value">0.00</span></div>
-                    <div class="discriminant-interpretation" id="discriminant-interpretation">One Repeated Real Root</div>
-                </div>
-                
-                <div class="method-selector">
-                    <button class="method-button active" id="factoring-btn">Factoring</button>
-                    <button class="method-button" id="quadratic-formula-btn">Quadratic Formula</button>
-                    <button class="method-button" id="completing-square-btn">Completing the Square</button>
-                </div>
-                
-                <div class="solution-panel">
-                    <h3 class="solution-title" id="solution-title">Solution by Factoring</h3>
-                    <div class="solution-content" id="solution-content">
-                        <div class="solution-step">The equation is already in factored form: x(x) = 0</div>
-                        <div class="solution-step">Set each factor equal to zero:</div>
-                        <div class="solution-step">x = 0 or x = 0</div>
-                    </div>
-                    <div class="roots-panel">
-                        <div class="root">
-                            <div>Root 1</div>
-                            <div class="root-value" id="root1-value">0.00</div>
-                        </div>
-                        <div class="root">
-                            <div>Root 2</div>
-                            <div class="root-value" id="root2-value">0.00</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+
+<header>
+  <div class="header-badge">∫</div>
+  <div>
+    <h1>Quadratic Explorer</h1>
+    <p>Visualise roots &middot; master three solution methods</p>
+  </div>
+  <div class="disc-badge">
+    <div class="disc-dot" id="disc-dot"></div>
+    <span id="disc-label-tex"></span>
+    <span class="disc-val" id="disc-val"></span>
+    <span class="disc-status" id="disc-status">One repeated root</span>
+  </div>
+</header>
+
+<div class="app">
+  <div class="graph-pane">
+    <canvas id="canvas"></canvas>
+    <div class="legend">
+      <div class="leg-row"><div class="leg-line" style="background:#818cf8"></div> Parabola</div>
+      <div class="leg-row"><div class="leg-dot"  style="background:var(--root)"></div> Root(s)</div>
+      <div class="leg-row"><div class="leg-dot"  style="background:var(--vertex)"></div> Vertex</div>
+    </div>
+    <div class="graph-hints">
+      <span class="hint-chip">🖱 Drag to pan</span>
+      <span class="hint-chip">🔍 Scroll to zoom</span>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="eq-display">
+      <div class="sec-label">Equation</div>
+      <div id="eq-katex"></div>
     </div>
 
-    <script>
-        // Get DOM elements
-        const canvas = document.getElementById('graph-canvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Parameter displays
-        const aValue = document.getElementById('a-value');
-        const bValue = document.getElementById('b-value');
-        const cValue = document.getElementById('c-value');
-        
-        // Sliders
-        const aSlider = document.getElementById('a-slider');
-        const bSlider = document.getElementById('b-slider');
-        const cSlider = document.getElementById('c-slider');
-        
-        // Value displays
-        const aDisplay = document.getElementById('a-display');
-        const bDisplay = document.getElementById('b-display');
-        const cDisplay = document.getElementById('c-display');
-        
-        // Discriminant elements
-        const discriminantPanel = document.getElementById('discriminant-panel');
-        const discriminantValue = document.getElementById('discriminant-value');
-        const discriminantInterpretation = document.getElementById('discriminant-interpretation');
-        
-        // Method buttons
-        const factoringBtn = document.getElementById('factoring-btn');
-        const quadraticFormulaBtn = document.getElementById('quadratic-formula-btn');
-        const completingSquareBtn = document.getElementById('completing-square-btn');
-        
-        // Solution elements
-        const solutionTitle = document.getElementById('solution-title');
-        const solutionContent = document.getElementById('solution-content');
-        const root1Value = document.getElementById('root1-value');
-        const root2Value = document.getElementById('root2-value');
-        
-        // Set canvas dimensions
-        function setCanvasSize() {
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-        }
-        
-        // Initialize parameters
-        let a = 1;
-        let b = 0;
-        let c = 0;
-        
-        // Canvas transformation variables
-        let scale = 40;
-        let offsetX = canvas.width / 2;
-        let offsetY = canvas.height / 2;
-        
-        // Dragging state
-        let isPanning = false;
-        let lastPanX, lastPanY;
-        
-        // Initialize
-        setCanvasSize();
-        window.addEventListener('resize', setCanvasSize);
-        
-        // Convert math coordinates to canvas coordinates
-        function toCanvasX(x) {
-            return offsetX + x * scale;
-        }
-        
-        function toCanvasY(y) {
-            return offsetY - y * scale;
-        }
-        
-        // Convert canvas coordinates to math coordinates
-        function toMathX(canvasX) {
-            return (canvasX - offsetX) / scale;
-        }
-        
-        function toMathY(canvasY) {
-            return (offsetY - canvasY) / scale;
-        }
-        
-        // Draw the coordinate grid
-        function drawGrid() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw grid background
-            ctx.fillStyle = 'rgba(10, 15, 30, 0.8)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Calculate visible range
-            const minX = toMathX(0);
-            const maxX = toMathX(canvas.width);
-            const minY = toMathY(canvas.height);
-            const maxY = toMathY(0);
-            
-            // Draw grid lines
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.lineWidth = 1;
-            
-            // Vertical lines
-            for (let x = Math.ceil(minX); x <= Math.floor(maxX); x++) {
-                ctx.beginPath();
-                ctx.moveTo(toCanvasX(x), 0);
-                ctx.lineTo(toCanvasX(x), canvas.height);
-                ctx.stroke();
-            }
-            
-            // Horizontal lines
-            for (let y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
-                ctx.beginPath();
-                ctx.moveTo(0, toCanvasY(y));
-                ctx.lineTo(canvas.width, toCanvasY(y));
-                ctx.stroke();
-            }
-            
-            // Draw axes
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.lineWidth = 2;
-            
-            // Y-axis
-            ctx.beginPath();
-            ctx.moveTo(toCanvasX(0), 0);
-            ctx.lineTo(toCanvasX(0), canvas.height);
-            ctx.stroke();
-            
-            // X-axis
-            ctx.beginPath();
-            ctx.moveTo(0, toCanvasY(0));
-            ctx.lineTo(canvas.width, toCanvasY(0));
-            ctx.stroke();
-            
-            // Draw axis labels
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // X-axis labels
-            for (let x = Math.ceil(minX); x <= Math.floor(maxX); x++) {
-                if (x !== 0) {
-                    ctx.fillText(x, toCanvasX(x), toCanvasY(0) + 15);
-                }
-            }
-            
-            // Y-axis labels
-            for (let y = Math.ceil(minY); y <= Math.floor(maxY); y++) {
-                if (y !== 0) {
-                    ctx.fillText(y, toCanvasX(0) - 15, toCanvasY(y));
-                }
-            }
-            
-            // Origin label
-            ctx.fillText('0', toCanvasX(0) - 10, toCanvasY(0) + 15);
-        }
-        
-        // Calculate the roots using the quadratic formula
-        function calculateRoots() {
-            const discriminant = b * b - 4 * a * c;
-            
-            if (discriminant > 0) {
-                const root1 = (-b + Math.sqrt(discriminant)) / (2 * a);
-                const root2 = (-b - Math.sqrt(discriminant)) / (2 * a);
-                return { root1, root2, discriminant, type: 'two-real' };
-            } else if (discriminant === 0) {
-                const root = -b / (2 * a);
-                return { root1: root, root2: root, discriminant, type: 'one-real' };
-            } else {
-                const realPart = -b / (2 * a);
-                const imaginaryPart = Math.sqrt(-discriminant) / (2 * a);
-                return { 
-                    root1: realPart + imaginaryPart, 
-                    root2: realPart - imaginaryPart, 
-                    discriminant, 
-                    type: 'complex' 
-                };
-            }
-        }
-        
-        // Draw the parabola and roots
-        function drawParabola() {
-            // Calculate visible range
-            const minX = toMathX(0);
-            const maxX = toMathX(canvas.width);
-            
-            // Draw the parabola
-            ctx.strokeStyle = '#4361ee';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            
-            let firstPoint = true;
-            const step = (maxX - minX) / 200;
-            
-            for (let x = minX; x <= maxX; x += step) {
-                const y = a * x * x + b * x + c;
-                const canvasX = toCanvasX(x);
-                const canvasY = toCanvasY(y);
-                
-                if (firstPoint) {
-                    ctx.moveTo(canvasX, canvasY);
-                    firstPoint = false;
-                } else {
-                    ctx.lineTo(canvasX, canvasY);
-                }
-            }
-            
-            ctx.stroke();
-            
-            // Calculate and draw roots
-            const roots = calculateRoots();
-            
-            // Draw x-intercepts for real roots
-            if (roots.type === 'two-real' || roots.type === 'one-real') {
-                ctx.fillStyle = '#e63946';
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 2;
-                
-                // Draw first root
-                if (roots.root1 >= minX && roots.root1 <= maxX) {
-                    const rootCanvasX = toCanvasX(roots.root1);
-                    const rootCanvasY = toCanvasY(0);
-                    
-                    ctx.beginPath();
-                    ctx.arc(rootCanvasX, rootCanvasY, 8, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                    
-                    // Draw vertical line to x-axis
-                    ctx.strokeStyle = 'rgba(230, 57, 70, 0.5)';
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.moveTo(rootCanvasX, 0);
-                    ctx.lineTo(rootCanvasX, canvas.height);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-                
-                // Draw second root (if different from first)
-                if (roots.type === 'two-real' && roots.root2 >= minX && roots.root2 <= maxX) {
-                    const rootCanvasX = toCanvasX(roots.root2);
-                    const rootCanvasY = toCanvasY(0);
-                    
-                    ctx.fillStyle = '#e63946';
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 2;
-                    
-                    ctx.beginPath();
-                    ctx.arc(rootCanvasX, rootCanvasY, 8, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                    
-                    // Draw vertical line to x-axis
-                    ctx.strokeStyle = 'rgba(230, 57, 70, 0.5)';
-                    ctx.setLineDash([5, 5]);
-                    ctx.beginPath();
-                    ctx.moveTo(rootCanvasX, 0);
-                    ctx.lineTo(rootCanvasX, canvas.height);
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                }
-            }
-            
-            // Draw vertex
-            const vertexX = -b / (2 * a);
-            const vertexY = a * vertexX * vertexX + b * vertexX + c;
-            
-            if (vertexX >= minX && vertexX <= maxX && vertexY >= minY && vertexY <= maxY) {
-                const vertexCanvasX = toCanvasX(vertexX);
-                const vertexCanvasY = toCanvasY(vertexY);
-                
-                ctx.fillStyle = '#4cc9f0';
-                ctx.beginPath();
-                ctx.arc(vertexCanvasX, vertexCanvasY, 6, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-        }
-        
-        // Update the equation display
-        function updateEquation() {
-            aValue.textContent = formatNumber(a);
-            bValue.textContent = formatNumber(b);
-            cValue.textContent = formatNumber(c);
-        }
-        
-        // Format numbers for display
-        function formatNumber(num) {
-            if (num === 0) return '0';
-            
-            // Format to 2 decimal places, but remove trailing zeros
-            let formatted = num.toFixed(2);
-            if (formatted.endsWith('.00')) {
-                return formatted.slice(0, -3);
-            } else if (formatted.endsWith('0')) {
-                return formatted.slice(0, -1);
-            }
-            return formatted;
-        }
-        
-        // Format complex numbers for display
-        function formatComplex(real, imaginary) {
-            if (imaginary === 0) return formatNumber(real);
-            if (real === 0) return `${formatNumber(imaginary)}i`;
-            
-            const sign = imaginary > 0 ? '+' : '';
-            return `${formatNumber(real)} ${sign} ${formatNumber(Math.abs(imaginary))}i`;
-        }
-        
-        // Update the discriminant display
-        function updateDiscriminant() {
-            const discriminant = b * b - 4 * a * c;
-            discriminantValue.textContent = formatNumber(discriminant);
-            
-            // Update panel styling based on discriminant value
-            if (discriminant > 0) {
-                discriminantPanel.className = 'discriminant-panel discriminant-positive';
-                discriminantInterpretation.textContent = 'Two Distinct Real Roots';
-                discriminantInterpretation.style.background = 'rgba(74, 222, 128, 0.2)';
-            } else if (discriminant === 0) {
-                discriminantPanel.className = 'discriminant-panel discriminant-zero';
-                discriminantInterpretation.textContent = 'One Repeated Real Root';
-                discriminantInterpretation.style.background = 'rgba(251, 191, 36, 0.2)';
-            } else {
-                discriminantPanel.className = 'discriminant-panel discriminant-negative';
-                discriminantInterpretation.textContent = 'No Real Roots (Two Complex Roots)';
-                discriminantInterpretation.style.background = 'rgba(248, 113, 113, 0.2)';
-            }
-        }
-        
-        // Update the solution display based on selected method
-        function updateSolution() {
-            const roots = calculateRoots();
-            
-            // Update root displays
-            if (roots.type === 'two-real' || roots.type === 'one-real') {
-                root1Value.textContent = formatNumber(roots.root1);
-                root2Value.textContent = formatNumber(roots.root2);
-            } else {
-                // Complex roots
-                const realPart = -b / (2 * a);
-                const imaginaryPart = Math.sqrt(-roots.discriminant) / (2 * a);
-                root1Value.textContent = formatComplex(realPart, imaginaryPart);
-                root2Value.textContent = formatComplex(realPart, -imaginaryPart);
-            }
-            
-            // Update solution content based on selected method
-            if (factoringBtn.classList.contains('active')) {
-                updateFactoringSolution(roots);
-            } else if (quadraticFormulaBtn.classList.contains('active')) {
-                updateQuadraticFormulaSolution(roots);
-            } else if (completingSquareBtn.classList.contains('active')) {
-                updateCompletingSquareSolution(roots);
-            }
-        }
-        
-        // Update the factoring solution
-        function updateFactoringSolution(roots) {
-            solutionTitle.textContent = 'Solution by Factoring';
-            
-            let content = '';
-            
-            // Try to find integer factors
-            const possibleFactors = findFactors();
-            
-            if (possibleFactors.factorable) {
-                content += `
-                    <div class="solution-step">The quadratic can be factored as: ${possibleFactors.factoredForm}</div>
-                    <div class="solution-step">Set each factor equal to zero:</div>
-                    <div class="solution-step">${possibleFactors.equation1} or ${possibleFactors.equation2}</div>
-                `;
-                
-                if (roots.type === 'two-real' || roots.type === 'one-real') {
-                    content += `<div class="solution-step">Solving gives: x = ${formatNumber(roots.root1)} and x = ${formatNumber(roots.root2)}</div>`;
-                }
-            } else {
-                content += `
-                    <div class="solution-step">This quadratic cannot be easily factored with integer coefficients.</div>
-                    <div class="solution-step">Try using the Quadratic Formula or Completing the Square methods.</div>
-                `;
-            }
-            
-            solutionContent.innerHTML = content;
-        }
-        
-        // Find factors for the quadratic (simplified version)
-        function findFactors() {
-            // For simplicity, we'll only handle cases with rational roots
-            // In a full implementation, this would be more sophisticated
-            
-            if (a === 0) return { factorable: false };
-            
-            const discriminant = b * b - 4 * a * c;
-            
-            // Check if roots are rational
-            if (discriminant >= 0) {
-                const root1 = (-b + Math.sqrt(discriminant)) / (2 * a);
-                const root2 = (-b - Math.sqrt(discriminant)) / (2 * a);
-                
-                // Check if roots are integers (for simplicity)
-                if (Number.isInteger(root1) && Number.isInteger(root2)) {
-                    let factor1 = root1 === 0 ? 'x' : `(x - ${root1})`;
-                    let factor2 = root2 === 0 ? 'x' : `(x - ${root2})`;
-                    
-                    // Adjust for negative roots
-                    if (root1 > 0) factor1 = `(x - ${root1})`;
-                    if (root1 < 0) factor1 = `(x + ${Math.abs(root1)})`;
-                    
-                    if (root2 > 0) factor2 = `(x - ${root2})`;
-                    if (root2 < 0) factor2 = `(x + ${Math.abs(root2)})`;
-                    
-                    return {
-                        factorable: true,
-                        factoredForm: `${a !== 1 ? a : ''}${factor1}${factor2}`,
-                        equation1: `${factor1.replace('(', '').replace(')', '')} = 0`,
-                        equation2: `${factor2.replace('(', '').replace(')', '')} = 0`
-                    };
-                }
-            }
-            
-            return { factorable: false };
-        }
-        
-        // Update the quadratic formula solution
-        function updateQuadraticFormulaSolution(roots) {
-            solutionTitle.textContent = 'Solution by Quadratic Formula';
-            
-            let content = '';
-            const discriminant = b * b - 4 * a * c;
-            
-            content += `
-                <div class="solution-step">The quadratic formula is: x = [-b ± √(b² - 4ac)] / 2a</div>
-                <div class="solution-step">Substitute a = ${formatNumber(a)}, b = ${formatNumber(b)}, c = ${formatNumber(c)}:</div>
-                <div class="solution-step">x = [ -(${formatNumber(b)}) ± √((${formatNumber(b)})² - 4·${formatNumber(a)}·${formatNumber(c)}) ] / 2·${formatNumber(a)}</div>
-                <div class="solution-step">x = [ ${formatNumber(-b)} ± √(${formatNumber(b*b)} - ${formatNumber(4*a*c)}) ] / ${formatNumber(2*a)}</div>
-                <div class="solution-step">x = [ ${formatNumber(-b)} ± √(${formatNumber(discriminant)}) ] / ${formatNumber(2*a)}</div>
-            `;
-            
-            if (discriminant > 0) {
-                content += `
-                    <div class="solution-step">x = [ ${formatNumber(-b)} ± ${formatNumber(Math.sqrt(discriminant))} ] / ${formatNumber(2*a)}</div>
-                    <div class="solution-step">So the two solutions are:</div>
-                    <div class="solution-step">x = [ ${formatNumber(-b)} + ${formatNumber(Math.sqrt(discriminant))} ] / ${formatNumber(2*a)} = ${formatNumber(roots.root1)}</div>
-                    <div class="solution-step">x = [ ${formatNumber(-b)} - ${formatNumber(Math.sqrt(discriminant))} ] / ${formatNumber(2*a)} = ${formatNumber(roots.root2)}</div>
-                `;
-            } else if (discriminant === 0) {
-                content += `
-                    <div class="solution-step">x = [ ${formatNumber(-b)} ± 0 ] / ${formatNumber(2*a)}</div>
-                    <div class="solution-step">So the solution is: x = ${formatNumber(roots.root1)}</div>
-                `;
-            } else {
-                content += `
-                    <div class="solution-step">Since the discriminant is negative, we have complex roots:</div>
-                    <div class="solution-step">x = [ ${formatNumber(-b)} ± √(${formatNumber(discriminant)}) ] / ${formatNumber(2*a)}</div>
-                    <div class="solution-step">x = [ ${formatNumber(-b)} ± ${formatNumber(Math.sqrt(-discriminant))}i ] / ${formatNumber(2*a)}</div>
-                    <div class="solution-step">So the two solutions are:</div>
-                    <div class="solution-step">x = ${formatComplex(roots.root1, 0)}</div>
-                    <div class="solution-step">x = ${formatComplex(roots.root2, 0)}</div>
-                `;
-            }
-            
-            solutionContent.innerHTML = content;
-        }
-        
-        // Update the completing the square solution
-        function updateCompletingSquareSolution(roots) {
-            solutionTitle.textContent = 'Solution by Completing the Square';
-            
-            let content = '';
-            
-            content += `
-                <div class="solution-step">Start with: ${a}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0</div>
-            `;
-            
-            if (a !== 1) {
-                content += `
-                    <div class="solution-step">Divide through by ${formatNumber(a)}: x² + ${formatNumber(b/a)}x + ${formatNumber(c/a)} = 0</div>
-                `;
-            }
-            
-            content += `
-                <div class="solution-step">Move constant term to right: x² + ${formatNumber(b/a)}x = ${formatNumber(-c/a)}</div>
-                <div class="solution-step">Add (${formatNumber(b/(2*a))})² = ${formatNumber(Math.pow(b/(2*a), 2))} to both sides:</div>
-                <div class="solution-step">x² + ${formatNumber(b/a)}x + ${formatNumber(Math.pow(b/(2*a), 2))} = ${formatNumber(-c/a)} + ${formatNumber(Math.pow(b/(2*a), 2))}</div>
-                <div class="solution-step">Left side is now a perfect square: (x + ${formatNumber(b/(2*a))})² = ${formatNumber(Math.pow(b/(2*a), 2) - c/a)}</div>
-                <div class="solution-step">Take square root of both sides: x + ${formatNumber(b/(2*a))} = ±√(${formatNumber(Math.pow(b/(2*a), 2) - c/a)})</div>
-                <div class="solution-step">Solve for x: x = ${formatNumber(-b/(2*a))} ± ${formatNumber(Math.sqrt(Math.abs(Math.pow(b/(2*a), 2) - c/a)))}${Math.pow(b/(2*a), 2) - c/a < 0 ? 'i' : ''}</div>
-            `;
-            
-            if (roots.type === 'two-real' || roots.type === 'one-real') {
-                content += `
-                    <div class="solution-step">So the solutions are: x = ${formatNumber(roots.root1)} and x = ${formatNumber(roots.root2)}</div>
-                `;
-            } else {
-                content += `
-                    <div class="solution-step">So the complex solutions are: x = ${formatComplex(roots.root1, 0)} and x = ${formatComplex(roots.root2, 0)}</div>
-                `;
-            }
-            
-            solutionContent.innerHTML = content;
-        }
-        
-        // Handle mouse down event
-        function handleMouseDown(e) {
-            isPanning = true;
-            lastPanX = e.clientX;
-            lastPanY = e.clientY;
-            canvas.style.cursor = 'grabbing';
-        }
-        
-        // Handle mouse move event
-        function handleMouseMove(e) {
-            if (isPanning) {
-                // Pan the graph
-                const dx = e.clientX - lastPanX;
-                const dy = e.clientY - lastPanY;
-                
-                offsetX += dx;
-                offsetY += dy;
-                
-                lastPanX = e.clientX;
-                lastPanY = e.clientY;
-                
-                draw();
-            }
-        }
-        
-        // Handle mouse up event
-        function handleMouseUp() {
-            isPanning = false;
-            canvas.style.cursor = 'default';
-        }
-        
-        // Update parameters from slider values
-        function updateFromParameters() {
-            a = parseFloat(aSlider.value);
-            b = parseFloat(bSlider.value);
-            c = parseFloat(cSlider.value);
-            
-            // Update displays
-            aDisplay.textContent = formatNumber(a);
-            bDisplay.textContent = formatNumber(b);
-            cDisplay.textContent = formatNumber(c);
-        }
-        
-        // Draw everything
-        function draw() {
-            drawGrid();
-            drawParabola();
-        }
-        
-        // Initialize event listeners
-        function initEventListeners() {
-            // Slider events
-            aSlider.addEventListener('input', function() {
-                updateFromParameters();
-                updateEquation();
-                updateDiscriminant();
-                updateSolution();
-                draw();
-            });
-            
-            bSlider.addEventListener('input', function() {
-                updateFromParameters();
-                updateEquation();
-                updateDiscriminant();
-                updateSolution();
-                draw();
-            });
-            
-            cSlider.addEventListener('input', function() {
-                updateFromParameters();
-                updateEquation();
-                updateDiscriminant();
-                updateSolution();
-                draw();
-            });
-            
-            // Mouse events for canvas
-            canvas.addEventListener('mousedown', handleMouseDown);
-            canvas.addEventListener('mousemove', handleMouseMove);
-            canvas.addEventListener('mouseup', handleMouseUp);
-            canvas.addEventListener('mouseleave', handleMouseUp);
-            
-            // Method button events
-            factoringBtn.addEventListener('click', function() {
-                factoringBtn.classList.add('active');
-                quadraticFormulaBtn.classList.remove('active');
-                completingSquareBtn.classList.remove('active');
-                updateSolution();
-            });
-            
-            quadraticFormulaBtn.addEventListener('click', function() {
-                quadraticFormulaBtn.classList.add('active');
-                factoringBtn.classList.remove('active');
-                completingSquareBtn.classList.remove('active');
-                updateSolution();
-            });
-            
-            completingSquareBtn.addEventListener('click', function() {
-                completingSquareBtn.classList.add('active');
-                factoringBtn.classList.remove('active');
-                quadraticFormulaBtn.classList.remove('active');
-                updateSolution();
-            });
-        }
-        
-        // Initialize the application
-        function init() {
-            setCanvasSize();
-            initEventListeners();
-            updateEquation();
-            updateDiscriminant();
-            updateSolution();
-            draw();
-        }
-        
-        // Start the application
-        init();
-    </script>
+    <div class="params">
+      <div class="param-row">
+        <div class="param-meta">
+          <div><span class="param-name a">a</span><span class="param-hint"> — opens up/down, width</span></div>
+          <div class="param-val" id="a-val">1.00</div>
+        </div>
+        <div class="slider-wrap">
+          <span class="slider-lim">−5</span>
+          <input type="range" id="a-slider" min="-5" max="5" step="0.1" value="1">
+          <span class="slider-lim">5</span>
+        </div>
+      </div>
+      <div class="param-row">
+        <div class="param-meta">
+          <div><span class="param-name b">b</span><span class="param-hint"> — axis of symmetry shift</span></div>
+          <div class="param-val" id="b-val">0.00</div>
+        </div>
+        <div class="slider-wrap">
+          <span class="slider-lim">−5</span>
+          <input type="range" id="b-slider" min="-5" max="5" step="0.1" value="0">
+          <span class="slider-lim">5</span>
+        </div>
+      </div>
+      <div class="param-row">
+        <div class="param-meta">
+          <div><span class="param-name c">c</span><span class="param-hint"> — y-intercept</span></div>
+          <div class="param-val" id="c-val">0.00</div>
+        </div>
+        <div class="slider-wrap">
+          <span class="slider-lim">−5</span>
+          <input type="range" id="c-slider" min="-5" max="5" step="0.1" value="0">
+          <span class="slider-lim">5</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="roots-section">
+      <div class="sec-label">Roots</div>
+      <div class="roots-grid">
+        <div class="root-card" id="rc1">
+          <div class="root-lbl">x₁</div>
+          <div class="root-katex" id="root1"></div>
+        </div>
+        <div class="root-card" id="rc2">
+          <div class="root-lbl">x₂</div>
+          <div class="root-katex" id="root2"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="methods-section">
+      <div class="tabs">
+        <button class="tab active" data-method="formula">Quadratic Formula</button>
+        <button class="tab"        data-method="complete">Complete Square</button>
+        <button class="tab"        data-method="factor">Factoring</button>
+      </div>
+      <div class="solution-scroll" id="solution-scroll"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── wait for KaTeX ── */
+function waitForKatex(cb, t=0) {
+  if (window.katex) return cb();
+  if (t > 80) return cb();
+  setTimeout(() => waitForKatex(cb, t+1), 80);
+}
+
+/* ── KaTeX render helpers ── */
+function tex(src, display=false) {
+  try { return katex.renderToString(src, { throwOnError:false, displayMode:display }); }
+  catch(e) { return src; }
+}
+function setTex(id, src, display=false) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = tex(src, display);
+}
+function mathBlock(src, display=false) {
+  return `<div class="step-math-block${display?' display':''}">${tex(src,display)}</div>`;
+}
+
+/* ── number helpers ── */
+function fmt(n, dp=4) {
+  if (!isFinite(n)) return '?';
+  return parseFloat(n.toFixed(dp)).toString();
+}
+function fmtC(n) {
+  if (Number.isInteger(n)) return n.toString();
+  return parseFloat(n.toFixed(2)).toString();
+}
+function isNearInt(n,tol=0.001) { return Math.abs(n-Math.round(n))<tol; }
+
+/* ── build the live equation LaTeX with textcolor ── */
+function eqLatex() {
+  const fa = fmtC(Math.abs(a)), sa = a<0 ? '-' : '';
+  let aStr = Math.abs(a)===1 ? `${sa}x^{2}` : `${sa}${fa}x^{2}`;
+
+  let bStr = '';
+  if (b!==0) {
+    const fb=fmtC(Math.abs(b)), sb=b<0?'-':'+';
+    bStr = Math.abs(b)===1 ? ` ${sb} x` : ` ${sb} ${fb}x`;
+  }
+  let cStr = '';
+  if (c!==0) {
+    cStr = ` ${c<0?'-':'+'} ${fmtC(Math.abs(c))}`;
+  }
+
+  return `y = \\textcolor{#f472b6}{${aStr}}${b!==0?`\\textcolor{#60a5fa}{${bStr}}`:''}${c!==0?`\\textcolor{#fbbf24}{${cStr}}`:''}`;
+}
+
+/* ── state ── */
+let a=1, b=0, c=0, method='formula';
+let offsetX, offsetY, scale=50;
+let panning=false, lastPX, lastPY;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const fn = x => a*x*x + b*x + c;
+const discriminant = () => b*b-4*a*c;
+
+function roots() {
+  const D=discriminant();
+  if (a===0) return {type:'linear', root1:b?-c/b:0, root2:null, D};
+  if (D>1e-10)   return {type:'two', root1:(-b+Math.sqrt(D))/(2*a), root2:(-b-Math.sqrt(D))/(2*a), D};
+  if (D>=-1e-10) { const r=-b/(2*a); return {type:'one', root1:r, root2:r, D}; }
+  const re=-b/(2*a), im=Math.sqrt(-D)/(2*a);
+  return {type:'complex', root1:re, root2:re, im1:im, im2:-im, D};
+}
+
+/* ── canvas ── */
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  canvas.width=r.width; canvas.height=r.height;
+  if (!offsetX) { offsetX=canvas.width/2; offsetY=canvas.height/2; }
+}
+const toCanX=x=>offsetX+x*scale;
+const toCanY=y=>offsetY-y*scale;
+const toMathX=cx=>(cx-offsetX)/scale;
+
+function drawAll() {
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0b0d12'; ctx.fillRect(0,0,W,H);
+  const gr=ctx.createRadialGradient(offsetX,offsetY,0,offsetX,offsetY,Math.max(W,H)*0.65);
+  gr.addColorStop(0,'rgba(60,100,200,0.05)'); gr.addColorStop(1,'transparent');
+  ctx.fillStyle=gr; ctx.fillRect(0,0,W,H);
+
+  const minX=toMathX(0), maxX=toMathX(W);
+  const gs = scale<20?5:scale<50?2:1;
+  ctx.lineWidth=1;
+  for (let gx=Math.ceil(minX/gs)*gs;gx<=maxX;gx+=gs) {
+    ctx.strokeStyle=gx===0?'rgba(255,255,255,0.18)':'rgba(255,255,255,0.05)';
+    ctx.beginPath(); ctx.moveTo(toCanX(gx),0); ctx.lineTo(toCanX(gx),H); ctx.stroke();
+  }
+  const minY=(offsetY-H)/scale, maxY=offsetY/scale;
+  for (let gy=Math.floor(-maxY/gs)*gs;gy<=-minY;gy+=gs) {
+    ctx.strokeStyle=gy===0?'rgba(255,255,255,0.18)':'rgba(255,255,255,0.05)';
+    ctx.beginPath(); ctx.moveTo(0,toCanY(gy)); ctx.lineTo(W,toCanY(gy)); ctx.stroke();
+  }
+  ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.font='11px DM Mono,monospace';
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for (let gx=Math.ceil(minX/gs)*gs;gx<=maxX;gx+=gs) {
+    if (gx===0) continue;
+    ctx.fillText(gx,toCanX(gx),Math.min(H-18,Math.max(4,toCanY(0)+6)));
+  }
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for (let gy=Math.floor(-maxY/gs)*gs;gy<=-minY;gy+=gs) {
+    if (gy===0) continue;
+    ctx.fillText(gy,Math.min(W-4,Math.max(18,toCanX(0)-6)),toCanY(gy));
+  }
+  if (a!==0) {
+    ctx.save(); ctx.strokeStyle='rgba(52,211,153,0.2)'; ctx.lineWidth=1.5; ctx.setLineDash([6,5]);
+    ctx.beginPath(); ctx.moveTo(toCanX(-b/(2*a)),0); ctx.lineTo(toCanX(-b/(2*a)),H);
+    ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  }
+  ctx.save();
+  const g2=ctx.createLinearGradient(0,0,W,0);
+  g2.addColorStop(0,'#818cf8'); g2.addColorStop(0.5,'#60a5fa'); g2.addColorStop(1,'#818cf8');
+  ctx.strokeStyle=g2; ctx.lineWidth=2.5; ctx.lineJoin='round'; ctx.beginPath();
+  let first=true;
+  for (let px=0;px<=W;px+=W/800) {
+    const cy=toCanY(fn(toMathX(px)));
+    if (cy<-3000||cy>H+3000){first=true;continue;}
+    first?(ctx.moveTo(px,cy),first=false):ctx.lineTo(px,cy);
+  }
+  ctx.stroke(); ctx.restore();
+
+  const R=roots();
+  const drawRoot=rx=>{
+    if (rx<minX-1||rx>maxX+1) return;
+    const cx=toCanX(rx),cy=toCanY(0);
+    ctx.save(); ctx.strokeStyle='rgba(244,114,182,0.3)'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(cx,toCanY(0)); ctx.lineTo(cx,toCanY(fn(rx)));
+    ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+    ctx.save(); ctx.shadowColor='#f472b6'; ctx.shadowBlur=14;
+    ctx.fillStyle='#f472b6'; ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke(); ctx.restore();
+    ctx.fillStyle='rgba(244,114,182,0.9)'; ctx.font='11px DM Mono,monospace';
+    ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(fmt(rx,2),cx,cy-10);
+  };
+  if (R.type==='two'){drawRoot(R.root1);drawRoot(R.root2);}
+  else if (R.type==='one') drawRoot(R.root1);
+
+  if (a!==0) {
+    const vx=-b/(2*a), vy=fn(vx), cvx=toCanX(vx), cvy=toCanY(vy);
+    if (cvy>-10&&cvy<H+10) {
+      ctx.save(); ctx.shadowColor='#34d399'; ctx.shadowBlur=10;
+      ctx.fillStyle='#34d399'; ctx.beginPath(); ctx.arc(cvx,cvy,5,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke(); ctx.restore();
+      ctx.fillStyle='rgba(52,211,153,0.8)'; ctx.font='11px DM Mono,monospace';
+      ctx.textAlign='center'; ctx.textBaseline=a>0?'top':'bottom';
+      ctx.fillText(`(${fmt(vx,2)}, ${fmt(vy,2)})`,cvx,cvy+(a>0?10:-10));
+    }
+  }
+  const ycy=toCanY(c);
+  if (ycy>0&&ycy<H){ctx.save();ctx.fillStyle='#fbbf24';ctx.beginPath();ctx.arc(toCanX(0),ycy,4.5,0,Math.PI*2);ctx.fill();ctx.restore();}
+}
+
+/* ── UI ── */
+function updateHeader() {
+  const D=discriminant();
+  setTex('disc-label-tex','\\Delta');
+  document.getElementById('disc-val').textContent = '= '+fmt(D,3);
+  const dot=document.getElementById('disc-dot'), stat=document.getElementById('disc-status');
+  if (D>1e-10) {
+    dot.style.background='var(--pos)';
+    stat.style.background='rgba(52,211,153,0.15)'; stat.style.color='var(--pos)'; stat.textContent='Two real roots';
+  } else if (D>=-1e-10) {
+    dot.style.background='var(--zero)';
+    stat.style.background='rgba(251,191,36,0.15)'; stat.style.color='var(--zero)'; stat.textContent='One repeated root';
+  } else {
+    dot.style.background='var(--neg)';
+    stat.style.background='rgba(248,113,113,0.15)'; stat.style.color='var(--neg)'; stat.textContent='Complex roots';
+  }
+}
+
+function updateEquation() { setTex('eq-katex', eqLatex(), false); }
+
+function updateRoots() {
+  const R=roots();
+  const rc1=document.getElementById('rc1'), rc2=document.getElementById('rc2');
+  const r1=document.getElementById('root1'), r2=document.getElementById('root2');
+  if (R.type==='two') {
+    rc1.className='root-card real'; rc2.className='root-card real';
+    r1.innerHTML=tex(`x_1 = ${fmt(R.root1,4)}`); r2.innerHTML=tex(`x_2 = ${fmt(R.root2,4)}`);
+  } else if (R.type==='one') {
+    rc1.className='root-card real'; rc2.className='root-card real';
+    const r=fmt(R.root1,4);
+    r1.innerHTML=tex(`x_1 = ${r}`); r2.innerHTML=tex(`x_2 = ${r}\\,\\text{(same)}`);
+  } else {
+    rc1.className='root-card complex'; rc2.className='root-card complex';
+    r1.innerHTML=tex(`x_1 = ${fmt(R.root1,4)} + ${fmt(R.im1,4)}\\,i`);
+    r2.innerHTML=tex(`x_2 = ${fmt(R.root1,4)} - ${fmt(R.im1,4)}\\,i`);
+  }
+}
+
+/* ── step / note builders ── */
+function stepHTML(num, prose, inlineSrc, displaySrc) {
+  let inner='';
+  if (prose)       inner+=`<div class="step-prose">${prose}</div>`;
+  if (inlineSrc)   inner+=mathBlock(inlineSrc,false);
+  if (displaySrc)  inner+=mathBlock(displaySrc,true);
+  return `<div class="step"><div class="step-num">${num!==''?num+'.':''}</div><div class="step-body">${inner}</div></div>`;
+}
+function noteHTML(type, html) { return `<div class="note-box ${type}">${html}</div>`; }
+
+/* ── FORMULA solution ── */
+function solutionFormula() {
+  const D=discriminant(), R=roots();
+  const fa=fmtC(a), fb=fmtC(b), fc=fmtC(c);
+  let html='';
+  html+=noteHTML('info','The <strong>quadratic formula</strong> solves any quadratic — no guessing needed.');
+  html+=stepHTML(1,'Recall the formula:','',`x = \\dfrac{-b \\pm \\sqrt{b^2-4ac}}{2a}`);
+  html+=stepHTML(2,`Identify the coefficients:`,`a=${fa},\\quad b=${fb},\\quad c=${fc}`,'');
+  html+=stepHTML(3,'Compute the discriminant:','',`\\Delta = b^2-4ac = (${fb})^2 - 4\\cdot${fa}\\cdot${fc} = ${fmt(b*b,4)}-${fmt(4*a*c,4)} = ${fmt(D,4)}`);
+  if (D>1e-10) {
+    const sqD=fmt(Math.sqrt(D),4);
+    html+=noteHTML('good',`\\(\\Delta=${fmt(D,4)}>0\\) &rarr; <strong>two distinct real roots</strong>.`);
+    html+=stepHTML(4,'Square root of discriminant:',`\\sqrt{\\Delta}=\\sqrt{${fmt(D,4)}}\\approx${sqD}`,'');
+    html+=stepHTML(5,'Substitute and evaluate:','',`x_1=\\dfrac{-(${fb})+${sqD}}{2\\cdot${fa}}=${fmt(R.root1,4)},\\qquad x_2=\\dfrac{-(${fb})-${sqD}}{2\\cdot${fa}}=${fmt(R.root2,4)}`);
+    html+=noteHTML('good',`Solutions: ${tex(`x_1\\approx${fmt(R.root1,3)}`)} and ${tex(`x_2\\approx${fmt(R.root2,3)}`)}`);
+  } else if (D>=-1e-10) {
+    html+=noteHTML('warn',`\\(\\Delta=0\\) &rarr; <strong>one repeated root</strong> — parabola is tangent to the x-axis.`);
+    html+=stepHTML(4,'Since \\(\\Delta=0\\), the \\(\\pm\\) vanishes:','',`x=\\dfrac{-b}{2a}=\\dfrac{-(${fb})}{2\\cdot${fa}}=${fmt(R.root1,4)}`);
+    html+=noteHTML('warn',`Solution: ${tex(`x=${fmt(R.root1,3)}`)} (repeated)`);
+  } else {
+    html+=noteHTML('bad',`\\(\\Delta=${fmt(D,4)}<0\\) &rarr; <strong>no real roots</strong>. The parabola doesn't cross the x-axis.`);
+    const re=fmt(-b/(2*a),4), im=fmt(Math.sqrt(-D)/(2*a),4);
+    html+=stepHTML(4,'Use \\(\\sqrt{-\\Delta}\\cdot i\\) for complex roots:','',`x=\\dfrac{-(${fb})\\pm\\sqrt{${fmt(-D,4)}}\\,i}{2\\cdot${fa}}`);
+    html+=stepHTML(5,'Complex roots:','',`x_1=${re}+${im}\\,i,\\qquad x_2=${re}-${im}\\,i`);
+  }
+  return html;
+}
+
+/* ── COMPLETE THE SQUARE ── */
+function solutionComplete() {
+  const D=discriminant(), R=roots();
+  const fa=fmtC(a), fb=fmtC(b), fc=fmtC(c);
+  let html='';
+  html+=noteHTML('info',`Completing the square rewrites the quadratic as ${tex('(x+p)^2=q')}, making root extraction elegant.`);
+  html+=stepHTML(1,'Start with the equation:','',`${fa}x^2${b>=0?'+':''}${fb}x${c>=0?'+':''}${fc}=0`);
+  let pb=b, pc=c;
+  if (a!==1&&a!==0) {
+    pb=b/a; pc=c/a;
+    html+=stepHTML(2,`Divide every term by \\(a=${fa}\\):`, '', `x^2${pb>=0?'+':''}${fmtC(pb)}x${pc>=0?'+':''}${fmtC(pc)}=0`);
+  } else { html+=stepHTML(2,'\\(a=1\\), so no division needed.','',''); }
+  html+=stepHTML(3,'Move the constant to the right:','',`x^2${pb>=0?'+':''}${fmtC(pb)}x=${fmtC(-pc)}`);
+  const half=pb/2, halfSq=half*half;
+  html+=stepHTML(4,
+    `Add \\(\\left(\\tfrac{b}{2}\\right)^2=${fmt(halfSq,4)}\\) to both sides:`, '',
+    `x^2${pb>=0?'+':''}${fmtC(pb)}x+${fmt(halfSq,4)}=${fmtC(-pc)}+${fmt(halfSq,4)}`);
+  const rhs=halfSq-pc;
+  html+=stepHTML(5,'Left side is a perfect square:','',`\\left(x+${fmt(half,4)}\\right)^2=${fmt(rhs,4)}`);
+  if (rhs>1e-10) {
+    const sq=Math.sqrt(rhs);
+    html+=stepHTML(6,'Take the square root of both sides:','',`x+${fmt(half,4)}=\\pm\\sqrt{${fmt(rhs,4)}}=\\pm${fmt(sq,4)}`);
+    html+=stepHTML(7,'Isolate \\(x\\):','',`x=-${fmt(half,4)}\\pm${fmt(sq,4)}`);
+    html+=stepHTML('','','',`x_1=${fmt(R.root1,4)},\\qquad x_2=${fmt(R.root2,4)}`);
+    html+=noteHTML('good',`Solutions: ${tex(`x_1\\approx${fmt(R.root1,3)}`)} and ${tex(`x_2\\approx${fmt(R.root2,3)}`)}`);
+  } else if (rhs>=-1e-10) {
+    html+=stepHTML(6,'Right side is 0:','',`x+${fmt(half,4)}=0\\implies x=${fmt(-half,4)}`);
+    html+=noteHTML('warn',`Solution: ${tex(`x=${fmt(R.root1,3)}`)} (repeated)`);
+  } else {
+    html+=stepHTML(6,'Right side is negative — imaginary square root:','',`x=-${fmt(half,4)}\\pm${fmt(Math.sqrt(-rhs),4)}\\,i`);
+    html+=noteHTML('bad','No real roots. Complex solutions only.');
+  }
+  return html;
+}
+
+/* ── FACTORING ── */
+function solutionFactor() {
+  const D=discriminant(), R=roots();
+  const fa=fmtC(a), fb=fmtC(b), fc=fmtC(c);
+  let html='';
+  html+=noteHTML('info',`Factoring writes the quadratic as ${tex('a(x-r_1)(x-r_2)=0')} and reads off roots directly. Works cleanly for rational roots.`);
+  if (a===0) { html+=noteHTML('warn','\\(a=0\\): this is linear, not quadratic.'); return html; }
+  if (D<-1e-10) {
+    html+=noteHTML('bad',`\\(\\Delta=${fmt(D,3)}<0\\): no real factors. Use the Quadratic Formula for complex roots.`);
+    return html;
+  }
+  const r1=R.root1, r2=R.root2;
+  const r1Rat=isNearInt(r1)||isNearInt(r1*2)||isNearInt(r1*3)||isNearInt(r1*4);
+  const r2Rat=isNearInt(r2)||isNearInt(r2*2)||isNearInt(r2*3)||isNearInt(r2*4);
+  html+=stepHTML(1,'We need \\(r_1,r_2\\) satisfying:','',`r_1+r_2=\\tfrac{-b}{a}=${fmt(-b/a,4)},\\qquad r_1\\cdot r_2=\\tfrac{c}{a}=${fmt(c/a,4)}`);
+  if (r1Rat&&r2Rat) {
+    html+=stepHTML(2,`Roots are rational: \\(r_1\\approx${fmt(r1,3)}\\), \\(r_2\\approx${fmt(r2,3)}\\).`,'','');
+    const s1=r1>=0?`-${fmt(r1,3)}`:`+${fmt(Math.abs(r1),3)}`;
+    const s2=r2>=0?`-${fmt(r2,3)}`:`+${fmt(Math.abs(r2),3)}`;
+    const ap=(a!==1&&a!==-1)?`${fa}\\cdot`:(a===-1?'-':'');
+    html+=stepHTML(3,'Factored form:','',`${ap}(x${s1})(x${s2})=0`);
+    html+=stepHTML(4,'Set each factor to zero:','',`x${s1}=0\\implies x_1=${fmt(r1,3)}`);
+    html+=stepHTML('','','',`x${s2}=0\\implies x_2=${fmt(r2,3)}`);
+    html+=noteHTML('good',`Solutions: ${tex(`x_1=${fmt(r1,3)}`)} and ${tex(`x_2=${fmt(r2,3)}`)}`);
+  } else {
+    html+=noteHTML('warn',`Roots are irrational (\\(\\approx${fmt(r1,3)},\\;${fmt(r2,3)}\\)) — integer factoring is not possible.`);
+    html+=stepHTML(2,'Attempt: find integers \\(m,n\\) with:','',`m\\cdot n=ac=${fmt(a*c,2)},\\qquad m+n=b=${fb}`);
+    html+=stepHTML(3,'No such integers exist for these values.','','');
+    html+=noteHTML('info','When factoring fails, switch to the <strong>Quadratic Formula</strong> or <strong>Completing the Square</strong>.');
+    const s1=r1>=0?`-${fmt(r1,3)}`:`+${fmt(Math.abs(r1),3)}`;
+    const s2=r2>=0?`-${fmt(r2,3)}`:`+${fmt(Math.abs(r2),3)}`;
+    const ap=(a!==1&&a!==-1)?`${fa}\\cdot`:(a===-1?'-':'');
+    html+=stepHTML(4,'Factored form (using computed roots):','',`${ap}(x${s1})(x${s2})=0`);
+  }
+  return html;
+}
+
+function updateSolution() {
+  const el=document.getElementById('solution-scroll');
+  el.innerHTML = method==='formula'?solutionFormula():method==='complete'?solutionComplete():solutionFactor();
+  el.scrollTop=0;
+}
+function updateSliderFill() {
+  ['a','b','c'].forEach(id=>{
+    const sl=document.getElementById(id+'-slider');
+    sl.style.setProperty('--pct',((parseFloat(sl.value)-parseFloat(sl.min))/(parseFloat(sl.max)-parseFloat(sl.min))*100).toFixed(1)+'%');
+  });
+}
+function updateAll() {
+  updateHeader(); updateEquation(); updateRoots(); updateSolution(); drawAll(); updateSliderFill();
+}
+
+/* ── events ── */
+['a','b','c'].forEach(id=>{
+  const sl=document.getElementById(id+'-slider'), vd=document.getElementById(id+'-val');
+  sl.addEventListener('input',()=>{
+    const v=parseFloat(sl.value);
+    if(id==='a')a=v; else if(id==='b')b=v; else c=v;
+    vd.textContent=v.toFixed(2); updateAll();
+  });
+});
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active'); method=btn.dataset.method; updateSolution();
+  });
+});
+canvas.addEventListener('mousedown',e=>{panning=true;lastPX=e.clientX;lastPY=e.clientY;});
+canvas.addEventListener('mousemove',e=>{if(!panning)return;offsetX+=e.clientX-lastPX;offsetY+=e.clientY-lastPY;lastPX=e.clientX;lastPY=e.clientY;drawAll();});
+canvas.addEventListener('mouseup',()=>panning=false);
+canvas.addEventListener('mouseleave',()=>panning=false);
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.1:0.91, r=canvas.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  offsetX=mx+(offsetX-mx)*f; offsetY=my+(offsetY-my)*f; scale*=f; drawAll();
+},{passive:false});
+canvas.addEventListener('touchstart',e=>{if(e.touches.length===1){panning=true;lastPX=e.touches[0].clientX;lastPY=e.touches[0].clientY;}},{passive:true});
+canvas.addEventListener('touchmove',e=>{if(!panning||e.touches.length!==1)return;e.preventDefault();offsetX+=e.touches[0].clientX-lastPX;offsetY+=e.touches[0].clientY-lastPY;lastPX=e.touches[0].clientX;lastPY=e.touches[0].clientY;drawAll();},{passive:false});
+canvas.addEventListener('touchend',()=>panning=false);
+window.addEventListener('resize',()=>{resize();drawAll();});
+
+/* ── boot ── */
+waitForKatex(()=>{
+  resize(); offsetX=canvas.width/2; offsetY=canvas.height/2; updateAll();
+});
+</script>
 </body>
 </html>
