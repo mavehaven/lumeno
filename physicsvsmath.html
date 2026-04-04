@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hub — Choose Your Path</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --math-accent: #2563eb;
+            --math-light:  #eff6ff;
+            --math-mid:    #93c5fd;
+            --phys-accent: #d97706;
+            --phys-light:  #fffbeb;
+            --phys-mid:    #fcd34d;
+            --bg:          #0c0c0f;
+            --surface:     #13131a;
+            --border:      rgba(255,255,255,0.07);
+            --text-1:      #f0f0f4;
+            --text-2:      #8888a0;
+        }
+
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text-1);
+            font-family: 'DM Sans', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* ── Background grid ── */
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+
+        /* ── Ambient glows ── */
+        .glow-math {
+            position: fixed; top: -20%; left: -10%;
+            width: 55vw; height: 55vw;
+            background: radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 65%);
+            pointer-events: none; z-index: 0;
+            animation: drift-math 14s ease-in-out infinite alternate;
+        }
+        .glow-phys {
+            position: fixed; top: -20%; right: -10%;
+            width: 55vw; height: 55vw;
+            background: radial-gradient(circle, rgba(217,119,6,0.12) 0%, transparent 65%);
+            pointer-events: none; z-index: 0;
+            animation: drift-phys 16s ease-in-out infinite alternate;
+        }
+        @keyframes drift-math {
+            from { transform: translate(0, 0); }
+            to   { transform: translate(4%, 8%); }
+        }
+        @keyframes drift-phys {
+            from { transform: translate(0, 0); }
+            to   { transform: translate(-4%, 6%); }
+        }
+
+        /* ── Page layout ── */
+        .page {
+            position: relative; z-index: 1;
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 48px 24px;
+        }
+
+        /* ── Logo + header ── */
+        .header {
+            text-align: center;
+            margin-bottom: 64px;
+            opacity: 0;
+            animation: fade-up 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s forwards;
+        }
+        .logo {
+            height: 40px;
+            filter: brightness(0) invert(1);
+            margin-bottom: 28px;
+        }
+        .eyebrow {
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--text-2);
+            margin-bottom: 12px;
+        }
+        .headline {
+            font-family: 'DM Serif Display', serif;
+            font-size: clamp(36px, 5vw, 58px);
+            line-height: 1.1;
+            color: var(--text-1);
+            letter-spacing: -0.01em;
+        }
+        .headline em {
+            font-style: italic;
+            color: var(--text-2);
+        }
+        .subline {
+            margin-top: 14px;
+            font-size: 15px;
+            color: var(--text-2);
+            font-weight: 300;
+            max-width: 380px;
+            line-height: 1.6;
+        }
+
+        /* ── Cards ── */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 780px;
+        }
+
+        .card {
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 40px 36px;
+            text-decoration: none;
+            color: inherit;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.4s cubic-bezier(0.22,1,0.36,1),
+                        border-color 0.3s ease,
+                        box-shadow 0.4s ease;
+            opacity: 0;
+        }
+        .card:nth-child(1) { animation: fade-up 0.7s cubic-bezier(0.22,1,0.36,1) 0.25s forwards; }
+        .card:nth-child(2) { animation: fade-up 0.7s cubic-bezier(0.22,1,0.36,1) 0.38s forwards; }
+
+        .card:hover { transform: translateY(-6px); }
+
+        /* Math card */
+        .card-math::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 30% 0%, rgba(37,99,235,0.15) 0%, transparent 60%);
+            transition: opacity 0.4s;
+            opacity: 0;
+        }
+        .card-math:hover { border-color: rgba(37,99,235,0.5); box-shadow: 0 20px 60px rgba(37,99,235,0.12); }
+        .card-math:hover::before { opacity: 1; }
+
+        /* Physics card */
+        .card-phys::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at 70% 0%, rgba(217,119,6,0.15) 0%, transparent 60%);
+            transition: opacity 0.4s;
+            opacity: 0;
+        }
+        .card-phys:hover { border-color: rgba(217,119,6,0.5); box-shadow: 0 20px 60px rgba(217,119,6,0.12); }
+        .card-phys:hover::before { opacity: 1; }
+
+        /* ── Card icon ── */
+        .card-icon {
+            width: 52px; height: 52px;
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 24px;
+            font-size: 24px;
+            position: relative; z-index: 1;
+        }
+        .card-math .card-icon { background: rgba(37,99,235,0.15); }
+        .card-phys .card-icon { background: rgba(217,119,6,0.15); }
+
+        /* ── Symbol cluster (decorative) ── */
+        .symbols {
+            position: absolute;
+            top: 24px; right: 28px;
+            display: flex; flex-direction: column; align-items: flex-end;
+            gap: 2px;
+            opacity: 0.08;
+            font-family: 'DM Serif Display', serif;
+            line-height: 1;
+            pointer-events: none;
+            transition: opacity 0.4s;
+        }
+        .card:hover .symbols { opacity: 0.18; }
+        .symbols span { font-size: 22px; color: var(--text-1); }
+
+        /* ── Card text ── */
+        .card-label {
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            position: relative; z-index: 1;
+        }
+        .card-math .card-label { color: var(--math-accent); }
+        .card-phys .card-label { color: var(--phys-accent); }
+
+        .card-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 28px;
+            line-height: 1.15;
+            color: var(--text-1);
+            margin-bottom: 12px;
+            position: relative; z-index: 1;
+        }
+        .card-desc {
+            font-size: 14px;
+            color: var(--text-2);
+            line-height: 1.65;
+            font-weight: 300;
+            position: relative; z-index: 1;
+            margin-bottom: 32px;
+        }
+
+        /* ── Topics pills ── */
+        .topics {
+            display: flex; flex-wrap: wrap; gap: 7px;
+            margin-bottom: 32px;
+            position: relative; z-index: 1;
+        }
+        .topic {
+            font-size: 11px; font-weight: 500;
+            padding: 4px 10px; border-radius: 99px;
+            letter-spacing: 0.04em;
+        }
+        .card-math .topic { background: rgba(37,99,235,0.12); color: var(--math-mid); }
+        .card-phys .topic { background: rgba(217,119,6,0.12); color: var(--phys-mid); }
+
+        /* ── CTA row ── */
+        .card-cta {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 14px; font-weight: 500;
+            position: relative; z-index: 1;
+            transition: gap 0.3s cubic-bezier(0.22,1,0.36,1);
+        }
+        .card:hover .card-cta { gap: 14px; }
+
+        .cta-text { }
+        .card-math .cta-text { color: var(--math-accent); }
+        .card-phys .cta-text { color: var(--phys-accent); }
+
+        .cta-arrow {
+            display: flex; align-items: center; justify-content: center;
+            width: 30px; height: 30px; border-radius: 50%;
+            font-size: 15px;
+            transition: transform 0.3s cubic-bezier(0.22,1,0.36,1);
+        }
+        .card:hover .cta-arrow { transform: translateX(4px); }
+        .card-math .cta-arrow { background: rgba(37,99,235,0.15); color: var(--math-accent); }
+        .card-phys .cta-arrow { background: rgba(217,119,6,0.15); color: var(--phys-accent); }
+
+        /* ── Divider ── */
+        .or-divider {
+            display: flex; align-items: center; justify-content: center;
+            margin-top: 44px;
+            opacity: 0;
+            animation: fade-up 0.6s ease 0.55s forwards;
+        }
+        .or-divider span {
+            font-size: 12px;
+            color: var(--text-2);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        /* ── Keyframes ── */
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 600px) {
+            .header { margin-bottom: 44px; }
+            .card { padding: 32px 28px; }
+            .card-title { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="glow-math"></div>
+    <div class="glow-phys"></div>
+
+    <main class="page">
+
+        <!-- Header -->
+        <header class="header">
+            <img
+                src="//3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png"
+                alt="Logo"
+                class="logo"
+            >
+            <p class="eyebrow">Interactive Learning</p>
+            <h1 class="headline">Choose your <em>path</em></h1>
+            <p class="subline">Explore the subject that interests you most. Both hubs feature interactive simulations built to make learning feel intuitive.</p>
+        </header>
+
+        <!-- Cards -->
+        <div class="cards">
+
+            <!-- Math Hub -->
+            <a href="mathhub.html" class="card card-math">
+                <div class="symbols">
+                    <span>∑</span>
+                    <span>∫</span>
+                    <span>π</span>
+                    <span>√</span>
+                </div>
+                <div class="card-icon">∑</div>
+                <p class="card-label">Hub 01</p>
+                <h2 class="card-title">MathHub</h2>
+                <p class="card-desc">From algebra and calculus to geometry and statistics — interactive visualizations that make abstract concepts concrete.</p>
+                <div class="topics">
+                    <span class="topic">Algebra</span>
+                    <span class="topic">Calculus</span>
+                    <span class="topic">Geometry</span>
+                    <span class="topic">Statistics</span>
+                </div>
+                <div class="card-cta">
+                    <span class="cta-text">Enter MathHub</span>
+                    <span class="cta-arrow">→</span>
+                </div>
+            </a>
+
+            <!-- Physics Hub -->
+            <a href="physicshub.html" class="card card-phys">
+                <div class="symbols">
+                    <span>⚛</span>
+                    <span>λ</span>
+                    <span>Δ</span>
+                    <span>ω</span>
+                </div>
+                <div class="card-icon">⚛</div>
+                <p class="card-label">Hub 02</p>
+                <h2 class="card-title">PhysicsHub</h2>
+                <p class="card-desc">Mechanics, waves, electromagnetism and beyond — simulate real phenomena and develop deep physical intuition.</p>
+                <div class="topics">
+                    <span class="topic">Mechanics</span>
+                    <span class="topic">Waves</span>
+                    <span class="topic">Electromagnetism</span>
+                    <span class="topic">Thermodynamics</span>
+                </div>
+                <div class="card-cta">
+                    <span class="cta-text">Enter PhysicsHub</span>
+                    <span class="cta-arrow">→</span>
+                </div>
+            </a>
+
+        </div>
+
+        <div class="or-divider">
+            <span>More hubs coming soon</span>
+        </div>
+
+    </main>
+</body>
+</html>
