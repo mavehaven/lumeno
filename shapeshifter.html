@@ -1,1318 +1,1298 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quadratic Simulator: The Shape Shifter</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #4361ee;
-            --secondary: #3a0ca3;
-            --accent: #f72585;
-            --light: #f8f9fa;
-            --dark: #0d0d18;
-            --success: #4cc9f0;
-            --warning: #f8961e;
-            --danger: #e63946;
-            --glass: rgba(255,255,255,0.04);
-            --glass-border: rgba(255,255,255,0.08);
-            --glow-blue: rgba(67,97,238,0.4);
-            --glow-pink: rgba(247,37,133,0.4);
-            --glow-teal: rgba(76,201,240,0.4);
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            background: #09090f;
-            color: var(--light);
-            min-height: 100vh;
-            font-family: 'Syne', sans-serif;
-            overflow-x: hidden;
-        }
-
-        /* Noise texture overlay */
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-            pointer-events: none;
-            z-index: 0;
-            opacity: 0.6;
-        }
-
-        /* Radial ambient glow */
-        body::after {
-            content: '';
-            position: fixed;
-            top: -20%;
-            left: 10%;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(67,97,238,0.08) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .ambient-right {
-            position: fixed;
-            bottom: -10%;
-            right: 5%;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(247,37,133,0.06) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .container {
-            max-width: 1500px;
-            margin: 0 auto;
-            padding: 24px;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* ── HEADER ─────────────────────────────────────── */
-        header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 28px;
-            padding: 22px 32px;
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: 18px;
-            backdrop-filter: blur(20px);
-            position: relative;
-            overflow: hidden;
-        }
-
-        header::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(247,37,133,0.6), rgba(76,201,240,0.6), transparent);
-        }
-
-        .header-left h1 {
-            font-size: 2rem;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            background: linear-gradient(90deg, #fff 30%, var(--success) 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            line-height: 1.1;
-        }
-
-        .header-left .subtitle {
-            font-size: 0.85rem;
-            font-family: 'Space Mono', monospace;
-            color: rgba(255,255,255,0.45);
-            margin-top: 4px;
-            letter-spacing: 0.02em;
-        }
-
-        .header-badge {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-
-        .badge {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.65rem;
-            padding: 4px 10px;
-            border-radius: 20px;
-            border: 1px solid;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
-        .badge-blue { border-color: rgba(67,97,238,0.5); color: #7b9cff; background: rgba(67,97,238,0.1); }
-        .badge-pink { border-color: rgba(247,37,133,0.5); color: #ff6eb4; background: rgba(247,37,133,0.1); }
-        .badge-teal { border-color: rgba(76,201,240,0.5); color: var(--success); background: rgba(76,201,240,0.1); }
-
-        /* ── LAYOUT ──────────────────────────────────────── */
-        .main-grid {
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            grid-template-rows: auto auto;
-            gap: 20px;
-        }
-
-        @media (max-width: 1100px) {
-            .main-grid { grid-template-columns: 1fr; }
-        }
-
-        /* ── PANEL BASE ──────────────────────────────────── */
-        .panel {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
-            border-radius: 18px;
-            backdrop-filter: blur(20px);
-            overflow: hidden;
-            position: relative;
-        }
-
-        .panel-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .panel-title {
-            font-size: 0.75rem;
-            font-family: 'Space Mono', monospace;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: rgba(255,255,255,0.4);
-        }
-
-        /* ── GRAPH ───────────────────────────────────────── */
-        .graph-panel {
-            grid-row: 1 / 3;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #graph-canvas {
-            flex: 1;
-            width: 100%;
-            min-height: 480px;
-            display: block;
-            cursor: crosshair;
-        }
-
-        #graph-canvas:active { cursor: grabbing; }
-
-        .canvas-footer {
-            padding: 10px 20px;
-            border-top: 1px solid var(--glass-border);
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            font-family: 'Space Mono', monospace;
-            font-size: 0.7rem;
-            color: rgba(255,255,255,0.35);
-        }
-
-        .legend-dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-        }
-
-        /* ── CONTROLS ────────────────────────────────────── */
-        .controls-panel {
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Equation display */
-        .eq-box {
-            padding: 20px;
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .eq-label {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: rgba(255,255,255,0.3);
-            margin-bottom: 12px;
-        }
-
-        .eq-display {
-            font-size: 1.5rem;
-            font-family: 'Space Mono', monospace;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            line-height: 1.4;
-            word-break: break-all;
-        }
-
-        .eq-a { color: var(--accent); }
-        .eq-h { color: var(--success); }
-        .eq-k { color: var(--warning); }
-        .eq-plain { color: rgba(255,255,255,0.7); }
-
-        .form-toggle {
-            display: flex;
-            gap: 6px;
-            margin-top: 12px;
-        }
-
-        .form-btn {
-            flex: 1;
-            font-family: 'Space Mono', monospace;
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            padding: 7px;
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
-            background: transparent;
-            color: rgba(255,255,255,0.4);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .form-btn.active {
-            background: rgba(67,97,238,0.2);
-            border-color: rgba(67,97,238,0.5);
-            color: #7b9cff;
-        }
-
-        /* Sliders */
-        .sliders-box {
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .param-row {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .param-meta {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .param-label {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.7rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .param-sym {
-            width: 22px; height: 22px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.8rem;
-        }
-
-        .sym-a { background: rgba(247,37,133,0.2); color: var(--accent); }
-        .sym-h { background: rgba(76,201,240,0.2); color: var(--success); }
-        .sym-k { background: rgba(248,150,30,0.2); color: var(--warning); }
-
-        .param-desc {
-            font-size: 0.65rem;
-            color: rgba(255,255,255,0.35);
-            letter-spacing: 0.02em;
-        }
-
-        .param-val {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.8rem;
-            padding: 3px 10px;
-            border-radius: 6px;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--glass-border);
-            min-width: 55px;
-            text-align: center;
-        }
-
-        .slider-wrap {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .slider-bound {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.6rem;
-            color: rgba(255,255,255,0.2);
-            min-width: 18px;
-            text-align: center;
-        }
-
-        input[type=range] {
-            flex: 1;
-            -webkit-appearance: none;
-            height: 4px;
-            border-radius: 4px;
-            outline: none;
-            cursor: pointer;
-        }
-
-        #a-slider { background: linear-gradient(90deg, #3a0ca3, var(--accent)); }
-        #h-slider { background: linear-gradient(90deg, #023e8a, var(--success)); }
-        #k-slider { background: linear-gradient(90deg, #7b2d00, var(--warning)); }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px; height: 18px;
-            border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.8);
-            cursor: grab;
-            transition: transform 0.15s ease;
-        }
-        input[type=range]::-webkit-slider-thumb:active { transform: scale(1.3); cursor: grabbing; }
-        #a-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 10px var(--glow-pink); }
-        #h-slider::-webkit-slider-thumb { background: var(--success); box-shadow: 0 0 10px var(--glow-teal); }
-        #k-slider::-webkit-slider-thumb { background: var(--warning); box-shadow: 0 0 10px rgba(248,150,30,0.5); }
-
-        /* ── FEATURES ────────────────────────────────────── */
-        .features-box {
-            padding: 16px 20px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .feat-card {
-            background: rgba(0,0,0,0.25);
-            border: 1px solid var(--glass-border);
-            border-radius: 10px;
-            padding: 10px 12px;
-        }
-
-        .feat-name {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.58rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: rgba(255,255,255,0.3);
-            margin-bottom: 4px;
-        }
-
-        .feat-val {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.82rem;
-            font-weight: 700;
-            color: #fff;
-        }
-
-        /* ── INSIGHT BOX ─────────────────────────────────── */
-        .insight-box {
-            padding: 16px 20px;
-            flex: 1;
-        }
-
-        .insight-label {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.6rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: rgba(255,255,255,0.25);
-            margin-bottom: 8px;
-        }
-
-        .insight-text {
-            font-size: 0.82rem;
-            line-height: 1.65;
-            color: rgba(255,255,255,0.6);
-            min-height: 60px;
-            transition: opacity 0.3s ease;
-        }
-
-        .insight-text strong { color: rgba(255,255,255,0.9); }
-        .insight-text .highlight-a { color: var(--accent); }
-        .insight-text .highlight-h { color: var(--success); }
-        .insight-text .highlight-k { color: var(--warning); }
-
-        /* ── THEORY PANEL ────────────────────────────────── */
-        .theory-panel {
-            grid-column: 1 / -1;
-        }
-
-        .theory-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 0;
-        }
-
-        @media (max-width: 900px) {
-            .theory-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-
-        .theory-card {
-            padding: 20px 22px;
-            border-right: 1px solid var(--glass-border);
-            position: relative;
-            transition: background 0.25s ease;
-        }
-
-        .theory-card:last-child { border-right: none; }
-        .theory-card:hover { background: rgba(255,255,255,0.03); }
-
-        .theory-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-            opacity: 0;
-            transition: opacity 0.25s ease;
-        }
-
-        .theory-card:hover::before { opacity: 1; }
-        .tc-1::before { background: linear-gradient(90deg, var(--accent), transparent); }
-        .tc-2::before { background: linear-gradient(90deg, var(--success), transparent); }
-        .tc-3::before { background: linear-gradient(90deg, var(--warning), transparent); }
-        .tc-4::before { background: linear-gradient(90deg, var(--primary), transparent); }
-
-        .tc-icon {
-            font-size: 1.4rem;
-            margin-bottom: 10px;
-            display: block;
-        }
-
-        .tc-title {
-            font-size: 0.8rem;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            margin-bottom: 6px;
-            color: rgba(255,255,255,0.9);
-        }
-
-        .tc-body {
-            font-size: 0.75rem;
-            line-height: 1.65;
-            color: rgba(255,255,255,0.45);
-        }
-
-        .tc-body strong { color: rgba(255,255,255,0.75); }
-        .tc-body .mono { font-family: 'Space Mono', monospace; font-size: 0.68rem; }
-
-        /* ── DISCRIMINANT METER ──────────────────────────── */
-        .disc-meter {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 20px;
-            border-top: 1px solid var(--glass-border);
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .disc-label {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.65rem;
-            color: rgba(255,255,255,0.3);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            white-space: nowrap;
-        }
-
-        .disc-bar-wrap {
-            flex: 1;
-            height: 6px;
-            background: rgba(255,255,255,0.06);
-            border-radius: 6px;
-            overflow: hidden;
-        }
-
-        .disc-bar {
-            height: 100%;
-            border-radius: 6px;
-            transition: width 0.3s ease, background 0.3s ease;
-        }
-
-        .disc-val {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.7rem;
-            min-width: 70px;
-            text-align: right;
-        }
-
-        /* ── ROOT DISPLAY ────────────────────────────────── */
-        .roots-display {
-            padding: 12px 20px;
-            font-family: 'Space Mono', monospace;
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.5);
-            border-bottom: 1px solid var(--glass-border);
-            line-height: 1.8;
-        }
-
-        .roots-display span { color: rgba(255,255,255,0.85); }
-        .roots-display .root-val { color: var(--success); }
-        .roots-display .no-roots { color: rgba(247,37,133,0.7); }
-
-        /* Zoom controls */
-        .zoom-controls {
-            display: flex;
-            gap: 6px;
-        }
-
-        .zoom-btn {
-            font-family: 'Space Mono', monospace;
-            font-size: 0.75rem;
-            padding: 4px 10px;
-            border: 1px solid var(--glass-border);
-            border-radius: 6px;
-            background: rgba(0,0,0,0.3);
-            color: rgba(255,255,255,0.5);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .zoom-btn:hover {
-            background: rgba(255,255,255,0.08);
-            color: #fff;
-        }
-
-        /* Animate in */
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(16px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        header { animation: fadeUp 0.4s ease both; }
-        .graph-panel { animation: fadeUp 0.5s 0.05s ease both; }
-        .controls-panel { animation: fadeUp 0.5s 0.1s ease both; }
-        .theory-panel { animation: fadeUp 0.5s 0.15s ease both; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quadratic Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #f5f1eb;
+  --bg2:       #ece8e0;
+  --bg3:       #e2ddd5;
+  --surface:   #ffffff;
+  --border:    #d8d2c8;
+  --border2:   #c8c0b4;
+  --ink:       #1a1814;
+  --ink2:      #3d3830;
+  --ink3:      #6b6459;
+  --ink4:      #9c9389;
+  --red:       #c0392b;
+  --red-light: #f5e8e6;
+  --teal:      #1a7a6b;
+  --teal-light:#e3f0ee;
+  --amber:     #b5621e;
+  --amber-light:#f5ede3;
+  --blue:      #2b5ea7;
+  --blue-light:#e4ecf7;
+  --purple:    #6b3fa0;
+  --purple-light:#ede6f5;
+  --green:     #2e7d32;
+  --green-light:#e8f5e9;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow:    0 2px 12px rgba(0,0,0,0.10);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  --radius:    10px;
+  --radius-sm: 6px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* Subtle paper texture */
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── LAYOUT ── */
+.app {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--border);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.hd-left h1 {
+  font-family: 'Lora', serif;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.hd-left h1 em {
+  font-style: italic;
+  color: var(--red);
+}
+
+.hd-left p {
+  margin-top: 5px;
+  font-size: 0.82rem;
+  color: var(--ink4);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.eq-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--ink);
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 100px;
+  letter-spacing: 0.01em;
+}
+
+.eq-badge .part-a { color: #ff8a80; }
+.eq-badge .part-h { color: #80cbc4; }
+.eq-badge .part-k { color: #ffcc80; }
+
+/* ── MAIN GRID ── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .main-grid { grid-template-columns: 1fr; }
+}
+
+/* ── CARD BASE ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+}
+
+.card-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink4);
+  font-weight: 600;
+}
+
+/* ── GRAPH PANEL ── */
+.graph-panel { display: flex; flex-direction: column; }
+
+#graph-canvas {
+  display: block;
+  width: 100%;
+  min-height: 460px;
+  cursor: crosshair;
+}
+
+#graph-canvas:active { cursor: grabbing; }
+
+.canvas-footer {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 8px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--ink4);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.legend-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.zoom-group {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+
+.btn:hover { background: var(--bg2); border-color: var(--border2); }
+.btn:active { background: var(--bg3); }
+
+/* ── RIGHT PANEL ── */
+.right-col { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── EQUATION DISPLAY ── */
+.eq-section { padding: 18px; }
+
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink4);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.eq-big {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  color: var(--ink);
+  min-height: 2.5rem;
+  word-break: break-all;
+}
+
+.eq-big .p-a { color: var(--red); }
+.eq-big .p-h { color: var(--teal); }
+.eq-big .p-k { color: var(--amber); }
+.eq-big .p-n { color: var(--ink2); }
+
+.form-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 12px;
+  background: var(--bg2);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+}
+
+.tab {
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink4);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-weight: 600;
+}
+
+.tab.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── SLIDERS ── */
+.sliders-section { padding: 16px 18px; display: flex; flex-direction: column; gap: 18px; }
+
+.param-block { display: flex; flex-direction: column; gap: 8px; }
+
+.param-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.param-id {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.param-chip {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.chip-a { background: var(--red-light); color: var(--red); }
+.chip-h { background: var(--teal-light); color: var(--teal); }
+.chip-k { background: var(--amber-light); color: var(--amber); }
+
+.param-name-block { display: flex; flex-direction: column; }
+.param-name { font-size: 0.78rem; font-weight: 600; color: var(--ink2); }
+.param-sub  { font-size: 0.68rem; color: var(--ink4); }
+
+.param-val-box {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  min-width: 60px;
+  text-align: center;
+}
+
+.val-a { color: var(--red); }
+.val-h { color: var(--teal); }
+.val-k { color: var(--amber); }
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bound {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--ink4);
+  min-width: 18px;
+  text-align: center;
+}
+
+input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 5px;
+  border-radius: 5px;
+  outline: none;
+  cursor: pointer;
+}
+
+.sl-a { background: linear-gradient(90deg, #fce4e2, var(--red)); }
+.sl-h { background: linear-gradient(90deg, #c8e6e3, var(--teal)); }
+.sl-k { background: linear-gradient(90deg, #fde8d4, var(--amber)); }
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid var(--surface);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  cursor: grab;
+  transition: transform 0.1s;
+}
+input[type=range]::-webkit-slider-thumb:active { transform:scale(1.25); cursor:grabbing; }
+.sl-a::-webkit-slider-thumb { background: var(--red); }
+.sl-h::-webkit-slider-thumb { background: var(--teal); }
+.sl-k::-webkit-slider-thumb { background: var(--amber); }
+
+/* ── KEY FACTS ── */
+.facts-section { padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
+
+.fact-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  gap: 8px;
+}
+
+.fact-row:hover { background: var(--bg3); }
+
+.fact-name {
+  font-size: 0.7rem;
+  color: var(--ink4);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.fact-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* ── DISCRIMINANT ── */
+.disc-section { padding: 14px 18px; }
+
+.disc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.disc-formula {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--ink3);
+}
+
+.disc-result {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.disc-track {
+  height: 8px;
+  background: var(--bg3);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.disc-fill {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.disc-cases {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.disc-case {
+  flex: 1;
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  font-size: 0.64rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--ink4);
+  background: var(--bg2);
+  transition: all 0.2s;
+}
+
+.disc-case.active-case {
+  border-width: 2px;
+}
+
+.case-two.active-case  { border-color: var(--blue);   background: var(--blue-light);   color: var(--blue); }
+.case-one.active-case  { border-color: var(--amber);  background: var(--amber-light);  color: var(--amber); }
+.case-zero.active-case { border-color: var(--red);    background: var(--red-light);    color: var(--red); }
+
+/* ── ROOTS ── */
+.roots-section { padding: 12px 18px; }
+
+.roots-inner {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  line-height: 2;
+  color: var(--ink3);
+}
+
+.root-val   { color: var(--teal);  font-weight: 700; }
+.root-complex { color: var(--purple); font-weight: 600; }
+.root-double  { color: var(--amber); font-weight: 700; }
+
+/* ── INSIGHT ── */
+.insight-section { padding: 14px 18px; }
+
+.insight-inner {
+  font-size: 0.82rem;
+  line-height: 1.75;
+  color: var(--ink3);
+  font-style: normal;
+  transition: opacity 0.25s;
+}
+
+.insight-inner strong { color: var(--ink); font-weight: 600; }
+.insight-inner .ia { color: var(--red); font-weight: 600; }
+.insight-inner .ih { color: var(--teal); font-weight: 600; }
+.insight-inner .ik { color: var(--amber); font-weight: 600; }
+.insight-inner .imono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  background: var(--bg2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--ink2);
+}
+
+/* ── THEORY SECTION ── */
+.theory-section {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 900px) {
+  .theory-section { grid-template-columns: 1fr 1fr; }
+}
+
+.theory-card {
+  background: var(--surface);
+  padding: 22px 22px 20px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.theory-card:hover { background: var(--bg2); }
+
+.tc-accent {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+
+.tc-num {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 10px;
+  opacity: 0.15;
+}
+
+.tc-title {
+  font-family: 'Lora', serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.tc-body {
+  font-size: 0.78rem;
+  line-height: 1.75;
+  color: var(--ink3);
+}
+
+.tc-body strong { color: var(--ink); font-weight: 600; }
+.tc-body code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--ink2);
+}
+
+/* A specific colorful highlight for worked examples */
+.tc-body .worked {
+  display: block;
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  background: var(--bg2);
+  border-left: 3px solid var(--border2);
+  border-radius: 0 4px 4px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--ink2);
+  line-height: 1.6;
+}
+
+/* ── DIVIDER ── */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 18px;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes slideUp {
+  from { opacity:0; transform:translateY(12px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+header   { animation: slideUp 0.35s ease both; }
+.main-grid { animation: slideUp 0.4s 0.05s ease both; }
+.theory-section { animation: slideUp 0.4s 0.1s ease both; }
+</style>
 </head>
 <body>
-<div class="ambient-right"></div>
+<div class="app">
 
-<div class="container">
+<!-- ── HEADER ── -->
+<header>
+  <div class="hd-left">
+    <h1>Quadratic <em>Explorer</em></h1>
+    <p>// interactive vertex form · drag handles · live theory</p>
+  </div>
+  <div class="eq-badge">
+    y&nbsp;=&nbsp;<span class="part-a">a</span>(x&nbsp;−&nbsp;<span class="part-h">h</span>)²&nbsp;+&nbsp;<span class="part-k">k</span>
+  </div>
+</header>
 
-    <header>
-        <div class="header-left">
-            <h1>Quadratic Simulator</h1>
-            <p class="subtitle">// vertex form explorer — drag, slide, discover</p>
-        </div>
-        <div class="header-badge">
-            <span class="badge badge-pink">y = a(x−h)² + k</span>
-            <span class="badge badge-blue">Vertex Form</span>
-            <span class="badge badge-teal">Interactive</span>
-        </div>
-    </header>
+<!-- ── MAIN GRID ── -->
+<div class="main-grid">
 
-    <div class="main-grid">
-
-        <!-- ── GRAPH ── -->
-        <div class="panel graph-panel">
-            <div class="panel-header">
-                <span class="panel-title">Graph — Coordinate Plane</span>
-                <div class="zoom-controls">
-                    <button class="zoom-btn" id="zoom-in">＋ Zoom</button>
-                    <button class="zoom-btn" id="zoom-out">－ Zoom</button>
-                    <button class="zoom-btn" id="zoom-reset">Reset</button>
-                </div>
-            </div>
-            <canvas id="graph-canvas"></canvas>
-            <div class="canvas-footer">
-                <span><span class="legend-dot" style="background:#e63946;"></span>Vertex (drag me)</span>
-                <span><span class="legend-dot" style="background:#4cc9f0;"></span>Shape handle</span>
-                <span><span class="legend-dot" style="background:rgba(76,201,240,0.4);"></span>Axis of symmetry</span>
-                <span style="margin-left:auto;">Scroll to zoom · Drag canvas to pan</span>
-            </div>
-        </div>
-
-        <!-- ── CONTROLS ── -->
-        <div class="panel controls-panel">
-
-            <!-- Equation -->
-            <div class="eq-box">
-                <div class="eq-label">Current Equation</div>
-                <div class="eq-display" id="eq-display">
-                    <span class="eq-plain">y = </span><span class="eq-a" id="eq-a">1</span><span class="eq-plain">(x − </span><span class="eq-h" id="eq-h">0</span><span class="eq-plain">)² + </span><span class="eq-k" id="eq-k">0</span>
-                </div>
-                <div class="form-toggle">
-                    <button class="form-btn active" id="vertex-form-btn">Vertex Form</button>
-                    <button class="form-btn" id="standard-form-btn">Standard Form</button>
-                    <button class="form-btn" id="factored-form-btn">Factored Form</button>
-                </div>
-            </div>
-
-            <!-- Discriminant -->
-            <div class="disc-meter">
-                <span class="disc-label">Δ = b²−4ac</span>
-                <div class="disc-bar-wrap">
-                    <div class="disc-bar" id="disc-bar"></div>
-                </div>
-                <span class="disc-val" id="disc-val"></span>
-            </div>
-
-            <!-- Roots -->
-            <div class="roots-display" id="roots-display"></div>
-
-            <!-- Sliders -->
-            <div class="sliders-box">
-                <!-- a -->
-                <div class="param-row">
-                    <div class="param-meta">
-                        <div class="param-label">
-                            <span class="param-sym sym-a">a</span>
-                            <div>
-                                <div style="color:rgba(255,255,255,0.8);font-size:0.72rem;">Vertical Stretch / Reflection</div>
-                                <div class="param-desc">Controls width and opening direction</div>
-                            </div>
-                        </div>
-                        <div class="param-val eq-a" id="a-display">1.00</div>
-                    </div>
-                    <div class="slider-wrap">
-                        <span class="slider-bound">−5</span>
-                        <input type="range" min="-5" max="5" step="0.05" value="1" id="a-slider">
-                        <span class="slider-bound">5</span>
-                    </div>
-                </div>
-                <!-- h -->
-                <div class="param-row">
-                    <div class="param-meta">
-                        <div class="param-label">
-                            <span class="param-sym sym-h">h</span>
-                            <div>
-                                <div style="color:rgba(255,255,255,0.8);font-size:0.72rem;">Horizontal Shift (Phase)</div>
-                                <div class="param-desc">Moves vertex left ↔ right</div>
-                            </div>
-                        </div>
-                        <div class="param-val eq-h" id="h-display">0.00</div>
-                    </div>
-                    <div class="slider-wrap">
-                        <span class="slider-bound">−5</span>
-                        <input type="range" min="-5" max="5" step="0.05" value="0" id="h-slider">
-                        <span class="slider-bound">5</span>
-                    </div>
-                </div>
-                <!-- k -->
-                <div class="param-row">
-                    <div class="param-meta">
-                        <div class="param-label">
-                            <span class="param-sym sym-k">k</span>
-                            <div>
-                                <div style="color:rgba(255,255,255,0.8);font-size:0.72rem;">Vertical Shift (Translation)</div>
-                                <div class="param-desc">Moves vertex up ↕ down</div>
-                            </div>
-                        </div>
-                        <div class="param-val eq-k" id="k-display">0.00</div>
-                    </div>
-                    <div class="slider-wrap">
-                        <span class="slider-bound">−5</span>
-                        <input type="range" min="-5" max="5" step="0.05" value="0" id="k-slider">
-                        <span class="slider-bound">5</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Key Features -->
-            <div class="features-box">
-                <div class="feat-card">
-                    <div class="feat-name">Vertex</div>
-                    <div class="feat-val" id="f-vertex">(0, 0)</div>
-                </div>
-                <div class="feat-card">
-                    <div class="feat-name">Axis of Symmetry</div>
-                    <div class="feat-val" id="f-axis">x = 0</div>
-                </div>
-                <div class="feat-card">
-                    <div class="feat-name">Y-Intercept</div>
-                    <div class="feat-val" id="f-yint">(0, 0)</div>
-                </div>
-                <div class="feat-card">
-                    <div class="feat-name">Direction / Range</div>
-                    <div class="feat-val" id="f-dir">↑ y ≥ 0</div>
-                </div>
-                <div class="feat-card">
-                    <div class="feat-name">Domain</div>
-                    <div class="feat-val" id="f-domain">ℝ (all reals)</div>
-                </div>
-                <div class="feat-card">
-                    <div class="feat-name">Focus</div>
-                    <div class="feat-val" id="f-focus">(0, 0.25)</div>
-                </div>
-            </div>
-
-            <!-- Insight -->
-            <div class="insight-box">
-                <div class="insight-label">// Live Insight</div>
-                <div class="insight-text" id="insight-text">Adjust the sliders or drag the parabola to explore.</div>
-            </div>
-
-        </div>
-
-        <!-- ── THEORY CARDS ── -->
-        <div class="panel theory-panel">
-            <div class="panel-header">
-                <span class="panel-title">Core Theory — Why Quadratics Matter</span>
-            </div>
-            <div class="theory-grid">
-                <div class="theory-card tc-1">
-                    <span class="tc-icon">🎯</span>
-                    <div class="tc-title">The Vertex Form Advantage</div>
-                    <div class="tc-body">
-                        <strong>y = a(x − h)² + k</strong> tells you everything instantly. The vertex <span class="mono">(h, k)</span> is where the parabola turns — the minimum if <strong>a > 0</strong>, the maximum if <strong>a &lt; 0</strong>. Standard form hides this; you'd need to complete the square to find it. Vertex form is standard form <em>already solved</em>.
-                    </div>
-                </div>
-                <div class="theory-card tc-2">
-                    <span class="tc-icon">📐</span>
-                    <div class="tc-title">The Parameter a — More Than Steepness</div>
-                    <div class="tc-body">
-                        <strong>|a| &gt; 1</strong>: parabola is <em>narrower</em> (stretched vertically). <strong>|a| &lt; 1</strong>: <em>wider</em> (compressed). <strong>a &lt; 0</strong>: reflected over the x-axis. Crucially, <span class="mono">a = 1/(4p)</span> links it to the <strong>focus</strong> — the optical point where parallel rays concentrate, exploited in satellite dishes, car headlights, and telescopes.
-                    </div>
-                </div>
-                <div class="theory-card tc-3">
-                    <span class="tc-icon">Δ</span>
-                    <div class="tc-title">The Discriminant — Nature of Roots</div>
-                    <div class="tc-body">
-                        From standard form: <span class="mono">Δ = b² − 4ac</span>. <strong>Δ &gt; 0</strong>: two distinct real roots (parabola crosses x-axis twice). <strong>Δ = 0</strong>: one repeated root (tangent to x-axis — vertex IS the root). <strong>Δ &lt; 0</strong>: no real roots (solutions exist in ℂ). The discriminant is a diagnostic — one number summarises intersection behaviour.
-                    </div>
-                </div>
-                <div class="theory-card tc-4">
-                    <span class="tc-icon">🌍</span>
-                    <div class="tc-title">Quadratics in the Real World</div>
-                    <div class="tc-body">
-                        Projectile motion: <span class="mono">h(t) = −½gt² + v₀t + h₀</span> — a quadratic with time. Revenue optimisation, suspension bridge cables, parabolic solar collectors, lens optics, and even the shape of hanging chains (catenary ≈ parabola for small sag) all use these exact principles. <strong>a, h, k</strong> are not abstract — they're physical constants.
-                    </div>
-                </div>
-            </div>
-        </div>
-
+  <!-- GRAPH -->
+  <div class="card graph-panel">
+    <div class="card-header">
+      <span class="card-title">Coordinate Plane</span>
+      <div class="zoom-group">
+        <button class="btn" id="zoom-in">＋ Zoom</button>
+        <button class="btn" id="zoom-out">－ Zoom</button>
+        <button class="btn" id="zoom-reset">Reset View</button>
+      </div>
     </div>
-</div>
+    <canvas id="graph-canvas"></canvas>
+    <div class="canvas-footer">
+      <span class="legend-item"><span class="legend-dot" style="background:#c0392b;"></span>Vertex (drag)</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#1a7a6b;"></span>Shape handle</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#2b5ea7;box-shadow:0 0 4px #2b5ea7;"></span>x-intercepts</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#b5621e;"></span>y-intercept</span>
+      <div class="zoom-group" style="margin-left:auto;background:none;padding:0;border:none;box-shadow:none;">
+        <span style="font-size:0.68rem;color:var(--ink4);font-family:'JetBrains Mono',monospace;">Scroll = zoom · Drag = pan</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+
+    <!-- Equation Card -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Current Equation</span></div>
+      <div class="eq-section">
+        <div class="eq-big" id="eq-display"></div>
+        <div class="form-tabs">
+          <button class="tab active" id="tab-vertex">Vertex</button>
+          <button class="tab" id="tab-standard">Standard</button>
+          <button class="tab" id="tab-factored">Factored</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sliders Card -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Parameters</span></div>
+      <div class="sliders-section">
+        <!-- a -->
+        <div class="param-block">
+          <div class="param-top">
+            <div class="param-id">
+              <span class="param-chip chip-a">a</span>
+              <div class="param-name-block">
+                <span class="param-name">Vertical Stretch · Direction</span>
+                <span class="param-sub">width · opens up or down</span>
+              </div>
+            </div>
+            <div class="param-val-box val-a" id="a-disp">1.00</div>
+          </div>
+          <div class="slider-row">
+            <span class="bound">−5</span>
+            <input type="range" class="sl-a" id="a-slider" min="-5" max="5" step="0.05" value="1">
+            <span class="bound">5</span>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <!-- h -->
+        <div class="param-block">
+          <div class="param-top">
+            <div class="param-id">
+              <span class="param-chip chip-h">h</span>
+              <div class="param-name-block">
+                <span class="param-name">Horizontal Shift</span>
+                <span class="param-sub">axis of symmetry x = h</span>
+              </div>
+            </div>
+            <div class="param-val-box val-h" id="h-disp">0.00</div>
+          </div>
+          <div class="slider-row">
+            <span class="bound">−5</span>
+            <input type="range" class="sl-h" id="h-slider" min="-5" max="5" step="0.05" value="0">
+            <span class="bound">5</span>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <!-- k -->
+        <div class="param-block">
+          <div class="param-top">
+            <div class="param-id">
+              <span class="param-chip chip-k">k</span>
+              <div class="param-name-block">
+                <span class="param-name">Vertical Shift</span>
+                <span class="param-sub">vertex height · min or max value</span>
+              </div>
+            </div>
+            <div class="param-val-box val-k" id="k-disp">0.00</div>
+          </div>
+          <div class="slider-row">
+            <span class="bound">−5</span>
+            <input type="range" class="sl-k" id="k-slider" min="-5" max="5" step="0.05" value="0">
+            <span class="bound">5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Discriminant Card -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Discriminant &amp; Roots</span></div>
+      <div class="disc-section">
+        <div class="disc-header">
+          <span class="disc-formula">Δ = b² − 4ac (in standard form)</span>
+          <span class="disc-result" id="disc-result"></span>
+        </div>
+        <div class="disc-track"><div class="disc-fill" id="disc-fill"></div></div>
+        <div class="disc-cases">
+          <div class="disc-case case-two" id="case-two">Δ &gt; 0<br>2 real roots</div>
+          <div class="disc-case case-one" id="case-one">Δ = 0<br>1 repeated</div>
+          <div class="disc-case case-zero" id="case-zero">Δ &lt; 0<br>complex</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="roots-section">
+        <div class="roots-inner" id="roots-display"></div>
+      </div>
+    </div>
+
+    <!-- Key Facts Card -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Key Properties</span></div>
+      <div class="facts-section">
+        <div class="fact-row"><span class="fact-name">Vertex</span><span class="fact-val" id="f-vertex">(0, 0)</span></div>
+        <div class="fact-row"><span class="fact-name">Axis of symmetry</span><span class="fact-val" id="f-axis">x = 0</span></div>
+        <div class="fact-row"><span class="fact-name">y-intercept</span><span class="fact-val" id="f-yint">(0, 0)</span></div>
+        <div class="fact-row"><span class="fact-name">Range</span><span class="fact-val" id="f-range">y ≥ 0</span></div>
+        <div class="fact-row"><span class="fact-name">Domain</span><span class="fact-val">ℝ (all real numbers)</span></div>
+        <div class="fact-row"><span class="fact-name">Focus (parabola optics)</span><span class="fact-val" id="f-focus">(0, 0.25)</span></div>
+        <div class="fact-row"><span class="fact-name">Directrix</span><span class="fact-val" id="f-dir">y = −0.25</span></div>
+      </div>
+    </div>
+
+    <!-- Insight Card -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Live Insight</span></div>
+      <div class="insight-section">
+        <div class="insight-inner" id="insight-text">Move the sliders or drag the vertex on the graph to begin exploring.</div>
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+</div><!-- /main-grid -->
+
+<!-- ── THEORY SECTION ── -->
+<div class="theory-section">
+
+  <div class="theory-card">
+    <div class="tc-accent" style="background: var(--red);"></div>
+    <div class="tc-num" style="color:var(--red);">01</div>
+    <div class="tc-title">Why Vertex Form Dominates</div>
+    <div class="tc-body">
+      The vertex form <strong>y = a(x − h)² + k</strong> is standard form already solved. Given <strong>y = 2x² − 8x + 5</strong>, finding the vertex requires completing the square — a multi-step process. In vertex form <strong>y = 2(x − 2)² − 3</strong>, the vertex <strong>(2, −3)</strong> is immediately visible.
+      <span class="worked">Standard: y = 2x² − 8x + 5<br>Step 1: y = 2(x² − 4x) + 5<br>Step 2: y = 2(x² − 4x + 4) + 5 − 8<br>Vertex form: y = 2(x − 2)² − 3 ✓</span>
+      Every transformation — shift, stretch, flip — maps directly to one parameter. This is the reason physicists and engineers default to it.
+    </div>
+  </div>
+
+  <div class="theory-card">
+    <div class="tc-accent" style="background: var(--teal);"></div>
+    <div class="tc-num" style="color:var(--teal);">02</div>
+    <div class="tc-title">The Parameter <em style="font-family:'Lora',serif;">a</em> — Physics of Shape</div>
+    <div class="tc-body">
+      <strong>|a| controls focus tightness.</strong> The focal length is <code>p = 1/(4a)</code>, so <strong>a = 2</strong> gives <code>p = 0.125</code> — a tight focus. Satellite dishes use high <em>a</em> values (narrow bowl) to concentrate signals. Car headlights use a bulb at the focus; the dish pushes light into a parallel beam.
+      <span class="worked">a = 1 → focus at (h, k + 0.25)<br>a = 4 → focus at (h, k + 0.0625)<br>a → ∞ → focus → vertex itself</span>
+      When <strong>a &lt; 0</strong>, the parabola opens downward. In projectile motion <code>h(t) = −½gt² + v₀t + h₀</code>, the coefficient of t² is always negative — gravity always curves the path downward.
+    </div>
+  </div>
+
+  <div class="theory-card">
+    <div class="tc-accent" style="background: var(--blue);"></div>
+    <div class="tc-num" style="color:var(--blue);">03</div>
+    <div class="tc-title">The Discriminant — One Number, Three Stories</div>
+    <div class="tc-body">
+      From standard form coefficients <strong>A, B, C</strong>: <code>Δ = B² − 4AC</code>. In vertex form, this simplifies to <code>Δ = −4ak</code>, because shifting horizontally (h) never changes how many times the curve crosses the x-axis — only <strong>a</strong> (shape) and <strong>k</strong> (height of vertex) matter.
+      <span class="worked">Δ &gt; 0: parabola cuts x-axis twice<br>Δ = 0: vertex sits exactly on x-axis<br>Δ &lt; 0: parabola floats above (or below) axis</span>
+      This is why the quadratic formula has <code>±√Δ</code> — two solutions branch from one root. When Δ &lt; 0, the square root enters the complex numbers: <strong>x = h ± i√(|k/a|)</strong>, real-valued only when the graph is visible.
+    </div>
+  </div>
+
+  <div class="theory-card">
+    <div class="tc-accent" style="background: var(--amber);"></div>
+    <div class="tc-num" style="color:var(--amber);">04</div>
+    <div class="tc-title">Quadratics in the Real World</div>
+    <div class="tc-body">
+      <strong>Projectile motion:</strong> <code>y = −½g t² + v₀t + y₀</code>. Here <em>a = −g/2</em>, the vertex is the peak of flight, and the roots are when the object hits the ground. <strong>Revenue optimisation:</strong> if demand falls linearly, revenue = price × quantity is always quadratic — maximum profit is at the vertex.
+      <span class="worked">Max range (45° launch on flat ground):<br>R = v₀²/g — a vertex form result<br>Bridge cable sag: y = (w/2H)x² — h=0, k=0</span>
+      Parabolic solar collectors focus sunlight to a single line (3D trough) or point (dish), exploiting the focal property. Even the shape of a hanging chain approximates a parabola when the load is uniformly distributed along the horizontal (as in suspension bridge decks — not the free-hanging cable, which is a catenary).
+    </div>
+  </div>
+
+</div><!-- /theory-section -->
+
+</div><!-- /app -->
 
 <script>
 const canvas = document.getElementById('graph-canvas');
-const ctx = canvas.getContext('2d');
+const ctx    = canvas.getContext('2d');
 
-// Params
 let a = 1, h = 0, k = 0;
-let scale = 50;
+let scale = 55;
 let offsetX, offsetY;
-
-// Form
 let currentForm = 'vertex';
 
-// Interaction
-let isDraggingVertex = false;
-let isDraggingStretch = false;
-let isPanning = false;
+let isDragVertex  = false;
+let isDragStretch = false;
+let isPanning     = false;
 let lastPanX, lastPanY;
 
-// ── CANVAS SIZE ────────────────────────────────────
+// ── SIZE ──────────────────────────────────────────
 function setSize() {
-    const rect = canvas.parentElement.getBoundingClientRect();
-    // Account for footer and header heights
-    const headerH = canvas.parentElement.querySelector('.panel-header').offsetHeight;
-    const footerH = canvas.parentElement.querySelector('.canvas-footer').offsetHeight;
-    canvas.width = rect.width;
-    canvas.height = Math.max(300, rect.height - headerH - footerH);
-    offsetX = canvas.width / 2;
-    offsetY = canvas.height / 2;
+  const parent  = canvas.parentElement;
+  const hdrH    = parent.querySelector('.card-header').offsetHeight;
+  const footerH = parent.querySelector('.canvas-footer').offsetHeight;
+  canvas.width  = parent.clientWidth;
+  canvas.height = Math.max(360, parent.clientHeight - hdrH - footerH);
+  offsetX = canvas.width  / 2;
+  offsetY = canvas.height / 2;
 }
 
-// ── COORD HELPERS ──────────────────────────────────
-const toCanvasX = x => offsetX + x * scale;
-const toCanvasY = y => offsetY - y * scale;
-const toMathX = cx => (cx - offsetX) / scale;
-const toMathY = cy => (offsetY - cy) / scale;
+// ── COORD ─────────────────────────────────────────
+const cx = x  => offsetX + x * scale;
+const cy = y  => offsetY - y * scale;
+const mx = px => (px - offsetX) / scale;
+const my = py => (offsetY - py) / scale;
+const fmt = (n, dp=2) => {
+  if (Math.abs(n) < 0.0005) return '0';
+  let s = n.toFixed(dp);
+  return s.replace(/\.?0+$/, '');
+};
 
-// ── FORMAT ────────────────────────────────────────
-function fmt(n, dp = 2) {
-    if (Math.abs(n) < 0.001) return '0';
-    let s = n.toFixed(dp);
-    s = s.replace(/\.?0+$/, '');
-    return s;
-}
-
-// ── DRAW GRID ─────────────────────────────────────
+// ── GRID ──────────────────────────────────────────
 function drawGrid() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'rgba(6, 8, 18, 0.95)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const minX = toMathX(0), maxX = toMathX(canvas.width);
-    const minY = toMathY(canvas.height), maxY = toMathY(0);
+  // Background
+  ctx.fillStyle = '#faf9f7';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Determine grid step
-    let step = 1;
-    if (scale < 20) step = 2;
-    if (scale < 10) step = 5;
-    if (scale > 100) step = 0.5;
+  const minX = mx(-10), maxX = mx(canvas.width + 10);
+  const minY = my(canvas.height + 10), maxY = my(-10);
 
-    const startX = Math.floor(minX / step) * step;
-    const startY = Math.floor(minY / step) * step;
+  let step = 1;
+  if (scale < 22) step = 2;
+  if (scale < 12) step = 5;
+  if (scale > 110) step = 0.5;
 
-    // Minor grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-    ctx.lineWidth = 1;
-    for (let x = startX; x <= maxX; x += step) {
-        ctx.beginPath();
-        ctx.moveTo(toCanvasX(x), 0);
-        ctx.lineTo(toCanvasX(x), canvas.height);
-        ctx.stroke();
-    }
-    for (let y = startY; y <= maxY; y += step) {
-        ctx.beginPath();
-        ctx.moveTo(0, toCanvasY(y));
-        ctx.lineTo(canvas.width, toCanvasY(y));
-        ctx.stroke();
-    }
+  const startX = Math.floor(minX / step) * step;
+  const startY = Math.floor(minY / step) * step;
 
-    // Axes
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(toCanvasX(0), 0); ctx.lineTo(toCanvasX(0), canvas.height); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, toCanvasY(0)); ctx.lineTo(canvas.width, toCanvasY(0)); ctx.stroke();
+  // Minor grid
+  ctx.strokeStyle = 'rgba(0,0,0,0.055)';
+  ctx.lineWidth = 1;
+  for (let x = startX; x <= maxX; x += step) {
+    ctx.beginPath(); ctx.moveTo(cx(x), 0); ctx.lineTo(cx(x), canvas.height); ctx.stroke();
+  }
+  for (let y = startY; y <= maxY; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, cy(y)); ctx.lineTo(canvas.width, cy(y)); ctx.stroke();
+  }
 
-    // Axis arrows
-    const ax0 = toCanvasX(0), ay0 = toCanvasY(0);
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath(); ctx.moveTo(ax0, 8); ctx.lineTo(ax0-4, 18); ctx.lineTo(ax0+4, 18); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(canvas.width-8, ay0); ctx.lineTo(canvas.width-18, ay0-4); ctx.lineTo(canvas.width-18, ay0+4); ctx.closePath(); ctx.fill();
+  // Axes
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx(0), 0); ctx.lineTo(cx(0), canvas.height); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, cy(0)); ctx.lineTo(canvas.width, cy(0)); ctx.stroke();
 
-    // Axis labels
-    ctx.fillStyle = 'rgba(255,255,255,0.15)';
-    ctx.font = '11px Space Mono, monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('x', canvas.width - 6, ay0 + 5);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('y', ax0 + 5, 12);
+  // Axis arrows
+  const ax0 = cx(0), ay0 = cy(0);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.moveTo(ax0, 6); ctx.lineTo(ax0-5, 18); ctx.lineTo(ax0+5, 18); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(canvas.width-6, ay0); ctx.lineTo(canvas.width-18, ay0-5); ctx.lineTo(canvas.width-18, ay0+5); ctx.closePath(); ctx.fill();
 
-    // Tick labels
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.font = '10px Space Mono, monospace';
-    ctx.textAlign = 'center';
-    for (let x = Math.ceil(startX); x <= maxX; x += step) {
-        if (Math.abs(x) < 0.001) continue;
-        const cx = toCanvasX(x);
-        if (cx < 20 || cx > canvas.width - 20) continue;
-        ctx.fillText(fmt(x, 0), cx, toCanvasY(0) + 12);
-    }
-    ctx.textAlign = 'right';
-    for (let y = Math.ceil(startY); y <= maxY; y += step) {
-        if (Math.abs(y) < 0.001) continue;
-        const cy = toCanvasY(y);
-        if (cy < 12 || cy > canvas.height - 12) continue;
-        ctx.fillText(fmt(y, 0), toCanvasX(0) - 6, cy);
-    }
+  // Labels
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.font = '11px JetBrains Mono, monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('x', canvas.width - 5, ay0 + 4);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('y', ax0 + 5, 10);
+
+  // Tick labels
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.font = '10px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  for (let x = startX; x <= maxX; x += step) {
+    if (Math.abs(x) < 0.001) continue;
+    const px = cx(x);
+    if (px < 16 || px > canvas.width - 16) continue;
+    ctx.fillText(fmt(x, 0), px, cy(0) + 11);
+  }
+  ctx.textAlign = 'right';
+  for (let y = startY; y <= maxY; y += step) {
+    if (Math.abs(y) < 0.001) continue;
+    const py = cy(y);
+    if (py < 11 || py > canvas.height - 11) continue;
+    ctx.fillText(fmt(y, 0), cx(0) - 5, py);
+  }
 }
 
-// ── DRAW PARABOLA ──────────────────────────────────
+// ── PARABOLA ──────────────────────────────────────
 function drawParabola() {
-    const minX = toMathX(-10), maxX = toMathX(canvas.width + 10);
-    const steps = 400;
-    const dx = (maxX - minX) / steps;
+  const minX = mx(-20), maxX = mx(canvas.width + 20);
+  const steps = 500;
+  const dx = (maxX - minX) / steps;
 
-    // Glow pass
+  // Shadow
+  ctx.save();
+  ctx.shadowColor = 'rgba(43,94,167,0.18)';
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = 'rgba(43,94,167,0.12)';
+  ctx.lineWidth = 7;
+  traceCurve(minX, dx, steps);
+  ctx.restore();
+
+  // Main curve
+  ctx.strokeStyle = '#2b5ea7';
+  ctx.lineWidth = 2.5;
+  traceCurve(minX, dx, steps);
+
+  // Axis of symmetry
+  ctx.save();
+  ctx.strokeStyle = 'rgba(192,57,43,0.3)';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([6, 5]);
+  ctx.beginPath(); ctx.moveTo(cx(h), 0); ctx.lineTo(cx(h), canvas.height); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // x-intercepts
+  const disc = -k / a;
+  if (Math.abs(a) > 0.001 && disc >= 0) {
+    const r = Math.sqrt(disc);
+    const roots = Math.abs(r) < 0.001 ? [h] : [h + r, h - r];
+    roots.forEach(rx => {
+      const px = cx(rx), py = cy(0);
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#2b5ea7'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.stroke();
+
+      // label
+      ctx.fillStyle = '#2b5ea7';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(fmt(rx), px, py + (a > 0 ? 18 : -14));
+    });
+  }
+
+  // Focus dot
+  if (Math.abs(a) > 0.001) {
+    const p = 1 / (4 * a);
+    const fx = cx(h), fy = cy(k + p);
     ctx.save();
-    ctx.shadowColor = '#4361ee';
-    ctx.shadowBlur = 18;
-    ctx.strokeStyle = 'rgba(67,97,238,0.3)';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    let first = true;
-    for (let i = 0; i <= steps; i++) {
-        const x = minX + i * dx;
-        const y = a * (x - h) * (x - h) + k;
-        const cx = toCanvasX(x), cy = toCanvasY(y);
-        if (cy < -200 || cy > canvas.height + 200) { first = true; continue; }
-        first ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
-        first = false;
-    }
-    ctx.stroke();
-    ctx.restore();
-
-    // Main curve
-    ctx.strokeStyle = '#5a78f5';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    first = true;
-    for (let i = 0; i <= steps; i++) {
-        const x = minX + i * dx;
-        const y = a * (x - h) * (x - h) + k;
-        const cx = toCanvasX(x), cy = toCanvasY(y);
-        if (cy < -200 || cy > canvas.height + 200) { first = true; continue; }
-        first ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
-        first = false;
-    }
-    ctx.stroke();
-
-    // Axis of symmetry
-    ctx.save();
-    ctx.strokeStyle = 'rgba(76,201,240,0.35)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([6, 5]);
-    ctx.beginPath();
-    ctx.moveTo(toCanvasX(h), 0);
-    ctx.lineTo(toCanvasX(h), canvas.height);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.restore();
-
-    // X-intercept markers
-    const disc = -4 * a * k; // b²-4ac in vertex form, b=0 always? No — in vertex form discriminant = -4ak
-    // Actually discriminant from standard form: b=-2ah, c=ah²+k → Δ = 4a²h² - 4a(ah²+k) = -4ak
-    if (disc >= 0 && Math.abs(a) > 0.001) {
-        const sqrtDisc = Math.sqrt(disc);
-        const x1 = h + sqrtDisc / (2 * Math.abs(a));
-        const x2 = h - sqrtDisc / (2 * Math.abs(a));
-        // Actually roots: 0 = a(x-h)²+k → x = h ± sqrt(-k/a)
-        if (-k / a >= 0) {
-            const r = Math.sqrt(-k / a);
-            [h + r, h - r].forEach(rx => {
-                if (Math.abs(rx - (h + r)) > 0.001 || Math.abs(rx - (h - r)) > 0.001 || true) {
-                    const cx = toCanvasX(rx);
-                    ctx.fillStyle = 'rgba(76,201,240,0.7)';
-                    ctx.beginPath();
-                    ctx.arc(cx, toCanvasY(0), 5, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
-                }
-            });
-        }
-    }
-
-    // Y-intercept
-    const yInt = a * h * h + k;
-    ctx.fillStyle = 'rgba(248,150,30,0.8)';
-    ctx.beginPath();
-    ctx.arc(toCanvasX(0), toCanvasY(yInt), 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Vertex
-    const vx = toCanvasX(h), vy = toCanvasY(k);
-    ctx.save();
-    ctx.shadowColor = '#e63946';
-    ctx.shadowBlur = 14;
-    ctx.fillStyle = '#e63946';
-    ctx.beginPath();
-    ctx.arc(vx, vy, 9, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Vertex label
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.font = '10px Space Mono, monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText(`(${fmt(h)}, ${fmt(k)})`, vx + 13, vy - 6);
-
-    // Stretch handle
-    const sx = h + 1, sy = a + k;
-    const scx = toCanvasX(sx), scy = toCanvasY(sy);
-    ctx.save();
-    ctx.shadowColor = '#4cc9f0';
-    ctx.shadowBlur = 10;
-    ctx.fillStyle = '#4cc9f0';
-    ctx.beginPath();
-    ctx.arc(scx, scy, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Line from vertex to stretch handle
-    ctx.strokeStyle = 'rgba(76,201,240,0.2)';
+    ctx.strokeStyle = 'rgba(107,63,160,0.5)';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 4]);
-    ctx.beginPath();
-    ctx.moveTo(vx, vy);
-    ctx.lineTo(scx, scy);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx(h), cy(k)); ctx.lineTo(fx, fy); ctx.stroke();
     ctx.setLineDash([]);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(107,63,160,0.7)';
+    ctx.beginPath(); ctx.arc(fx, fy, 4, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Y-intercept
+  const yInt = a * h * h + k;
+  const yipx = cx(0), yipy = cy(yInt);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(yipx, yipy, 5, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#b5621e'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(yipx, yipy, 5, 0, Math.PI*2); ctx.stroke();
+
+  // Stretch handle
+  const shx = cx(h + 1), shy = cy(a * 1 * 1 + k);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(shx, shy, 7, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#1a7a6b'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(shx, shy, 7, 0, Math.PI*2); ctx.stroke();
+  // dashed connector
+  ctx.save();
+  ctx.strokeStyle = 'rgba(26,122,107,0.3)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 4]);
+  ctx.beginPath(); ctx.moveTo(cx(h), cy(k)); ctx.lineTo(shx, shy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Vertex
+  const vpx = cx(h), vpy = cy(k);
+  ctx.fillStyle = '#c0392b';
+  ctx.shadowColor = 'rgba(192,57,43,0.4)';
+  ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.arc(vpx, vpy, 9, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(vpx, vpy, 9, 0, Math.PI*2); ctx.stroke();
+
+  // Vertex label
+  ctx.fillStyle = '#1a1814';
+  ctx.font = 'bold 10.5px JetBrains Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`V(${fmt(h)}, ${fmt(k)})`, vpx + 13, vpy - 5);
 }
 
-// ── UPDATE EQUATION DISPLAY ────────────────────────
-function updateEqDisplay() {
-    const eqDiv = document.getElementById('eq-display');
-
-    if (currentForm === 'vertex') {
-        const hSign = h < 0 ? '+' : '−';
-        const kSign = k < 0 ? '−' : '+';
-        eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">(x ${hSign} </span><span class="eq-h">${fmt(Math.abs(h))}</span><span class="eq-plain">)² ${kSign} </span><span class="eq-k">${fmt(Math.abs(k))}</span>`;
-    } else if (currentForm === 'standard') {
-        const B = -2 * a * h;
-        const C = a * h * h + k;
-        const bSign = B < 0 ? '−' : '+';
-        const cSign = C < 0 ? '−' : '+';
-        eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">x² ${bSign} </span><span class="eq-h">${fmt(Math.abs(B))}</span><span class="eq-plain">x ${cSign} </span><span class="eq-k">${fmt(Math.abs(C))}</span>`;
-    } else {
-        // Factored
-        const disc = -k / a;
-        if (disc < 0) {
-            eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">(x − </span><span class="eq-h">${fmt(h)}</span><span class="eq-plain">)² + </span><span class="eq-k">${fmt(k)}</span><span class="eq-plain" style="font-size:0.75rem;"> [no real factors]</span>`;
-        } else if (disc === 0) {
-            eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">(x − </span><span class="eq-h">${fmt(h)}</span><span class="eq-plain">)²</span>`;
-        } else {
-            const r = Math.sqrt(disc);
-            const r1 = h + r, r2 = h - r;
-            const s1 = r1 < 0 ? '+' : '−';
-            const s2 = r2 < 0 ? '+' : '−';
-            eqDiv.innerHTML = `<span class="eq-plain">y = </span><span class="eq-a">${fmt(a)}</span><span class="eq-plain">(x ${s1} </span><span class="eq-h">${fmt(Math.abs(r1))}</span><span class="eq-plain">)(x ${s2} </span><span class="eq-k">${fmt(Math.abs(r2))}</span><span class="eq-plain">)</span>`;
-        }
-    }
+function traceCurve(minX, dx, steps) {
+  ctx.beginPath();
+  let first = true;
+  for (let i = 0; i <= steps; i++) {
+    const x = minX + i * dx;
+    const y = a * (x - h) * (x - h) + k;
+    const px = cx(x), py = cy(y);
+    if (py < -300 || py > canvas.height + 300) { first = true; continue; }
+    first ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    first = false;
+  }
+  ctx.stroke();
 }
 
-// ── UPDATE DISCRIMINANT ────────────────────────────
-function updateDiscriminant() {
-    // Standard form: A=a, B=-2ah, C=ah²+k → Δ = B²-4AC = 4a²h²-4a(ah²+k) = -4ak
-    const delta = -4 * a * k;
-    const bar = document.getElementById('disc-bar');
-    const val = document.getElementById('disc-val');
-    const roothalf = 200; // arbitrary max for bar scaling
-    const pct = Math.min(100, Math.max(0, (delta + roothalf) / (2 * roothalf) * 100));
+// ── EQ DISPLAY ────────────────────────────────────
+function renderEq() {
+  const el = document.getElementById('eq-display');
+  const n = x => `<span class="p-n">${x}</span>`;
+  const pa = x => `<span class="p-a">${x}</span>`;
+  const ph = x => `<span class="p-h">${x}</span>`;
+  const pk = x => `<span class="p-k">${x}</span>`;
+  const fmtSign = (v, colored) => {
+    const abs = Math.abs(v);
+    const sign = v < 0 ? '−' : '+';
+    return `${n(sign + ' ')}${colored(fmt(abs))}`;
+  };
 
-    bar.style.width = pct + '%';
-    if (delta > 0.001) {
-        bar.style.background = 'linear-gradient(90deg, #4cc9f0, #4361ee)';
-        val.style.color = '#4cc9f0';
-        val.textContent = `Δ = ${fmt(delta)} > 0`;
-    } else if (delta < -0.001) {
-        bar.style.background = '#f72585';
-        val.style.color = '#f72585';
-        val.textContent = `Δ = ${fmt(delta)} < 0`;
-    } else {
-        bar.style.background = '#f8961e';
-        val.style.color = '#f8961e';
-        val.textContent = 'Δ = 0';
-    }
-
-    // Roots
-    const rootsDiv = document.getElementById('roots-display');
+  if (currentForm === 'vertex') {
+    const hs = h < 0 ? '+' : '−';
+    const ks = k < 0 ? '−' : '+';
+    el.innerHTML = `${n('y = ')}${pa(fmt(a))}${n('(x ')}${n(hs + ' ')}${ph(fmt(Math.abs(h)))}${n(')² ')}${n(ks + ' ')}${pk(fmt(Math.abs(k)))}`;
+  } else if (currentForm === 'standard') {
+    const B = -2 * a * h, C = a * h * h + k;
+    const bSign = B < 0 ? '−' : '+';
+    const cSign = C < 0 ? '−' : '+';
+    el.innerHTML = `${n('y = ')}${pa(fmt(a))}${n('x² ')}${n(bSign + ' ')}${ph(fmt(Math.abs(B)))}${n('x ')}${n(cSign + ' ')}${pk(fmt(Math.abs(C)))}`;
+  } else {
     const disc2 = -k / a;
-    if (Math.abs(a) < 0.001) {
-        rootsDiv.innerHTML = `<span>a = 0: not a quadratic — horizontal line y = ${fmt(k)}</span>`;
-    } else if (disc2 < 0) {
-        rootsDiv.innerHTML = `<span>Roots: </span><span class="no-roots">No real roots</span> — complex: x = ${fmt(h)} ± ${fmt(Math.sqrt(-disc2))}i`;
-    } else if (Math.abs(disc2) < 0.0001) {
-        rootsDiv.innerHTML = `<span>Root: </span><span class="root-val">x = ${fmt(h)}</span> <span>(double/repeated root — vertex touches axis)</span>`;
+    if (Math.abs(a) < 0.001 || disc2 < 0) {
+      el.innerHTML = `${n('y = ')}${pa(fmt(a))}${n('(x ')}${n(h < 0 ? '+' : '−')}${ph(fmt(Math.abs(h)))}${n(')² ')}${n(k < 0 ? '−' : '+')}${pk(fmt(Math.abs(k)))} <span style="font-size:0.7rem;color:var(--ink4)">[no real factors]</span>`;
+    } else if (disc2 < 0.0001) {
+      el.innerHTML = `${n('y = ')}${pa(fmt(a))}${n('(x ')}${n(h < 0 ? '+' : '−')}${ph(fmt(Math.abs(h)))}${n(')²')}`;
     } else {
-        const r = Math.sqrt(disc2);
-        rootsDiv.innerHTML = `<span>Roots (x-intercepts): </span><span class="root-val">x₁ = ${fmt(h + r)}</span>&ensp;<span class="root-val">x₂ = ${fmt(h - r)}</span>`;
+      const r  = Math.sqrt(disc2);
+      const r1 = h + r, r2 = h - r;
+      const s1 = r1 < 0 ? '+' : '−', s2 = r2 < 0 ? '+' : '−';
+      el.innerHTML = `${n('y = ')}${pa(fmt(a))}${n('(x ')}${n(s1)}${ph(fmt(Math.abs(r1)))}${n(')(x ')}${n(s2)}${pk(fmt(Math.abs(r2)))}${n(')')}`;
     }
+  }
 }
 
-// ── UPDATE FEATURES ────────────────────────────────
-function updateFeatures() {
-    document.getElementById('f-vertex').textContent = `(${fmt(h)}, ${fmt(k)})`;
-    document.getElementById('f-axis').textContent = `x = ${fmt(h)}`;
-    const yInt = a * h * h + k;
-    document.getElementById('f-yint').textContent = `(0, ${fmt(yInt)})`;
-    const opens = a > 0 ? '↑' : '↓';
-    const range = a > 0 ? `y ≥ ${fmt(k)}` : `y ≤ ${fmt(k)}`;
-    document.getElementById('f-dir').textContent = `${opens}  ${range}`;
-    document.getElementById('f-domain').textContent = 'ℝ (all reals)';
-    // Focus: p = 1/(4a)
-    if (Math.abs(a) > 0.001) {
-        const p = 1 / (4 * a);
-        document.getElementById('f-focus').textContent = `(${fmt(h)}, ${fmt(k + p)})`;
-    }
+// ── DISCRIMINANT ──────────────────────────────────
+function renderDisc() {
+  // In vertex form: Δ = (−2ah)² − 4·a·(ah²+k) = 4a²h²−4a²h²−4ak = −4ak
+  const delta = -4 * a * k;
+  const fill  = document.getElementById('disc-fill');
+  const res   = document.getElementById('disc-result');
+  const maxD  = 100;
+  const pct   = Math.min(100, Math.max(0, (delta + maxD) / (2 * maxD) * 100));
+
+  fill.style.width = pct + '%';
+
+  // Active discriminant cases
+  ['case-two','case-one','case-zero'].forEach(id => document.getElementById(id).classList.remove('active-case'));
+
+  if (delta > 0.001) {
+    fill.style.background = 'linear-gradient(90deg, #bbdefb, var(--blue))';
+    res.style.color = 'var(--blue)';
+    res.textContent = `Δ = ${fmt(delta)} > 0`;
+    document.getElementById('case-two').classList.add('active-case');
+  } else if (delta < -0.001) {
+    fill.style.background = 'var(--red)';
+    res.style.color = 'var(--red)';
+    res.textContent = `Δ = ${fmt(delta)} < 0`;
+    document.getElementById('case-zero').classList.add('active-case');
+  } else {
+    fill.style.background = 'var(--amber)';
+    res.style.color = 'var(--amber)';
+    res.textContent = 'Δ = 0';
+    document.getElementById('case-one').classList.add('active-case');
+  }
+
+  // Roots
+  const roEl = document.getElementById('roots-display');
+  if (Math.abs(a) < 0.001) {
+    roEl.innerHTML = `a = 0: degenerate — not a quadratic. Equation is linear: y = ${fmt(k)}`;
+    return;
+  }
+  const d2 = -k / a;
+  if (d2 < 0) {
+    const im = fmt(Math.sqrt(-d2));
+    roEl.innerHTML = `No real roots. Complex: x = <span class="root-complex">${fmt(h)} ± ${im}i</span><br><span style="font-size:0.7rem;color:var(--ink4)">The parabola does not intersect the x-axis.</span>`;
+  } else if (d2 < 0.0001) {
+    roEl.innerHTML = `<span class="root-double">x = ${fmt(h)}</span> (double/repeated root)<br><span style="font-size:0.7rem;color:var(--ink4)">Vertex touches the x-axis. The quadratic is a perfect square.</span>`;
+  } else {
+    const r  = Math.sqrt(d2);
+    roEl.innerHTML = `x₁ = <span class="root-val">${fmt(h + r)}</span> &ensp; x₂ = <span class="root-val">${fmt(h - r)}</span><br><span style="font-size:0.7rem;color:var(--ink4)">Derivation: a(x−h)²= −k → (x−h)² = ${fmt(-k/a)} → x = ${fmt(h)} ± √${fmt(-k/a)}</span>`;
+  }
 }
 
-// ── INSIGHT ENGINE ─────────────────────────────────
-function updateInsight() {
-    const t = document.getElementById('insight-text');
-    let msg = '';
-
-    if (Math.abs(a) < 0.05) {
-        msg = `With <span class="highlight-a">a ≈ 0</span>, the parabola flattens toward a horizontal line. A true quadratic needs a ≠ 0 — otherwise it's linear (or constant).`;
-    } else if (Math.abs(a) > 4) {
-        msg = `<strong>Very steep!</strong> Large <span class="highlight-a">|a| = ${fmt(Math.abs(a))}</span> compresses the parabola horizontally — like zooming in on the vertex. Think of satellite dishes: a high-gain dish has a large <em>a</em>-value, focusing energy tightly.`;
-    } else if (Math.abs(a) < 0.3) {
-        msg = `<strong>Wide and shallow.</strong> Small <span class="highlight-a">|a| = ${fmt(Math.abs(a))}</span> spreads the parabola. In projectile motion, a shallow parabola means low launch angle — maximum range is achieved at 45°, giving a balanced a-value.`;
-    } else if (a < 0) {
-        msg = `<span class="highlight-a">a < 0</span> flips the parabola — it now has a <strong>maximum</strong> at the vertex <span class="highlight-h">(${fmt(h)}, </span><span class="highlight-k">${fmt(k)})</span>. This models profit curves: revenue peaks at the vertex, then falls on either side.`;
-    } else if (Math.abs(h) > 3) {
-        msg = `Large horizontal shift <span class="highlight-h">h = ${fmt(h)}</span>. Note that in standard form <em>y = ax² + bx + c</em>, this shift is <strong>hidden</strong> inside b = −2ah = ${fmt(-2 * a * h)}. That's why vertex form is so powerful — h is explicit.`;
-    } else if (Math.abs(k) > 3) {
-        msg = `<span class="highlight-k">k = ${fmt(k)}</span> is the minimum (or maximum) <strong>y-value</strong> the function ever reaches — the range is y ${a > 0 ? '≥' : '≤'} ${fmt(k)}. The y-intercept is now at y = ${fmt(a * h * h + k)}, moved far from the vertex.`;
-    } else if (Math.abs(k) < 0.1 && Math.abs(h) < 0.1) {
-        msg = `Base position: vertex at the <strong>origin</strong>. The equation simplifies to <span style="font-family:Space Mono;font-size:0.8rem">y = ${fmt(a)}x²</span>. All other quadratics are just this — <em>shifted, stretched, and flipped</em>.`;
-    } else {
-        msg = `Vertex at <span class="highlight-h">(${fmt(h)}, </span><span class="highlight-k">${fmt(k)})</span>, opening <strong>${a > 0 ? 'upward' : 'downward'}</strong>. The axis of symmetry x = ${fmt(h)} divides the parabola into two perfect mirror halves — a property unique to conic sections.`;
-    }
-
-    t.style.opacity = 0;
-    setTimeout(() => { t.innerHTML = msg; t.style.opacity = 1; }, 150);
+// ── FEATURES ──────────────────────────────────────
+function renderFeatures() {
+  document.getElementById('f-vertex').textContent = `(${fmt(h)}, ${fmt(k)})`;
+  document.getElementById('f-axis').textContent   = `x = ${fmt(h)}`;
+  const yInt = a * h * h + k;
+  document.getElementById('f-yint').textContent = `(0, ${fmt(yInt)})`;
+  const dir  = a > 0 ? `y ≥ ${fmt(k)}` : `y ≤ ${fmt(k)}`;
+  document.getElementById('f-range').textContent = dir;
+  if (Math.abs(a) > 0.001) {
+    const p = 1 / (4 * a);
+    document.getElementById('f-focus').textContent = `(${fmt(h)}, ${fmt(k + p)})`;
+    document.getElementById('f-dir').textContent   = `y = ${fmt(k - p)}`;
+  }
 }
 
-// ── UI UPDATES ─────────────────────────────────────
+// ── INSIGHT ───────────────────────────────────────
+function renderInsight() {
+  const el = document.getElementById('insight-text');
+  let msg = '';
+  const mono = s => `<span class="imono">${s}</span>`;
+
+  if (Math.abs(a) < 0.05) {
+    msg = `<strong>a ≈ 0 warning.</strong> As a → 0, the parabola flattens to a horizontal line. A quadratic <em>must</em> have a ≠ 0 — otherwise it's a constant (or linear) function, not a conic section.`;
+  } else if (a < 0 && Math.abs(k) < 0.2 && Math.abs(h) < 0.2) {
+    msg = `With <span class="ia">a = ${fmt(a)}</span> and the vertex near the origin, this models the <strong>peak</strong> of a trajectory — a ball thrown straight up, reaching maximum height k = ${fmt(k)} at time t = h.`;
+  } else if (a < 0) {
+    msg = `<span class="ia">a &lt; 0</span> opens the parabola <strong>downward</strong> — maximum at vertex <span class="ih">(${fmt(h)}, </span><span class="ik">${fmt(k)})</span>. This shape models profit curves: revenue rises, peaks at the vertex, then falls. The vertex is the optimal price or output point.`;
+  } else if (Math.abs(a) > 3.5) {
+    msg = `<span class="ia">|a| = ${fmt(Math.abs(a))}</span> is large — <strong>narrow parabola, tight focus.</strong> Focal length ${mono(`p = 1/(4×${fmt(a)}) = ${fmt(1/(4*a))} units`)}. High-gain satellite dishes and precision reflectors use small focal lengths to concentrate energy from a small, accurately-pointed dish.`;
+  } else if (Math.abs(a) < 0.35) {
+    msg = `<span class="ia">|a| = ${fmt(Math.abs(a))}</span> is small — <strong>wide, shallow parabola, distant focus.</strong> In projectile motion, a small <em>|a|</em> means a low launch angle or weak gravity. At exactly 45°, range is maximised; the parabola is wide but gentle.`;
+  } else if (Math.abs(h) > 3.5) {
+    msg = `Horizontal shift <span class="ih">h = ${fmt(h)}</span>. In standard form, this shift is encoded as ${mono(`b = −2ah = ${fmt(-2*a*h)}`)} and ${mono(`c = ah² + k = ${fmt(a*h*h+k)}`)}. Neither b nor c reveals the shift directly — only vertex form makes it explicit.`;
+  } else if (Math.abs(k) > 3) {
+    msg = `<span class="ik">k = ${fmt(k)}</span> is the ${a > 0 ? 'minimum' : 'maximum'} y-value the function ever reaches. The range is ${a > 0 ? 'y ≥' : 'y ≤'} ${fmt(k)}. The y-intercept is at ${mono(`y = ah² + k = ${fmt(a*h*h+k)}`)} — note it moves with both a and h, not just k.`;
+  } else if (Math.abs(k) < 0.08 && Math.abs(h) < 0.08) {
+    msg = `Vertex at the <strong>origin</strong>. Simplest form: ${mono(`y = ${fmt(a)}x²`)}. <strong>Every other parabola is this one — shifted, stretched, and possibly reflected.</strong> That's the power of transformations.`;
+  } else {
+    const p = 1 / (4 * a);
+    msg = `Vertex <span class="ih">(${fmt(h)}, </span><span class="ik">${fmt(k)})</span>. Focus at ${mono(`(${fmt(h)}, ${fmt(k+p)})`)} — a distance of ${mono(`p = ${fmt(p)}`)} from the vertex. Any point on this parabola is <em>equidistant</em> from the focus and the directrix ${mono(`y = ${fmt(k-p)}`)}. This is the geometric definition of a parabola.`;
+  }
+
+  el.style.opacity = '0';
+  setTimeout(() => { el.innerHTML = msg; el.style.opacity = '1'; }, 140);
+}
+
+// ── ALL UPDATES ───────────────────────────────────
 function updateAll() {
-    document.getElementById('a-display').textContent = fmt(a);
-    document.getElementById('h-display').textContent = fmt(h);
-    document.getElementById('k-display').textContent = fmt(k);
-    updateEqDisplay();
-    updateDiscriminant();
-    updateFeatures();
-    updateInsight();
+  const aD = document.getElementById('a-disp');
+  const hD = document.getElementById('h-disp');
+  const kD = document.getElementById('k-disp');
+  aD.textContent = fmt(a); hD.textContent = fmt(h); kD.textContent = fmt(k);
+  renderEq(); renderDisc(); renderFeatures(); renderInsight();
 }
 
-// ── DRAW ───────────────────────────────────────────
 function draw() { drawGrid(); drawParabola(); }
 
-// ── SLIDER EVENTS ──────────────────────────────────
-document.getElementById('a-slider').addEventListener('input', e => { a = parseFloat(e.target.value); updateAll(); draw(); });
-document.getElementById('h-slider').addEventListener('input', e => { h = parseFloat(e.target.value); updateAll(); draw(); });
-document.getElementById('k-slider').addEventListener('input', e => { k = parseFloat(e.target.value); updateAll(); draw(); });
+// ── SLIDERS ───────────────────────────────────────
+document.getElementById('a-slider').addEventListener('input', e => { a = +e.target.value; updateAll(); draw(); });
+document.getElementById('h-slider').addEventListener('input', e => { h = +e.target.value; updateAll(); draw(); });
+document.getElementById('k-slider').addEventListener('input', e => { k = +e.target.value; updateAll(); draw(); });
 
-// ── FORM BUTTONS ───────────────────────────────────
-['vertex', 'standard', 'factored'].forEach(form => {
-    document.getElementById(`${form}-form-btn`).addEventListener('click', () => {
-        currentForm = form;
-        document.querySelectorAll('.form-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(`${form}-form-btn`).classList.add('active');
-        updateEqDisplay();
-    });
+// ── FORM TABS ─────────────────────────────────────
+['vertex','standard','factored'].forEach(f => {
+  document.getElementById(`tab-${f}`).addEventListener('click', () => {
+    currentForm = f;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(`tab-${f}`).classList.add('active');
+    renderEq();
+  });
 });
 
-// ── DRAG HELPERS ───────────────────────────────────
-function nearVertex(x, y) {
-    const d = Math.hypot(x - toCanvasX(h), y - toCanvasY(k));
-    return d < 18;
-}
+// ── NEAR HELPERS ──────────────────────────────────
+const near = (px, py, tx, ty, r) => Math.hypot(px-cx(tx), py-cy(ty)) < r;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-function nearStretch(x, y) {
-    const sx = h + 1, sy = a + k;
-    const d = Math.hypot(x - toCanvasX(sx), y - toCanvasY(sy));
-    return d < 15;
-}
-
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-
-// ── MOUSE EVENTS ────────────────────────────────────
+// ── MOUSE ─────────────────────────────────────────
 canvas.addEventListener('mousedown', e => {
-    const r = canvas.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
-    if (nearVertex(x, y)) { isDraggingVertex = true; canvas.style.cursor = 'grabbing'; }
-    else if (nearStretch(x, y)) { isDraggingStretch = true; canvas.style.cursor = 'grabbing'; }
-    else { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; canvas.style.cursor = 'grabbing'; }
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  if (near(x, y, h, k, 18)) { isDragVertex = true; canvas.style.cursor = 'grabbing'; }
+  else if (near(x, y, h+1, a*1+k, 14)) { isDragStretch = true; canvas.style.cursor = 'grabbing'; }
+  else { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; canvas.style.cursor = 'grabbing'; }
 });
 
 canvas.addEventListener('mousemove', e => {
-    const r = canvas.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
 
-    if (!isDraggingVertex && !isDraggingStretch && !isPanning) {
-        canvas.style.cursor = (nearVertex(x, y) || nearStretch(x, y)) ? 'grab' : 'crosshair';
-    }
+  if (!isDragVertex && !isDragStretch && !isPanning) {
+    canvas.style.cursor = (near(x,y,h,k,18) || near(x,y,h+1,a+k,14)) ? 'grab' : 'crosshair';
+  }
 
-    if (isDraggingVertex) {
-        h = clamp(toMathX(x), -5, 5);
-        k = clamp(toMathY(y), -5, 5);
-        document.getElementById('h-slider').value = h;
-        document.getElementById('k-slider').value = k;
-        updateAll(); draw();
-    } else if (isDraggingStretch) {
-        const mx = toMathX(x), my = toMathY(y);
-        const dx = mx - h;
-        if (Math.abs(dx) > 0.05) {
-            a = clamp((my - k) / (dx * dx), -5, 5);
-            document.getElementById('a-slider').value = a;
-            updateAll(); draw();
-        }
-    } else if (isPanning) {
-        offsetX += e.clientX - lastPanX;
-        offsetY += e.clientY - lastPanY;
-        lastPanX = e.clientX;
-        lastPanY = e.clientY;
-        draw();
+  if (isDragVertex) {
+    h = clamp(mx(x), -5, 5);
+    k = clamp(my(y), -5, 5);
+    document.getElementById('h-slider').value = h;
+    document.getElementById('k-slider').value = k;
+    updateAll(); draw();
+  } else if (isDragStretch) {
+    const dmx = mx(x) - h, dmy = my(y) - k;
+    if (Math.abs(dmx) > 0.05) {
+      a = clamp(dmy / (dmx * dmx), -5, 5);
+      document.getElementById('a-slider').value = a;
+      updateAll(); draw();
     }
+  } else if (isPanning) {
+    offsetX += e.clientX - lastPanX;
+    offsetY += e.clientY - lastPanY;
+    lastPanX = e.clientX; lastPanY = e.clientY;
+    draw();
+  }
 });
 
-canvas.addEventListener('mouseup', () => { isDraggingVertex = isDraggingStretch = isPanning = false; canvas.style.cursor = 'crosshair'; });
-canvas.addEventListener('mouseleave', () => { isDraggingVertex = isDraggingStretch = isPanning = false; });
+canvas.addEventListener('mouseup',    () => { isDragVertex = isDragStretch = isPanning = false; canvas.style.cursor = 'crosshair'; });
+canvas.addEventListener('mouseleave', () => { isDragVertex = isDragStretch = isPanning = false; });
 
-// Scroll to zoom
 canvas.addEventListener('wheel', e => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.1 : 0.91;
-    const r = canvas.getBoundingClientRect();
-    const mx = e.clientX - r.left, my = e.clientY - r.top;
-    const mathX = toMathX(mx), mathY = toMathY(my);
-    scale *= factor;
-    scale = clamp(scale, 8, 200);
-    offsetX = mx - mathX * scale;
-    offsetY = my + mathY * scale;
-    draw();
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  const mxv = mx(px), myv = my(py);
+  scale = clamp(scale * (e.deltaY < 0 ? 1.1 : 0.91), 8, 220);
+  offsetX = px - mxv * scale;
+  offsetY = py + myv * scale;
+  draw();
 }, { passive: false });
 
-// Zoom buttons
-document.getElementById('zoom-in').addEventListener('click', () => { scale = clamp(scale * 1.25, 8, 200); draw(); });
-document.getElementById('zoom-out').addEventListener('click', () => { scale = clamp(scale * 0.8, 8, 200); draw(); });
-document.getElementById('zoom-reset').addEventListener('click', () => {
-    scale = 50;
-    offsetX = canvas.width / 2;
-    offsetY = canvas.height / 2;
-    draw();
-});
+document.getElementById('zoom-in').addEventListener('click',    () => { scale = clamp(scale*1.25, 8, 220); draw(); });
+document.getElementById('zoom-out').addEventListener('click',   () => { scale = clamp(scale*0.8, 8, 220); draw(); });
+document.getElementById('zoom-reset').addEventListener('click', () => { scale = 55; offsetX = canvas.width/2; offsetY = canvas.height/2; draw(); });
 
-// Touch support
+// ── TOUCH ─────────────────────────────────────────
 canvas.addEventListener('touchstart', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    const r = canvas.getBoundingClientRect();
-    const x = t.clientX - r.left, y = t.clientY - r.top;
-    if (nearVertex(x, y)) isDraggingVertex = true;
-    else if (nearStretch(x, y)) isDraggingStretch = true;
-    else { isPanning = true; lastPanX = t.clientX; lastPanY = t.clientY; }
+  e.preventDefault();
+  const t = e.touches[0], r = canvas.getBoundingClientRect();
+  const x = t.clientX - r.left, y = t.clientY - r.top;
+  if (near(x,y,h,k,22)) isDragVertex = true;
+  else if (near(x,y,h+1,a+k,18)) isDragStretch = true;
+  else { isPanning = true; lastPanX = t.clientX; lastPanY = t.clientY; }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    const r = canvas.getBoundingClientRect();
-    const x = t.clientX - r.left, y = t.clientY - r.top;
-    if (isDraggingVertex) {
-        h = clamp(toMathX(x), -5, 5); k = clamp(toMathY(y), -5, 5);
-        document.getElementById('h-slider').value = h;
-        document.getElementById('k-slider').value = k;
-        updateAll(); draw();
-    } else if (isDraggingStretch) {
-        const mx = toMathX(x), my = toMathY(y);
-        const dx = mx - h;
-        if (Math.abs(dx) > 0.05) {
-            a = clamp((my - k) / (dx * dx), -5, 5);
-            document.getElementById('a-slider').value = a;
-            updateAll(); draw();
-        }
-    } else if (isPanning) {
-        offsetX += t.clientX - lastPanX; offsetY += t.clientY - lastPanY;
-        lastPanX = t.clientX; lastPanY = t.clientY;
-        draw();
-    }
+  e.preventDefault();
+  const t = e.touches[0], r = canvas.getBoundingClientRect();
+  const x = t.clientX - r.left, y = t.clientY - r.top;
+  if (isDragVertex) {
+    h = clamp(mx(x),-5,5); k = clamp(my(y),-5,5);
+    document.getElementById('h-slider').value = h;
+    document.getElementById('k-slider').value = k;
+    updateAll(); draw();
+  } else if (isDragStretch) {
+    const dmx = mx(x)-h, dmy = my(y)-k;
+    if (Math.abs(dmx) > 0.05) { a = clamp(dmy/(dmx*dmx),-5,5); document.getElementById('a-slider').value = a; updateAll(); draw(); }
+  } else if (isPanning) {
+    offsetX += t.clientX - lastPanX; offsetY += t.clientY - lastPanY;
+    lastPanX = t.clientX; lastPanY = t.clientY; draw();
+  }
 }, { passive: false });
 
-canvas.addEventListener('touchend', () => { isDraggingVertex = isDraggingStretch = isPanning = false; });
+canvas.addEventListener('touchend', () => { isDragVertex = isDragStretch = isPanning = false; });
 
-// ── INIT ───────────────────────────────────────────
-function init() {
-    setSize();
-    updateAll();
-    draw();
-}
-
-window.addEventListener('resize', () => {
-    setSize();
-    draw();
-});
-
-init();
+// ── INIT ──────────────────────────────────────────
+window.addEventListener('resize', () => { setSize(); draw(); });
+setSize(); updateAll(); draw();
 </script>
 </body>
 </html>
