@@ -1,934 +1,740 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SVD & Eigenvalues - Matrix Transformation Visualizer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #0a0a0f;
-            --secondary: #1a1a2e;
-            --accent-cyan: #00ffff;
-            --accent-magenta: #ff00ff;
-            --accent-yellow: #ffff00;
-            --accent-orange: #ff6b00;
-            --accent-green: #00ff00;
-            --text-primary: #ffffff;
-            --text-secondary: #a0a0b0;
-            --border-radius: 12px;
-            --transition: all 0.3s ease;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SVD & Eigenvalues — Matrix Visualizer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root {
+  --primary: #0a0a0f;
+  --secondary: #1a1a2e;
+  --cyan: #00e5ff;
+  --magenta: #e040fb;
+  --yellow: #ffd740;
+  --orange: #ff6d00;
+  --green: #69f0ae;
+  --text: #ffffff;
+  --text-dim: #90909a;
+  --border: rgba(128,0,255,0.25);
+  --rad: 10px;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { background:#0f0f23; color:#fff; font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+/* LAYOUT */
+.app { max-width:900px; margin:0 auto; padding:12px; }
+.header { text-align:center; padding:16px 0 12px; }
+.header h1 { font-size:clamp(1.1rem,5vw,1.8rem); font-weight:700; background:linear-gradient(90deg,#00e5ff,#e040fb); -webkit-background-clip:text; -webkit-text-fill-color:transparent; line-height:1.3; }
+.header p { color:var(--text-dim); font-size:0.8rem; margin-top:4px; }
 
-        body {
-            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #0f0f23 100%);
-            color: var(--text-primary);
-            min-height: 100vh;
-            padding: 20px;
-            line-height: 1.6;
-        }
+/* TABS */
+.tab-bar { display:flex; gap:8px; margin-bottom:12px; }
+.tab-btn { flex:1; padding:10px; border:none; border-radius:var(--rad); font-weight:600; font-size:0.85rem; cursor:pointer; transition:all .2s; background:rgba(255,255,255,0.07); color:var(--text-dim); }
+.tab-btn.active { background:linear-gradient(135deg,#00e5ff22,#e040fb22); color:#fff; border:1px solid rgba(0,229,255,0.4); }
 
-        .container { max-width: 1600px; margin: 0 auto; }
+/* PANEL */
+.panel { background:rgba(26,26,46,0.8); border-radius:var(--rad); border:1px solid var(--border); padding:14px; }
 
-        .header { text-align: center; margin-bottom: 20px; }
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 20px rgba(0,255,255,0.3);
-        }
-        .header p { color: var(--text-secondary); font-size: 1.1rem; }
+/* CANVAS */
+.canvas-wrap { border-radius:8px; overflow:hidden; border:1.5px solid var(--border); background:#0a0a0f; margin-bottom:12px; touch-action:none; }
+canvas { display:block; width:100%; }
 
-        .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media (max-width: 1200px) { .main-content { grid-template-columns: 1fr; } }
+/* CONTROLS ROW */
+.ctrl-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.ctrl-btn { padding:7px 12px; border:1px solid rgba(255,255,255,0.15); border-radius:20px; background:rgba(255,255,255,0.07); color:var(--text-dim); font-size:0.78rem; font-weight:600; cursor:pointer; transition:all .2s; user-select:none; }
+.ctrl-btn.on { background:rgba(0,229,255,0.15); border-color:rgba(0,229,255,0.5); color:var(--cyan); }
 
-        .panel {
-            background: rgba(26,26,46,0.7);
-            backdrop-filter: blur(10px);
-            border-radius: var(--border-radius);
-            padding: 20px;
-            border: 1px solid rgba(128,0,255,0.2);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
-        }
+/* MATRIX INPUT */
+.mat-label { font-size:0.78rem; color:var(--text-dim); margin-bottom:6px; }
+.mat-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:12px; }
+.mat-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; margin-bottom:12px; }
+.mat-grid-2 input, .mat-grid-3 input {
+  width:100%; padding:10px 4px; border-radius:6px;
+  border:1px solid rgba(255,255,255,0.18); background:rgba(0,0,0,0.45);
+  color:#fff; text-align:center; font-size:1rem; font-family:'Courier New',monospace;
+  -webkit-appearance:none; appearance:none;
+  /* Bigger tap target */
+  min-height:44px;
+}
+.mat-grid-2 input:focus, .mat-grid-3 input:focus { outline:none; border-color:var(--cyan); }
 
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(128,0,255,0.3);
-        }
-        .panel-header h2 { font-size: 1.5rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 10px; }
+/* PRESETS */
+.presets { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.chip { padding:5px 11px; border-radius:20px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); font-size:0.76rem; color:var(--text-dim); cursor:pointer; user-select:none; transition:all .2s; }
+.chip:active { background:rgba(0,229,255,0.2); border-color:var(--cyan); color:var(--cyan); }
 
-        .theory-btn {
-            background: rgba(255,255,255,0.1);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 12px;
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.9rem;
-        }
-        .theory-btn:hover { background: rgba(255,255,255,0.2); }
-        .theory-btn.active { background: rgba(0,255,255,0.15); border: 1px solid rgba(0,255,255,0.4); color: var(--accent-cyan); }
+/* RESULTS */
+.results { background:rgba(0,0,0,0.3); border-radius:8px; padding:12px; margin-bottom:10px; }
+.results h3 { font-size:0.8rem; color:var(--yellow); margin-bottom:8px; text-transform:uppercase; letter-spacing:.05em; }
+.result-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.result-item { background:rgba(255,255,255,0.04); border-radius:6px; padding:8px; }
+.result-item .rl { font-size:0.7rem; color:var(--text-dim); margin-bottom:2px; }
+.result-item .rv { font-family:'Courier New',monospace; font-size:0.82rem; font-weight:600; word-break:break-all; }
+.rv-cyan { color:var(--cyan); }
+.rv-mag  { color:var(--magenta); }
+.rv-grn  { color:var(--green); }
+.rv-ylw  { color:var(--yellow); }
+.rv-org  { color:var(--orange); }
+.rv-dim  { color:#ff9955; }
+.mat-display { background:rgba(0,0,0,0.35); border-radius:6px; padding:10px; font-family:'Courier New',monospace; font-size:0.76rem; color:var(--text-dim); white-space:pre; overflow-x:auto; margin-top:8px; line-height:1.7; }
 
-        .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+/* THEORY TOGGLE */
+.theory-toggle { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.06); border:none; border-radius:8px; padding:8px 12px; color:var(--text-dim); font-size:0.8rem; cursor:pointer; width:100%; margin-bottom:10px; }
+.theory-toggle.open { color:var(--cyan); background:rgba(0,229,255,0.1); }
+.theory-panel { display:none; background:rgba(0,0,0,0.25); border-radius:8px; padding:12px; margin-bottom:12px; border-left:3px solid rgba(0,229,255,0.4); }
+.theory-panel.open { display:block; }
+.theory-panel h3 { color:var(--yellow); font-size:0.9rem; margin:10px 0 5px; }
+.theory-panel h3:first-child { margin-top:0; }
+.theory-panel p { color:var(--text-dim); font-size:0.82rem; line-height:1.6; margin-bottom:6px; }
+.formula { background:rgba(0,0,0,0.5); border-radius:5px; padding:6px 10px; margin:6px 0; text-align:center; font-family:'Courier New',monospace; color:var(--cyan); font-size:0.88rem; }
 
-        .btn {
-            padding: 9px 15px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-        }
-        .btn-secondary { background: rgba(255,255,255,0.1); color: white; }
-        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
-        .btn-active {
-            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
-            color: #000;
-            box-shadow: 0 0 12px rgba(0,255,255,0.4);
-        }
+/* INSTRUCTIONS */
+.instr { text-align:center; font-size:0.76rem; color:var(--text-dim); background:rgba(255,255,255,0.04); border-radius:6px; padding:6px; margin-bottom:10px; }
 
-        .canvas-container {
-            width: 100%;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 2px solid rgba(128,0,255,0.3);
-            margin-bottom: 15px;
-            background: #0a0a0f;
-            position: relative;
-        }
-        #canvas2d { width: 100%; height: 400px; display: block; cursor: crosshair; }
-        #canvas3d { width: 100%; height: 400px; display: block; cursor: crosshair; }
-
-        .theory-panel {
-            background: rgba(0,0,0,0.3);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            display: none;
-            border: 1px solid rgba(128,0,255,0.3);
-        }
-        .theory-panel.active { display: block; }
-
-        .theory-content { max-height: 280px; overflow-y: auto; padding-right: 8px; }
-        .theory-content h3 { color: var(--accent-yellow); margin-bottom: 8px; font-size: 1.1rem; margin-top: 12px; }
-        .theory-content h3:first-child { margin-top: 0; }
-        .theory-content h4 { color: var(--accent-green); margin-top: 12px; margin-bottom: 6px; font-size: 0.95rem; }
-        .theory-content p { color: var(--text-secondary); margin-bottom: 8px; font-size: 0.9rem; line-height: 1.5; }
-        .theory-content ul { color: var(--text-secondary); margin-left: 18px; margin-bottom: 8px; font-size: 0.9rem; }
-        .theory-content li { margin-bottom: 4px; }
-
-        .formula {
-            background: rgba(0,0,0,0.5);
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin: 8px 0;
-            text-align: center;
-            font-family: 'Courier New', monospace;
-            color: var(--accent-cyan);
-            font-size: 1rem;
-            letter-spacing: 0.05em;
-        }
-
-        .theorem { background: rgba(0,0,0,0.3); border-left: 4px solid var(--accent-cyan); padding: 8px 12px; margin: 10px 0; border-radius: 0 8px 8px 0; }
-        .theorem-title { color: var(--accent-cyan); font-weight: bold; margin-bottom: 4px; font-size: 0.9rem; }
-        .proof { background: rgba(0,0,0,0.2); border-left: 4px solid var(--accent-green); padding: 8px 12px; margin: 10px 0; border-radius: 0 8px 8px 0; }
-        .proof-title { color: var(--accent-green); font-weight: bold; margin-bottom: 4px; font-size: 0.9rem; }
-        .visual-explanation { background: rgba(0,0,0,0.2); border-left: 4px solid var(--accent-magenta); padding: 8px 12px; margin: 10px 0; border-radius: 0 8px 8px 0; }
-        .visual-explanation-title { color: var(--accent-magenta); font-weight: bold; margin-bottom: 4px; font-size: 0.9rem; }
-
-        .matrix-container { margin-bottom: 15px; }
-        .matrix-group { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 14px; }
-        .matrix-group h4 { color: var(--accent-green); margin-bottom: 10px; font-size: 0.95rem; }
-
-        .matrix-inputs-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-        .matrix-inputs-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-
-        .matrix-inputs-2 input, .matrix-inputs-3 input {
-            width: 100%;
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid rgba(255,255,255,0.2);
-            background: rgba(0,0,0,0.4);
-            color: white;
-            text-align: center;
-            font-size: 1rem;
-            font-family: 'Courier New', monospace;
-            transition: border-color 0.2s;
-        }
-        .matrix-inputs-2 input:focus, .matrix-inputs-3 input:focus {
-            outline: none;
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 8px rgba(0,255,255,0.3);
-        }
-
-        .decomposition-panel { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 14px; margin-top: 15px; }
-        .decomposition-panel h3 { color: var(--accent-yellow); margin-bottom: 10px; font-size: 1rem; }
-        .decomposition-result { font-size: 0.92rem; margin-bottom: 6px; }
-        .lbl { color: var(--text-secondary); }
-        .val { font-family: 'Courier New', monospace; font-weight: 600; }
-        .val-cyan    { color: var(--accent-cyan); }
-        .val-magenta { color: var(--accent-magenta); }
-        .val-green   { color: var(--accent-green); }
-        .val-yellow  { color: var(--accent-yellow); }
-        .val-orange  { color: var(--accent-orange); }
-        .val-dim     { color: #ff9955; }
-
-        .matrix-display {
-            background: rgba(0,0,0,0.35);
-            border-radius: 8px;
-            padding: 10px 14px;
-            margin-top: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.88rem;
-            white-space: pre;
-            color: var(--text-secondary);
-            line-height: 1.7;
-        }
-
-        .decomposition-controls { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-
-        .instructions {
-            background: rgba(255,255,255,0.04);
-            border-radius: 8px;
-            padding: 9px;
-            margin-bottom: 14px;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            text-align: center;
-        }
-
-        .preset-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
-        .preset-chip {
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 20px;
-            padding: 4px 12px;
-            font-size: 0.78rem;
-            cursor: pointer;
-            color: var(--text-secondary);
-            transition: var(--transition);
-            user-select: none;
-        }
-        .preset-chip:hover { background: rgba(0,255,255,0.15); border-color: var(--accent-cyan); color: var(--accent-cyan); }
-
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb { background: rgba(128,0,255,0.5); border-radius: 10px; }
-    </style>
+/* Legend row inside canvas area */
+.legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; margin-bottom:10px; }
+.leg-item { display:flex; align-items:center; gap:5px; font-size:0.72rem; color:var(--text-dim); }
+.leg-swatch { width:12px; height:12px; border-radius:2px; flex-shrink:0; }
+</style>
 </head>
 <body>
-<div class="container">
+<div class="app">
 
-    <div class="header">
-        <h1>SVD &amp; Eigenvalues — Matrix Transformation Visualizer</h1>
-        <p>Visualize matrix transformations, singular values, and eigenvalues in 2D and 3D</p>
+<div class="header">
+  <h1>SVD &amp; Eigenvalues</h1>
+  <p>Matrix Transformation Visualizer</p>
+</div>
+
+<!-- TABS -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab2d" onclick="switchTab('2d')">2D Transform</button>
+  <button class="tab-btn" id="tab3d" onclick="switchTab('3d')">3D Transform</button>
+</div>
+
+<!-- ══════════ 2D PANEL ══════════ -->
+<div class="panel" id="panel2d">
+
+  <button class="theory-toggle" id="thBtn2" onclick="toggleTheory('2')">▸ Theory &amp; Formulas</button>
+  <div class="theory-panel" id="thPanel2">
+    <h3>Singular Value Decomposition</h3>
+    <p>Any matrix A factors as:</p>
+    <div class="formula">A = U Σ Vᵀ</div>
+    <p>U = left singular vectors, Σ = singular values (σ₁ ≥ σ₂ ≥ 0), V = right singular vectors. The unit circle maps to an ellipse with semi-axis lengths σ₁, σ₂.</p>
+    <h3>Eigenvalues</h3>
+    <p>For square A, eigenvalues satisfy Av = λv. For 2×2: λ² − tr(A)λ + det(A) = 0. Singular values σᵢ = √λᵢ(AᵀA).</p>
+  </div>
+
+  <div class="instr">Drag the <span style="color:#ff5252">■</span> red or <span style="color:#b2ff59">■</span> green arrowheads to reshape the matrix</div>
+
+  <div class="ctrl-row">
+    <button class="ctrl-btn on" id="btn2-grid" onclick="toggle2('grid','btn2-grid')">Grid</button>
+    <button class="ctrl-btn on" id="btn2-eig"  onclick="toggle2('eig','btn2-eig')">Eigenvectors</button>
+    <button class="ctrl-btn on" id="btn2-sv"   onclick="toggle2('sv','btn2-sv')">Singular Vectors</button>
+  </div>
+
+  <div class="presets">
+    <span class="chip" onclick="setM2(P2.sym)">Symmetric</span>
+    <span class="chip" onclick="setM2(P2.rot45)">Rotation 45°</span>
+    <span class="chip" onclick="setM2(P2.scale)">Scaling</span>
+    <span class="chip" onclick="setM2(P2.shear)">Shear</span>
+    <span class="chip" onclick="setM2(P2.sing)">Singular</span>
+    <span class="chip" onclick="setM2(P2.id)">Identity</span>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="cv2"></canvas>
+  </div>
+
+  <div class="legend">
+    <div class="leg-item"><div class="leg-swatch" style="background:#00e5ff"></div>Transformed ellipse</div>
+    <div class="leg-item"><div class="leg-swatch" style="background:rgba(255,255,255,0.3)"></div>Unit circle</div>
+    <div class="leg-item"><div class="leg-swatch" style="background:#ff5252"></div>Col 1 (draggable)</div>
+    <div class="leg-item"><div class="leg-swatch" style="background:#b2ff59"></div>Col 2 (draggable)</div>
+    <div class="leg-item"><div class="leg-swatch" style="background:#e040fb"></div>Eigenvectors</div>
+    <div class="leg-item"><div class="leg-swatch" style="background:#ffd740"></div>Singular vectors</div>
+  </div>
+
+  <div class="mat-label">Matrix A (2×2)</div>
+  <div class="mat-grid-2">
+    <input type="number" id="a11" value="2"  step="0.1" inputmode="decimal" oninput="readM2();compute2()">
+    <input type="number" id="a12" value="1"  step="0.1" inputmode="decimal" oninput="readM2();compute2()">
+    <input type="number" id="a21" value="1"  step="0.1" inputmode="decimal" oninput="readM2();compute2()">
+    <input type="number" id="a22" value="2"  step="0.1" inputmode="decimal" oninput="readM2();compute2()">
+  </div>
+
+  <div class="results">
+    <h3>Results</h3>
+    <div class="result-grid">
+      <div class="result-item"><div class="rl">Eigenvalues λ</div><div class="rv rv-mag" id="r2-eig">—</div></div>
+      <div class="result-item"><div class="rl">Singular values σ</div><div class="rv rv-cyan" id="r2-sv">—</div></div>
+      <div class="result-item"><div class="rl">Determinant</div><div class="rv rv-grn" id="r2-det">—</div></div>
+      <div class="result-item"><div class="rl">Trace</div><div class="rv rv-ylw" id="r2-tr">—</div></div>
+      <div class="result-item"><div class="rl">Rank</div><div class="rv rv-org" id="r2-rank">—</div></div>
+      <div class="result-item"><div class="rl">Condition σ₁/σ₂</div><div class="rv rv-cyan" id="r2-cond">—</div></div>
     </div>
+    <div class="mat-display" id="r2-mat">—</div>
+  </div>
+</div>
 
-    <div class="main-content">
+<!-- ══════════ 3D PANEL ══════════ -->
+<div class="panel" id="panel3d" style="display:none">
 
-        <!-- ═══════════════════ 2D PANEL ═══════════════════ -->
-        <div class="panel">
-            <div class="panel-header">
-                <h2><i class="fas fa-crosshairs"></i> 2D Matrix Transformations</h2>
-                <button class="theory-btn" id="theory2dBtn"><i class="fas fa-book"></i> Theory</button>
-            </div>
+  <button class="theory-toggle" id="thBtn3" onclick="toggleTheory('3')">▸ Theory &amp; Formulas</button>
+  <div class="theory-panel" id="thPanel3">
+    <h3>3D SVD</h3>
+    <p>For A ∈ ℝ³ˣ³: A = UΣVᵀ where Σ = diag(σ₁,σ₂,σ₃). The unit sphere maps to an ellipsoid with semi-axis lengths σᵢ.</p>
+    <div class="formula">Volume = (4/3)π σ₁σ₂σ₃ = (4/3)π|det A|</div>
+    <p>Symmetric matrices have real eigenvalues (Spectral Theorem). General matrices may have complex eigenvalues indicating rotation.</p>
+  </div>
 
-            <div class="theory-panel" id="theory2dPanel">
-                <div class="theory-content">
-                    <h3>Singular Value Decomposition (SVD)</h3>
-                    <p>For any matrix A ∈ ℝ<sup>m×n</sup>, SVD factorises it as:</p>
-                    <div class="formula">A = U Σ Vᵀ</div>
-                    <p>U (m×m orthogonal) = left singular vectors; Σ = diagonal matrix with σ₁ ≥ σ₂ ≥ 0; V (n×n orthogonal) = right singular vectors.</p>
-                    <div class="visual-explanation">
-                        <div class="visual-explanation-title">Geometric Interpretation</div>
-                        <p>The unit circle maps to an ellipse. Right singular vectors (V, solid yellow) give the principal axes of the ellipse in the input space. The singular values give the semi-axis lengths. Left singular vectors (U, dashed blue) give the axes in the output space.</p>
-                    </div>
-                    <h3>Eigenvalues</h3>
-                    <p>For square A, eigenvalues λ and eigenvectors v satisfy Av = λv. Found via det(A − λI) = 0. For 2×2: λ² − tr(A)λ + det(A) = 0.</p>
-                    <div class="theorem">
-                        <div class="theorem-title">Spectral Theorem</div>
-                        <p>For symmetric A = Aᵀ: all eigenvalues are real, eigenvectors are orthogonal, and A = QΛQᵀ. For symmetric A, SVD and eigendecomposition coincide.</p>
-                    </div>
-                    <div class="proof">
-                        <div class="proof-title">SVD ↔ Eigenvalues</div>
-                        <p>AᵀA = VΣᵀΣVᵀ, so right singular vectors V are eigenvectors of AᵀA with eigenvalues σᵢ². Thus σᵢ(A) = √λᵢ(AᵀA).</p>
-                    </div>
-                    <h4>Applications</h4>
-                    <ul>
-                        <li>PCA — SVD on centred data gives principal components</li>
-                        <li>Low-rank approximation (Eckart–Young theorem)</li>
-                        <li>Numerically stable solving of linear systems</li>
-                    </ul>
-                </div>
-            </div>
+  <div class="instr">⟳ Drag to rotate · Pinch/scroll to zoom</div>
 
-            <div class="instructions">
-                <i class="fas fa-mouse-pointer"></i> Edit matrix values — the unit circle transforms into the ellipse in real time
-            </div>
+  <div class="ctrl-row">
+    <button class="ctrl-btn on" id="btn3-axes" onclick="toggle3('axes','btn3-axes')">Axes</button>
+    <button class="ctrl-btn on" id="btn3-eig"  onclick="toggle3('eig','btn3-eig')">Eigenvectors</button>
+    <button class="ctrl-btn on" id="btn3-sv"   onclick="toggle3('sv','btn3-sv')">Singular Vectors</button>
+  </div>
 
-            <div class="controls">
-                <button class="btn btn-secondary" id="reset2dBtn"><i class="fas fa-redo"></i> Reset</button>
-                <button class="btn btn-secondary" id="grid2dBtn"><i class="fas fa-th"></i> Grid</button>
-                <button class="btn btn-active"    id="eig2dBtn"><i class="fas fa-arrows-alt"></i> Eigenvectors</button>
-                <button class="btn btn-active"    id="sv2dBtn"><i class="fas fa-arrows-alt"></i> Singular Vectors</button>
-            </div>
+  <div class="presets">
+    <span class="chip" onclick="setM3(P3.sym)">Symmetric</span>
+    <span class="chip" onclick="setM3(P3.diag)">Diagonal</span>
+    <span class="chip" onclick="setM3(P3.rot)">Rotation Z</span>
+    <span class="chip" onclick="setM3(P3.shear)">Shear</span>
+    <span class="chip" onclick="setM3(P3.flat)">Rank-2</span>
+  </div>
 
-            <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:5px;">Quick presets:</div>
-            <div class="preset-row">
-                <span class="preset-chip" data-p2="sym">Symmetric</span>
-                <span class="preset-chip" data-p2="rot45">Rotation 45°</span>
-                <span class="preset-chip" data-p2="scale">Scaling</span>
-                <span class="preset-chip" data-p2="shear">Shear</span>
-                <span class="preset-chip" data-p2="sing">Singular</span>
-                <span class="preset-chip" data-p2="id">Identity</span>
-            </div>
+  <div class="canvas-wrap">
+    <canvas id="cv3"></canvas>
+  </div>
 
-            <div class="canvas-container">
-                <canvas id="canvas2d"></canvas>
-            </div>
+  <div class="mat-label">Matrix A (3×3)</div>
+  <div class="mat-grid-3">
+    <input type="number" id="b11" value="2"   step="0.1" inputmode="decimal" oninput="readM3();compute3()">
+    <input type="number" id="b12" value="0.5" step="0.1" inputmode="decimal" oninput="readM3();compute3()">
+    <input type="number" id="b13" value="0"   step="0.1" inputmode="decimal" oninput="readM3();compute3()">
+    <input type="number" id="b21" value="0.5" step="0.1" inputmode="decimal" oninput="readM3();compute3()">
+    <input type="number" id="b22" value="2"   step="0.1" inputmode="decimal" oninput="readM3();compute3()">
+    <input type="number" id="b23" value="0"   step="0.1" inputmode="decimal" oninput="readM3();compute3()">
+    <input type="number" id="b31" value="0"   step="0.1" inputmode="decimal" oninput="readM3();compute3()">
+    <input type="number" id="b32" value="0"   step="0.1" inputmode="decimal" oninput="readM3();compute3()">
+    <input type="number" id="b33" value="1"   step="0.1" inputmode="decimal" oninput="readM3();compute3()">
+  </div>
 
-            <div class="matrix-container">
-                <div class="matrix-group">
-                    <h4>Transformation Matrix A (2×2)</h4>
-                    <div class="matrix-inputs-2">
-                        <input type="number" id="a11" value="2"   step="0.1">
-                        <input type="number" id="a12" value="1"   step="0.1">
-                        <input type="number" id="a21" value="1"   step="0.1">
-                        <input type="number" id="a22" value="2"   step="0.1">
-                    </div>
-                </div>
-            </div>
+  <div class="results">
+    <h3>Results</h3>
+    <div class="result-grid">
+      <div class="result-item"><div class="rl">Eigenvalues λ</div><div class="rv rv-mag" id="r3-eig">—</div></div>
+      <div class="result-item"><div class="rl">Singular values σ</div><div class="rv rv-cyan" id="r3-sv">—</div></div>
+      <div class="result-item"><div class="rl">Determinant</div><div class="rv rv-grn" id="r3-det">—</div></div>
+      <div class="result-item"><div class="rl">Trace</div><div class="rv rv-ylw" id="r3-tr">—</div></div>
+      <div class="result-item"><div class="rl">Rank</div><div class="rv rv-org" id="r3-rank">—</div></div>
+      <div class="result-item"><div class="rl">Frobenius ‖A‖_F</div><div class="rv rv-cyan" id="r3-frob">—</div></div>
+    </div>
+    <div class="mat-display" id="r3-mat">—</div>
+  </div>
+</div>
 
-            <div class="decomposition-panel">
-                <h3>Decomposition Results</h3>
-                <div class="decomposition-result"><span class="lbl">Eigenvalues λ: </span><span class="val val-magenta" id="r2-eig">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Singular values σ: </span><span class="val val-cyan" id="r2-sv">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Determinant: </span><span class="val val-green" id="r2-det">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Trace: </span><span class="val val-yellow" id="r2-tr">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Rank: </span><span class="val val-orange" id="r2-rank">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Condition number σ₁/σ₂: </span><span class="val val-cyan" id="r2-cond">—</span></div>
-                <div class="matrix-display" id="r2-mat">—</div>
-            </div>
-        </div>
-
-        <!-- ═══════════════════ 3D PANEL ═══════════════════ -->
-        <div class="panel">
-            <div class="panel-header">
-                <h2><i class="fas fa-cube"></i> 3D Matrix Transformations</h2>
-                <button class="theory-btn" id="theory3dBtn"><i class="fas fa-book"></i> Theory</button>
-            </div>
-
-            <div class="theory-panel" id="theory3dPanel">
-                <div class="theory-content">
-                    <h3>3D Singular Value Decomposition</h3>
-                    <p>For A ∈ ℝ³ˣ³, SVD is A = UΣVᵀ where U, V are 3×3 orthogonal matrices and Σ = diag(σ₁, σ₂, σ₃) with σ₁ ≥ σ₂ ≥ σ₃ ≥ 0.</p>
-                    <div class="visual-explanation">
-                        <div class="visual-explanation-title">Geometric Picture</div>
-                        <p>The unit sphere maps to an ellipsoid. The three singular values give the semi-axis lengths. Right singular vectors (V, yellow arrows) show the principal input directions; left singular vectors (U) give the output directions.</p>
-                    </div>
-                    <div class="theorem">
-                        <div class="theorem-title">Volume Transformation</div>
-                        <p>Volume of ellipsoid = (4/3)π σ₁σ₂σ₃ = (4/3)π |det A|</p>
-                    </div>
-                    <h3>3D Eigenvalues</h3>
-                    <p>Characteristic polynomial has degree 3. A symmetric 3×3 matrix always has 3 real eigenvalues (Spectral Theorem). General matrices may have one real + two complex conjugate eigenvalues, indicating rotation.</p>
-                    <h4>Special Cases</h4>
-                    <ul>
-                        <li><b>Orthogonal (QᵀQ = I):</b> all σᵢ = 1 — pure rotation/reflection</li>
-                        <li><b>Rank-deficient:</b> one or more σᵢ = 0 — sphere collapses to lower dimension</li>
-                        <li><b>Symmetric:</b> SVD and eigendecomposition coincide — A = QΛQᵀ</li>
-                    </ul>
-                    <div class="proof">
-                        <div class="proof-title">Implementation Note</div>
-                        <p>Eigenvalues are computed exactly for symmetric matrices via Jacobi iteration on A. For non-symmetric matrices, Cardano's formula gives the characteristic roots. Singular values always use Jacobi on AᵀA.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="instructions">
-                <i class="fas fa-arrows-alt"></i> Drag to rotate · Scroll to zoom · Ellipsoid = image of unit sphere under A
-            </div>
-
-            <div class="controls">
-                <button class="btn btn-secondary" id="reset3dBtn"><i class="fas fa-redo"></i> Reset</button>
-                <button class="btn btn-active"    id="axes3dBtn"><i class="fas fa-arrows-alt"></i> Axes</button>
-                <button class="btn btn-active"    id="eig3dBtn"><i class="fas fa-arrows-alt"></i> Eigenvectors</button>
-                <button class="btn btn-active"    id="sv3dBtn"><i class="fas fa-arrows-alt"></i> Singular Vectors</button>
-            </div>
-
-            <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:5px;">Quick presets:</div>
-            <div class="preset-row">
-                <span class="preset-chip" data-p3="sym">Symmetric</span>
-                <span class="preset-chip" data-p3="diag">Diagonal</span>
-                <span class="preset-chip" data-p3="rot">Rotation Z</span>
-                <span class="preset-chip" data-p3="shear">Shear</span>
-                <span class="preset-chip" data-p3="flat">Rank-2</span>
-            </div>
-
-            <div class="canvas-container">
-                <canvas id="canvas3d"></canvas>
-            </div>
-
-            <div class="matrix-container">
-                <div class="matrix-group">
-                    <h4>Transformation Matrix A (3×3)</h4>
-                    <div class="matrix-inputs-3">
-                        <input type="number" id="b11" value="2"   step="0.1">
-                        <input type="number" id="b12" value="0.5" step="0.1">
-                        <input type="number" id="b13" value="0"   step="0.1">
-                        <input type="number" id="b21" value="0.5" step="0.1">
-                        <input type="number" id="b22" value="2"   step="0.1">
-                        <input type="number" id="b23" value="0"   step="0.1">
-                        <input type="number" id="b31" value="0"   step="0.1">
-                        <input type="number" id="b32" value="0"   step="0.1">
-                        <input type="number" id="b33" value="1"   step="0.1">
-                    </div>
-                </div>
-            </div>
-
-            <div class="decomposition-panel">
-                <h3>Decomposition Results</h3>
-                <div class="decomposition-result"><span class="lbl">Eigenvalues λ: </span><span class="val val-magenta" id="r3-eig">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Singular values σ: </span><span class="val val-cyan" id="r3-sv">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Determinant: </span><span class="val val-green" id="r3-det">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Trace: </span><span class="val val-yellow" id="r3-tr">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Rank: </span><span class="val val-orange" id="r3-rank">—</span></div>
-                <div class="decomposition-result"><span class="lbl">Frobenius norm ‖A‖_F: </span><span class="val val-cyan" id="r3-frob">—</span></div>
-                <div class="matrix-display" id="r3-mat">—</div>
-            </div>
-        </div>
-
-    </div><!-- .main-content -->
-</div><!-- .container -->
+</div><!-- .app -->
 
 <script>
-// ═══════════════════════════════════════════════════
-// MATH LIBRARY
-// ═══════════════════════════════════════════════════
+// ═══ MATH ═══════════════════════════════════════════
+function norm2(v){return Math.hypot(v[0],v[1]);}
+function normalize2(v){const l=norm2(v);return l>1e-14?[v[0]/l,v[1]/l]:[1,0];}
+function norm3(v){return Math.hypot(v[0],v[1],v[2]);}
+function normalize3(v){const l=norm3(v);return l>1e-14?[v[0]/l,v[1]/l,v[2]/l]:[1,0,0];}
+function cross3(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+function mat3v(A,v){return[A[0][0]*v[0]+A[0][1]*v[1]+A[0][2]*v[2],A[1][0]*v[0]+A[1][1]*v[1]+A[1][2]*v[2],A[2][0]*v[0]+A[2][1]*v[1]+A[2][2]*v[2]];}
+function det3(A){return A[0][0]*(A[1][1]*A[2][2]-A[1][2]*A[2][1])-A[0][1]*(A[1][0]*A[2][2]-A[1][2]*A[2][0])+A[0][2]*(A[1][0]*A[2][1]-A[1][1]*A[2][0]);}
+function trace3(A){return A[0][0]+A[1][1]+A[2][2];}
+function frob3(A){let s=0;for(let i=0;i<3;i++)for(let j=0;j<3;j++)s+=A[i][j]**2;return Math.sqrt(s);}
 
-function norm2(v){ return Math.hypot(v[0],v[1]); }
-function normalize2(v){ const l=norm2(v); return l>1e-14?[v[0]/l,v[1]/l]:[1,0]; }
-function norm3(v){ return Math.hypot(v[0],v[1],v[2]); }
-function normalize3(v){ const l=norm3(v); return l>1e-14?[v[0]/l,v[1]/l,v[2]/l]:[1,0,0]; }
-function cross3(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
-function mat3v(A,v){ return [A[0][0]*v[0]+A[0][1]*v[1]+A[0][2]*v[2], A[1][0]*v[0]+A[1][1]*v[1]+A[1][2]*v[2], A[2][0]*v[0]+A[2][1]*v[1]+A[2][2]*v[2]]; }
-function det3(A){ return A[0][0]*(A[1][1]*A[2][2]-A[1][2]*A[2][1])-A[0][1]*(A[1][0]*A[2][2]-A[1][2]*A[2][0])+A[0][2]*(A[1][0]*A[2][1]-A[1][1]*A[2][0]); }
-function trace3(A){ return A[0][0]+A[1][1]+A[2][2]; }
-function frob3(A){ let s=0; for(let i=0;i<3;i++) for(let j=0;j<3;j++) s+=A[i][j]**2; return Math.sqrt(s); }
-
-// Accurate analytic 2×2 SVD
 function svd2(A){
-    const [a,b,c,d]=[A[0][0],A[0][1],A[1][0],A[1][1]];
-    // AᵀA
-    const e=a*a+c*c, f=a*b+c*d, g=b*b+d*d;
-    const tr=e+g, disc=Math.max(0,(e-g)**2+4*f*f);
-    const sq=Math.sqrt(disc);
-    const l1=(tr+sq)/2, l2=Math.max(0,(tr-sq)/2);
-    const s1=Math.sqrt(l1), s2=Math.sqrt(l2);
-    // Right singular vectors (eigenvectors of AᵀA)
-    let v1,v2;
-    if(Math.abs(f)>1e-12){
-        v1=normalize2([f, l1-e]);
-    } else {
-        v1= e>=g ? [1,0] : [0,1];
-    }
-    v2=[-v1[1],v1[0]];
-    // Left singular vectors u_i = A v_i / sigma_i
-    const Av1=[a*v1[0]+b*v1[1], c*v1[0]+d*v1[1]];
-    const Av2=[a*v2[0]+b*v2[1], c*v2[0]+d*v2[1]];
-    const u1=s1>1e-12 ? normalize2(Av1) : normalize2([-b||0, a||1]);
-    const u2=s2>1e-12 ? normalize2(Av2) : [-u1[1],u1[0]];
-    return {sigma:[s1,s2], U:[u1,u2], V:[v1,v2]};
+  const[a,b,c,d]=[A[0][0],A[0][1],A[1][0],A[1][1]];
+  const e=a*a+c*c,f=a*b+c*d,g=b*b+d*d;
+  const tr=e+g,disc=Math.max(0,(e-g)**2+4*f*f),sq=Math.sqrt(disc);
+  const l1=(tr+sq)/2,l2=Math.max(0,(tr-sq)/2);
+  const s1=Math.sqrt(l1),s2=Math.sqrt(l2);
+  let v1,v2;
+  if(Math.abs(f)>1e-12){v1=normalize2([f,l1-e]);}else{v1=e>=g?[1,0]:[0,1];}
+  v2=[-v1[1],v1[0]];
+  const Av1=[a*v1[0]+b*v1[1],c*v1[0]+d*v1[1]];
+  const Av2=[a*v2[0]+b*v2[1],c*v2[0]+d*v2[1]];
+  const u1=s1>1e-12?normalize2(Av1):normalize2([-b||0,a||1]);
+  const u2=s2>1e-12?normalize2(Av2):[-u1[1],u1[0]];
+  return{sigma:[s1,s2],U:[u1,u2],V:[v1,v2]};
 }
 
-// Jacobi eigendecomposition for symmetric 3×3 — returns sorted (desc) eigenvalues + eigenvectors
 function jacobi3(Ain){
-    let S=Ain.map(r=>[...r]);
-    let Q=[[1,0,0],[0,1,0],[0,0,1]]; // accumulate rotations
-    for(let sweep=0;sweep<80;sweep++){
-        // Find largest off-diagonal element
-        let maxv=0,p=0,q=1;
-        for(let i=0;i<3;i++) for(let j=i+1;j<3;j++){
-            if(Math.abs(S[i][j])>maxv){ maxv=Math.abs(S[i][j]); p=i; q=j; }
-        }
-        if(maxv<1e-14) break;
-        // Compute rotation angle
-        const tau=(S[q][q]-S[p][p])/(2*S[p][q]);
-        const t=(tau>=0?1:-1)/(Math.abs(tau)+Math.sqrt(1+tau*tau));
-        const c=1/Math.sqrt(1+t*t), s=t*c;
-        // Update Q columns p,q
-        for(let i=0;i<3;i++){
-            const qip=Q[i][p], qiq=Q[i][q];
-            Q[i][p]=c*qip-s*qiq;
-            Q[i][q]=s*qip+c*qiq;
-        }
-        // Update S
-        const Spp=S[p][p], Sqq=S[q][q], Spq=S[p][q];
-        S[p][p]=c*c*Spp-2*s*c*Spq+s*s*Sqq;
-        S[q][q]=s*s*Spp+2*s*c*Spq+c*c*Sqq;
-        S[p][q]=S[q][p]=0;
-        for(let i=0;i<3;i++) if(i!==p&&i!==q){
-            const Sip=S[i][p], Siq=S[i][q];
-            S[i][p]=S[p][i]=c*Sip-s*Siq;
-            S[i][q]=S[q][i]=s*Sip+c*Siq;
-        }
-    }
-    // Extract and sort descending
-    const evals=[S[0][0],S[1][1],S[2][2]];
-    // eigenvectors: columns of Q
-    const evecs=[[Q[0][0],Q[1][0],Q[2][0]],[Q[0][1],Q[1][1],Q[2][1]],[Q[0][2],Q[1][2],Q[2][2]]];
-    const ord=[0,1,2].sort((a,b)=>evals[b]-evals[a]);
-    return { eigenvalues:ord.map(i=>evals[i]), eigenvectors:ord.map(i=>evecs[i]) };
+  let S=Ain.map(r=>[...r]);
+  let Q=[[1,0,0],[0,1,0],[0,0,1]];
+  for(let sw=0;sw<80;sw++){
+    let maxv=0,p=0,q=1;
+    for(let i=0;i<3;i++)for(let j=i+1;j<3;j++){if(Math.abs(S[i][j])>maxv){maxv=Math.abs(S[i][j]);p=i;q=j;}}
+    if(maxv<1e-14)break;
+    const tau=(S[q][q]-S[p][p])/(2*S[p][q]);
+    const t=(tau>=0?1:-1)/(Math.abs(tau)+Math.sqrt(1+tau*tau));
+    const c=1/Math.sqrt(1+t*t),s=t*c;
+    for(let i=0;i<3;i++){const qip=Q[i][p],qiq=Q[i][q];Q[i][p]=c*qip-s*qiq;Q[i][q]=s*qip+c*qiq;}
+    const Spp=S[p][p],Sqq=S[q][q],Spq=S[p][q];
+    S[p][p]=c*c*Spp-2*s*c*Spq+s*s*Sqq;S[q][q]=s*s*Spp+2*s*c*Spq+c*c*Sqq;S[p][q]=S[q][p]=0;
+    for(let i=0;i<3;i++)if(i!==p&&i!==q){const Sip=S[i][p],Siq=S[i][q];S[i][p]=S[p][i]=c*Sip-s*Siq;S[i][q]=S[q][i]=s*Sip+c*Siq;}
+  }
+  const evals=[S[0][0],S[1][1],S[2][2]];
+  const evecs=[[Q[0][0],Q[1][0],Q[2][0]],[Q[0][1],Q[1][1],Q[2][1]],[Q[0][2],Q[1][2],Q[2][2]]];
+  const ord=[0,1,2].sort((a,b)=>evals[b]-evals[a]);
+  return{eigenvalues:ord.map(i=>evals[i]),eigenvectors:ord.map(i=>evecs[i])};
 }
 
-// SVD for general 3×3 via AᵀA Jacobi
 function svd3(A){
-    // Form AᵀA (symmetric)
-    const AT=[[A[0][0],A[1][0],A[2][0]],[A[0][1],A[1][1],A[2][1]],[A[0][2],A[1][2],A[2][2]]];
-    const ATA=[[0,0,0],[0,0,0],[0,0,0]];
-    for(let i=0;i<3;i++) for(let j=0;j<3;j++) for(let k=0;k<3;k++) ATA[i][j]+=AT[i][k]*A[k][j];
-    const {eigenvalues:evals, eigenvectors:V}=jacobi3(ATA);
-    const sigmas=evals.map(e=>Math.sqrt(Math.max(0,e)));
-    // Left singular vectors: u_i = A v_i / sigma_i, with fallback
-    const U=V.map((v,i)=>{
-        if(sigmas[i]>1e-12) return normalize3(mat3v(A,v));
-        // Fallback: cross product of other two
-        const j=(i+1)%3, k=(i+2)%3;
-        return normalize3(cross3(V[j],V[k]));
-    });
-    return {sigmas, V, U};
+  const AT=[[A[0][0],A[1][0],A[2][0]],[A[0][1],A[1][1],A[2][1]],[A[0][2],A[1][2],A[2][2]]];
+  const ATA=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++)for(let k=0;k<3;k++)ATA[i][j]+=AT[i][k]*A[k][j];
+  const{eigenvalues:evals,eigenvectors:V}=jacobi3(ATA);
+  const sigmas=evals.map(e=>Math.sqrt(Math.max(0,e)));
+  const U=V.map((v,i)=>{
+    if(sigmas[i]>1e-12)return normalize3(mat3v(A,v));
+    const j=(i+1)%3,k=(i+2)%3;return normalize3(cross3(V[j],V[k]));
+  });
+  return{sigmas,V,U};
 }
 
-// Eigenvalues of general 3×3 via Cardano
 function eigenvals3(A){
-    const tr=trace3(A);
-    const q= A[0][0]*A[1][1]-A[0][1]*A[1][0]
-            +A[0][0]*A[2][2]-A[0][2]*A[2][0]
-            +A[1][1]*A[2][2]-A[1][2]*A[2][1];
-    const r=det3(A);
-    // x³ - tr·x² + q·x - r = 0  =>  sub x = t + tr/3
-    const p2 = q - tr*tr/3;
-    const q2 = 2*tr*tr*tr/27 - tr*q/3 + r;
-    const disc = -(4*p2**3 + 27*q2**2);
-    if(disc>=0){
-        // Three real roots via trig
-        const m=2*Math.sqrt(-p2/3);
-        const cos_arg=Math.max(-1,Math.min(1, 3*q2/(p2*m)));
-        const theta=Math.acos(cos_arg);
-        const roots=[0,1,2].map(k=>m*Math.cos((theta-2*Math.PI*k)/3)+tr/3);
-        roots.sort((a,b)=>b-a);
-        return {roots, complex:false};
-    } else {
-        // One real, two complex
-        const sq=Math.sqrt(-disc/108);
-        const half_q2=-q2/2;
-        const A_c=Math.cbrt(half_q2+sq), B_c=Math.cbrt(half_q2-sq);
-        const r1=(A_c+B_c)+tr/3;
-        const re=-(A_c+B_c)/2+tr/3;
-        const im=Math.abs(A_c-B_c)*Math.sqrt(3)/2;
-        return {roots:[r1,re,im], complex:true};
-    }
+  const tr=trace3(A);
+  const q=A[0][0]*A[1][1]-A[0][1]*A[1][0]+A[0][0]*A[2][2]-A[0][2]*A[2][0]+A[1][1]*A[2][2]-A[1][2]*A[2][1];
+  const r=det3(A);
+  const p2=q-tr*tr/3,q2=2*tr*tr*tr/27-tr*q/3+r;
+  const disc=-(4*p2**3+27*q2**2);
+  if(disc>=0){
+    const m=2*Math.sqrt(-p2/3),cos_arg=Math.max(-1,Math.min(1,3*q2/(p2*m)));
+    const theta=Math.acos(cos_arg);
+    const roots=[0,1,2].map(k=>m*Math.cos((theta-2*Math.PI*k)/3)+tr/3);
+    roots.sort((a,b)=>b-a);return{roots,complex:false};
+  }else{
+    const sq=Math.sqrt(-disc/108),half_q2=-q2/2;
+    const Ac=Math.cbrt(half_q2+sq),Bc=Math.cbrt(half_q2-sq);
+    const r1=(Ac+Bc)+tr/3,re=-(Ac+Bc)/2+tr/3,im=Math.abs(Ac-Bc)*Math.sqrt(3)/2;
+    return{roots:[r1,re,im],complex:true};
+  }
 }
 
-function isSymm3(A){ for(let i=0;i<3;i++) for(let j=0;j<3;j++) if(Math.abs(A[i][j]-A[j][i])>1e-8) return false; return true; }
+function isSymm3(A){for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(Math.abs(A[i][j]-A[j][i])>1e-8)return false;return true;}
 
-// ═══════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════
-const S2={
-    M:[[2,1],[1,2]],
-    showGrid:true, showEig:true, showSV:true,
-    svd:null, eigVals:null, eigVecs:null
+// ═══ STATE ══════════════════════════════════════════
+const S2={M:[[2,1],[1,2]],showGrid:true,showEig:true,showSV:true,svd:null,eigVals:null,eigVecs:null};
+const S3={M:[[2,0.5,0],[0.5,2,0],[0,0,1]],showAxes:true,showEig:true,showSV:true,svd:null,drag:false,prevX:0,prevY:0,pinchDist:0};
+
+// ═══ PRESETS ════════════════════════════════════════
+const P2={
+  sym:[[2,1],[1,2]],
+  rot45:(()=>{const a=Math.PI/4;return[[Math.cos(a),-Math.sin(a)],[Math.sin(a),Math.cos(a)]];})(),
+  scale:[[3,0],[0,0.5]],
+  shear:[[1,1.5],[0,1]],
+  sing:[[1,2],[2,4]],
+  id:[[1,0],[0,1]]
 };
-const S3={
-    M:[[2,0.5,0],[0.5,2,0],[0,0,1]],
-    showAxes:true, showEig:true, showSV:true,
-    svd:null,
-    drag:false, prev:{x:0,y:0}
+const P3={
+  sym:[[2,0.5,0],[0.5,2,0],[0,0,1]],
+  diag:[[3,0,0],[0,1.5,0],[0,0,0.5]],
+  rot:(()=>{const a=Math.PI/4;return[[Math.cos(a),-Math.sin(a),0],[Math.sin(a),Math.cos(a),0],[0,0,1]];})(),
+  shear:[[1,1,0.5],[0,1,0],[0,0,1]],
+  flat:[[2,1,0],[1,2,0],[0,0,0]]
 };
 
-// ═══════════════════════════════════════════════════
-// 2D CANVAS
-// ═══════════════════════════════════════════════════
-const cv2=document.getElementById('canvas2d');
+function el(id){return document.getElementById(id);}
+function fmt(x){return isNaN(x)?'NaN':x.toFixed(3);}
+function pad(x){return x.toFixed(2).padStart(6);}
+
+// ═══ TAB SWITCHING ══════════════════════════════════
+function switchTab(t){
+  el('panel2d').style.display=t==='2d'?'block':'none';
+  el('panel3d').style.display=t==='3d'?'block':'none';
+  el('tab2d').className='tab-btn'+(t==='2d'?' active':'');
+  el('tab3d').className='tab-btn'+(t==='3d'?' active':'');
+  if(t==='3d'&&!S3._inited){init3();S3._inited=true;}
+}
+
+function toggleTheory(n){
+  const btn=el('thBtn'+n),panel=el('thPanel'+n);
+  const open=panel.classList.toggle('open');
+  btn.classList.toggle('open',open);
+  btn.textContent=(open?'▾ ':' ▸ ')+'Theory & Formulas';
+}
+
+function toggle2(prop,btnId){
+  S2['show'+prop.charAt(0).toUpperCase()+prop.slice(1)]=!S2['show'+prop.charAt(0).toUpperCase()+prop.slice(1)];
+  el(btnId).classList.toggle('on');
+  draw2();
+}
+function toggle3(prop,btnId){
+  S3['show'+prop.charAt(0).toUpperCase()+prop.slice(1)]=!S3['show'+prop.charAt(0).toUpperCase()+prop.slice(1)];
+  el(btnId).classList.toggle('on');
+  if(prop==='axes'&&axH)axH.visible=S3.showAxes;
+  else compute3();
+}
+
+// ═══ 2D CANVAS ══════════════════════════════════════
+const cv2=el('cv2');
 const c2=cv2.getContext('2d');
 
-function sizeCanvas2(){
-    cv2.width=cv2.parentElement.clientWidth||600;
-    cv2.height=400;
+// The two draggable column vectors: col0 = A[:,0] = (a11,a21), col1 = A[:,1] = (a12,a22)
+// dragTarget: null | 0 | 1
+let drag2Target=null;
+
+function getScale2(){return Math.min(S2._w||300,S2._h||225)/5.5;}
+function getOrigin2(){return{cx:(S2._w||300)/2,cy:(S2._h||225)/2};}
+
+// Convert canvas CSS coords → math coords
+function canvasToMath(px,py){
+  const{cx,cy}=getOrigin2(),sc=getScale2();
+  return[(px-cx)/sc,-(py-cy)/sc];
+}
+
+// Hit-test: is canvas point (px,py) near arrowhead of column col (0 or 1)?
+function hitCol(px,py,col){
+  const{cx,cy}=getOrigin2(),sc=getScale2();
+  const A=S2.M;
+  // col 0 = (A[0][0], A[1][0]), col 1 = (A[0][1], A[1][1])
+  const tx=col===0?A[0][0]:A[0][1];
+  const ty=col===0?A[1][0]:A[1][1];
+  const ax=cx+tx*sc,ay=cy-ty*sc;
+  return Math.hypot(px-ax,py-ay)<22; // 22px touch radius
+}
+
+function resize2(){
+  const w=cv2.parentElement.clientWidth;
+  const dpr=window.devicePixelRatio||1;
+  const h=Math.min(Math.round(w*0.75),360);
+  cv2.width=w*dpr; cv2.height=h*dpr;
+  cv2.style.height=h+'px';
+  c2.scale(dpr,dpr);
+  S2._w=w; S2._h=h;
+  draw2();
 }
 
 function draw2(){
-    const W=cv2.width, H=cv2.height, cx=W/2, cy=H/2, sc=60;
-    c2.clearRect(0,0,W,H);
-    c2.fillStyle='#0a0a0f'; c2.fillRect(0,0,W,H);
+  const W=S2._w||300,H=S2._h||225;
+  c2.setTransform(window.devicePixelRatio||1,0,0,window.devicePixelRatio||1,0,0);
+  c2.clearRect(0,0,W,H);
+  c2.fillStyle='#0a0a0f';c2.fillRect(0,0,W,H);
+  const{cx,cy}=getOrigin2();
+  const sc=getScale2();
 
-    // Grid
-    if(S2.showGrid){
-        c2.strokeStyle='rgba(70,70,110,0.3)'; c2.lineWidth=1;
-        for(let x=cx%sc;x<W;x+=sc){ c2.beginPath();c2.moveTo(x,0);c2.lineTo(x,H);c2.stroke(); }
-        for(let y=cy%sc;y<H;y+=sc){ c2.beginPath();c2.moveTo(0,y);c2.lineTo(W,y);c2.stroke(); }
+  if(S2.showGrid){
+    c2.strokeStyle='rgba(70,70,110,0.3)';c2.lineWidth=0.8;
+    for(let x=((cx%sc)+sc)%sc;x<W;x+=sc){c2.beginPath();c2.moveTo(x,0);c2.lineTo(x,H);c2.stroke();}
+    for(let y=((cy%sc)+sc)%sc;y<H;y+=sc){c2.beginPath();c2.moveTo(0,y);c2.lineTo(W,y);c2.stroke();}
+  }
+  c2.strokeStyle='rgba(120,120,180,0.5)';c2.lineWidth=1;
+  c2.beginPath();c2.moveTo(0,cy);c2.lineTo(W,cy);c2.stroke();
+  c2.beginPath();c2.moveTo(cx,0);c2.lineTo(cx,H);c2.stroke();
+
+  // Unit circle
+  c2.strokeStyle='rgba(255,255,255,0.2)';c2.lineWidth=1.2;c2.setLineDash([4,3]);
+  c2.beginPath();c2.arc(cx,cy,sc,0,2*Math.PI);c2.stroke();c2.setLineDash([]);
+
+  // Transformed ellipse
+  const A=S2.M;
+  c2.strokeStyle='#00e5ff';c2.lineWidth=2;
+  c2.beginPath();
+  for(let i=0;i<=200;i++){
+    const t=i/200*2*Math.PI;
+    const ex=A[0][0]*Math.cos(t)+A[0][1]*Math.sin(t);
+    const ey=A[1][0]*Math.cos(t)+A[1][1]*Math.sin(t);
+    i===0?c2.moveTo(cx+ex*sc,cy-ey*sc):c2.lineTo(cx+ex*sc,cy-ey*sc);
+  }
+  c2.stroke();
+
+  // SVD vectors
+  if(S2.showSV&&S2.svd){
+    const{sigma,U,V}=S2.svd;
+    for(let i=0;i<2;i++){
+      if(sigma[i]<1e-12)continue;
+      arrow2(cx,cy,cx+V[i][0]*sigma[i]*sc,cy-V[i][1]*sigma[i]*sc,'#ffd740',2,`σ${i+1}=${sigma[i].toFixed(2)}`);
+      arrow2(cx,cy,cx+U[i][0]*sigma[i]*sc,cy-U[i][1]*sigma[i]*sc,'#5599ff',1.5,'',true);
     }
-
-    // Axes + ticks
-    c2.strokeStyle='rgba(120,120,180,0.6)'; c2.lineWidth=1.5;
-    c2.beginPath(); c2.moveTo(0,cy); c2.lineTo(W,cy); c2.stroke();
-    c2.beginPath(); c2.moveTo(cx,0); c2.lineTo(cx,H); c2.stroke();
-    c2.font='10px Courier New'; c2.fillStyle='rgba(160,160,180,0.7)';
-    c2.textAlign='center'; c2.textBaseline='top';
-    for(let i=-8;i<=8;i++){
-        if(!i) continue;
-        const x=cx+i*sc;
-        if(x>5&&x<W-5){ c2.beginPath(); c2.moveTo(x,cy-3); c2.lineTo(x,cy+3); c2.strokeStyle='rgba(120,120,180,0.5)'; c2.lineWidth=1; c2.stroke(); c2.fillText(i,x,cy+5); }
+  }
+  // Eigenvectors
+  if(S2.showEig&&S2.eigVals){
+    const cols=['#e040fb','#b000cc'];
+    for(let i=0;i<S2.eigVals.length;i++){
+      const lam=S2.eigVals[i],ev=S2.eigVecs[i];
+      if(!ev||Math.abs(lam)<1e-12)continue;
+      arrow2(cx,cy,cx+ev[0]*Math.abs(lam)*sc,cy-ev[1]*Math.abs(lam)*sc,cols[i],2,`λ${i+1}=${lam.toFixed(2)}`);
     }
-    c2.textAlign='right'; c2.textBaseline='middle';
-    for(let i=-5;i<=5;i++){
-        if(!i) continue;
-        const y=cy-i*sc;
-        if(y>5&&y<H-5){ c2.beginPath(); c2.moveTo(cx-3,y); c2.lineTo(cx+3,y); c2.strokeStyle='rgba(120,120,180,0.5)'; c2.lineWidth=1; c2.stroke(); c2.fillText(i,cx-5,y); }
+  }
+
+  // Draggable column vectors — always drawn on top
+  // col 0 = red-orange, col 1 = lime
+  const colCols=['#ff5252','#b2ff59'];
+  const colLabels=['e₁ col','e₂ col'];
+  for(let col=0;col<2;col++){
+    const tx=col===0?A[0][0]:A[0][1];
+    const ty=col===0?A[1][0]:A[1][1];
+    const ax=cx+tx*sc,ay=cy-ty*sc;
+    const active=drag2Target===col;
+    // Glow ring on arrowhead when active
+    if(active){
+      c2.beginPath();c2.arc(ax,ay,14,0,2*Math.PI);
+      c2.fillStyle='rgba(255,255,255,0.15)';c2.fill();
     }
-
-    // Unit circle (dashed)
-    c2.strokeStyle='rgba(255,255,255,0.25)'; c2.lineWidth=1.5; c2.setLineDash([5,4]);
-    c2.beginPath(); c2.arc(cx,cy,sc,0,2*Math.PI); c2.stroke(); c2.setLineDash([]);
-
-    // Transformed ellipse
-    const A=S2.M;
-    c2.strokeStyle='#00ffff'; c2.lineWidth=2.5;
-    c2.beginPath();
-    for(let i=0;i<=200;i++){
-        const t=i/200*2*Math.PI;
-        const ex=A[0][0]*Math.cos(t)+A[0][1]*Math.sin(t);
-        const ey=A[1][0]*Math.cos(t)+A[1][1]*Math.sin(t);
-        i===0?c2.moveTo(cx+ex*sc,cy-ey*sc):c2.lineTo(cx+ex*sc,cy-ey*sc);
-    }
-    c2.stroke();
-
-    // Right singular vectors (solid yellow) + Left (dashed blue)
-    if(S2.showSV && S2.svd){
-        const {sigma,U,V}=S2.svd;
-        for(let i=0;i<2;i++){
-            if(sigma[i]<1e-12) continue;
-            arrow2(cx,cy,cx+V[i][0]*sigma[i]*sc,cy-V[i][1]*sigma[i]*sc,'#ffff00',2.5,`σ${i+1}=${sigma[i].toFixed(2)}`);
-            arrow2(cx,cy,cx+U[i][0]*sigma[i]*sc,cy-U[i][1]*sigma[i]*sc,'#5599ff',1.8,'',true);
-        }
-    }
-
-    // Eigenvectors (magenta)
-    if(S2.showEig && S2.eigVals){
-        const cols=['#ff00ff','#cc00ff'];
-        for(let i=0;i<S2.eigVals.length;i++){
-            const lam=S2.eigVals[i], ev=S2.eigVecs[i];
-            if(!ev||Math.abs(lam)<1e-12) continue;
-            arrow2(cx,cy,cx+ev[0]*Math.abs(lam)*sc,cy-ev[1]*Math.abs(lam)*sc,cols[i],2.5,`λ${i+1}=${lam.toFixed(2)}`);
-        }
-    }
-
-    // Legend
-    const leg=[['#00ffff','Transformed ellipse'],['rgba(255,255,255,0.25)','Unit circle'],['#ff00ff','Eigenvectors (λ)'],['#ffff00','Right singular vectors (σ, V)'],['#5599ff','Left singular vectors (U, dashed)']];
-    c2.font='11px Segoe UI'; c2.textBaseline='middle'; c2.textAlign='left';
-    leg.forEach(([col,lbl],k)=>{
-        const ly=14+k*18;
-        c2.fillStyle=col; c2.fillRect(8,ly-5,13,10);
-        c2.fillStyle='rgba(200,200,200,0.75)'; c2.fillText(lbl,26,ly);
-    });
+    arrow2(cx,cy,ax,ay,colCols[col],active?3:2.5,`col${col+1}(${tx.toFixed(1)},${ty.toFixed(1)})`);
+    // Large touch handle dot at tip
+    c2.beginPath();c2.arc(ax,ay,active?9:7,0,2*Math.PI);
+    c2.fillStyle=colCols[col];c2.fill();
+  }
 }
 
 function arrow2(x1,y1,x2,y2,col,lw,lbl,dash=false){
-    const dx=x2-x1,dy=y2-y1;
-    if(Math.hypot(dx,dy)<4) return;
-    c2.save();
-    c2.strokeStyle=col; c2.fillStyle=col; c2.lineWidth=lw;
-    if(dash) c2.setLineDash([6,4]);
-    c2.beginPath(); c2.moveTo(x1,y1); c2.lineTo(x2,y2); c2.stroke();
-    c2.setLineDash([]);
-    const ang=Math.atan2(dy,dx), hs=10;
-    c2.beginPath(); c2.moveTo(x2,y2);
-    c2.lineTo(x2-hs*Math.cos(ang-0.4),y2-hs*Math.sin(ang-0.4));
-    c2.lineTo(x2-hs*Math.cos(ang+0.4),y2-hs*Math.sin(ang+0.4));
-    c2.closePath(); c2.fill();
-    if(lbl){ c2.font='bold 11px Courier New'; c2.fillStyle=col; c2.fillText(lbl,x2+10,y2-1); }
-    c2.restore();
+  const dx=x2-x1,dy=y2-y1;
+  if(Math.hypot(dx,dy)<3)return;
+  c2.save();
+  c2.strokeStyle=col;c2.fillStyle=col;c2.lineWidth=lw;
+  if(dash)c2.setLineDash([5,3]);
+  c2.beginPath();c2.moveTo(x1,y1);c2.lineTo(x2,y2);c2.stroke();
+  c2.setLineDash([]);
+  const ang=Math.atan2(dy,dx),hs=9;
+  c2.beginPath();c2.moveTo(x2,y2);
+  c2.lineTo(x2-hs*Math.cos(ang-0.4),y2-hs*Math.sin(ang-0.4));
+  c2.lineTo(x2-hs*Math.cos(ang+0.4),y2-hs*Math.sin(ang+0.4));
+  c2.closePath();c2.fill();
+  if(lbl){c2.font='bold 10px Courier New';c2.fillStyle=col;c2.fillText(lbl,x2+10,y2-1);}
+  c2.restore();
 }
 
 function compute2(){
-    const A=S2.M;
-    S2.svd=svd2(A);
-    // Eigenvalues
-    const tr=A[0][0]+A[1][1], det=A[0][0]*A[1][1]-A[0][1]*A[1][0];
-    const disc=tr*tr-4*det;
-    if(disc>=0){
-        const sq=Math.sqrt(disc);
-        const l1=(tr+sq)/2, l2=(tr-sq)/2;
-        S2.eigVals=[l1,l2];
-        const calcEv=lam=>{
-            if(Math.abs(A[0][1])>1e-10) return normalize2([A[0][1],lam-A[0][0]]);
-            if(Math.abs(A[1][0])>1e-10) return normalize2([lam-A[1][1],A[1][0]]);
-            return lam===l1?[1,0]:[0,1];
-        };
-        S2.eigVecs=[calcEv(l1),calcEv(l2)];
-        el('r2-eig').textContent=`${fmt(l1)},  ${fmt(l2)}`;
-        el('r2-eig').className='val val-magenta';
-    } else {
-        const re=tr/2, im=Math.sqrt(-disc)/2;
-        S2.eigVals=null; S2.eigVecs=null;
-        el('r2-eig').textContent=`${fmt(re)} ± ${fmt(im)}i  (complex)`;
-        el('r2-eig').className='val val-dim';
-    }
-    const {sigma}=S2.svd;
-    el('r2-sv').textContent=`${fmt(sigma[0])},  ${fmt(sigma[1])}`;
-    el('r2-det').textContent=fmt(det);
-    el('r2-tr').textContent=fmt(tr);
-    el('r2-rank').textContent=sigma.filter(s=>s>1e-8).length;
-    el('r2-cond').textContent=sigma[1]>1e-10?fmt(sigma[0]/sigma[1]):'∞';
-    el('r2-mat').textContent=
-        `A = [ ${pad(A[0][0])}  ${pad(A[0][1])} ]\n` +
-        `    [ ${pad(A[1][0])}  ${pad(A[1][1])} ]`;
-    draw2();
+  const A=S2.M;
+  S2.svd=svd2(A);
+  const tr=A[0][0]+A[1][1],det=A[0][0]*A[1][1]-A[0][1]*A[1][0];
+  const disc=tr*tr-4*det;
+  if(disc>=0){
+    const sq=Math.sqrt(disc),l1=(tr+sq)/2,l2=(tr-sq)/2;
+    S2.eigVals=[l1,l2];
+    const calcEv=lam=>{
+      if(Math.abs(A[0][1])>1e-10)return normalize2([A[0][1],lam-A[0][0]]);
+      if(Math.abs(A[1][0])>1e-10)return normalize2([lam-A[1][1],A[1][0]]);
+      return lam===l1?[1,0]:[0,1];
+    };
+    S2.eigVecs=[calcEv(l1),calcEv(l2)];
+    el('r2-eig').textContent=`${fmt(l1)}, ${fmt(l2)}`;
+    el('r2-eig').className='rv rv-mag';
+  }else{
+    const re=tr/2,im=Math.sqrt(-disc)/2;
+    S2.eigVals=null;S2.eigVecs=null;
+    el('r2-eig').textContent=`${fmt(re)}±${fmt(im)}i`;
+    el('r2-eig').className='rv rv-dim';
+  }
+  const{sigma}=S2.svd;
+  el('r2-sv').textContent=`${fmt(sigma[0])}, ${fmt(sigma[1])}`;
+  el('r2-det').textContent=fmt(det);
+  el('r2-tr').textContent=fmt(tr);
+  el('r2-rank').textContent=sigma.filter(s=>s>1e-8).length;
+  el('r2-cond').textContent=sigma[1]>1e-10?fmt(sigma[0]/sigma[1]):'∞';
+  el('r2-mat').textContent=`A = [ ${pad(A[0][0])}  ${pad(A[0][1])} ]\n    [ ${pad(A[1][0])}  ${pad(A[1][1])} ]`;
+  draw2();
 }
 
-// ═══════════════════════════════════════════════════
-// 3D SCENE
-// ═══════════════════════════════════════════════════
-let scene3,cam3,ren3,ell3,axH;
-let eigArr3=[],svArr3=[];
+function readM2(){
+  S2.M=[[+el('a11').value||0,+el('a12').value||0],[+el('a21').value||0,+el('a22').value||0]];
+}
+function setM2(m){
+  S2.M=m.map(r=>[...r]);
+  ['a11','a12','a21','a22'].forEach((id,k)=>el(id).value=m[Math.floor(k/2)][k%2]);
+  compute2();
+}
+
+// ═══ 3D SCENE ═══════════════════════════════════════
+let scene3,cam3,ren3,ell3,axH,eigArr3=[],svArr3=[];
 
 function init3(){
-    const cv3=document.getElementById('canvas3d');
-    const W=cv3.parentElement.clientWidth||600, H=400;
-    cv3.width=W; cv3.height=H;
+  const cv3=el('cv3');
+  const W=cv3.parentElement.clientWidth||400,H=Math.min(Math.round(W*0.75),360);
+  cv3.style.height=H+'px';
+  scene3=new THREE.Scene();scene3.background=new THREE.Color(0x0a0a0f);
+  cam3=new THREE.PerspectiveCamera(50,W/H,0.01,200);
+  cam3.position.set(6,4,6);cam3.lookAt(0,0,0);
+  ren3=new THREE.WebGLRenderer({canvas:cv3,antialias:true});
+  ren3.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  ren3.setSize(W,H);
+  scene3.add(new THREE.AmbientLight(0x334455,2.5));
+  const dl=new THREE.DirectionalLight(0xffffff,0.9);dl.position.set(5,8,5);scene3.add(dl);
+  scene3.add(new THREE.GridHelper(10,10,0x111133,0x0d0d22));
+  axH=new THREE.AxesHelper(4);scene3.add(axH);
+  const sg=new THREE.SphereGeometry(1,24,24);
+  scene3.add(new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0xffffff,wireframe:true,transparent:true,opacity:0.1})));
+  ell3=new THREE.Group();
+  const eg=new THREE.SphereGeometry(1,32,32);
+  ell3.add(new THREE.Mesh(eg,new THREE.MeshPhongMaterial({color:0x00ccff,transparent:true,opacity:0.35,side:THREE.DoubleSide,shininess:50})));
+  ell3.add(new THREE.Mesh(eg.clone(),new THREE.MeshBasicMaterial({color:0x00ffff,wireframe:true,transparent:true,opacity:0.25})));
+  scene3.add(ell3);
 
-    scene3=new THREE.Scene();
-    scene3.background=new THREE.Color(0x0a0a0f);
+  // Mouse
+  cv3.addEventListener('mousedown',e=>{S3.drag=true;S3.prevX=e.clientX;S3.prevY=e.clientY;cv3.style.cursor='grabbing';});
+  window.addEventListener('mouseup',()=>{S3.drag=false;cv3.style.cursor='crosshair';});
+  window.addEventListener('mousemove',e=>{
+    if(!S3.drag)return;
+    orbit3(e.clientX-S3.prevX,e.clientY-S3.prevY);
+    S3.prevX=e.clientX;S3.prevY=e.clientY;
+  });
+  cv3.addEventListener('wheel',e=>{e.preventDefault();cam3.position.multiplyScalar(e.deltaY>0?1.08:0.93);cam3.lookAt(0,0,0);},{passive:false});
 
-    cam3=new THREE.PerspectiveCamera(50,W/H,0.01,200);
-    cam3.position.set(6,4,6); cam3.lookAt(0,0,0);
+  // Touch
+  cv3.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){S3.drag=true;S3.prevX=e.touches[0].clientX;S3.prevY=e.touches[0].clientY;}
+    else if(e.touches.length===2){S3.drag=false;S3.pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}
+    e.preventDefault();
+  },{passive:false});
+  cv3.addEventListener('touchmove',e=>{
+    if(e.touches.length===1&&S3.drag){
+      orbit3(e.touches[0].clientX-S3.prevX,e.touches[0].clientY-S3.prevY);
+      S3.prevX=e.touches[0].clientX;S3.prevY=e.touches[0].clientY;
+    }else if(e.touches.length===2){
+      const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      cam3.position.multiplyScalar(S3.pinchDist/d);
+      cam3.lookAt(0,0,0);
+      S3.pinchDist=d;
+    }
+    e.preventDefault();
+  },{passive:false});
+  cv3.addEventListener('touchend',()=>{S3.drag=false;});
 
-    ren3=new THREE.WebGLRenderer({canvas:cv3,antialias:true});
-    ren3.setPixelRatio(Math.min(window.devicePixelRatio,2));
-    ren3.setSize(W,H);
+  window.addEventListener('resize',()=>{
+    const W2=cv3.parentElement.clientWidth||400;
+    const H2=Math.min(Math.round(W2*0.75),360);
+    cv3.style.height=H2+'px';
+    ren3.setSize(W2,H2);
+    cam3.aspect=W2/H2;cam3.updateProjectionMatrix();
+  });
 
-    // Lights
-    scene3.add(new THREE.AmbientLight(0x334455,2.5));
-    const dl=new THREE.DirectionalLight(0xffffff,0.9); dl.position.set(5,8,5); scene3.add(dl);
-    const dl2=new THREE.DirectionalLight(0x0055ff,0.3); dl2.position.set(-3,-2,-4); scene3.add(dl2);
-
-    // Grid
-    scene3.add(new THREE.GridHelper(10,10,0x111133,0x0d0d22));
-
-    // Axes
-    axH=new THREE.AxesHelper(4); scene3.add(axH);
-
-    // Unit sphere (wireframe only)
-    const sg=new THREE.SphereGeometry(1,24,24);
-    scene3.add(new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:0xffffff,wireframe:true,transparent:true,opacity:0.12})));
-
-    // Ellipsoid group
-    ell3=new THREE.Group();
-    const eg=new THREE.SphereGeometry(1,32,32);
-    const solid=new THREE.Mesh(eg, new THREE.MeshPhongMaterial({color:0x00ccff,transparent:true,opacity:0.35,side:THREE.DoubleSide,shininess:50}));
-    const wire=new THREE.Mesh(eg.clone(), new THREE.MeshBasicMaterial({color:0x00ffff,wireframe:true,transparent:true,opacity:0.28}));
-    ell3.add(solid); ell3.add(wire);
-    scene3.add(ell3);
-
-    // Mouse drag for orbit
-    cv3.addEventListener('mousedown',e=>{S3.drag=true;S3.prev={x:e.clientX,y:e.clientY};cv3.style.cursor='grabbing';});
-    window.addEventListener('mouseup',()=>{S3.drag=false;cv3.style.cursor='crosshair';});
-    window.addEventListener('mousemove',e=>{
-        if(!S3.drag) return;
-        const dx=e.clientX-S3.prev.x, dy=e.clientY-S3.prev.y;
-        const p=cam3.position, r=p.length();
-        const theta=Math.atan2(p.x,p.z)-dx*0.013;
-        const phi=Math.max(0.06,Math.min(Math.PI-0.06,Math.acos(Math.max(-1,Math.min(1,p.y/r)))+dy*0.013));
-        cam3.position.set(r*Math.sin(phi)*Math.sin(theta),r*Math.cos(phi),r*Math.sin(phi)*Math.cos(theta));
-        cam3.lookAt(0,0,0);
-        S3.prev={x:e.clientX,y:e.clientY};
-    });
-    cv3.addEventListener('wheel',e=>{
-        e.preventDefault();
-        cam3.position.multiplyScalar(e.deltaY>0?1.08:0.93);
-        cam3.lookAt(0,0,0);
-    },{passive:false});
-
-    window.addEventListener('resize',()=>{
-        const W2=cv3.parentElement.clientWidth||600;
-        cv3.width=W2; ren3.setSize(W2,400);
-        cam3.aspect=W2/400; cam3.updateProjectionMatrix();
-    });
-
-    (function loop(){ requestAnimationFrame(loop); ren3.render(scene3,cam3); })();
-    compute3();
+  (function loop(){requestAnimationFrame(loop);ren3.render(scene3,cam3);})();
+  compute3();
 }
 
-function clearGroup(arr){ arr.forEach(o=>scene3.remove(o)); arr.length=0; }
+function orbit3(dx,dy){
+  const p=cam3.position,r=p.length();
+  const theta=Math.atan2(p.x,p.z)-dx*0.015;
+  const phi=Math.max(0.06,Math.min(Math.PI-0.06,Math.acos(Math.max(-1,Math.min(1,p.y/r)))+dy*0.015));
+  cam3.position.set(r*Math.sin(phi)*Math.sin(theta),r*Math.cos(phi),r*Math.sin(phi)*Math.cos(theta));
+  cam3.lookAt(0,0,0);
+}
 
+function clearGroup(arr){arr.forEach(o=>scene3.remove(o));arr.length=0;}
 function addArrow3(dir,len,col,arr){
-    if(len<0.04||!isFinite(dir[0])||!isFinite(dir[1])||!isFinite(dir[2])) return;
-    const d=new THREE.Vector3(...dir);
-    if(d.length()<0.001) return;
-    d.normalize();
-    const a=new THREE.ArrowHelper(d,new THREE.Vector3(0,0,0),len,col,Math.min(0.3,len*0.2),0.12);
-    scene3.add(a); arr.push(a);
+  if(len<0.04||!isFinite(dir[0]))return;
+  const d=new THREE.Vector3(...dir);if(d.length()<0.001)return;
+  d.normalize();
+  const a=new THREE.ArrowHelper(d,new THREE.Vector3(0,0,0),len,col,Math.min(0.3,len*0.2),0.12);
+  scene3.add(a);arr.push(a);
 }
 
 function compute3(){
-    const A=S3.M;
-    S3.svd=svd3(A);
-    const {sigmas,V,U}=S3.svd;
-
-    // Scale + orient ellipsoid
-    ell3.scale.set(sigmas[0]||0.001, sigmas[1]||0.001, sigmas[2]||0.001);
-    if(U&&U[0]&&U[1]&&U[2]){
-        const m=new THREE.Matrix4().set(
-            U[0][0],U[1][0],U[2][0],0,
-            U[0][1],U[1][1],U[2][1],0,
-            U[0][2],U[1][2],U[2][2],0,
-            0,0,0,1
-        );
-        ell3.setRotationFromMatrix(m);
+  if(!scene3)return;
+  const A=S3.M;
+  S3.svd=svd3(A);
+  const{sigmas,V,U}=S3.svd;
+  ell3.scale.set(sigmas[0]||0.001,sigmas[1]||0.001,sigmas[2]||0.001);
+  if(U&&U[0]&&U[1]&&U[2]){
+    const m=new THREE.Matrix4().set(U[0][0],U[1][0],U[2][0],0,U[0][1],U[1][1],U[2][1],0,U[0][2],U[1][2],U[2][2],0,0,0,0,1);
+    ell3.setRotationFromMatrix(m);
+  }
+  clearGroup(svArr3);
+  if(S3.showSV){
+    const cols=[0xffd740,0xffaa00,0xffdd44];
+    V.forEach((v,i)=>{if(sigmas[i]>1e-10)addArrow3(v,sigmas[i],cols[i],svArr3);});
+  }
+  clearGroup(eigArr3);
+  const sym=isSymm3(A);
+  if(sym){
+    const{eigenvalues:evals,eigenvectors:evecs}=jacobi3(A);
+    el('r3-eig').className='rv rv-mag';
+    el('r3-eig').textContent=evals.map(fmt).join(', ');
+    if(S3.showEig){
+      const cols=[0xe040fb,0xcc00cc,0x990099];
+      evecs.forEach((v,i)=>{if(Math.abs(evals[i])>1e-10)addArrow3(v,Math.min(Math.abs(evals[i]),6),cols[i],eigArr3);});
     }
-
-    // Singular vector arrows (yellow shades)
-    clearGroup(svArr3);
-    if(S3.showSV){
-        const cols=[0xffff00,0xffaa00,0xffdd44];
-        V.forEach((v,i)=>{ if(sigmas[i]>1e-10) addArrow3(v,sigmas[i],cols[i],svArr3); });
-    }
-
-    // Eigenvector arrows
-    clearGroup(eigArr3);
-    const sym=isSymm3(A);
-    if(sym){
-        const {eigenvalues:evals,eigenvectors:evecs}=jacobi3(A);
-        el('r3-eig').className='val val-magenta';
-        el('r3-eig').textContent=evals.map(fmt).join(',  ');
-        if(S3.showEig){
-            const cols=[0xff00ff,0xcc00cc,0x990099];
-            evecs.forEach((v,i)=>{ if(Math.abs(evals[i])>1e-10) addArrow3(v,Math.min(Math.abs(evals[i]),6),cols[i],eigArr3); });
-        }
-    } else {
-        const {roots,complex}=eigenvals3(A);
-        if(complex){
-            el('r3-eig').className='val val-dim';
-            el('r3-eig').textContent=`${fmt(roots[0])},  ${fmt(roots[1])} ± ${fmt(roots[2])}i`;
-        } else {
-            el('r3-eig').className='val val-magenta';
-            el('r3-eig').textContent=roots.map(fmt).join(',  ');
-        }
-    }
-
-    el('r3-sv').textContent=sigmas.map(fmt).join(',  ');
-    el('r3-det').textContent=fmt(det3(A));
-    el('r3-tr').textContent=fmt(trace3(A));
-    el('r3-rank').textContent=sigmas.filter(s=>s>1e-7).length;
-    el('r3-frob').textContent=fmt(frob3(A));
-    el('r3-mat').textContent=
-        `A = [ ${A[0].map(pad).join('  ')} ]\n`+
-        `    [ ${A[1].map(pad).join('  ')} ]\n`+
-        `    [ ${A[2].map(pad).join('  ')} ]`;
+  }else{
+    const{roots,complex}=eigenvals3(A);
+    if(complex){el('r3-eig').className='rv rv-dim';el('r3-eig').textContent=`${fmt(roots[0])}, ${fmt(roots[1])}±${fmt(roots[2])}i`;}
+    else{el('r3-eig').className='rv rv-mag';el('r3-eig').textContent=roots.map(fmt).join(', ');}
+  }
+  el('r3-sv').textContent=sigmas.map(fmt).join(', ');
+  el('r3-det').textContent=fmt(det3(A));
+  el('r3-tr').textContent=fmt(trace3(A));
+  el('r3-rank').textContent=sigmas.filter(s=>s>1e-7).length;
+  el('r3-frob').textContent=fmt(frob3(A));
+  el('r3-mat').textContent=`A=[ ${A[0].map(pad).join(' ')} ]\n  [ ${A[1].map(pad).join(' ')} ]\n  [ ${A[2].map(pad).join(' ')} ]`;
 }
 
-// ═══════════════════════════════════════════════════
-// PRESETS
-// ═══════════════════════════════════════════════════
-const P2={
-    sym:  [[2,1],[1,2]],
-    rot45:(()=>{const a=Math.PI/4;return[[Math.cos(a),-Math.sin(a)],[Math.sin(a),Math.cos(a)]];})(),
-    scale:[[3,0],[0,0.5]],
-    shear:[[1,1.5],[0,1]],
-    sing: [[1,2],[2,4]],
-    id:   [[1,0],[0,1]]
-};
-const P3={
-    sym:  [[2,0.5,0],[0.5,2,0],[0,0,1]],
-    diag: [[3,0,0],[0,1.5,0],[0,0,0.5]],
-    rot:  (()=>{const a=Math.PI/4;return[[Math.cos(a),-Math.sin(a),0],[Math.sin(a),Math.cos(a),0],[0,0,1]];})(),
-    shear:[[1,1,0.5],[0,1,0],[0,0,1]],
-    flat: [[2,1,0],[1,2,0],[0,0,0]]
-};
-
-function setM2(m){
-    S2.M=m.map(r=>[...r]);
-    ['a11','a12','a21','a22'].forEach((id,k)=>{ el(id).value=m[Math.floor(k/2)][k%2]; });
-    compute2();
-}
-function readM2(){
-    S2.M=[[+el('a11').value||0,+el('a12').value||0],[+el('a21').value||0,+el('a22').value||0]];
+function readM3(){
+  const ids=['b11','b12','b13','b21','b22','b23','b31','b32','b33'];
+  const f=ids.map(id=>+el(id).value||0);
+  S3.M=[[f[0],f[1],f[2]],[f[3],f[4],f[5]],[f[6],f[7],f[8]]];
 }
 function setM3(m){
-    S3.M=m.map(r=>[...r]);
-    const ids=['b11','b12','b13','b21','b22','b23','b31','b32','b33'];
-    let k=0; for(let i=0;i<3;i++) for(let j=0;j<3;j++) el(ids[k++]).value=m[i][j];
-    compute3();
-}
-function readM3(){
-    const ids=['b11','b12','b13','b21','b22','b23','b31','b32','b33'];
-    const f=ids.map(id=>+el(id).value||0);
-    S3.M=[[f[0],f[1],f[2]],[f[3],f[4],f[5]],[f[6],f[7],f[8]]];
+  S3.M=m.map(r=>[...r]);
+  const ids=['b11','b12','b13','b21','b22','b23','b31','b32','b33'];
+  let k=0;for(let i=0;i<3;i++)for(let j=0;j<3;j++)el(ids[k++]).value=m[i][j];
+  compute3();
 }
 
-// ═══════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════
-function el(id){ return document.getElementById(id); }
-function fmt(x){ return isNaN(x)?'NaN':x.toFixed(4); }
-function pad(x){ return x.toFixed(3).padStart(7); }
-function toggleBtn(btn,on){
-    if(on){ btn.classList.remove('btn-secondary'); btn.classList.add('btn-active'); }
-    else  { btn.classList.remove('btn-active'); btn.classList.add('btn-secondary'); }
+// ═══ 2D DRAG EVENTS ═════════════════════════════════
+function applyDrag2(px,py){
+  if(drag2Target===null)return;
+  const[mx,my]=canvasToMath(px,py);
+  // snap to 0.1
+  const rx=Math.round(mx*10)/10, ry=Math.round(my*10)/10;
+  if(drag2Target===0){S2.M[0][0]=rx;S2.M[1][0]=ry;el('a11').value=rx;el('a21').value=ry;}
+  else               {S2.M[0][1]=rx;S2.M[1][1]=ry;el('a12').value=rx;el('a22').value=ry;}
+  compute2();
 }
 
-// ═══════════════════════════════════════════════════
-// EVENT WIRING
-// ═══════════════════════════════════════════════════
-// Theory
-el('theory2dBtn').addEventListener('click',function(){ el('theory2dPanel').classList.toggle('active'); this.classList.toggle('active'); });
-el('theory3dBtn').addEventListener('click',function(){ el('theory3dPanel').classList.toggle('active'); this.classList.toggle('active'); });
+function getCanvasXY(e,touch){
+  const r=cv2.getBoundingClientRect();
+  const src=touch?e.touches[0]:e;
+  return[src.clientX-r.left, src.clientY-r.top];
+}
 
-// 2D
-el('reset2dBtn').addEventListener('click',()=>setM2([[2,1],[1,2]]));
-el('grid2dBtn').addEventListener('click',function(){ S2.showGrid=!S2.showGrid; draw2(); this.textContent=(S2.showGrid?'⊞ Grid ✓':'⊞ Grid'); });
-el('eig2dBtn').addEventListener('click',function(){ S2.showEig=!S2.showEig; toggleBtn(this,S2.showEig); draw2(); });
-el('sv2dBtn').addEventListener('click',function(){ S2.showSV=!S2.showSV; toggleBtn(this,S2.showSV); draw2(); });
-['a11','a12','a21','a22'].forEach(id=>el(id).addEventListener('input',()=>{ readM2(); compute2(); }));
-document.querySelectorAll('[data-p2]').forEach(e=>e.addEventListener('click',()=>setM2(P2[e.dataset.p2])));
+function init2Events(){
+  // Mouse
+  cv2.addEventListener('mousedown',e=>{
+    const[px,py]=getCanvasXY(e,false);
+    if(hitCol(px,py,0))drag2Target=0;
+    else if(hitCol(px,py,1))drag2Target=1;
+    else drag2Target=null;
+    if(drag2Target!==null){e.preventDefault();cv2.style.cursor='grabbing';}
+  });
+  window.addEventListener('mouseup',()=>{drag2Target=null;cv2.style.cursor='crosshair';});
+  window.addEventListener('mousemove',e=>{
+    if(drag2Target===null)return;
+    const[px,py]=getCanvasXY(e,false);
+    applyDrag2(px,py);
+  });
+  // Touch
+  cv2.addEventListener('touchstart',e=>{
+    const r=cv2.getBoundingClientRect();
+    const px=e.touches[0].clientX-r.left,py=e.touches[0].clientY-r.top;
+    if(hitCol(px,py,0))drag2Target=0;
+    else if(hitCol(px,py,1))drag2Target=1;
+    else drag2Target=null;
+    if(drag2Target!==null)e.preventDefault();
+  },{passive:false});
+  cv2.addEventListener('touchmove',e=>{
+    if(drag2Target===null)return;
+    e.preventDefault();
+    const r=cv2.getBoundingClientRect();
+    applyDrag2(e.touches[0].clientX-r.left,e.touches[0].clientY-r.top);
+  },{passive:false});
+  cv2.addEventListener('touchend',()=>{drag2Target=null;});
+  cv2.style.cursor='crosshair';
+}
 
-// 3D
-el('reset3dBtn').addEventListener('click',()=>setM3([[2,0.5,0],[0.5,2,0],[0,0,1]]));
-el('axes3dBtn').addEventListener('click',function(){ S3.showAxes=!S3.showAxes; axH.visible=S3.showAxes; toggleBtn(this,S3.showAxes); });
-el('eig3dBtn').addEventListener('click',function(){ S3.showEig=!S3.showEig; toggleBtn(this,S3.showEig); compute3(); });
-el('sv3dBtn').addEventListener('click',function(){ S3.showSV=!S3.showSV; toggleBtn(this,S3.showSV); compute3(); });
-['b11','b12','b13','b21','b22','b23','b31','b32','b33'].forEach(id=>el(id).addEventListener('input',()=>{ readM3(); compute3(); }));
-document.querySelectorAll('[data-p3]').forEach(e=>e.addEventListener('click',()=>setM3(P3[e.dataset.p3])));
-
-// ═══════════════════════════════════════════════════
-// BOOT
-// ═══════════════════════════════════════════════════
+// ═══ BOOT ════════════════════════════════════════════
 window.addEventListener('load',()=>{
-    sizeCanvas2();
-    compute2();
-    init3();
+  resize2();
+  init2Events();
+  compute2();
 });
-window.addEventListener('resize',sizeCanvas2);
+window.addEventListener('resize',resize2);
 </script>
 </body>
 </html>
