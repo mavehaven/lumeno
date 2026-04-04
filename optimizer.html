@@ -1,1257 +1,1499 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quadratic Simulator: The Optimizer</title>
-    <style>
-        :root {
-            --primary: #4361ee;
-            --secondary: #3a0ca3;
-            --accent: #f72585;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --success: #4cc9f0;
-            --warning: #f8961e;
-            --danger: #e63946;
-            --grass: #4ade80;
-            --sky: #38bdf8;
-            --spring: #c084fc;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: var(--light);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, var(--accent), var(--success));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        
-        .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.8;
-        }
-        
-        .scenario-selector {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        
-        .scenario-button {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-        
-        .scenario-button:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        .scenario-button.active {
-            background: var(--primary);
-            box-shadow: 0 0 15px rgba(67, 97, 238, 0.5);
-        }
-        
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-        
-        @media (max-width: 1100px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        .simulation-container {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .simulation-title {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            text-align: center;
-            color: var(--success);
-        }
-        
-        .canvas-container {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 10px;
-            width: 100%;
-            height: 500px;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        
-        .controls-container {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .scenario-description {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 25px;
-            border: 1px solid var(--primary);
-            box-shadow: 0 0 15px rgba(67, 97, 238, 0.3);
-        }
-        
-        .scenario-description h3 {
-            color: var(--success);
-            margin-bottom: 10px;
-        }
-        
-        .parameter {
-            margin-bottom: 25px;
-        }
-        
-        .parameter-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .parameter-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-        
-        .parameter-value {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-family: monospace;
-            border: 1px solid var(--primary);
-        }
-        
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .slider {
-            flex: 1;
-            -webkit-appearance: none;
-            height: 8px;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.1);
-            outline: none;
-        }
-        
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-        
-        #velocity-slider::-webkit-slider-thumb {
-            background: var(--accent);
-            border: 2px solid white;
-        }
-        
-        #angle-slider::-webkit-slider-thumb {
-            background: var(--success);
-            border: 2px solid white;
-        }
-        
-        #fence-slider::-webkit-slider-thumb {
-            background: var(--warning);
-            border: 2px solid white;
-        }
-        
-        #side-slider::-webkit-slider-thumb {
-            background: var(--danger);
-            border: 2px solid white;
-        }
-        
-        #spring-slider::-webkit-slider-thumb {
-            background: var(--spring);
-            border: 2px solid white;
-        }
-        
-        .action-button {
-            padding: 15px;
-            border: none;
-            border-radius: 10px;
-            background: var(--accent);
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1.1rem;
-            font-weight: 500;
-            margin-top: 10px;
-            box-shadow: 0 0 15px rgba(247, 37, 133, 0.3);
-        }
-        
-        .action-button:hover {
-            background: #ff4da6;
-            transform: translateY(-2px);
-        }
-        
-        .action-button:active {
-            transform: translateY(0);
-        }
-        
-        .results-panel {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .results-title {
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-            color: var(--success);
-            text-align: center;
-        }
-        
-        .result {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .result:last-child {
-            border-bottom: none;
-        }
-        
-        .result-name {
-            font-weight: 500;
-        }
-        
-        .result-value {
-            font-family: monospace;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 8px;
-            border-radius: 5px;
-        }
-        
-        .instructions {
-            margin-top: 20px;
-            font-size: 0.9rem;
-            opacity: 0.7;
-            text-align: center;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        .equation-display {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 1.2rem;
-            font-family: 'Cambria Math', serif;
-            border: 1px solid var(--primary);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUAD//SIM — Physics Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050810;
+  --surface: #0a0f1e;
+  --panel: #0d1326;
+  --border: rgba(99,140,255,0.15);
+  --border-glow: rgba(99,140,255,0.4);
+  --neon: #4d8bff;
+  --neon-dim: rgba(77,139,255,0.12);
+  --accent: #ff3b6b;
+  --accent-dim: rgba(255,59,107,0.12);
+  --gold: #f5c842;
+  --gold-dim: rgba(245,200,66,0.12);
+  --teal: #00e5cc;
+  --teal-dim: rgba(0,229,204,0.12);
+  --purple: #b060ff;
+  --text: #e8eeff;
+  --text-muted: rgba(200,210,255,0.5);
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* Grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(77,139,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(77,139,255,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Scan line effect */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.app {
+  position: relative;
+  z-index: 2;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--neon);
+  position: relative;
+  overflow: hidden;
+}
+
+header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--neon), transparent);
+  animation: scan 3s linear infinite;
+}
+
+@keyframes scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, var(--neon), var(--teal));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  line-height: 1;
+}
+
+.logo-sub {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  border-left: 1px solid var(--border-glow);
+  padding-left: 16px;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--teal);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.sys-time {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+/* ── TAB BAR ── */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 6px;
+  border-radius: 2px;
+  align-self: flex-start;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  position: relative;
+  border-radius: 1px;
+}
+
+.tab-icon {
+  font-size: 1rem;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.tab:hover { color: var(--text); }
+.tab:hover .tab-icon { opacity: 1; }
+
+.tab.active {
+  background: var(--neon-dim);
+  color: var(--neon);
+  border: 1px solid var(--border-glow);
+}
+
+.tab.active .tab-icon { opacity: 1; }
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 1px;
+  background: var(--neon);
+  box-shadow: 0 0 6px var(--neon);
+}
+
+/* ── MAIN GRID ── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .main-grid { grid-template-columns: 1fr; }
+}
+
+/* ── VIEWPORT ── */
+.viewport-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+}
+
+.viewport-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.2);
+}
+
+.viewport-title {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--neon);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.viewport-title::before {
+  content: '';
+  width: 3px;
+  height: 12px;
+  background: var(--neon);
+  box-shadow: 0 0 6px var(--neon);
+}
+
+.viewport-tags {
+  display: flex;
+  gap: 8px;
+}
+
+.vtag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  padding: 3px 8px;
+  border: 1px solid var(--border-glow);
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.canvas-wrap {
+  position: relative;
+  background: #020408;
+  width: 100%;
+  height: 520px;
+}
+
+canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+}
+
+canvas.active { display: block; }
+
+/* Corner decorations */
+.canvas-wrap::before, .canvas-wrap::after {
+  content: '';
+  position: absolute;
+  width: 20px; height: 20px;
+  z-index: 10;
+  pointer-events: none;
+}
+.canvas-wrap::before {
+  top: 8px; left: 8px;
+  border-top: 1px solid var(--neon);
+  border-left: 1px solid var(--neon);
+}
+.canvas-wrap::after {
+  bottom: 8px; right: 8px;
+  border-bottom: 1px solid var(--neon);
+  border-right: 1px solid var(--neon);
+}
+
+.crosshair-tr, .crosshair-bl {
+  position: absolute;
+  width: 20px; height: 20px;
+  pointer-events: none;
+  z-index: 10;
+}
+.crosshair-tr { top: 8px; right: 8px; border-top: 1px solid var(--neon); border-right: 1px solid var(--neon); }
+.crosshair-bl { bottom: 8px; left: 8px; border-bottom: 1px solid var(--neon); border-left: 1px solid var(--neon); }
+
+.viewport-footer {
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0,0,0,0.3);
+}
+
+.vf-hint {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+/* ── CONTROL PANEL ── */
+.control-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cp-section {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cp-section:last-child { border-bottom: none; }
+
+.cp-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cp-label::before {
+  content: '//';
+  color: var(--neon);
+  font-size: 0.7rem;
+}
+
+/* Equation box */
+.eq-box {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border-glow);
+  padding: 14px 16px;
+  margin-bottom: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.eq-box::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--neon), transparent);
+  opacity: 0.5;
+}
+
+.eq-text {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--neon);
+  line-height: 1.6;
+  letter-spacing: 0.5px;
+}
+
+.eq-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+/* Sliders */
+.param-block {
+  margin-bottom: 20px;
+}
+
+.param-block:last-of-type { margin-bottom: 0; }
+
+.param-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.param-name {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.param-val {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--gold);
+  background: var(--gold-dim);
+  border: 1px solid rgba(245,200,66,0.25);
+  padding: 2px 10px;
+  min-width: 80px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-bound {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  flex: 1;
+  height: 2px;
+  background: rgba(255,255,255,0.08);
+  outline: none;
+  cursor: pointer;
+  position: relative;
+}
+
+input[type=range]::before {
+  content: '';
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--neon);
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 8px var(--neon);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+input[type=range]:hover::-webkit-slider-thumb {
+  transform: scale(1.2);
+  box-shadow: 0 0 14px var(--neon);
+}
+
+/* Color-coded sliders */
+.slider-accent::-webkit-slider-thumb { background: var(--accent) !important; box-shadow: 0 0 8px var(--accent) !important; }
+.slider-accent:hover::-webkit-slider-thumb { box-shadow: 0 0 14px var(--accent) !important; }
+.slider-teal::-webkit-slider-thumb { background: var(--teal) !important; box-shadow: 0 0 8px var(--teal) !important; }
+.slider-teal:hover::-webkit-slider-thumb { box-shadow: 0 0 14px var(--teal) !important; }
+.slider-gold::-webkit-slider-thumb { background: var(--gold) !important; box-shadow: 0 0 8px var(--gold) !important; }
+.slider-gold:hover::-webkit-slider-thumb { box-shadow: 0 0 14px var(--gold) !important; }
+.slider-purple::-webkit-slider-thumb { background: var(--purple) !important; box-shadow: 0 0 8px var(--purple) !important; }
+.slider-purple:hover::-webkit-slider-thumb { box-shadow: 0 0 14px var(--purple) !important; }
+
+/* FIRE button */
+.fire-btn {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  letter-spacing: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.fire-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s;
+  z-index: 0;
+}
+
+.fire-btn:hover::before { transform: scaleX(1); }
+.fire-btn:hover { color: white; }
+.fire-btn span { position: relative; z-index: 1; }
+
+.fire-btn.active-reset {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+  color: var(--gold);
+}
+
+.fire-btn.active-reset::before { background: var(--gold); }
+.fire-btn.active-reset:hover { color: var(--bg); }
+
+/* Results grid */
+.results-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+}
+
+.result-cell {
+  background: var(--panel);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rc-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.rc-value {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--teal);
+  letter-spacing: 1px;
+}
+
+.rc-value.highlight {
+  color: var(--gold);
+  text-shadow: 0 0 10px rgba(245,200,66,0.4);
+}
+
+/* hidden sections */
+.scenario-section { display: none; }
+.scenario-section.visible { display: contents; }
+
+/* ── FORMULA BAR ── */
+.formula-bar {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.formula-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.formula-live {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--neon);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formula-live span { color: var(--gold); }
+
+/* Hidden util */
+.hidden { display: none !important; }
+</style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Quadratic Simulator: The Optimizer</h1>
-            <p class="subtitle">Apply quadratic functions to real-world scenarios</p>
-        </header>
-        
-        <div class="scenario-selector">
-            <button class="scenario-button active" id="projectile-btn">Projectile Motion</button>
-            <button class="scenario-button" id="area-btn">Area Optimization</button>
-            <button class="scenario-button" id="spring-btn">Spring Energy</button>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-left">
+      <div class="logo">QUAD//SIM</div>
+      <div class="logo-sub">Quadratic Physics Engine v2.4</div>
+    </div>
+    <div class="header-status">
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        ENGINE ONLINE
+      </div>
+      <div class="sys-time" id="sys-time">SYS 00:00:00</div>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab active" id="tab-proj" onclick="switchTab('proj')">
+      <span class="tab-icon">🎯</span> Projectile
+    </button>
+    <button class="tab" id="tab-area" onclick="switchTab('area')">
+      <span class="tab-icon">📐</span> Area Optimizer
+    </button>
+    <button class="tab" id="tab-spring" onclick="switchTab('spring')">
+      <span class="tab-icon">🌀</span> Spring Energy
+    </button>
+  </div>
+
+  <!-- FORMULA BAR -->
+  <div class="formula-bar">
+    <div class="formula-label">f(x) =</div>
+    <div class="formula-live" id="formula-live">Loading...</div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- VIEWPORT -->
+    <div class="viewport-panel">
+      <div class="viewport-header">
+        <div class="viewport-title" id="viewport-title">PROJECTILE MOTION — PARABOLIC TRAJECTORY</div>
+        <div class="viewport-tags">
+          <div class="vtag">REAL-TIME</div>
+          <div class="vtag" id="vtag-coords">x=0 y=0</div>
         </div>
-        
-        <div class="main-content">
-            <div class="simulation-container">
-                <h2 class="simulation-title" id="simulation-title">Projectile Motion</h2>
-                <div class="canvas-container">
-                    <canvas id="projectile-canvas"></canvas>
-                </div>
-                <div class="instructions" id="projectile-instructions">
-                    <p>Adjust the initial velocity and angle, then click FIRE! to launch the projectile.</p>
-                </div>
-                <div class="canvas-container hidden">
-                    <canvas id="area-canvas"></canvas>
-                </div>
-                <div class="instructions hidden" id="area-instructions">
-                    <p>Adjust the fence length and side x to maximize the rectangular area.</p>
-                </div>
-                <div class="canvas-container hidden">
-                    <canvas id="spring-canvas"></canvas>
-                </div>
-                <div class="instructions hidden" id="spring-instructions">
-                    <p>Adjust the spring constant and compression to see the potential energy.</p>
-                </div>
-            </div>
-            
-            <div class="controls-container">
-                <div class="scenario-description" id="projectile-description">
-                    <h3>Projectile Motion</h3>
-                    <p>A cannon launches a projectile with initial velocity v₀ at an angle θ. The path follows a parabolic trajectory:</p>
-                    <div class="equation-display">y(x) = -½g(x/(v₀·cosθ))² + (v₀·sinθ)(x/(v₀·cosθ)) + h₀</div>
-                    <p>Where g is gravity (9.8 m/s²), and h₀ is the initial height.</p>
-                </div>
-                
-                <div class="scenario-description hidden" id="area-description">
-                    <h3>Area Optimization</h3>
-                    <p>A farmer has a fixed length of fencing to create a rectangular enclosure. By using one side of a barn as part of the enclosure, we can maximize the area:</p>
-                    <div class="equation-display">A(x) = x · (L - 2x)</div>
-                    <p>Where L is the total fence length, and x is the length of the sides perpendicular to the barn.</p>
-                </div>
-                
-                <div class="scenario-description hidden" id="spring-description">
-                    <h3>Spring Potential Energy</h3>
-                    <p>Hooke's Law states that the force exerted by a spring is proportional to its displacement from equilibrium. The potential energy stored in a spring is quadratic:</p>
-                    <div class="equation-display">PE = ½kx²</div>
-                    <p>Where k is the spring constant and x is the displacement from equilibrium.</p>
-                </div>
-                
-                <div id="projectile-controls">
-                    <div class="parameter">
-                        <div class="parameter-header">
-                            <div class="parameter-title">Initial Velocity (v₀)</div>
-                            <div class="parameter-value" id="velocity-display">20 m/s</div>
-                        </div>
-                        <div class="slider-container">
-                            <span>5 m/s</span>
-                            <input type="range" min="5" max="50" step="1" value="20" class="slider" id="velocity-slider">
-                            <span>50 m/s</span>
-                        </div>
-                    </div>
-                    
-                    <div class="parameter">
-                        <div class="parameter-header">
-                            <div class="parameter-title">Launch Angle (θ)</div>
-                            <div class="parameter-value" id="angle-display">45°</div>
-                        </div>
-                        <div class="slider-container">
-                            <span>15°</span>
-                            <input type="range" min="15" max="75" step="1" value="45" class="slider" id="angle-slider">
-                            <span>75°</span>
-                        </div>
-                    </div>
-                    
-                    <button class="action-button" id="fire-button">FIRE!</button>
-                    
-                    <div class="results-panel">
-                        <h3 class="results-title">Projectile Results</h3>
-                        <div class="result">
-                            <span class="result-name">Maximum Height:</span>
-                            <span class="result-value" id="max-height">10.19 m</span>
-                        </div>
-                        <div class="result">
-                            <span class="result-name">Time to Max Height:</span>
-                            <span class="result-value" id="time-to-max">1.44 s</span>
-                        </div>
-                        <div class="result">
-                            <span class="result-name">Total Flight Time:</span>
-                            <span class="result-value" id="total-time">3.16 s</span>
-                        </div>
-                        <div class="result">
-                            <span class="result-name">Horizontal Distance:</span>
-                            <span class="result-value" id="horizontal-distance">44.72 m</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div id="area-controls" class="hidden">
-                    <div class="parameter">
-                        <div class="parameter-header">
-                            <div class="parameter-title">Total Fence Length (L)</div>
-                            <div class="parameter-value" id="fence-display">100 m</div>
-                        </div>
-                        <div class="slider-container">
-                            <span>40 m</span>
-                            <input type="range" min="40" max="200" step="5" value="100" class="slider" id="fence-slider">
-                            <span>200 m</span>
-                        </div>
-                    </div>
-                    
-                    <div class="parameter">
-                        <div class="parameter-header">
-                            <div class="parameter-title">Side Length (x)</div>
-                            <div class="parameter-value" id="side-display">25.00 m</div>
-                        </div>
-                        <div class="slider-container">
-                            <span>5 m</span>
-                            <input type="range" min="5" max="50" step="0.5" value="25" class="slider" id="side-slider">
-                            <span>50 m</span>
-                        </div>
-                    </div>
-                    
-                    <div class="results-panel">
-                        <h3 class="results-title">Area Optimization Results</h3>
-                        <div class="result">
-                            <span class="result-name">Current Area:</span>
-                            <span class="result-value" id="current-area">1250.00 m²</span>
-                        </div>
-                        <div class="result">
-                            <span class="result-name">Maximum Possible Area:</span>
-                            <span class="result-value" id="max-area">1250.00 m²</span>
-                        </div>
-                        <div class="result">
-                            <span class="result-name">Optimal x value:</span>
-                            <span class="result-value" id="optimal-x">25.00 m</span>
-                        </div>
-                        <div class="result">
-                            <span class="result-name">Other side length:</span>
-                            <span class="result-value" id="other-side">50.00 m</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div id="spring-controls" class="hidden">
-                    <div class="parameter">
-                        <div class="parameter-header">
-                            <div class="parameter-title">Spring Constant (k)</div>
-                            <div class="parameter-value" id="spring-constant-display">50 N/m</div>
-                        </div>
-                        <div class="slider-container">
-                            <span>10 N/m</span>
-                            <input type="range" min="10" max="200" step="5" value="50" class="slider" id="spring-slider">
-                            <span>200 N/m</span>
-                        </div>
-                    </div>
-                    
-                    <div class="parameter">
-                        <div class="parameter-header">
-                            <div class="parameter-title">Compression/Stretch (x)</div>
-                            <div class="parameter-value" id="compression-display">0.50 m</div>
-                        </div>
-                        <div class="slider-container">
-                            <span>0 m</span>
-                            <input type="range" min="0" max="2" step="0.05" value="0.5" class="slider" id="compression-slider">
-                            <span>2 m</span>
-                        </div>
-                    </div>
-                    
-                    <div class="results-panel">
-                        <h3 class="results-title">Spring Energy Results</h3>
-                        <div class="result">
-                            <span class="result-name">Potential Energy:</span>
-                            <span class="result-value" id="potential-energy">6.25 J</span>
-                        </div>
-                        <div class="result">
-                            <span class="result-name">Spring Force:</span>
-                            <span class="result-value" id="spring-force">25.00 N</span>
-                        </div>
-                        <div class="result">
-                            <span class="result-name">Energy at Max Compression:</span>
-                            <span class="result-value" id="max-energy">100.00 J</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+      </div>
+      <div class="canvas-wrap">
+        <div class="crosshair-tr"></div>
+        <div class="crosshair-bl"></div>
+        <canvas id="c-proj" class="active"></canvas>
+        <canvas id="c-area"></canvas>
+        <canvas id="c-spring"></canvas>
+      </div>
+      <div class="viewport-footer">
+        <div class="vf-hint" id="vf-hint">Adjust parameters in the control panel to see the trajectory update in real time.</div>
+        <div class="vf-hint" id="vf-mode">MODE: PREVIEW</div>
+      </div>
     </div>
 
-    <script>
-        // Get DOM elements
-        const projectileCanvas = document.getElementById('projectile-canvas');
-        const areaCanvas = document.getElementById('area-canvas');
-        const springCanvas = document.getElementById('spring-canvas');
-        const projectileCtx = projectileCanvas.getContext('2d');
-        const areaCtx = areaCanvas.getContext('2d');
-        const springCtx = springCanvas.getContext('2d');
-        
-        // Scenario buttons
-        const projectileBtn = document.getElementById('projectile-btn');
-        const areaBtn = document.getElementById('area-btn');
-        const springBtn = document.getElementById('spring-btn');
-        
-        // Scenario descriptions
-        const projectileDescription = document.getElementById('projectile-description');
-        const areaDescription = document.getElementById('area-description');
-        const springDescription = document.getElementById('spring-description');
-        
-        // Controls
-        const projectileControls = document.getElementById('projectile-controls');
-        const areaControls = document.getElementById('area-controls');
-        const springControls = document.getElementById('spring-controls');
-        
-        // Simulation titles and instructions
-        const simulationTitle = document.getElementById('simulation-title');
-        const projectileInstructions = document.getElementById('projectile-instructions');
-        const areaInstructions = document.getElementById('area-instructions');
-        const springInstructions = document.getElementById('spring-instructions');
-        
-        // Projectile controls
-        const velocitySlider = document.getElementById('velocity-slider');
-        const angleSlider = document.getElementById('angle-slider');
-        const velocityDisplay = document.getElementById('velocity-display');
-        const angleDisplay = document.getElementById('angle-display');
-        const fireButton = document.getElementById('fire-button');
-        
-        // Area controls
-        const fenceSlider = document.getElementById('fence-slider');
-        const sideSlider = document.getElementById('side-slider');
-        const fenceDisplay = document.getElementById('fence-display');
-        const sideDisplay = document.getElementById('side-display');
-        
-        // Spring controls
-        const springSlider = document.getElementById('spring-slider');
-        const compressionSlider = document.getElementById('compression-slider');
-        const springConstantDisplay = document.getElementById('spring-constant-display');
-        const compressionDisplay = document.getElementById('compression-display');
-        
-        // Results displays
-        const maxHeight = document.getElementById('max-height');
-        const timeToMax = document.getElementById('time-to-max');
-        const totalTime = document.getElementById('total-time');
-        const horizontalDistance = document.getElementById('horizontal-distance');
-        
-        const currentArea = document.getElementById('current-area');
-        const maxArea = document.getElementById('max-area');
-        const optimalX = document.getElementById('optimal-x');
-        const otherSide = document.getElementById('other-side');
-        
-        const potentialEnergy = document.getElementById('potential-energy');
-        const springForce = document.getElementById('spring-force');
-        const maxEnergy = document.getElementById('max-energy');
-        
-        // Canvas containers
-        const canvasContainers = document.querySelectorAll('.canvas-container');
-        
-        // Initialize parameters
-        // Projectile parameters
-        let velocity = 20;  // m/s
-        let angle = 45;     // degrees
-        let gravity = 9.8;  // m/s²
-        let initialHeight = 0; // meters
-        let isFlying = false;
-        let animationId = null;
-        let time = 0;
-        
-        // Area parameters
-        let fenceLength = 100; // meters
-        let sideX = 25; // meters
-        
-        // Spring parameters
-        let springConstant = 50; // N/m
-        let compression = 0.5; // meters
-        
-        // Set canvas dimensions
-        function setCanvasSize() {
-            const container = document.querySelector('.canvas-container:not(.hidden)');
-            if (!container) return;
-            
-            const width = container.clientWidth;
-            const height = container.clientHeight;
-            
-            // Set all canvases to the same size
-            [projectileCanvas, areaCanvas, springCanvas].forEach(canvas => {
-                canvas.width = width;
-                canvas.height = height;
-            });
-            
-            // Redraw the current scenario
-            if (projectileBtn.classList.contains('active')) {
-                drawProjectileScene();
-            } else if (areaBtn.classList.contains('active')) {
-                drawAreaScene();
-            } else if (springBtn.classList.contains('active')) {
-                drawSpringScene();
-            }
-        }
-        
-        // Draw the projectile scene
-        function drawProjectileScene() {
-            const width = projectileCanvas.width;
-            const height = projectileCanvas.height;
-            
-            projectileCtx.clearRect(0, 0, width, height);
-            
-            // Draw sky
-            const gradient = projectileCtx.createLinearGradient(0, 0, 0, height);
-            gradient.addColorStop(0, '#1e3a8a');
-            gradient.addColorStop(1, '#38bdf8');
-            projectileCtx.fillStyle = gradient;
-            projectileCtx.fillRect(0, 0, width, height - 50);
-            
-            // Draw ground
-            projectileCtx.fillStyle = '#15803d';
-            projectileCtx.fillRect(0, height - 50, width, 50);
-            
-            // Draw grass details
-            projectileCtx.fillStyle = '#16a34a';
-            for (let i = 0; i < width; i += 10) {
-                projectileCtx.fillRect(i, height - 50, 5, -Math.random() * 10 - 5);
-            }
-            
-            // Draw cannon
-            const cannonX = 50;
-            const cannonY = height - 50;
-            const angleRad = angle * Math.PI / 180;
-            const cannonLength = 30;
-            
-            projectileCtx.fillStyle = '#6b7280';
-            projectileCtx.fillRect(cannonX - 10, cannonY - 20, 20, 20);
-            
-            projectileCtx.strokeStyle = '#4b5563';
-            projectileCtx.lineWidth = 10;
-            projectileCtx.lineCap = 'round';
-            projectileCtx.beginPath();
-            projectileCtx.moveTo(cannonX, cannonY - 10);
-            projectileCtx.lineTo(
-                cannonX + cannonLength * Math.cos(angleRad),
-                cannonY - 10 - cannonLength * Math.sin(angleRad)
-            );
-            projectileCtx.stroke();
-            
-            // Draw trajectory if not flying
-            if (!isFlying) {
-                drawTrajectory();
-            }
-        }
-        
-        // Draw the trajectory path
-        function drawTrajectory() {
-            const width = projectileCanvas.width;
-            const height = projectileCanvas.height;
-            
-            const angleRad = angle * Math.PI / 180;
-            const v0x = velocity * Math.cos(angleRad);
-            const v0y = velocity * Math.sin(angleRad);
-            
-            // Calculate total flight time
-            const tTotal = (v0y + Math.sqrt(v0y * v0y + 2 * gravity * initialHeight)) / gravity;
-            
-            projectileCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            projectileCtx.lineWidth = 2;
-            projectileCtx.setLineDash([5, 5]);
-            projectileCtx.beginPath();
-            
-            const steps = 50;
-            for (let i = 0; i <= steps; i++) {
-                const t = (i / steps) * tTotal;
-                const x = v0x * t;
-                const y = initialHeight + v0y * t - 0.5 * gravity * t * t;
-                
-                // Scale coordinates to fit canvas
-                const canvasX = 50 + x * 4;
-                const canvasY = height - y * 4 - 50;
-                
-                if (i === 0) {
-                    projectileCtx.moveTo(canvasX, canvasY);
-                } else {
-                    projectileCtx.lineTo(canvasX, canvasY);
-                }
-            }
-            
-            projectileCtx.stroke();
-            projectileCtx.setLineDash([]);
-        }
-        
-        // Animate the projectile
-        function animateProjectile() {
-            if (!isFlying) return;
-            
-            const width = projectileCanvas.width;
-            const height = projectileCanvas.height;
-            
-            const angleRad = angle * Math.PI / 180;
-            const v0x = velocity * Math.cos(angleRad);
-            const v0y = velocity * Math.sin(angleRad);
-            
-            // Calculate position at current time
-            const x = v0x * time;
-            const y = initialHeight + v0y * time - 0.5 * gravity * time * time;
-            
-            // Redraw scene
-            drawProjectileScene();
-            
-            // Draw projectile
-            const canvasX = 50 + x * 4;
-            const canvasY = height - y * 4 - 50;
-            
-            projectileCtx.fillStyle = '#e63946';
-            projectileCtx.beginPath();
-            projectileCtx.arc(canvasX, canvasY, 8, 0, Math.PI * 2);
-            projectileCtx.fill();
-            projectileCtx.strokeStyle = 'white';
-            projectileCtx.lineWidth = 2;
-            projectileCtx.stroke();
-            
-            // Update time
-            time += 0.05;
-            
-            // Check if projectile hit the ground
-            if (y <= 0 && time > 0.1) {
-                isFlying = false;
-                cancelAnimationFrame(animationId);
-                updateProjectileResults();
-                fireButton.textContent = 'FIRE!';
-                return;
-            }
-            
-            animationId = requestAnimationFrame(animateProjectile);
-        }
-        
-        // Update projectile results
-        function updateProjectileResults() {
-            const angleRad = angle * Math.PI / 180;
-            const v0x = velocity * Math.cos(angleRad);
-            const v0y = velocity * Math.sin(angleRad);
-            
-            // Time to maximum height
-            const tMax = v0y / gravity;
-            
-            // Maximum height
-            const hMax = initialHeight + v0y * tMax - 0.5 * gravity * tMax * tMax;
-            
-            // Total flight time
-            const tTotal = (v0y + Math.sqrt(v0y * v0y + 2 * gravity * initialHeight)) / gravity;
-            
-            // Horizontal distance
-            const xTotal = v0x * tTotal;
-            
-            // Update displays
-            maxHeight.textContent = hMax.toFixed(2) + ' m';
-            timeToMax.textContent = tMax.toFixed(2) + ' s';
-            totalTime.textContent = tTotal.toFixed(2) + ' s';
-            horizontalDistance.textContent = xTotal.toFixed(2) + ' m';
-        }
-        
-        // Draw the area optimization scene
-        function drawAreaScene() {
-            const width = areaCanvas.width;
-            const height = areaCanvas.height;
-            
-            areaCtx.clearRect(0, 0, width, height);
-            
-            // Draw background
-            areaCtx.fillStyle = '#1e3a8a';
-            areaCtx.fillRect(0, 0, width, height);
-            
-            // Calculate dimensions
-            const otherSideLength = fenceLength - 2 * sideX;
-            const scale = Math.min(width / 400, height / 300);
-            
-            // Draw barn
-            const barnWidth = 80 * scale;
-            const barnHeight = 120 * scale;
-            const barnX = 50 * scale;
-            const barnY = height - barnHeight - 50 * scale;
-            
-            areaCtx.fillStyle = '#7c2d12';
-            areaCtx.fillRect(barnX, barnY, barnWidth, barnHeight);
-            
-            // Draw barn details
-            areaCtx.fillStyle = '#9a3412';
-            areaCtx.fillRect(barnX, barnY, barnWidth, 20 * scale); // Roof
-            areaCtx.fillRect(barnX + 10 * scale, barnY + 30 * scale, 20 * scale, 40 * scale); // Window
-            areaCtx.fillRect(barnX + 50 * scale, barnY + 60 * scale, 20 * scale, 60 * scale); // Door
-            
-            // Draw fencing
-            const fenceX = barnX + barnWidth;
-            const fenceY = height - 50 * scale;
-            const sideY = fenceY - sideX * 3 * scale;
-            
-            areaCtx.strokeStyle = '#d97706';
-            areaCtx.lineWidth = 3 * scale;
-            
-            // Draw fence posts and rails
-            for (let i = 0; i <= 3; i++) {
-                const x = fenceX + (i * sideX * 3 * scale) / 3;
-                
-                // Post
-                areaCtx.fillStyle = '#92400e';
-                areaCtx.fillRect(x - 3 * scale, sideY, 6 * scale, fenceY - sideY);
-                
-                // Rails
-                if (i < 3) {
-                    areaCtx.beginPath();
-                    areaCtx.moveTo(x, sideY + 10 * scale);
-                    areaCtx.lineTo(x + sideX * 3 * scale, sideY + 10 * scale);
-                    areaCtx.stroke();
-                    
-                    areaCtx.beginPath();
-                    areaCtx.moveTo(x, sideY + 30 * scale);
-                    areaCtx.lineTo(x + sideX * 3 * scale, sideY + 30 * scale);
-                    areaCtx.stroke();
-                }
-            }
-            
-            // Draw the enclosed area
-            areaCtx.fillStyle = 'rgba(34, 197, 94, 0.3)';
-            areaCtx.fillRect(fenceX, sideY, sideX * 3 * scale, fenceY - sideY);
-            
-            // Draw labels
-            areaCtx.fillStyle = 'white';
-            areaCtx.font = `${14 * scale}px Arial`;
-            areaCtx.textAlign = 'center';
-            
-            // Label x
-            areaCtx.fillText('x', fenceX + sideX * 1.5 * 3 * scale, fenceY + 20 * scale);
-            areaCtx.beginPath();
-            areaCtx.moveTo(fenceX, fenceY + 10 * scale);
-            areaCtx.lineTo(fenceX + sideX * 3 * scale, fenceY + 10 * scale);
-            areaCtx.strokeStyle = 'white';
-            areaCtx.lineWidth = 1 * scale;
-            areaCtx.stroke();
-            
-            // Label L - 2x
-            areaCtx.fillText(`L - 2x = ${otherSideLength.toFixed(1)}m`, fenceX + sideX * 3 * scale + 60 * scale, sideY + (fenceY - sideY) / 2);
-            areaCtx.beginPath();
-            areaCtx.moveTo(fenceX + sideX * 3 * scale, sideY + 10 * scale);
-            areaCtx.lineTo(fenceX + sideX * 3 * scale, fenceY - 10 * scale);
-            areaCtx.stroke();
-            
-            // Draw current area value
-            const currentAreaValue = sideX * otherSideLength;
-            areaCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            areaCtx.font = `${16 * scale}px Arial`;
-            areaCtx.fillText(`Area: ${currentAreaValue.toFixed(1)} m²`, width / 2, 30 * scale);
-            
-            // Draw optimal point if needed
-            const optimalXValue = fenceLength / 4;
-            if (Math.abs(sideX - optimalXValue) > 0.1) {
-                areaCtx.fillStyle = 'rgba(239, 68, 68, 0.7)';
-                areaCtx.font = `${14 * scale}px Arial`;
-                areaCtx.fillText(`Optimal x: ${optimalXValue.toFixed(1)} m`, width / 2, 60 * scale);
-                
-                // Draw arrow to optimal point
-                const optimalXPos = fenceX + optimalXValue * 3 * scale;
-                areaCtx.strokeStyle = 'rgba(239, 68, 68, 0.7)';
-                areaCtx.lineWidth = 2 * scale;
-                areaCtx.setLineDash([5, 5]);
-                areaCtx.beginPath();
-                areaCtx.moveTo(optimalXPos, fenceY + 30 * scale);
-                areaCtx.lineTo(optimalXPos, sideY);
-                areaCtx.stroke();
-                areaCtx.setLineDash([]);
-            }
-        }
-        
-        // Update area results
-        function updateAreaResults() {
-            const otherSideLength = fenceLength - 2 * sideX;
-            const currentAreaValue = sideX * otherSideLength;
-            const optimalXValue = fenceLength / 4;
-            const maxAreaValue = optimalXValue * (fenceLength - 2 * optimalXValue);
-            
-            currentArea.textContent = currentAreaValue.toFixed(2) + ' m²';
-            maxArea.textContent = maxAreaValue.toFixed(2) + ' m²';
-            optimalX.textContent = optimalXValue.toFixed(2) + ' m';
-            otherSide.textContent = otherSideLength.toFixed(2) + ' m';
-        }
-        
-        // Draw the spring energy scene
-        function drawSpringScene() {
-            const width = springCanvas.width;
-            const height = springCanvas.height;
-            
-            springCtx.clearRect(0, 0, width, height);
-            
-            // Draw background
-            springCtx.fillStyle = '#1e3a8a';
-            springCtx.fillRect(0, 0, width, height);
-            
-            // Draw wall
-            const wallWidth = 30;
-            const wallHeight = 150;
-            const wallX = 100;
-            const wallY = height / 2 - wallHeight / 2;
-            
-            springCtx.fillStyle = '#6b7280';
-            springCtx.fillRect(wallX, wallY, wallWidth, wallHeight);
-            
-            // Draw wall details
-            springCtx.fillStyle = '#4b5563';
-            for (let i = 0; i < 5; i++) {
-                springCtx.fillRect(wallX + 5, wallY + 20 + i * 25, 20, 10);
-            }
-            
-            // Draw spring
-            const springLength = 100 + compression * 50; // Base length + compression effect
-            const springX = wallX + wallWidth;
-            const springY = height / 2;
-            const coils = 10;
-            const coilHeight = 20;
-            
-            springCtx.strokeStyle = '#c084fc';
-            springCtx.lineWidth = 4;
-            springCtx.beginPath();
-            springCtx.moveTo(springX, springY);
-            
-            for (let i = 0; i < coils; i++) {
-                const x = springX + (i * springLength) / coils;
-                const y = springY + (i % 2 === 0 ? coilHeight : -coilHeight);
-                springCtx.lineTo(x, y);
-            }
-            
-            springCtx.lineTo(springX + springLength, springY);
-            springCtx.stroke();
-            
-            // Draw mass
-            const massWidth = 40;
-            const massHeight = 30;
-            const massX = springX + springLength;
-            const massY = springY - massHeight / 2;
-            
-            springCtx.fillStyle = '#f97316';
-            springCtx.fillRect(massX, massY, massWidth, massHeight);
-            
-            // Draw equilibrium line
-            springCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            springCtx.setLineDash([5, 5]);
-            springCtx.beginPath();
-            springCtx.moveTo(springX + 100, springY - 80);
-            springCtx.lineTo(springX + 100, springY + 80);
-            springCtx.stroke();
-            springCtx.setLineDash([]);
-            
-            // Draw compression/stretch indicator
-            springCtx.strokeStyle = '#4cc9f0';
-            springCtx.lineWidth = 2;
-            springCtx.beginPath();
-            if (compression > 0) {
-                // Compressed
-                springCtx.moveTo(springX + 100, springY);
-                springCtx.lineTo(springX + springLength, springY);
-                springCtx.stroke();
-                
-                springCtx.fillStyle = '#4cc9f0';
-                springCtx.font = '14px Arial';
-                springCtx.fillText(`x = ${compression.toFixed(2)} m`, springX + 100 + (springLength - 100) / 2, springY - 10);
-            } else if (compression < 0) {
-                // Stretched
-                springCtx.moveTo(springX + 100, springY);
-                springCtx.lineTo(springX + springLength, springY);
-                springCtx.stroke();
-                
-                springCtx.fillStyle = '#4cc9f0';
-                springCtx.font = '14px Arial';
-                springCtx.fillText(`x = ${(-compression).toFixed(2)} m`, springX + 100 + (springLength - 100) / 2, springY - 10);
-            }
-            
-            // Draw energy graph
-            const graphWidth = 200;
-            const graphHeight = 120;
-            const graphX = width - graphWidth - 30;
-            const graphY = 30;
-            
-            // Draw graph background
-            springCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-            springCtx.fillRect(graphX, graphY, graphWidth, graphHeight);
-            
-            // Draw graph axes
-            springCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            springCtx.lineWidth = 1;
-            springCtx.beginPath();
-            springCtx.moveTo(graphX, graphY + graphHeight / 2);
-            springCtx.lineTo(graphX + graphWidth, graphY + graphHeight / 2);
-            springCtx.stroke();
-            
-            springCtx.beginPath();
-            springCtx.moveTo(graphX, graphY);
-            springCtx.lineTo(graphX, graphY + graphHeight);
-            springCtx.stroke();
-            
-            // Draw energy curve (PE = ½kx²)
-            springCtx.strokeStyle = '#c084fc';
-            springCtx.lineWidth = 3;
-            springCtx.beginPath();
-            
-            for (let x = -2; x <= 2; x += 0.1) {
-                const energy = 0.5 * springConstant * x * x;
-                const plotX = graphX + ((x + 2) / 4) * graphWidth;
-                const plotY = graphY + graphHeight - (energy / (0.5 * springConstant * 4)) * graphHeight;
-                
-                if (x === -2) {
-                    springCtx.moveTo(plotX, plotY);
-                } else {
-                    springCtx.lineTo(plotX, plotY);
-                }
-            }
-            
-            springCtx.stroke();
-            
-            // Draw current point
-            const currentEnergy = 0.5 * springConstant * compression * compression;
-            const currentPlotX = graphX + ((compression + 2) / 4) * graphWidth;
-            const currentPlotY = graphY + graphHeight - (currentEnergy / (0.5 * springConstant * 4)) * graphHeight;
-            
-            springCtx.fillStyle = '#e63946';
-            springCtx.beginPath();
-            springCtx.arc(currentPlotX, currentPlotY, 6, 0, Math.PI * 2);
-            springCtx.fill();
-            
-            // Draw labels
-            springCtx.fillStyle = 'white';
-            springCtx.font = '12px Arial';
-            springCtx.fillText('Displacement (m)', graphX + graphWidth / 2 - 40, graphY + graphHeight + 15);
-            springCtx.save();
-            springCtx.translate(graphX - 20, graphY + graphHeight / 2);
-            springCtx.rotate(-Math.PI / 2);
-            springCtx.fillText('Energy (J)', 0, 0);
-            springCtx.restore();
-            
-            // Draw current energy value
-            springCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            springCtx.font = '16px Arial';
-            springCtx.fillText(`PE = ½ × ${springConstant} × ${compression.toFixed(2)}² = ${currentEnergy.toFixed(2)} J`, 
-                              width / 2, height - 20);
-        }
-        
-        // Update spring results
-        function updateSpringResults() {
-            const currentEnergy = 0.5 * springConstant * compression * compression;
-            const currentForce = springConstant * Math.abs(compression);
-            const maxEnergyValue = 0.5 * springConstant * 4; // At maximum compression of 2m
-            
-            potentialEnergy.textContent = currentEnergy.toFixed(2) + ' J';
-            springForce.textContent = currentForce.toFixed(2) + ' N';
-            maxEnergy.textContent = maxEnergyValue.toFixed(2) + ' J';
-        }
-        
-        // Switch to projectile scenario
-        function showProjectileScenario() {
-            // Update UI state
-            projectileBtn.classList.add('active');
-            areaBtn.classList.remove('active');
-            springBtn.classList.remove('active');
-            
-            projectileDescription.classList.remove('hidden');
-            areaDescription.classList.add('hidden');
-            springDescription.classList.add('hidden');
-            
-            projectileControls.classList.remove('hidden');
-            areaControls.classList.add('hidden');
-            springControls.classList.add('hidden');
-            
-            // Show/hide canvas containers
-            canvasContainers[0].classList.remove('hidden');
-            canvasContainers[1].classList.add('hidden');
-            canvasContainers[2].classList.add('hidden');
-            
-            projectileInstructions.classList.remove('hidden');
-            areaInstructions.classList.add('hidden');
-            springInstructions.classList.add('hidden');
-            
-            simulationTitle.textContent = 'Projectile Motion';
-            
-            // Set canvas size and draw
-            setCanvasSize();
-        }
-        
-        // Switch to area scenario
-        function showAreaScenario() {
-            // Update UI state
-            areaBtn.classList.add('active');
-            projectileBtn.classList.remove('active');
-            springBtn.classList.remove('active');
-            
-            areaDescription.classList.remove('hidden');
-            projectileDescription.classList.add('hidden');
-            springDescription.classList.add('hidden');
-            
-            areaControls.classList.remove('hidden');
-            projectileControls.classList.add('hidden');
-            springControls.classList.add('hidden');
-            
-            // Show/hide canvas containers
-            canvasContainers[0].classList.add('hidden');
-            canvasContainers[1].classList.remove('hidden');
-            canvasContainers[2].classList.add('hidden');
-            
-            areaInstructions.classList.remove('hidden');
-            projectileInstructions.classList.add('hidden');
-            springInstructions.classList.add('hidden');
-            
-            simulationTitle.textContent = 'Area Optimization';
-            
-            // Set canvas size and draw
-            setCanvasSize();
-        }
-        
-        // Switch to spring scenario
-        function showSpringScenario() {
-            // Update UI state
-            springBtn.classList.add('active');
-            projectileBtn.classList.remove('active');
-            areaBtn.classList.remove('active');
-            
-            springDescription.classList.remove('hidden');
-            projectileDescription.classList.add('hidden');
-            areaDescription.classList.add('hidden');
-            
-            springControls.classList.remove('hidden');
-            projectileControls.classList.add('hidden');
-            areaControls.classList.add('hidden');
-            
-            // Show/hide canvas containers
-            canvasContainers[0].classList.add('hidden');
-            canvasContainers[1].classList.add('hidden');
-            canvasContainers[2].classList.remove('hidden');
-            
-            springInstructions.classList.remove('hidden');
-            projectileInstructions.classList.add('hidden');
-            areaInstructions.classList.add('hidden');
-            
-            simulationTitle.textContent = 'Spring Energy';
-            
-            // Set canvas size and draw
-            setCanvasSize();
-        }
-        
-        // Initialize event listeners
-        function initEventListeners() {
-            // Scenario buttons
-            projectileBtn.addEventListener('click', showProjectileScenario);
-            areaBtn.addEventListener('click', showAreaScenario);
-            springBtn.addEventListener('click', showSpringScenario);
-            
-            // Projectile controls
-            velocitySlider.addEventListener('input', function() {
-                velocity = parseInt(velocitySlider.value);
-                velocityDisplay.textContent = velocity + ' m/s';
-                drawProjectileScene();
-                updateProjectileResults();
-            });
-            
-            angleSlider.addEventListener('input', function() {
-                angle = parseInt(angleSlider.value);
-                angleDisplay.textContent = angle + '°';
-                drawProjectileScene();
-                updateProjectileResults();
-            });
-            
-            fireButton.addEventListener('click', function() {
-                if (isFlying) {
-                    // Reset if already flying
-                    isFlying = false;
-                    cancelAnimationFrame(animationId);
-                    time = 0;
-                    drawProjectileScene();
-                    fireButton.textContent = 'FIRE!';
-                } else {
-                    // Start animation
-                    isFlying = true;
-                    time = 0;
-                    animateProjectile();
-                    fireButton.textContent = 'RESET';
-                }
-            });
-            
-            // Area controls
-            fenceSlider.addEventListener('input', function() {
-                fenceLength = parseInt(fenceSlider.value);
-                fenceDisplay.textContent = fenceLength + ' m';
-                
-                // Adjust side slider max value
-                sideSlider.max = fenceLength / 2;
-                
-                drawAreaScene();
-                updateAreaResults();
-            });
-            
-            sideSlider.addEventListener('input', function() {
-                sideX = parseFloat(sideSlider.value);
-                sideDisplay.textContent = sideX.toFixed(2) + ' m';
-                drawAreaScene();
-                updateAreaResults();
-            });
-            
-            // Spring controls
-            springSlider.addEventListener('input', function() {
-                springConstant = parseInt(springSlider.value);
-                springConstantDisplay.textContent = springConstant + ' N/m';
-                drawSpringScene();
-                updateSpringResults();
-            });
-            
-            compressionSlider.addEventListener('input', function() {
-                compression = parseFloat(compressionSlider.value);
-                compressionDisplay.textContent = compression.toFixed(2) + ' m';
-                drawSpringScene();
-                updateSpringResults();
-            });
-            
-            // Window resize
-            window.addEventListener('resize', setCanvasSize);
-        }
-        
-        // Initialize the application
-        function init() {
-            setCanvasSize();
-            initEventListeners();
-            showProjectileScenario();
-            
-            // Initialize results
-            updateProjectileResults();
-            updateAreaResults();
-            updateSpringResults();
-        }
-        
-        // Start the application
-        init();
-    </script>
+    <!-- CONTROL PANEL -->
+    <div class="control-panel">
+
+      <!-- PROJECTILE SECTION -->
+      <div class="scenario-section visible" id="sec-proj">
+        <div class="cp-section">
+          <div class="cp-label">Equation</div>
+          <div class="eq-box">
+            <div class="eq-text">y(x) = −(g / 2v₀²cos²θ)x² + (tanθ)x + h₀</div>
+            <div class="eq-desc">Parabolic path of a projectile launched at velocity v₀ and angle θ. Gravity g = 9.8 m/s².</div>
+          </div>
+        </div>
+        <div class="cp-section">
+          <div class="cp-label">Parameters</div>
+          <div class="param-block">
+            <div class="param-row">
+              <div class="param-name">Initial Velocity (v₀)</div>
+              <div class="param-val" id="disp-vel">20 m/s</div>
+            </div>
+            <div class="slider-row">
+              <span class="slider-bound">5</span>
+              <input type="range" min="5" max="50" step="1" value="20" id="sl-vel" class="slider-accent" oninput="onProjChange()">
+              <span class="slider-bound">50</span>
+            </div>
+          </div>
+          <div class="param-block">
+            <div class="param-row">
+              <div class="param-name">Launch Angle (θ)</div>
+              <div class="param-val" id="disp-ang">45°</div>
+            </div>
+            <div class="slider-row">
+              <span class="slider-bound">15°</span>
+              <input type="range" min="15" max="75" step="1" value="45" id="sl-ang" class="slider-teal" oninput="onProjChange()">
+              <span class="slider-bound">75°</span>
+            </div>
+          </div>
+          <button class="fire-btn" id="fire-btn" onclick="toggleFire()"><span id="fire-label">⚡ LAUNCH</span></button>
+        </div>
+        <div class="cp-section">
+          <div class="cp-label">Computed Results</div>
+          <div class="results-grid">
+            <div class="result-cell"><div class="rc-label">Max Height</div><div class="rc-value highlight" id="r-h">—</div></div>
+            <div class="result-cell"><div class="rc-label">Range</div><div class="rc-value highlight" id="r-d">—</div></div>
+            <div class="result-cell"><div class="rc-label">Time to Apex</div><div class="rc-value" id="r-tmax">—</div></div>
+            <div class="result-cell"><div class="rc-label">Flight Time</div><div class="rc-value" id="r-ttot">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AREA SECTION -->
+      <div class="scenario-section" id="sec-area">
+        <div class="cp-section">
+          <div class="cp-label">Equation</div>
+          <div class="eq-box">
+            <div class="eq-text">A(x) = x · (L − 2x) = Lx − 2x²</div>
+            <div class="eq-desc">Maximize rectangular enclosure against a barn wall. L = fence length, x = perpendicular side. Optimal at x = L/4.</div>
+          </div>
+        </div>
+        <div class="cp-section">
+          <div class="cp-label">Parameters</div>
+          <div class="param-block">
+            <div class="param-row">
+              <div class="param-name">Total Fence Length (L)</div>
+              <div class="param-val" id="disp-fence">100 m</div>
+            </div>
+            <div class="slider-row">
+              <span class="slider-bound">40</span>
+              <input type="range" min="40" max="200" step="5" value="100" id="sl-fence" class="slider-gold" oninput="onAreaChange()">
+              <span class="slider-bound">200</span>
+            </div>
+          </div>
+          <div class="param-block">
+            <div class="param-row">
+              <div class="param-name">Side Length (x)</div>
+              <div class="param-val" id="disp-side">25.0 m</div>
+            </div>
+            <div class="slider-row">
+              <span class="slider-bound">1</span>
+              <input type="range" min="1" max="50" step="0.5" value="25" id="sl-side" class="slider-accent" oninput="onAreaChange()">
+              <span class="slider-bound">50</span>
+            </div>
+          </div>
+        </div>
+        <div class="cp-section">
+          <div class="cp-label">Computed Results</div>
+          <div class="results-grid">
+            <div class="result-cell"><div class="rc-label">Current Area</div><div class="rc-value highlight" id="r-area">—</div></div>
+            <div class="result-cell"><div class="rc-label">Max Possible</div><div class="rc-value highlight" id="r-maxarea">—</div></div>
+            <div class="result-cell"><div class="rc-label">Optimal x</div><div class="rc-value" id="r-optx">—</div></div>
+            <div class="result-cell"><div class="rc-label">Other Side</div><div class="rc-value" id="r-other">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPRING SECTION -->
+      <div class="scenario-section" id="sec-spring">
+        <div class="cp-section">
+          <div class="cp-label">Equation</div>
+          <div class="eq-box">
+            <div class="eq-text">PE(x) = ½kx²</div>
+            <div class="eq-desc">Elastic potential energy in a spring. k = spring constant (N/m), x = displacement from equilibrium. Force F = −kx.</div>
+          </div>
+        </div>
+        <div class="cp-section">
+          <div class="cp-label">Parameters</div>
+          <div class="param-block">
+            <div class="param-row">
+              <div class="param-name">Spring Constant (k)</div>
+              <div class="param-val" id="disp-k">50 N/m</div>
+            </div>
+            <div class="slider-row">
+              <span class="slider-bound">10</span>
+              <input type="range" min="10" max="200" step="5" value="50" id="sl-k" class="slider-purple" oninput="onSpringChange()">
+              <span class="slider-bound">200</span>
+            </div>
+          </div>
+          <div class="param-block">
+            <div class="param-row">
+              <div class="param-name">Displacement (x)</div>
+              <div class="param-val" id="disp-x">0.50 m</div>
+            </div>
+            <div class="slider-row">
+              <span class="slider-bound">0</span>
+              <input type="range" min="0" max="2" step="0.05" value="0.5" id="sl-x" class="slider-teal" oninput="onSpringChange()">
+              <span class="slider-bound">2 m</span>
+            </div>
+          </div>
+        </div>
+        <div class="cp-section">
+          <div class="cp-label">Computed Results</div>
+          <div class="results-grid">
+            <div class="result-cell"><div class="rc-label">Potential Energy</div><div class="rc-value highlight" id="r-pe">—</div></div>
+            <div class="result-cell"><div class="rc-label">Spring Force</div><div class="rc-value highlight" id="r-f">—</div></div>
+            <div class="result-cell"><div class="rc-label">Max PE (x=2m)</div><div class="rc-value" id="r-maxpe">—</div></div>
+            <div class="result-cell"><div class="rc-label">% of Max</div><div class="rc-value" id="r-pct">—</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /control-panel -->
+  </div><!-- /main-grid -->
+
+</div><!-- /app -->
+
+<script>
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let currentTab = 'proj';
+const g = 9.8;
+let projVel = 20, projAngle = 45;
+let fenceL = 100, sideX = 25;
+let springK = 50, springX = 0.5;
+let isFlying = false, flyTime = 0, flyAnim = null;
+let trailPoints = [];
+
+// Resize observer
+const resizeMap = { proj: 'c-proj', area: 'c-area', spring: 'c-spring' };
+const canvases = {};
+['proj','area','spring'].forEach(k => {
+  canvases[k] = document.getElementById('c-' + k);
+});
+
+function getCtx(key) { return canvases[key].getContext('2d'); }
+
+function resizeAll() {
+  const wrap = document.querySelector('.canvas-wrap');
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  Object.values(canvases).forEach(c => { c.width = w; c.height = h; });
+  redraw();
+}
+
+window.addEventListener('resize', resizeAll);
+
+// System clock
+setInterval(() => {
+  const now = new Date();
+  document.getElementById('sys-time').textContent =
+    'SYS ' + now.toTimeString().slice(0,8);
+}, 1000);
+
+// ══════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════
+function switchTab(tab) {
+  if (isFlying) stopFlight();
+  currentTab = tab;
+
+  ['proj','area','spring'].forEach(k => {
+    document.getElementById('tab-' + k).classList.toggle('active', k === tab);
+    document.getElementById('sec-' + k).classList.toggle('visible', k === tab);
+    canvases[k].classList.toggle('active', k === tab);
+  });
+
+  const titles = {
+    proj: 'PROJECTILE MOTION — PARABOLIC TRAJECTORY',
+    area: 'AREA OPTIMIZATION — QUADRATIC MAXIMIZATION',
+    spring: 'SPRING ENERGY — ELASTIC POTENTIAL'
+  };
+  const hints = {
+    proj: 'Adjust velocity and angle. Click LAUNCH to animate the trajectory.',
+    area: 'Drag the sliders to find the maximum possible enclosure area.',
+    spring: 'Observe how PE grows quadratically with displacement.'
+  };
+  document.getElementById('viewport-title').textContent = titles[tab];
+  document.getElementById('vf-hint').textContent = hints[tab];
+
+  resizeAll();
+}
+
+// ══════════════════════════════════════════════════
+// DRAW HELPERS
+// ══════════════════════════════════════════════════
+function drawGrid(ctx, w, h, color = 'rgba(77,139,255,0.05)') {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  for (let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = 0; y < h; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+}
+
+function drawAxes(ctx, ox, oy, w, h, color = 'rgba(255,255,255,0.15)') {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(w, oy); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function glowLine(ctx, pts, color, width = 2) {
+  if (pts.length < 2) return;
+  ctx.save();
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function glowCircle(ctx, x, y, r, color) {
+  ctx.save();
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = color;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function monoLabel(ctx, text, x, y, color = 'rgba(200,210,255,0.5)') {
+  ctx.save();
+  ctx.font = '11px Space Mono, monospace';
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════
+// PROJECTILE
+// ══════════════════════════════════════════════════
+function projCalc() {
+  const ar = projAngle * Math.PI / 180;
+  const v0x = projVel * Math.cos(ar);
+  const v0y = projVel * Math.sin(ar);
+  const tMax = v0y / g;
+  const hMax = v0y * tMax - 0.5 * g * tMax * tMax;
+  const tTot = 2 * tMax;
+  const range = v0x * tTot;
+  return { v0x, v0y, tMax, hMax, tTot, range, ar };
+}
+
+function projPos(t, v0x, v0y) {
+  return { x: v0x * t, y: v0y * t - 0.5 * g * t * t };
+}
+
+function drawProj() {
+  const canvas = canvases.proj;
+  const ctx = getCtx('proj');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const calc = projCalc();
+  const scale = Math.min(W / (calc.range * 1.3 + 80), (H - 80) / (calc.hMax * 1.4 + 10));
+  const ox = 60, oy = H - 50;
+
+  // BG
+  ctx.fillStyle = '#020408';
+  ctx.fillRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  // Ground
+  const grd = ctx.createLinearGradient(0, oy, 0, H);
+  grd.addColorStop(0, 'rgba(0,229,150,0.15)');
+  grd.addColorStop(1, 'transparent');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, oy, W, H - oy);
+  ctx.strokeStyle = 'rgba(0,229,150,0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
+  monoLabel(ctx, 'GROUND', 10, oy - 6, 'rgba(0,229,150,0.4)');
+
+  // Y axis ticks
+  for (let h = 0; h <= calc.hMax * 1.1; h += Math.ceil(calc.hMax / 5)) {
+    const canY = oy - h * scale;
+    if (canY < 20) break;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ox, canY); ctx.lineTo(W - 20, canY); ctx.stroke();
+    monoLabel(ctx, h.toFixed(0) + 'm', 4, canY + 4);
+  }
+
+  // Trajectory preview (dashed)
+  const steps = 80;
+  const pathPts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * calc.tTot;
+    const p = projPos(t, calc.v0x, calc.v0y);
+    pathPts.push({ x: ox + p.x * scale, y: oy - p.y * scale });
+  }
+
+  ctx.save();
+  ctx.setLineDash([4, 6]);
+  ctx.strokeStyle = 'rgba(77,139,255,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  pathPts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.stroke();
+  ctx.restore();
+
+  // Trail (animated)
+  if (trailPoints.length > 1) {
+    for (let i = 1; i < trailPoints.length; i++) {
+      const alpha = i / trailPoints.length;
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = '#ff3b6b';
+      ctx.strokeStyle = '#ff3b6b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(trailPoints[i - 1].x, trailPoints[i - 1].y);
+      ctx.lineTo(trailPoints[i].x, trailPoints[i].y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Cannon base
+  const cannonX = ox, cannonY = oy;
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(cannonX - 12, cannonY - 16, 24, 16);
+
+  // Cannon barrel
+  ctx.save();
+  ctx.translate(cannonX, cannonY - 8);
+  ctx.rotate(-projAngle * Math.PI / 180);
+  const barrelGrd = ctx.createLinearGradient(0, -5, 0, 5);
+  barrelGrd.addColorStop(0, '#94a3b8');
+  barrelGrd.addColorStop(1, '#475569');
+  ctx.fillStyle = barrelGrd;
+  ctx.fillRect(0, -5, 40, 10);
+  ctx.restore();
+
+  // Wheels
+  glowCircle(ctx, cannonX - 10, cannonY, 10, '#4d8bff');
+  glowCircle(ctx, cannonX + 10, cannonY, 10, '#4d8bff');
+  ctx.fillStyle = '#020408';
+  ctx.beginPath(); ctx.arc(cannonX - 10, cannonY, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cannonX + 10, cannonY, 5, 0, Math.PI * 2); ctx.fill();
+
+  // Flying ball
+  if (isFlying && currentTab === 'proj') {
+    const p = projPos(flyTime, calc.v0x, calc.v0y);
+    const bx = ox + p.x * scale;
+    const by = oy - p.y * scale;
+    glowCircle(ctx, bx, by, 9, '#ff3b6b');
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(bx, by, 3, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Apex marker
+  const apexX = ox + calc.v0x * calc.tMax * scale;
+  const apexY = oy - calc.hMax * scale;
+  ctx.setLineDash([2, 4]);
+  ctx.strokeStyle = 'rgba(245,200,66,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(apexX, apexY); ctx.lineTo(apexX, oy); ctx.stroke();
+  ctx.setLineDash([]);
+  glowCircle(ctx, apexX, apexY, 5, '#f5c842');
+  monoLabel(ctx, `H=${calc.hMax.toFixed(1)}m`, apexX + 6, apexY - 6, '#f5c842');
+
+  // Range marker
+  const rangeX = ox + calc.range * scale;
+  glowCircle(ctx, rangeX, oy, 5, '#00e5cc');
+  monoLabel(ctx, `R=${calc.range.toFixed(1)}m`, rangeX - 10, oy + 16, '#00e5cc');
+
+  // Update coords tag
+  if (isFlying) {
+    const p = projPos(flyTime, calc.v0x, calc.v0y);
+    document.getElementById('vtag-coords').textContent = `x=${p.x.toFixed(1)} y=${p.y.toFixed(1)}`;
+  }
+}
+
+function onProjChange() {
+  projVel = parseInt(document.getElementById('sl-vel').value);
+  projAngle = parseInt(document.getElementById('sl-ang').value);
+  document.getElementById('disp-vel').textContent = projVel + ' m/s';
+  document.getElementById('disp-ang').textContent = projAngle + '°';
+  updateProjResults();
+  drawProj();
+}
+
+function updateProjResults() {
+  const c = projCalc();
+  document.getElementById('r-h').textContent = c.hMax.toFixed(2) + ' m';
+  document.getElementById('r-d').textContent = c.range.toFixed(2) + ' m';
+  document.getElementById('r-tmax').textContent = c.tMax.toFixed(2) + ' s';
+  document.getElementById('r-ttot').textContent = c.tTot.toFixed(2) + ' s';
+  updateFormula();
+}
+
+function toggleFire() {
+  if (isFlying) { stopFlight(); return; }
+  trailPoints = [];
+  isFlying = true;
+  flyTime = 0;
+  document.getElementById('fire-btn').classList.add('active-reset');
+  document.getElementById('fire-label').textContent = '⏹ ABORT';
+  document.getElementById('vf-mode').textContent = 'MODE: SIMULATION';
+  flyAnim = requestAnimationFrame(flyLoop);
+}
+
+function stopFlight() {
+  isFlying = false;
+  trailPoints = [];
+  if (flyAnim) cancelAnimationFrame(flyAnim);
+  document.getElementById('fire-btn').classList.remove('active-reset');
+  document.getElementById('fire-label').textContent = '⚡ LAUNCH';
+  document.getElementById('vf-mode').textContent = 'MODE: PREVIEW';
+  drawProj();
+}
+
+function flyLoop() {
+  if (!isFlying) return;
+  const c = projCalc();
+  flyTime += 0.04;
+  const p = projPos(flyTime, c.v0x, c.v0y);
+  const canvas = canvases.proj;
+  const scale = Math.min(canvas.width / (c.range * 1.3 + 80), (canvas.height - 80) / (c.hMax * 1.4 + 10));
+  trailPoints.push({ x: 60 + p.x * scale, y: (canvas.height - 50) - p.y * scale });
+  if (trailPoints.length > 60) trailPoints.shift();
+  drawProj();
+  if (p.y <= 0 && flyTime > 0.1) { stopFlight(); return; }
+  flyAnim = requestAnimationFrame(flyLoop);
+}
+
+// ══════════════════════════════════════════════════
+// AREA
+// ══════════════════════════════════════════════════
+function areaCalc() {
+  const L = fenceL, x = sideX;
+  const otherSide = L - 2 * x;
+  const area = x * otherSide;
+  const optX = L / 4;
+  const maxA = optX * (L - 2 * optX);
+  return { L, x, otherSide, area, optX, maxA };
+}
+
+function drawArea() {
+  const canvas = canvases.area;
+  const ctx = getCtx('area');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#020408';
+  ctx.fillRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const c = areaCalc();
+  const padL = 60, padR = 40, padT = 60, padB = 60;
+  const gW = W - padL - padR, gH = H - padT - padB;
+
+  // ── Parabola chart ──
+  const maxX = c.L / 2;
+  const sx = gW / maxX;
+  const sy = gH / (c.maxA * 1.15);
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + gH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(padL, padT + gH); ctx.lineTo(padL + gW, padT + gH); ctx.stroke();
+
+  // Tick labels
+  for (let xi = 0; xi <= maxX; xi += c.L / 8) {
+    const px = padL + xi * sx;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.beginPath(); ctx.moveTo(px, padT); ctx.lineTo(px, padT + gH); ctx.stroke();
+    monoLabel(ctx, xi.toFixed(0), px - 6, padT + gH + 14);
+  }
+  const aSteps = 5;
+  for (let ai = 0; ai <= aSteps; ai++) {
+    const av = (c.maxA * 1.15 / aSteps) * ai;
+    const py = padT + gH - av * sy;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(padL + gW, py); ctx.stroke();
+    monoLabel(ctx, av.toFixed(0), 4, py + 4);
+  }
+
+  monoLabel(ctx, 'x (m)', padL + gW / 2 - 12, H - 10);
+  ctx.save(); ctx.translate(14, padT + gH / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = 'rgba(200,210,255,0.4)'; ctx.font = '11px Space Mono, monospace';
+  ctx.fillText('A (m²)', -16, 0); ctx.restore();
+
+  // Parabola fill
+  const fillPath = new Path2D();
+  fillPath.moveTo(padL, padT + gH);
+  for (let xi = 0; xi <= maxX; xi += 0.5) {
+    const ai = xi * (c.L - 2 * xi);
+    if (ai < 0) break;
+    fillPath.lineTo(padL + xi * sx, padT + gH - ai * sy);
+  }
+  fillPath.lineTo(padL + maxX * sx, padT + gH);
+  ctx.fillStyle = 'rgba(245,200,66,0.07)';
+  ctx.fill(fillPath);
+
+  // Parabola line
+  const paraPts = [];
+  for (let xi = 0; xi <= maxX; xi += 0.5) {
+    const ai = xi * (c.L - 2 * xi);
+    if (ai < 0) break;
+    paraPts.push({ x: padL + xi * sx, y: padT + gH - ai * sy });
+  }
+  glowLine(ctx, paraPts, '#f5c842', 2);
+
+  // Optimal dashed line
+  const optPX = padL + c.optX * sx;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(0,229,204,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(optPX, padT); ctx.lineTo(optPX, padT + gH); ctx.stroke();
+  ctx.setLineDash([]);
+  monoLabel(ctx, `OPT x=${c.optX.toFixed(1)}`, optPX + 4, padT + 12, '#00e5cc');
+
+  // Current x dot
+  const curA = c.x * (c.L - 2 * c.x);
+  if (curA >= 0) {
+    const cx2 = padL + c.x * sx;
+    const cy2 = padT + gH - curA * sy;
+    glowCircle(ctx, cx2, cy2, 7, '#ff3b6b');
+    monoLabel(ctx, `(${c.x.toFixed(1)}, ${curA.toFixed(0)})`, cx2 + 10, cy2 - 4, '#ff3b6b');
+  }
+
+  // Title
+  ctx.fillStyle = 'rgba(200,210,255,0.6)'; ctx.font = '12px Space Mono, monospace';
+  ctx.fillText(`A(x) = ${c.L}x − 2x²`, padL, padT - 10);
+}
+
+function onAreaChange() {
+  fenceL = parseInt(document.getElementById('sl-fence').value);
+  sideX = parseFloat(document.getElementById('sl-side').value);
+  document.getElementById('sl-side').max = fenceL / 2;
+  document.getElementById('disp-fence').textContent = fenceL + ' m';
+  document.getElementById('disp-side').textContent = sideX.toFixed(1) + ' m';
+  updateAreaResults();
+  drawArea();
+}
+
+function updateAreaResults() {
+  const c = areaCalc();
+  document.getElementById('r-area').textContent = c.area.toFixed(1) + ' m²';
+  document.getElementById('r-maxarea').textContent = c.maxA.toFixed(1) + ' m²';
+  document.getElementById('r-optx').textContent = c.optX.toFixed(2) + ' m';
+  document.getElementById('r-other').textContent = c.otherSide.toFixed(2) + ' m';
+  updateFormula();
+}
+
+// ══════════════════════════════════════════════════
+// SPRING
+// ══════════════════════════════════════════════════
+function springCalc() {
+  const pe = 0.5 * springK * springX * springX;
+  const f = springK * springX;
+  const maxPE = 0.5 * springK * 4;
+  return { pe, f, maxPE, pct: maxPE > 0 ? (pe / maxPE * 100) : 0 };
+}
+
+function drawSpring() {
+  const canvas = canvases.spring;
+  const ctx = getCtx('spring');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#020408';
+  ctx.fillRect(0, 0, W, H);
+  drawGrid(ctx, W, H);
+
+  const c = springCalc();
+  const midY = H * 0.45;
+
+  // ── Energy curve (right side) ──
+  const padL = W * 0.52, padR = 40, padT = 40, padB = 60;
+  const gW = W - padL - padR, gH = H - padT - padB;
+
+  // Axes
+  const axMidX = padL + gW / 2;
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + gH); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(padL, padT + gH); ctx.lineTo(padL + gW, padT + gH); ctx.stroke();
+  ctx.setLineDash([3,3]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.beginPath(); ctx.moveTo(axMidX, padT); ctx.lineTo(axMidX, padT + gH); ctx.stroke();
+  ctx.setLineDash([]);
+  monoLabel(ctx, 'x (m)', padL + gW / 2 - 8, H - 10);
+  monoLabel(ctx, '-2', padL + 2, padT + gH + 14);
+  monoLabel(ctx, '0', axMidX - 4, padT + gH + 14);
+  monoLabel(ctx, '+2', padL + gW - 14, padT + gH + 14);
+  monoLabel(ctx, 'PE (J)', padL - 28, padT + gH / 2);
+
+  // Parabola fill
+  const parabolaPath = new Path2D();
+  const maxE = 0.5 * springK * 4;
+  parabolaPath.moveTo(padL, padT + gH);
+  for (let xi = -2; xi <= 2.05; xi += 0.05) {
+    const e = 0.5 * springK * xi * xi;
+    const px = padL + ((xi + 2) / 4) * gW;
+    const py = padT + gH - (e / (maxE * 1.1)) * gH;
+    parabolaPath.lineTo(px, py);
+  }
+  parabolaPath.lineTo(padL + gW, padT + gH);
+  ctx.fillStyle = 'rgba(176,96,255,0.08)';
+  ctx.fill(parabolaPath);
+
+  // Parabola line
+  const curvePts = [];
+  for (let xi = -2; xi <= 2.05; xi += 0.05) {
+    const e = 0.5 * springK * xi * xi;
+    curvePts.push({
+      x: padL + ((xi + 2) / 4) * gW,
+      y: padT + gH - (e / (maxE * 1.1)) * gH
+    });
+  }
+  glowLine(ctx, curvePts, '#b060ff', 2.5);
+
+  // Current PE dot
+  const dotX = padL + ((springX + 2) / 4) * gW;
+  const dotY = padT + gH - (c.pe / (maxE * 1.1)) * gH;
+  // Vertical dashed line to curve
+  ctx.setLineDash([3,3]);
+  ctx.strokeStyle = 'rgba(0,229,204,0.4)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(dotX, padT + gH); ctx.lineTo(dotX, dotY); ctx.stroke();
+  ctx.setLineDash([]);
+  glowCircle(ctx, dotX, dotY, 7, '#00e5cc');
+  monoLabel(ctx, `PE=${c.pe.toFixed(1)}J`, dotX + 8, dotY - 4, '#00e5cc');
+
+  // ── Spring visualization (left side) ──
+  const springAreaW = W * 0.5;
+  const wallX = 30, wallH = 100, wallY = midY - wallH / 2;
+
+  // Wall
+  const wallGrd = ctx.createLinearGradient(wallX, 0, wallX + 20, 0);
+  wallGrd.addColorStop(0, '#475569');
+  wallGrd.addColorStop(1, '#1e293b');
+  ctx.fillStyle = wallGrd;
+  ctx.fillRect(wallX, wallY, 20, wallH);
+
+  // Hatch marks on wall
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1;
+  for (let i = 0; i < wallH; i += 12) {
+    ctx.beginPath(); ctx.moveTo(wallX, wallY + i); ctx.lineTo(wallX + 14, wallY + i + 10); ctx.stroke();
+  }
+
+  // Equilibrium line
+  const eqX = springAreaW * 0.52;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(eqX, midY - 60); ctx.lineTo(eqX, midY + 60); ctx.stroke();
+  ctx.setLineDash([]);
+  monoLabel(ctx, 'eq', eqX + 3, midY - 52, 'rgba(255,255,255,0.3)');
+
+  // Spring coils
+  const springStartX = wallX + 20;
+  const naturalLen = eqX - springStartX;
+  const compressed = springX / 2 * naturalLen * 0.5;
+  const springEndX = eqX - compressed;
+
+  const coils = 12;
+  const coilAmp = 16;
+  ctx.strokeStyle = '#b060ff';
+  ctx.lineWidth = 3;
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = '#b060ff';
+  ctx.beginPath();
+  ctx.moveTo(springStartX, midY);
+  for (let i = 0; i < coils; i++) {
+    const tx = springStartX + ((i + 0.5) / coils) * (springEndX - springStartX);
+    const ty = midY + (i % 2 === 0 ? -coilAmp : coilAmp);
+    ctx.lineTo(tx, ty);
+  }
+  ctx.lineTo(springEndX, midY);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Mass block
+  const massW = 44, massH = 36;
+  const massX = springEndX, massY = midY - massH / 2;
+  const massGrd = ctx.createLinearGradient(massX, massY, massX + massW, massY + massH);
+  massGrd.addColorStop(0, '#f97316');
+  massGrd.addColorStop(1, '#c2410c');
+  ctx.shadowBlur = 16; ctx.shadowColor = '#f97316';
+  ctx.fillStyle = massGrd;
+  ctx.fillRect(massX, massY, massW, massH);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#fed7aa'; ctx.lineWidth = 1;
+  ctx.strokeRect(massX, massY, massW, massH);
+  ctx.fillStyle = 'white'; ctx.font = 'bold 11px Space Mono, monospace';
+  ctx.fillText('m', massX + massW / 2 - 5, midY + 4);
+
+  // Displacement arrow
+  if (springX > 0.02) {
+    ctx.strokeStyle = '#00e5cc'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(eqX, midY + 55);
+    ctx.lineTo(springEndX, midY + 55);
+    ctx.stroke();
+    const dir = springEndX < eqX ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(springEndX, midY + 55);
+    ctx.lineTo(springEndX - dir * 8, midY + 50);
+    ctx.lineTo(springEndX - dir * 8, midY + 60);
+    ctx.fill();
+    monoLabel(ctx, `x=${springX.toFixed(2)}m`, (eqX + springEndX) / 2 - 16, midY + 70, '#00e5cc');
+  }
+
+  // PE bar
+  const barX = 20, barY = H - 35, barW = springAreaW - 40, barH = 10;
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  ctx.fillRect(barX, barY, barW, barH);
+  const pct = c.maxPE > 0 ? c.pe / c.maxPE : 0;
+  const energyGrd = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+  energyGrd.addColorStop(0, '#00e5cc');
+  energyGrd.addColorStop(1, '#b060ff');
+  ctx.fillStyle = energyGrd;
+  ctx.shadowBlur = 10; ctx.shadowColor = '#00e5cc';
+  ctx.fillRect(barX, barY, barW * pct, barH);
+  ctx.shadowBlur = 0;
+  monoLabel(ctx, `ENERGY: ${c.pe.toFixed(2)} J  (${c.pct.toFixed(1)}% of max)`, barX, barY - 6, 'rgba(200,210,255,0.5)');
+}
+
+function onSpringChange() {
+  springK = parseInt(document.getElementById('sl-k').value);
+  springX = parseFloat(document.getElementById('sl-x').value);
+  document.getElementById('disp-k').textContent = springK + ' N/m';
+  document.getElementById('disp-x').textContent = springX.toFixed(2) + ' m';
+  updateSpringResults();
+  drawSpring();
+}
+
+function updateSpringResults() {
+  const c = springCalc();
+  document.getElementById('r-pe').textContent = c.pe.toFixed(2) + ' J';
+  document.getElementById('r-f').textContent = c.f.toFixed(2) + ' N';
+  document.getElementById('r-maxpe').textContent = c.maxPE.toFixed(2) + ' J';
+  document.getElementById('r-pct').textContent = c.pct.toFixed(1) + '%';
+  updateFormula();
+}
+
+// ══════════════════════════════════════════════════
+// FORMULA BAR
+// ══════════════════════════════════════════════════
+function updateFormula() {
+  const el = document.getElementById('formula-live');
+  if (currentTab === 'proj') {
+    const c = projCalc();
+    const a = -(g / (2 * projVel * projVel * Math.cos(c.ar) * Math.cos(c.ar)));
+    const b = Math.tan(c.ar);
+    el.innerHTML = `y(x) = <span>${a.toFixed(4)}</span>x² + <span>${b.toFixed(4)}</span>x + 0`;
+  } else if (currentTab === 'area') {
+    el.innerHTML = `A(x) = <span>${fenceL}</span>x − <span>2</span>x²   →   current A = <span>${(sideX*(fenceL-2*sideX)).toFixed(2)} m²</span>`;
+  } else {
+    el.innerHTML = `PE(x) = ½ × <span>${springK}</span> × x²   →   PE(${springX.toFixed(2)}) = <span>${(0.5*springK*springX*springX).toFixed(2)} J</span>`;
+  }
+}
+
+// ══════════════════════════════════════════════════
+// REDRAW DISPATCHER
+// ══════════════════════════════════════════════════
+function redraw() {
+  if (currentTab === 'proj') drawProj();
+  else if (currentTab === 'area') drawArea();
+  else drawSpring();
+}
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  resizeAll();
+  onProjChange();
+  onAreaChange();
+  onSpringChange();
+});
+</script>
 </body>
 </html>
