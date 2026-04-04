@@ -36,7 +36,7 @@
         .sim-card:hover { transform: scale(1.02); }
         .section-title { font-size: 48px; line-height: 1.1; letter-spacing: -0.015em; }
 
-        /* ── Paywall overlay ── */
+        /* ── Auth overlay ── */
         #auth-overlay {
             position: fixed; inset: 0; z-index: 9999;
             background: rgba(0,0,0,0.6);
@@ -78,7 +78,6 @@
         .btn-primary:hover { opacity: 0.88; }
         .btn-primary:active { transform: scale(0.98); }
         .dark .btn-primary { background: #3b82f6; }
-
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .btn-google {
@@ -135,7 +134,7 @@
         }
         .dark #user-avatar { background: #3b82f6; }
 
-        /* ── Premium badge ── */
+        /* ── Badges ── */
         .free-badge {
             display: inline-block; font-size: 11px; font-weight: 700;
             padding: 2px 8px; border-radius: 99px;
@@ -149,7 +148,7 @@
             vertical-align: middle;
         }
 
-        /* ── Upgrade prompt ── */
+        /* ── Upgrade banner ── */
         #upgrade-banner {
             background: linear-gradient(135deg, #1e3a5f, #1d4ed8);
             color: #fff; padding: 14px 24px;
@@ -178,6 +177,20 @@
             vertical-align: middle; margin-right: 6px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Toast notification ── */
+        #toast {
+            position: fixed; bottom: 24px; left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #111827; color: #fff;
+            padding: 12px 20px; border-radius: 10px;
+            font-size: 14px; font-weight: 500;
+            transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s;
+            opacity: 0; z-index: 99999; white-space: nowrap;
+            pointer-events: none; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .dark #toast { background: #3b82f6; }
     </style>
 </head>
 <body class="bg-white text-gray-900">
@@ -320,7 +333,7 @@
     </section>
 
     <!-- ══════════════════════════════════════
-         ALGEBRA  (FREE: first 3 cards)
+         ALGEBRA  (FREE)
     ══════════════════════════════════════ -->
     <section id="algebra" class="py-20 px-6 bg-gray-50">
         <div class="max-w-7xl mx-auto">
@@ -548,6 +561,11 @@
     </div>
 
     <!-- ══════════════════════════════════════
+         TOAST
+    ══════════════════════════════════════ -->
+    <div id="toast"></div>
+
+    <!-- ══════════════════════════════════════
          FIREBASE SDKs
     ══════════════════════════════════════ -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -577,25 +595,13 @@
     // ══════════════════════════════════════
     // ANALYTICS HELPERS
     // ══════════════════════════════════════
-
-    /**
-     * trackEvent(name, params)
-     * Logs to Firebase Analytics AND writes a lightweight row to
-     * Firestore → analytics/{uid}/events so you can query raw event
-     * data from your own dashboard without GA4 exports.
-     */
     function trackEvent(name, params = {}) {
-        // Firebase Analytics (GA4)
         try {
-            analytics.logEvent(name, {
-                ...params,
-                timestamp: Date.now()
-            });
+            analytics.logEvent(name, { ...params, timestamp: Date.now() });
         } catch (e) {
             console.warn('[Analytics] logEvent failed:', e);
         }
 
-        // Firestore mirror (opt-in — remove if you only want GA4)
         const user = auth.currentUser;
         if (user) {
             db.collection('analytics')
@@ -610,18 +616,13 @@
               .catch(err => console.warn('[Analytics] Firestore write failed:', err));
         }
 
-        // Console trace in development
         console.debug(`[Analytics] ${name}`, params);
     }
 
-    // ── Specific tracking helpers ────────────────────────────────
-
-    /** Called when a free sim card is clicked */
     function trackSimClick(simId, category, isLocked) {
         trackEvent('sim_card_click', { sim_id: simId, category, is_locked: isLocked });
     }
 
-    /** Called when a locked sim overlay is tapped */
     function handleLockedSimClick(e, simId, category) {
         e.preventDefault();
         e.stopPropagation();
@@ -629,33 +630,106 @@
         showUpgradeModal();
     }
 
-    /** Upgrade CTA clicked (banner or modal) */
     function trackAndShowUpgrade(source) {
         trackEvent('upgrade_intent', { source });
         showUpgradeModal();
     }
 
     // ══════════════════════════════════════
-    // AUTH STATE
+    // TOAST
     // ══════════════════════════════════════
+    function showToast(msg, duration = 4000) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    // ══════════════════════════════════════
+    // PREMIUM STATE — called by realtime listener
+    // ══════════════════════════════════════
+    let _lastKnownPremium = null;
+
+    function applyPremiumState(user, isPremium) {
+        const planBadge = document.getElementById('plan-badge');
+
+        if (isPremium) {
+            planBadge.textContent = 'PREMIUM';
+            planBadge.className   = 'premium-badge';
+
+            // Remove all lock overlays
+            document.querySelectorAll('.locked-overlay').forEach(el => el.remove());
+
+            // Re-wire locked-sim links to navigate normally (strip old listeners via clone)
+            document.querySelectorAll('.locked-sim').forEach(el => {
+                const fresh = el.cloneNode(true);
+                el.parentNode.replaceChild(fresh, el);
+            });
+            document.querySelectorAll('.locked-sim').forEach(el => {
+                el.addEventListener('click', () => {
+                    trackSimClick(
+                        el.getAttribute('data-sim-id') || 'unknown',
+                        el.getAttribute('data-category') || 'unknown',
+                        false
+                    );
+                });
+            });
+
+            document.getElementById('upgrade-banner').classList.add('hidden');
+
+            // Toast only on FREE → PREMIUM transition, not on every page load
+            if (_lastKnownPremium === false) {
+                showToast('⭐ Premium unlocked! All simulations are now available.');
+                trackEvent('premium_activated', { uid: user.uid });
+            }
+
+        } else {
+            planBadge.textContent = 'FREE';
+            planBadge.className   = 'free-badge';
+            document.getElementById('upgrade-banner').classList.remove('hidden');
+
+            // Intercept locked-sim clicks to show upgrade modal
+            document.querySelectorAll('.locked-sim').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    trackEvent('locked_sim_click', {
+                        sim_id:   el.getAttribute('data-sim-id') || 'unknown',
+                        category: el.getAttribute('data-category') || 'unknown'
+                    });
+                    showUpgradeModal();
+                });
+            });
+        }
+
+        _lastKnownPremium = isPremium;
+        trackEvent('premium_state_applied', { plan: isPremium ? 'premium' : 'free' });
+    }
+
+    // ══════════════════════════════════════
+    // AUTH STATE  (with realtime Firestore listener)
+    // ══════════════════════════════════════
+    let unsubscribeUserListener = null;
+
     auth.onAuthStateChanged(async (user) => {
         if (!user) {
+            if (unsubscribeUserListener) {
+                unsubscribeUserListener();
+                unsubscribeUserListener = null;
+            }
+            _lastKnownPremium = null;
             showAuthOverlay();
             return;
         }
 
-        // Set Analytics user ID so sessions are attributed
         analytics.setUserId(user.uid);
         analytics.setUserProperties({ email_domain: user.email.split('@')[1] || 'unknown' });
 
-        let isPremium = false;
+        // Create user document on first login
+        const userRef = db.collection('users').doc(user.uid);
         try {
-            const snap = await db.collection('users').doc(user.uid).get();
-            if (snap.exists) {
-                isPremium = snap.data().isPremium === true;
-            } else {
-                // First login: create user document
-                await db.collection('users').doc(user.uid).set({
+            const snap = await userRef.get();
+            if (!snap.exists) {
+                await userRef.set({
                     email:       user.email,
                     displayName: user.displayName || '',
                     isPremium:   false,
@@ -664,59 +738,37 @@
                 trackEvent('new_user_created', { method: user.providerData[0]?.providerId || 'unknown' });
             }
         } catch (e) {
-            console.warn('Firestore read failed, defaulting free tier:', e);
+            console.warn('Firestore init failed, defaulting free tier:', e);
         }
 
+        // Show name & avatar immediately (doesn't need premium status)
         hideAuthOverlay();
-        updateUI(user, isPremium);
-        trackEvent('session_start', { plan: isPremium ? 'premium' : 'free' });
-    });
-
-    // ══════════════════════════════════════
-    // UI UPDATE
-    // ══════════════════════════════════════
-    function updateUI(user, isPremium) {
-        const userBar    = document.getElementById('user-bar');
-        const userName   = document.getElementById('user-name');
-        const planBadge  = document.getElementById('plan-badge');
-        const userAvatar = document.getElementById('user-avatar');
-
         const name = user.displayName || user.email.split('@')[0];
-        userName.textContent  = name;
-        userAvatar.textContent = name.charAt(0).toUpperCase();
-        userBar.classList.add('visible');
+        document.getElementById('user-name').textContent   = name;
+        document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+        document.getElementById('user-bar').classList.add('visible');
 
-        if (isPremium) {
-            planBadge.textContent = 'PREMIUM';
-            planBadge.className   = 'premium-badge';
-            // Remove all lock overlays
-            document.querySelectorAll('.locked-overlay').forEach(el => el.remove());
-            // Allow navigation on locked links
-            document.querySelectorAll('.locked-sim').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    const simId   = el.getAttribute('data-sim-id') || 'unknown';
-                    const cat     = el.getAttribute('data-category') || 'unknown';
-                    trackSimClick(simId, cat, false);
-                    // navigation proceeds normally
-                });
-            });
-            document.getElementById('upgrade-banner').classList.add('hidden');
-        } else {
-            planBadge.textContent = 'FREE';
-            planBadge.className   = 'free-badge';
-            document.getElementById('upgrade-banner').classList.remove('hidden');
-            // Intercept clicks on locked-sim anchors at the <a> level
-            document.querySelectorAll('.locked-sim').forEach(el => {
-                el.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const simId = el.getAttribute('data-sim-id') || 'unknown';
-                    const cat   = el.getAttribute('data-category') || 'unknown';
-                    trackEvent('locked_sim_click', { sim_id: simId, category: cat });
-                    showUpgradeModal();
-                });
-            });
+        // Detach any previous listener before attaching a fresh one
+        if (unsubscribeUserListener) {
+            unsubscribeUserListener();
+            unsubscribeUserListener = null;
         }
-    }
+
+        // Realtime listener — fires immediately AND on every Firestore write to this doc
+        // This means: Stripe webhook sets isPremium=true → UI updates in ~1 second, no refresh needed
+        unsubscribeUserListener = userRef.onSnapshot(
+            (snap) => {
+                const isPremium = snap.exists && snap.data().isPremium === true;
+                applyPremiumState(user, isPremium);
+            },
+            (err) => {
+                console.warn('Firestore realtime listener error:', err);
+                applyPremiumState(user, false); // safe fallback to free tier
+            }
+        );
+
+        trackEvent('session_start', { uid: user.uid });
+    });
 
     // ══════════════════════════════════════
     // AUTH OVERLAY
@@ -724,7 +776,6 @@
     function showAuthOverlay() { document.getElementById('auth-overlay').classList.remove('hidden'); }
     function hideAuthOverlay() { document.getElementById('auth-overlay').classList.add('hidden'); }
 
-    // ── Tab switching ────────────────────────
     let currentTab = 'signin';
     function switchTab(tab) {
         currentTab = tab;
@@ -736,7 +787,6 @@
         trackEvent('auth_tab_switch', { tab });
     }
 
-    // ── Email / password auth ─────────────────
     async function handleEmailAuth() {
         const email    = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
@@ -770,7 +820,6 @@
         }
     }
 
-    // ── Google Sign-In ────────────────────────
     async function signInWithGoogle() {
         const btn = document.getElementById('btn-google-signin');
         btn.disabled = true;
@@ -789,13 +838,19 @@
         }
     }
 
-    // ── Sign out ──────────────────────────────
     async function signOut() {
         trackEvent('logout');
+        if (unsubscribeUserListener) {
+            unsubscribeUserListener();
+            unsubscribeUserListener = null;
+        }
+        _lastKnownPremium = null;
         await auth.signOut();
     }
 
-    // ── Upgrade modal ─────────────────────────
+    // ══════════════════════════════════════
+    // UPGRADE MODAL
+    // ══════════════════════════════════════
     function showUpgradeModal() {
         document.getElementById('upgrade-modal').classList.remove('hidden');
         trackEvent('upgrade_modal_open');
@@ -805,7 +860,9 @@
         trackEvent('upgrade_modal_close');
     }
 
-    // ── Error helpers ─────────────────────────
+    // ══════════════════════════════════════
+    // AUTH ERROR HELPERS
+    // ══════════════════════════════════════
     function showAuthError(msg) {
         const el = document.getElementById('auth-error');
         el.textContent = msg;
@@ -818,18 +875,18 @@
     }
     function friendlyError(code) {
         const map = {
-            'auth/user-not-found':           'No account found with that email.',
-            'auth/wrong-password':           'Incorrect password.',
-            'auth/invalid-credential':       'Incorrect email or password.',
-            'auth/email-already-in-use':     'An account with this email already exists.',
-            'auth/invalid-email':            'Please enter a valid email address.',
-            'auth/weak-password':            'Password must be at least 6 characters.',
-            'auth/popup-closed-by-user':     'Sign-in popup closed. Please try again.',
-            'auth/cancelled-popup-request':  'Only one sign-in popup allowed at a time.',
-            'auth/popup-blocked':            'Popup blocked by browser. Please allow popups and retry.',
-            'auth/network-request-failed':   'Network error. Check your connection.',
-            'auth/too-many-requests':        'Too many attempts. Try again later.',
-            'auth/user-disabled':            'This account has been disabled.',
+            'auth/user-not-found':          'No account found with that email.',
+            'auth/wrong-password':          'Incorrect password.',
+            'auth/invalid-credential':      'Incorrect email or password.',
+            'auth/email-already-in-use':    'An account with this email already exists.',
+            'auth/invalid-email':           'Please enter a valid email address.',
+            'auth/weak-password':           'Password must be at least 6 characters.',
+            'auth/popup-closed-by-user':    'Sign-in popup closed. Please try again.',
+            'auth/cancelled-popup-request': 'Only one sign-in popup allowed at a time.',
+            'auth/popup-blocked':           'Popup blocked by browser. Please allow popups and retry.',
+            'auth/network-request-failed':  'Network error. Check your connection.',
+            'auth/too-many-requests':       'Too many attempts. Try again later.',
+            'auth/user-disabled':           'This account has been disabled.',
         };
         return map[code] || `Something went wrong (${code}). Please try again.`;
     }
@@ -838,8 +895,8 @@
     // SEARCH
     // ══════════════════════════════════════
     const simulations = [
-        { title:"Linear Equations",          category:"Algebra",    url:"linear_equations.html",   description:"Master solving linear equations step by step" },
-        { title:"Quadratic Functions",        category:"Algebra",    url:"quadratic_functions.html", description:"Explore parabolas and quadratic equations" },
+        { title:"Linear Equations",          category:"Algebra",    url:"linear_equations.html",    description:"Master solving linear equations step by step" },
+        { title:"Quadratic Functions",        category:"Algebra",    url:"quadratic_functions.html",  description:"Explore parabolas and quadratic equations" },
         { title:"Polynomials",               category:"Algebra",    url:"polynomials.html",          description:"Understand polynomial operations and graphs" },
         { title:"Derivatives",               category:"Calculus",   url:"differentials.html",        description:"Visualize rates of change and slopes" },
         { title:"Integrals",                 category:"Calculus",   url:"integrals.html",            description:"Explore area and accumulation functions" },
@@ -873,7 +930,6 @@
             : `<div class="p-4 text-gray-500">No results for "${e.target.value}"</div>`;
         searchResults.classList.remove('hidden');
 
-        // Debounced search tracking (fire after user pauses typing)
         searchTimer = setTimeout(() => {
             trackEvent('search', { query, result_count: filtered.length });
         }, 600);
