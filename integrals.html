@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Integrals & Integration — A Deep Reference</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=JetBrains+Mono:wght@300;400;600&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" id="MathJax-script" async></script>
@@ -13,7 +13,6 @@
       --cream:  #f0ebe0;
       --rule:   #ddd5c0;
 
-      /* Section hues */
       --riemann-hue:   24;
       --antideriv-hue: 160;
       --ftc-hue:       220;
@@ -45,15 +44,17 @@
       --practice-bg: hsl(var(--practice-hue), 85%, 97%);
       --practice-mid:hsl(var(--practice-hue), 65%, 86%);
 
-      /* Electric blue accent — ∫ glow */
       --gold:       #00b4ff;
       --gold-bright:#00c8ff;
       --gold-glow:  rgba(0,180,255,0.30);
       --gold-faint: rgba(0,180,255,0.08);
+
+      /* Mobile touch target minimum */
+      --touch-min: 44px;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
-    html { scroll-behavior: smooth; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
     body {
       font-family: 'Crimson Pro', Georgia, serif;
@@ -61,13 +62,15 @@
       color: var(--ink);
       line-height: 1.78;
       font-size: 17px;
+      /* Prevent horizontal overflow on mobile */
+      overflow-x: hidden;
     }
 
     /* ── HEADER ── */
     .site-header {
       background: var(--ink);
       color: var(--paper);
-      padding: 3.5rem 2rem 2.5rem;
+      padding: clamp(1.5rem, 5vw, 3.5rem) 1rem clamp(1.25rem, 4vw, 2.5rem);
       text-align: center;
       position: relative;
       overflow: hidden;
@@ -81,7 +84,7 @@
     .header-integral {
       position: absolute;
       font-family: 'Playfair Display', serif;
-      font-size: 18rem;
+      font-size: clamp(6rem, 30vw, 18rem);
       font-weight: 900;
       color: rgba(255,255,255,.025);
       top: 50%; left: 50%;
@@ -92,7 +95,7 @@
     }
     .site-header h1 {
       font-family: 'Playfair Display', serif;
-      font-size: clamp(2rem, 5vw, 4rem);
+      font-size: clamp(1.5rem, 5vw, 4rem);
       font-weight: 900;
       letter-spacing: -.02em;
       position: relative;
@@ -105,12 +108,14 @@
     }
     .subtitle {
       font-family: 'JetBrains Mono', monospace;
-      font-size: .75rem;
-      letter-spacing: .2em;
+      font-size: clamp(.6rem, 2vw, .75rem);
+      letter-spacing: .12em;
       text-transform: uppercase;
       opacity: .45;
       margin-top: .8rem;
       position: relative;
+      padding: 0 1rem;
+      word-break: break-word;
     }
 
     /* ── PROGRESS ── */
@@ -127,25 +132,49 @@
     .main-nav {
       background: var(--ink);
       position: sticky; top:4px; z-index:99;
-      display: flex; flex-wrap: wrap;
-      justify-content: center;
-      gap: 2px; padding: 4px 8px;
+      display: flex; flex-wrap: nowrap;
+      justify-content: flex-start;
+      gap: 0;
+      padding: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .main-nav::-webkit-scrollbar { display: none; }
+
+    /* Mobile nav scroll indicator */
+    .main-nav::after {
+      content: '';
+      position: sticky;
+      right: 0;
+      min-width: 2rem;
+      background: linear-gradient(to right, transparent, var(--ink));
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
     .nav-btn {
       font-family: 'JetBrains Mono', monospace;
-      font-size: .71rem; font-weight:600;
-      letter-spacing: .06em; text-transform:uppercase;
-      padding: .45rem 1rem;
+      font-size: clamp(.6rem, 1.8vw, .71rem);
+      font-weight:600;
+      letter-spacing: .04em;
+      text-transform:uppercase;
+      padding: clamp(.5rem, 2vw, .45rem) clamp(.6rem, 3vw, 1rem);
       border:none; background:transparent;
       color: rgba(255,255,255,.4);
-      cursor:pointer; border-radius:3px;
+      cursor:pointer; border-radius:0;
       transition: all .2s;
       position: relative;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-height: var(--touch-min);
+      display: flex;
+      align-items: center;
     }
     .nav-btn::after {
       content:''; position:absolute;
-      bottom:2px; left:50%; right:50%;
-      height:2px; border-radius:2px;
+      bottom:0; left:50%; right:50%;
+      height:3px; border-radius:0;
       transition: all .2s;
     }
     .nav-btn[data-section="intro"]    { --c: #00c8ff; }
@@ -156,32 +185,33 @@
     .nav-btn[data-section="apps"]     { --c: var(--apps);        }
     .nav-btn[data-section="practice"] { --c: var(--practice);    }
     .nav-btn.active, .nav-btn:hover   { color:#fff; background:rgba(255,255,255,.07); }
-    .nav-btn.active::after { left:12%; right:12%; background:var(--c); box-shadow:0 0 6px var(--c); }
+    .nav-btn.active::after { left:0; right:0; background:var(--c); box-shadow:0 0 6px var(--c); }
 
     /* ── LAYOUT ── */
-    .page { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+    .page { max-width: 1100px; margin: 0 auto; padding: 0 clamp(.75rem, 4vw, 1.5rem) 4rem; }
     .concept { display:none; }
     .concept.active { display:block; animation: fadeUp .4s ease; }
     @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
     /* ── BANNERS ── */
     .section-banner {
-      margin: 2.5rem 0 1.5rem;
-      padding: 1.5rem 2rem;
+      margin: 1.5rem 0 1.25rem;
+      padding: clamp(1rem, 4vw, 1.5rem) clamp(1rem, 4vw, 2rem);
       border-radius: 10px 10px 0 0;
       position:relative; overflow:hidden;
     }
     .section-banner::before {
       content: attr(data-num);
-      position:absolute; right:1.5rem; top:50%;
+      position:absolute; right:1rem; top:50%;
       transform:translateY(-50%);
       font-family:'Playfair Display',serif;
-      font-size:5rem; font-weight:900;
+      font-size: clamp(2.5rem, 10vw, 5rem);
+      font-weight:900;
       opacity:.07; line-height:1; pointer-events:none;
     }
     .section-banner h2 {
       font-family:'Playfair Display',serif;
-      font-size:clamp(1.5rem,3vw,2.2rem);
+      font-size:clamp(1.2rem, 4vw, 2.2rem);
       font-weight:700; line-height:1.2;
     }
     .section-banner .tag {
@@ -201,14 +231,14 @@
     /* ── CARDS ── */
     .card {
       background:#fff; border:1px solid var(--rule);
-      border-radius:8px; padding:1.5rem 1.75rem;
+      border-radius:8px; padding: clamp(.9rem, 4vw, 1.5rem) clamp(1rem, 4vw, 1.75rem);
       margin-bottom:1.25rem;
       box-shadow: 0 2px 8px rgba(0,0,0,.04);
     }
-    .card h3 { font-family:'Playfair Display',serif; font-size:1.15rem; margin-bottom:.75rem; }
+    .card h3 { font-family:'Playfair Display',serif; font-size:clamp(1rem, 3vw, 1.15rem); margin-bottom:.75rem; }
 
     /* ── CALLOUTS ── */
-    .callout { padding:1rem 1.25rem; border-radius:6px; margin:1rem 0; font-size:.95rem; line-height:1.65; }
+    .callout { padding: clamp(.75rem, 3vw, 1rem) clamp(.9rem, 3vw, 1.25rem); border-radius:6px; margin:1rem 0; font-size: clamp(.85rem, 2.5vw, .95rem); line-height:1.65; }
     .callout-title {
       font-family:'JetBrains Mono',monospace; font-size:.68rem;
       font-weight:600; letter-spacing:.12em; text-transform:uppercase;
@@ -225,33 +255,109 @@
     .callout.formula {
       background: var(--ink); color: var(--paper);
       border-left:none; border-radius:8px;
-      text-align:center; font-size:1.1rem; padding:1.25rem;
+      text-align:center; font-size: clamp(.9rem, 2.5vw, 1.1rem); padding: clamp(.9rem, 3vw, 1.25rem);
       box-shadow: 0 0 0 1.5px #00b4ff, 0 0 20px rgba(0,180,255,0.30);
+      overflow-x: auto;
     }
 
-    /* ── TABLE ── */
-    table.ref { width:100%; border-collapse:collapse; font-size:.88rem; margin:1rem 0; border-radius:8px; overflow:hidden; }
-    table.ref th { background:var(--ink); color:var(--paper); padding:.65rem 1rem; text-align:left; font-family:'JetBrains Mono',monospace; font-size:.71rem; letter-spacing:.08em; text-transform:uppercase; }
+    /* Prevent MathJax overflow on mobile */
+    .MathJax, .MathJax_Display { max-width: 100%; overflow-x: auto; }
+    mjx-container { max-width: 100%; overflow-x: auto; }
+
+    /* ── TABLE — mobile scrollable ── */
+    .table-scroll {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 8px;
+      margin: 1rem 0;
+    }
+    table.ref { width:100%; min-width: 400px; border-collapse:collapse; font-size: clamp(.78rem, 2vw, .88rem); border-radius:8px; overflow:hidden; }
+    table.ref th { background:var(--ink); color:var(--paper); padding:.65rem 1rem; text-align:left; font-family:'JetBrains Mono',monospace; font-size:.71rem; letter-spacing:.08em; text-transform:uppercase; white-space: nowrap; }
     table.ref td { padding:.6rem 1rem; border-bottom:1px solid var(--rule); vertical-align:top; }
     table.ref tr:nth-child(even) td { background:var(--cream); }
     table.ref tr:last-child td { border-bottom:none; }
 
-    /* ── CANVAS ── */
-    .canvas-wrap { display:grid; grid-template-columns:1fr auto; gap:1.5rem; align-items:start; margin:1.25rem 0; }
-    @media(max-width:640px){ .canvas-wrap { grid-template-columns:1fr; } }
-    canvas { border-radius:6px; border:1px solid var(--rule); background:#fff; width:100%; max-width:520px; display:block; }
-    .ctrl-panel { background:var(--cream); border-radius:8px; padding:1.1rem 1.25rem; min-width:200px; font-size:.88rem; }
-    .ctrl-panel label { font-family:'JetBrains Mono',monospace; font-size:.68rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; display:block; margin-top:.75rem; margin-bottom:.25rem; opacity:.6; }
+    /* Wrap existing table.ref in scroll divs via JS — but also style inline tables */
+    .callout .table-scroll, .card .table-scroll { margin: .5rem 0; }
+
+    /* ── CANVAS — fully responsive ── */
+    .canvas-wrap {
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      align-items:start;
+      margin:1.25rem 0;
+    }
+    @media(min-width: 680px) {
+      .canvas-wrap { grid-template-columns: 1fr auto; gap: 1.5rem; }
+    }
+
+    canvas {
+      border-radius:6px; border:1px solid var(--rule); background:#fff;
+      width:100%; height: auto;
+      display:block;
+      max-width: 520px;
+      touch-action: none;
+    }
+
+    /* Canvas container ensures proper sizing */
+    .canvas-container {
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .ctrl-panel {
+      background:var(--cream); border-radius:8px;
+      padding: clamp(.75rem, 3vw, 1.1rem) clamp(.9rem, 3vw, 1.25rem);
+      font-size:.88rem;
+      width: 100%;
+    }
+    @media(min-width: 680px) {
+      .ctrl-panel { min-width:200px; max-width: 220px; }
+    }
+
+    .ctrl-panel label {
+      font-family:'JetBrains Mono',monospace; font-size:.68rem; font-weight:600;
+      letter-spacing:.08em; text-transform:uppercase;
+      display:block; margin-top:.75rem; margin-bottom:.25rem; opacity:.6;
+    }
     .ctrl-panel label:first-child { margin-top:0; }
     input[type=range] { width:100%; cursor:pointer; }
-    select, input[type=text] { width:100%; padding:.4rem .6rem; border:1px solid var(--rule); border-radius:4px; background:#fff; font-family:'JetBrains Mono',monospace; font-size:.78rem; color:var(--ink); outline:none; }
+    select, input[type=text] {
+      width:100%; padding:.4rem .6rem;
+      border:1px solid var(--rule); border-radius:4px;
+      background:#fff; font-family:'JetBrains Mono',monospace;
+      font-size:.78rem; color:var(--ink); outline:none;
+      min-height: var(--touch-min);
+    }
 
-    .readout { background:var(--ink); color:var(--paper); border-radius:6px; padding:.9rem 1.1rem; font-family:'JetBrains Mono',monospace; font-size:.78rem; line-height:2; margin:.75rem 0; }
+    .readout {
+      background:var(--ink); color:var(--paper); border-radius:6px;
+      padding: clamp(.6rem, 2vw, .9rem) clamp(.75rem, 3vw, 1.1rem);
+      font-family:'JetBrains Mono',monospace;
+      font-size: clamp(.68rem, 2vw, .78rem);
+      line-height:2; margin:.75rem 0;
+      word-break: break-all;
+      overflow-wrap: break-word;
+    }
     .readout span { color:var(--gold-bright); font-weight:600; }
 
     /* ── BUTTONS ── */
-    .btn { display:inline-block; padding:.45rem 1.1rem; border:none; border-radius:5px; font-family:'JetBrains Mono',monospace; font-size:.74rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; transition:all .18s; background:var(--ink); color:var(--paper); margin:3px; }
+    .btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      padding: clamp(.4rem, 2vw, .45rem) clamp(.75rem, 3vw, 1.1rem);
+      border:none; border-radius:5px;
+      font-family:'JetBrains Mono',monospace; font-size:.74rem; font-weight:600;
+      letter-spacing:.06em; text-transform:uppercase;
+      cursor:pointer; transition:all .18s;
+      background:var(--ink); color:var(--paper); margin:3px;
+      min-height: var(--touch-min);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
     .btn:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.18); }
+    .btn:active { transform:translateY(0); }
     .btn.riemann-btn   { background:var(--riemann);   }
     .btn.antideriv-btn { background:var(--antideriv); }
     .btn.ftc-btn       { background:var(--ftc);       }
@@ -263,7 +369,18 @@
     .btn-row { margin:.75rem 0; display:flex; flex-wrap:wrap; gap:4px; }
 
     /* ── RULES GRID ── */
-    .rules-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:.9rem; margin:1rem 0; }
+    .rules-grid {
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:.9rem; margin:1rem 0;
+    }
+    @media(min-width: 480px) {
+      .rules-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media(min-width: 800px) {
+      .rules-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    }
+
     .rule-card { background:#fff; border:1px solid var(--rule); border-radius:7px; padding:1rem; font-size:.88rem; line-height:1.65; }
     .rule-card .rule-name { font-family:'JetBrains Mono',monospace; font-size:.68rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.4rem; display:block; }
     .rule-card.basic    { border-top:3px solid var(--riemann);   } .rule-card.basic    .rule-name { color:var(--riemann);   }
@@ -274,7 +391,18 @@
     .rule-card.improper { border-top:3px solid var(--practice);  } .rule-card.improper .rule-name { color:var(--practice);  }
 
     /* ── INTRO ── */
-    .intro-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem; margin:1.25rem 0; }
+    .intro-grid {
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:1rem; margin:1.25rem 0;
+    }
+    @media(min-width: 480px) {
+      .intro-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media(min-width: 768px) {
+      .intro-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+    }
+
     .intro-card { border-radius:8px; padding:1.25rem; border:1px solid transparent; }
     .intro-card h4 { font-family:'Playfair Display',serif; font-size:1.05rem; margin-bottom:.5rem; }
     .intro-card ul { padding-left:1.2rem; font-size:.9rem; line-height:1.85; }
@@ -286,11 +414,26 @@
     .intro-card:nth-child(6) { background:var(--practice-bg);  border-color:var(--practice-mid);  }
 
     /* ── PRACTICE ── */
-    .problem-box { background:#fff; border:2px solid var(--rule); border-radius:10px; padding:1.75rem; margin:1rem 0; }
-    .problem-question { font-size:1.05rem; line-height:1.85; margin-bottom:1.25rem; }
-    .answer-row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:1rem 0; }
-    .answer-row input { flex:1; min-width:180px; padding:.5rem .75rem; font-size:1rem; font-family:'JetBrains Mono',monospace; border:1.5px solid var(--rule); border-radius:5px; outline:none; }
+    .problem-box {
+      background:#fff; border:2px solid var(--rule); border-radius:10px;
+      padding: clamp(1rem, 4vw, 1.75rem); margin:1rem 0;
+    }
+    .problem-question { font-size: clamp(.95rem, 2.5vw, 1.05rem); line-height:1.85; margin-bottom:1.25rem; }
+    .answer-row {
+      display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:1rem 0;
+    }
+    .answer-row input {
+      flex:1; min-width:160px; padding:.5rem .75rem;
+      font-size: clamp(.9rem, 3vw, 1rem);
+      font-family:'JetBrains Mono',monospace;
+      border:1.5px solid var(--rule); border-radius:5px; outline:none;
+      min-height: var(--touch-min);
+    }
     .answer-row input:focus { border-color:var(--practice); }
+
+    /* Practice buttons — stack on very small screens */
+    .answer-row .btn { flex-shrink: 0; }
+
     .feedback-box { padding:.75rem 1rem; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:.85rem; display:none; }
     .feedback-box.correct { background:hsl(145,60%,95%); color:hsl(145,60%,28%); border:1px solid hsl(145,60%,70%); }
     .feedback-box.wrong   { background:hsl(5,80%,96%);   color:hsl(5,70%,38%);   border:1px solid hsl(5,70%,75%); }
@@ -298,8 +441,28 @@
     .hint-box { background:hsl(38,90%,96%); border:1px solid hsl(38,85%,70%); border-radius:6px; padding:.75rem 1rem; margin-top:.75rem; font-size:.9rem; display:none; color:hsl(38,70%,28%); }
     .prob-counter { font-family:'JetBrains Mono',monospace; font-size:.72rem; opacity:.5; letter-spacing:.08em; }
 
+    /* Practice type buttons — wrap on mobile */
+    #c-practice .btn-row {
+      gap: .4rem;
+    }
+    #c-practice .btn-row .btn {
+      font-size: clamp(.6rem, 2vw, .74rem);
+      padding: .4rem clamp(.5rem, 2vw, .9rem);
+    }
+
     /* ── GLOSSARY ── */
-    .glossary-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem; }
+    .glossary-grid {
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:1rem;
+    }
+    @media(min-width: 480px) {
+      .glossary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media(min-width: 768px) {
+      .glossary-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+    }
+
     .gterm { border-radius:7px; padding:1rem 1.1rem; border:1px solid var(--rule); background:#fff; }
     .gterm-word { font-family:'JetBrains Mono',monospace; font-size:.82rem; font-weight:600; display:block; margin-bottom:.25rem; }
     .gterm-latin { font-style:italic; font-size:.78rem; opacity:.55; display:block; margin-bottom:.35rem; font-family:'Crimson Pro',serif; }
@@ -308,30 +471,96 @@
 
     .glossary-panel { border-radius:10px; overflow:hidden; border:1.5px solid #00b4ff; box-shadow:0 0 0 0 rgba(0,180,255,0.30); transition:box-shadow .3s; margin:1.5rem 0 0; }
     .glossary-panel.open { box-shadow:0 0 18px rgba(0,180,255,0.30); }
-    .glossary-toggle { width:100%; background:var(--ink); border:none; cursor:pointer; display:flex; align-items:center; gap:.85rem; padding:1rem 1.4rem; color:#fff; font-family:'JetBrains Mono',monospace; text-align:left; transition:background .2s; }
+    .glossary-toggle {
+      width:100%; background:var(--ink); border:none; cursor:pointer;
+      display:flex; align-items:center; gap:.85rem;
+      padding: clamp(.75rem, 3vw, 1rem) clamp(.9rem, 3vw, 1.4rem);
+      color:#fff; font-family:'JetBrains Mono',monospace; text-align:left;
+      transition:background .2s;
+      min-height: var(--touch-min);
+      -webkit-tap-highlight-color: transparent;
+    }
     .glossary-toggle:hover { background:#1a1a1a; }
     .gt-icon { font-size:1.1rem; flex-shrink:0; filter:drop-shadow(0 0 6px #00b4ff); }
-    .gt-label { font-size:.85rem; font-weight:600; letter-spacing:.05em; color:#00c8ff; flex:1; }
-    .gt-count { font-size:.7rem; opacity:.45; letter-spacing:.08em; }
+    .gt-label { font-size: clamp(.75rem, 2.5vw, .85rem); font-weight:600; letter-spacing:.05em; color:#00c8ff; flex:1; min-width:0; }
+    .gt-count { font-size:.7rem; opacity:.45; letter-spacing:.08em; white-space: nowrap; }
     .gt-chevron { font-size:.75rem; opacity:.55; transition:transform .3s ease; flex-shrink:0; }
     .glossary-panel.open .gt-chevron { transform:rotate(180deg); }
-    .glossary-body { display:none; padding:1.4rem 1.4rem 1.6rem; background:var(--paper); animation:glossaryOpen .3s ease; }
+    .glossary-body {
+      display:none;
+      padding: clamp(.9rem, 3vw, 1.4rem) clamp(.9rem, 3vw, 1.4rem) clamp(1rem, 3vw, 1.6rem);
+      background:var(--paper); animation:glossaryOpen .3s ease;
+    }
     @keyframes glossaryOpen { from{opacity:0;transform:translateY(-6px);} to{opacity:1;transform:translateY(0);} }
     .glossary-panel.open .glossary-body { display:block; }
 
-    .tag-chip { font-family:'JetBrains Mono',monospace; font-size:.65rem; letter-spacing:.08em; text-transform:uppercase; padding:3px 10px; border-radius:20px; border:1.5px solid transparent; cursor:pointer; transition:all .15s; background:var(--cream); color:var(--ink); }
+    .glossary-search-row {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+      align-items: center;
+    }
+    .glossary-search-row input[type=text] {
+      flex: 1;
+      min-width: 150px;
+      padding: .45rem .8rem;
+      border: 1.5px solid #00b4ff;
+      border-radius: 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .8rem;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+      min-height: var(--touch-min);
+    }
+    #tagFilters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .35rem;
+      width: 100%;
+    }
+
+    .tag-chip {
+      font-family:'JetBrains Mono',monospace; font-size:.65rem; letter-spacing:.08em;
+      text-transform:uppercase; padding: .35rem .75rem; border-radius:20px;
+      border:1.5px solid transparent; cursor:pointer; transition:all .15s;
+      background:var(--cream); color:var(--ink);
+      min-height: 32px; display: flex; align-items: center;
+      -webkit-tap-highlight-color: transparent;
+    }
     .tag-chip.active { background:var(--ink); color:#00c8ff; border-color:#00b4ff; box-shadow:0 0 6px rgba(0,180,255,0.30); }
     .tag-chip:hover { border-color:#00b4ff; }
 
+    /* Colour legend — wraps on mobile */
+    .colour-legend {
+      display:flex; flex-wrap:wrap; gap:.6rem 1.2rem;
+      font-family:'JetBrains Mono',monospace; font-size:.78rem; margin-top:.5rem;
+    }
+
     /* ── MISC ── */
-    ol,ul { padding-left:1.5rem; line-height:1.9; font-size:.95rem; }
+    ol,ul { padding-left:1.5rem; line-height:1.9; font-size: clamp(.88rem, 2.5vw, .95rem); }
     p+p { margin-top:.75rem; }
     .mt1 { margin-top:1rem; }
     .divider { border:none; border-top:1px solid var(--rule); margin:1.75rem 0; }
     strong { font-weight:600; }
-    code { font-family:'JetBrains Mono',monospace; font-size:.82em; background:var(--cream); padding:1px 5px; border-radius:3px; }
+    code { font-family:'JetBrains Mono',monospace; font-size:.82em; background:var(--cream); padding:1px 5px; border-radius:3px; word-break: break-all; }
     .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
-    @media(max-width:700px){ .glossary-grid,.rules-grid{grid-template-columns:1fr;} .card{padding:1rem;} }
+
+    /* ── SMALL PHONE OVERRIDES (< 380px) ── */
+    @media(max-width: 380px) {
+      body { font-size: 15px; }
+      .callout { font-size: .82rem; }
+      .answer-row { flex-direction: column; }
+      .answer-row input { min-width: 100%; }
+      .btn { font-size: .65rem; }
+    }
+
+    /* ── PRINT ── */
+    @media print {
+      .main-nav, .progress-spine { display: none; }
+      .concept { display: block !important; }
+    }
   </style>
 </head>
 <body>
@@ -346,7 +575,7 @@
 
 <div class="progress-spine"><div class="progress-fill" id="progressFill"></div></div>
 
-<nav class="main-nav">
+<nav class="main-nav" id="mainNav">
   <button class="nav-btn active" data-section="intro"     onclick="show('intro')">Intro</button>
   <button class="nav-btn"        data-section="riemann"   onclick="show('riemann')">① Riemann</button>
   <button class="nav-btn"        data-section="antideriv" onclick="show('antideriv')">② Antiderivatives</button>
@@ -372,7 +601,7 @@
 
   <div class="card">
     <h3>Colour Guide</h3>
-    <div style="display:flex;flex-wrap:wrap;gap:.6rem 1.5rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;margin-top:.5rem">
+    <div class="colour-legend">
       <span><span class="dot" style="background:var(--riemann)"></span>Riemann Sums &amp; Area</span>
       <span><span class="dot" style="background:var(--antideriv)"></span>Antiderivatives</span>
       <span><span class="dot" style="background:var(--ftc)"></span>Fundamental Theorem</span>
@@ -424,9 +653,9 @@
       <span class="gt-chevron" id="gtChevron">▼</span>
     </button>
     <div class="glossary-body" id="glossaryBody">
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.25rem;align-items:center">
-        <input type="text" id="glossarySearch" placeholder="Search terms…" oninput="filterGlossary()" style="flex:1;min-width:180px;padding:.45rem .8rem;border:1.5px solid #00b4ff;border-radius:5px;font-family:'JetBrains Mono',monospace;font-size:.8rem;background:#fff;color:var(--ink);outline:none">
-        <div id="tagFilters" style="display:flex;flex-wrap:wrap;gap:.35rem"></div>
+      <div class="glossary-search-row">
+        <input type="text" id="glossarySearch" placeholder="Search terms…" oninput="filterGlossary()">
+        <div id="tagFilters"></div>
       </div>
       <div class="glossary-grid" id="glossaryGrid"></div>
       <p id="glossaryEmpty" style="display:none;font-family:'JetBrains Mono',monospace;font-size:.85rem;opacity:.5;text-align:center;padding:1rem 0">No terms match.</p>
@@ -450,13 +679,13 @@
   </div>
 
   <div class="canvas-wrap">
-    <div>
+    <div class="canvas-container">
       <canvas id="riemannCanvas" width="520" height="350"></canvas>
       <div class="readout" id="riemannReadout">
         n = <span id="rN">4</span> &nbsp;|&nbsp;
         Rule: <span id="rRule">Left</span> &nbsp;|&nbsp;
-        Approx. area ≈ <span id="rArea">0</span> &nbsp;|&nbsp;
-        True area = <span id="rTrue">0</span>
+        Approx. ≈ <span id="rArea">0</span> &nbsp;|&nbsp;
+        True = <span id="rTrue">0</span>
       </div>
     </div>
     <div class="ctrl-panel">
@@ -492,13 +721,15 @@
 
   <div class="callout def">
     <span class="callout-title">The Three Main Riemann Sum Rules</span>
-    <table class="ref" style="margin-top:.5rem">
-      <tr><th>Rule</th><th>Sample Point \(x_i^*\)</th><th>Notes</th></tr>
-      <tr><td><strong>Left</strong></td><td>Left endpoint \(x_{i-1}\)</td><td>Overestimates for increasing f</td></tr>
-      <tr><td><strong>Right</strong></td><td>Right endpoint \(x_i\)</td><td>Underestimates for increasing f</td></tr>
-      <tr><td><strong>Midpoint</strong></td><td>Midpoint \(\bar x_i = \tfrac{x_{i-1}+x_i}{2}\)</td><td>Usually most accurate of the three</td></tr>
-      <tr><td><strong>Trapezoid</strong></td><td>Average of left &amp; right</td><td>\(\tfrac{\Delta x}{2}[f(x_{i-1})+f(x_i)]\); exact for linear f</td></tr>
-    </table>
+    <div class="table-scroll">
+      <table class="ref">
+        <tr><th>Rule</th><th>Sample Point \(x_i^*\)</th><th>Notes</th></tr>
+        <tr><td><strong>Left</strong></td><td>Left endpoint \(x_{i-1}\)</td><td>Overestimates for increasing f</td></tr>
+        <tr><td><strong>Right</strong></td><td>Right endpoint \(x_i\)</td><td>Underestimates for increasing f</td></tr>
+        <tr><td><strong>Midpoint</strong></td><td>Midpoint \(\bar x_i = \tfrac{x_{i-1}+x_i}{2}\)</td><td>Usually most accurate of the three</td></tr>
+        <tr><td><strong>Trapezoid</strong></td><td>Average of left &amp; right</td><td>\(\tfrac{\Delta x}{2}[f(x_{i-1})+f(x_i)]\); exact for linear f</td></tr>
+      </table>
+    </div>
   </div>
 
   <div class="callout warn">
@@ -545,24 +776,26 @@
 
   <div class="callout def">
     <span class="callout-title">Table of Basic Antiderivatives</span>
-    <table class="ref" style="margin-top:.5rem">
-      <tr><th>Function \(f(x)\)</th><th>Antiderivative \(F(x) + C\)</th><th>Rule used</th></tr>
-      <tr><td>\(x^n,\; n \neq -1\)</td><td>\(\dfrac{x^{n+1}}{n+1} + C\)</td><td>Power rule (reversed)</td></tr>
-      <tr><td>\(\dfrac{1}{x}\)</td><td>\(\ln|x| + C\)</td><td>Log rule</td></tr>
-      <tr><td>\(e^x\)</td><td>\(e^x + C\)</td><td>Exp rule</td></tr>
-      <tr><td>\(a^x\)</td><td>\(\dfrac{a^x}{\ln a} + C\)</td><td>General exp</td></tr>
-      <tr><td>\(\sin x\)</td><td>\(-\cos x + C\)</td><td>Trig</td></tr>
-      <tr><td>\(\cos x\)</td><td>\(\sin x + C\)</td><td>Trig</td></tr>
-      <tr><td>\(\sec^2 x\)</td><td>\(\tan x + C\)</td><td>Trig</td></tr>
-      <tr><td>\(\dfrac{1}{\sqrt{1-x^2}}\)</td><td>\(\arcsin x + C\)</td><td>Inverse trig</td></tr>
-      <tr><td>\(\dfrac{1}{1+x^2}\)</td><td>\(\arctan x + C\)</td><td>Inverse trig</td></tr>
-    </table>
+    <div class="table-scroll">
+      <table class="ref">
+        <tr><th>Function \(f(x)\)</th><th>Antiderivative \(F(x) + C\)</th><th>Rule used</th></tr>
+        <tr><td>\(x^n,\; n \neq -1\)</td><td>\(\dfrac{x^{n+1}}{n+1} + C\)</td><td>Power rule (reversed)</td></tr>
+        <tr><td>\(\dfrac{1}{x}\)</td><td>\(\ln|x| + C\)</td><td>Log rule</td></tr>
+        <tr><td>\(e^x\)</td><td>\(e^x + C\)</td><td>Exp rule</td></tr>
+        <tr><td>\(a^x\)</td><td>\(\dfrac{a^x}{\ln a} + C\)</td><td>General exp</td></tr>
+        <tr><td>\(\sin x\)</td><td>\(-\cos x + C\)</td><td>Trig</td></tr>
+        <tr><td>\(\cos x\)</td><td>\(\sin x + C\)</td><td>Trig</td></tr>
+        <tr><td>\(\sec^2 x\)</td><td>\(\tan x + C\)</td><td>Trig</td></tr>
+        <tr><td>\(\dfrac{1}{\sqrt{1-x^2}}\)</td><td>\(\arcsin x + C\)</td><td>Inverse trig</td></tr>
+        <tr><td>\(\dfrac{1}{1+x^2}\)</td><td>\(\arctan x + C\)</td><td>Inverse trig</td></tr>
+      </table>
+    </div>
   </div>
 
   <div class="card">
     <h3>Finding Antiderivatives — Interactive</h3>
     <div class="canvas-wrap">
-      <div>
+      <div class="canvas-container">
         <canvas id="antiderivCanvas" width="520" height="350"></canvas>
         <div class="readout" id="antiderivReadout">
           f(x): <span id="adFn">x²</span> &nbsp;|&nbsp;
@@ -622,7 +855,7 @@
   </div>
 
   <div class="canvas-wrap">
-    <div>
+    <div class="canvas-container">
       <canvas id="ftcCanvas" width="520" height="350"></canvas>
       <div class="readout" id="ftcReadout">
         ∫<sub><span id="ftcA">0</span></sub><sup><span id="ftcB">2</span></sup> f(x) dx = <span id="ftcVal">—</span>
@@ -648,15 +881,17 @@
 
   <div class="callout def">
     <span class="callout-title">Properties of Definite Integrals</span>
-    <table class="ref" style="margin-top:.5rem">
-      <tr><th>Property</th><th>Statement</th></tr>
-      <tr><td>Reversal</td><td>\(\displaystyle\int_b^a f\,dx = -\int_a^b f\,dx\)</td></tr>
-      <tr><td>Zero width</td><td>\(\displaystyle\int_a^a f\,dx = 0\)</td></tr>
-      <tr><td>Linearity</td><td>\(\displaystyle\int_a^b [cf + g]\,dx = c\int_a^b f + \int_a^b g\)</td></tr>
-      <tr><td>Additivity</td><td>\(\displaystyle\int_a^b f\,dx = \int_a^c f\,dx + \int_c^b f\,dx\)</td></tr>
-      <tr><td>Comparison</td><td>If \(f \ge g\) on \([a,b]\) then \(\int_a^b f \ge \int_a^b g\)</td></tr>
-      <tr><td>MVT for integrals</td><td>\(\exists\, c \in (a,b)\) s.t. \(f(c) = \dfrac{1}{b-a}\int_a^b f\,dx\)</td></tr>
-    </table>
+    <div class="table-scroll">
+      <table class="ref">
+        <tr><th>Property</th><th>Statement</th></tr>
+        <tr><td>Reversal</td><td>\(\displaystyle\int_b^a f\,dx = -\int_a^b f\,dx\)</td></tr>
+        <tr><td>Zero width</td><td>\(\displaystyle\int_a^a f\,dx = 0\)</td></tr>
+        <tr><td>Linearity</td><td>\(\displaystyle\int_a^b [cf + g]\,dx = c\int_a^b f + \int_a^b g\)</td></tr>
+        <tr><td>Additivity</td><td>\(\displaystyle\int_a^b f\,dx = \int_a^c f\,dx + \int_c^b f\,dx\)</td></tr>
+        <tr><td>Comparison</td><td>If \(f \ge g\) on \([a,b]\) then \(\int_a^b f \ge \int_a^b g\)</td></tr>
+        <tr><td>MVT for integrals</td><td>\(\exists\, c \in (a,b)\) s.t. \(f(c) = \dfrac{1}{b-a}\int_a^b f\,dx\)</td></tr>
+      </table>
+    </div>
   </div>
 
   <div class="callout steps">
@@ -768,12 +1003,14 @@
 
   <div class="callout def">
     <span class="callout-title">Trig Substitution — When to Use</span>
-    <table class="ref" style="margin-top:.5rem">
-      <tr><th>Expression</th><th>Substitution</th><th>Identity used</th></tr>
-      <tr><td>\(\sqrt{a^2 - x^2}\)</td><td>\(x = a\sin\theta\)</td><td>\(1 - \sin^2\theta = \cos^2\theta\)</td></tr>
-      <tr><td>\(\sqrt{a^2 + x^2}\)</td><td>\(x = a\tan\theta\)</td><td>\(1 + \tan^2\theta = \sec^2\theta\)</td></tr>
-      <tr><td>\(\sqrt{x^2 - a^2}\)</td><td>\(x = a\sec\theta\)</td><td>\(\sec^2\theta - 1 = \tan^2\theta\)</td></tr>
-    </table>
+    <div class="table-scroll">
+      <table class="ref">
+        <tr><th>Expression</th><th>Substitution</th><th>Identity used</th></tr>
+        <tr><td>\(\sqrt{a^2 - x^2}\)</td><td>\(x = a\sin\theta\)</td><td>\(1 - \sin^2\theta = \cos^2\theta\)</td></tr>
+        <tr><td>\(\sqrt{a^2 + x^2}\)</td><td>\(x = a\tan\theta\)</td><td>\(1 + \tan^2\theta = \sec^2\theta\)</td></tr>
+        <tr><td>\(\sqrt{x^2 - a^2}\)</td><td>\(x = a\sec\theta\)</td><td>\(\sec^2\theta - 1 = \tan^2\theta\)</td></tr>
+      </table>
+    </div>
   </div>
 
   <div class="callout warn">
@@ -797,7 +1034,7 @@
       \[ A = \int_a^b \bigl[f(x) - g(x)\bigr]\,dx \quad \text{where } f(x) \ge g(x) \text{ on } [a,b] \]
     </div>
     <div class="canvas-wrap">
-      <div>
+      <div class="canvas-container">
         <canvas id="areaCanvas" width="520" height="320"></canvas>
         <div class="readout" id="areaReadout">Area between curves: <span id="areaVal">—</span></div>
       </div>
@@ -861,15 +1098,17 @@
 
   <div class="card">
     <h3>More Applications</h3>
-    <table class="ref">
-      <tr><th>Application</th><th>Formula</th><th>Notes</th></tr>
-      <tr><td><strong>Arc Length</strong></td><td>\(L = \displaystyle\int_a^b \sqrt{1+[f'(x)]^2}\,dx\)</td><td>Often requires trig sub or numerical methods</td></tr>
-      <tr><td><strong>Surface Area</strong> (revolution)</td><td>\(S = 2\pi\displaystyle\int_a^b f(x)\sqrt{1+[f'(x)]^2}\,dx\)</td><td>Rotation about x-axis</td></tr>
-      <tr><td><strong>Work</strong></td><td>\(W = \displaystyle\int_a^b F(x)\,dx\)</td><td>Variable force \(F(x)\) over distance</td></tr>
-      <tr><td><strong>Average Value</strong></td><td>\(f_{\text{avg}} = \dfrac{1}{b-a}\displaystyle\int_a^b f\,dx\)</td><td>MVT for integrals</td></tr>
-      <tr><td><strong>Centre of Mass</strong></td><td>\(\bar x = \dfrac{\int x\,\rho(x)\,dx}{\int \rho(x)\,dx}\)</td><td>\(\rho\) = density function</td></tr>
-      <tr><td><strong>Probability</strong></td><td>\(P(a \le X \le b) = \displaystyle\int_a^b f(x)\,dx\)</td><td>\(f\) = probability density function</td></tr>
-    </table>
+    <div class="table-scroll">
+      <table class="ref">
+        <tr><th>Application</th><th>Formula</th><th>Notes</th></tr>
+        <tr><td><strong>Arc Length</strong></td><td>\(L = \displaystyle\int_a^b \sqrt{1+[f'(x)]^2}\,dx\)</td><td>Often requires trig sub or numerical methods</td></tr>
+        <tr><td><strong>Surface Area</strong> (revolution)</td><td>\(S = 2\pi\displaystyle\int_a^b f(x)\sqrt{1+[f'(x)]^2}\,dx\)</td><td>Rotation about x-axis</td></tr>
+        <tr><td><strong>Work</strong></td><td>\(W = \displaystyle\int_a^b F(x)\,dx\)</td><td>Variable force \(F(x)\) over distance</td></tr>
+        <tr><td><strong>Average Value</strong></td><td>\(f_{\text{avg}} = \dfrac{1}{b-a}\displaystyle\int_a^b f\,dx\)</td><td>MVT for integrals</td></tr>
+        <tr><td><strong>Centre of Mass</strong></td><td>\(\bar x = \dfrac{\int x\,\rho(x)\,dx}{\int \rho(x)\,dx}\)</td><td>\(\rho\) = density function</td></tr>
+        <tr><td><strong>Probability</strong></td><td>\(P(a \le X \le b) = \displaystyle\int_a^b f(x)\,dx\)</td><td>\(f\) = probability density function</td></tr>
+      </table>
+    </div>
   </div>
 
   <div class="callout real">
@@ -931,6 +1170,22 @@
 </div><!-- .page -->
 
 <script>
+// ─── Canvas scaling for HiDPI / Retina ────────────────────────────────
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  // Use logical size from CSS, not attribute
+  const w = canvas.offsetWidth || parseInt(canvas.getAttribute('width'));
+  const h = Math.round(w * (parseInt(canvas.getAttribute('height')) / parseInt(canvas.getAttribute('width'))));
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { ctx, w, h };
+}
+
 // ─── MathJax ──────────────────────────────────────────────────────────
 function updateMath() {
   if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise().catch(()=>{});
@@ -946,18 +1201,34 @@ function show(id) {
   });
   const idx = SECTIONS.indexOf(id);
   document.getElementById('progressFill').style.width = `${(idx/(SECTIONS.length-1))*100}%`;
-  if (id==='riemann')   drawRiemann();
-  if (id==='antideriv') drawAntideriv();
-  if (id==='ftc')       drawFTC();
-  if (id==='apps')      drawArea();
+
+  // Scroll active nav btn into view
+  const activeBtn = document.querySelector('.nav-btn.active');
+  if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+  if (id==='riemann')   { requestAnimationFrame(drawRiemann); }
+  if (id==='antideriv') { requestAnimationFrame(drawAntideriv); }
+  if (id==='ftc')       { requestAnimationFrame(drawFTC); }
+  if (id==='apps')      { requestAnimationFrame(drawArea); }
   if (id==='practice')  displayProblem();
   setTimeout(updateMath, 200);
 }
 
 // ─── Canvas utilities ─────────────────────────────────────────────────
-function drawAxes(ctx, xRange=7, yRange=5, scale=40) {
-  const c=ctx.canvas, w=c.width, h=c.height;
-  ctx.clearRect(0,0,w,h);
+function getCanvasSize(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  return {
+    w: canvas.width / dpr,
+    h: canvas.height / dpr
+  };
+}
+
+function drawAxes(ctx, canvas, xRange=7, yRange=5, scale) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+  if (!scale) scale = Math.min(w / (xRange * 2 + 2), h / (yRange * 2 + 2));
+  ctx.clearRect(0, 0, w, h);
   ctx.save();
   ctx.strokeStyle='#e8e2d5'; ctx.lineWidth=1;
   for(let x=-xRange;x<=xRange;x++){const sx=w/2+x*scale;ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,h);ctx.stroke();}
@@ -967,10 +1238,42 @@ function drawAxes(ctx, xRange=7, yRange=5, scale=40) {
   ctx.beginPath();ctx.moveTo(w/2,0);ctx.lineTo(w/2,h);ctx.stroke();
   ctx.fillStyle='#aaa';ctx.font='10px JetBrains Mono,monospace';
   ctx.textAlign='center';ctx.textBaseline='top';
-  for(let x=-6;x<=6;x+=2){if(x===0)continue;ctx.fillText(x,w/2+x*scale,h/2+4);}
+  const xStep = w < 350 ? 3 : 2;
+  for(let x=-6;x<=6;x+=xStep){if(x===0)continue;ctx.fillText(x,w/2+x*scale,h/2+4);}
   ctx.textAlign='right';ctx.textBaseline='middle';
   for(let y=-4;y<=4;y+=2){if(y===0)continue;ctx.fillText(y,w/2-5,h/2-y*scale);}
   ctx.restore();
+  return { w, h, scale };
+}
+
+function getScale(canvas, xRange=7, yRange=5) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+  return Math.min(w / (xRange * 2 + 2), h / (yRange * 2 + 2));
+}
+
+// ─── Resize all canvases ──────────────────────────────────────────────
+function resizeAllCanvases() {
+  ['riemannCanvas','antiderivCanvas','ftcCanvas','areaCanvas'].forEach(id => {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    const logicalW = canvas.parentElement.clientWidth || 520;
+    const origW = parseInt(canvas.getAttribute('data-orig-w') || canvas.getAttribute('width') || 520);
+    const origH = parseInt(canvas.getAttribute('data-orig-h') || canvas.getAttribute('height') || 350);
+    canvas.setAttribute('data-orig-w', origW);
+    canvas.setAttribute('data-orig-h', origH);
+    const aspect = origH / origW;
+    const newW = Math.min(logicalW, origW);
+    const newH = Math.round(newW * aspect);
+    canvas.width  = newW * dpr;
+    canvas.height = newH * dpr;
+    canvas.style.width  = newW + 'px';
+    canvas.style.height = newH + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  });
 }
 
 // ─── Riemann sums ──────────────────────────────────────────────────────
@@ -984,7 +1287,6 @@ function riemannF(x, fn) {
   }
 }
 function riemannTrue(a, b, fn) {
-  // Analytical integrals
   switch(fn) {
     case 'quadratic':   return (b*b*b - a*a*a)/3;
     case 'sinusoidal':  return -Math.cos(b)+Math.cos(a);
@@ -1005,11 +1307,13 @@ function drawRiemann() {
   document.getElementById('rADisp').textContent = a;
   document.getElementById('rBDisp').textContent = b;
   document.getElementById('rRule').textContent = rule.charAt(0).toUpperCase()+rule.slice(1);
-  drawAxes(ctx);
-  const tx=(x)=>canvas.width/2+x*40, ty=(y)=>canvas.height/2-y*40;
+  const scale = getScale(canvas);
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr, h = canvas.height / dpr;
+  const {w:_, h:__, scale:s} = drawAxes(ctx, canvas);
+  const tx=(x)=>w/2+x*s, ty=(y)=>h/2-y*s;
   const dx = (b-a)/n;
   let area = 0;
-  // Rectangles
   const riemannColor = 'hsl(24,82%,42%)';
   for(let i=0;i<n;i++) {
     const xi = a+i*dx;
@@ -1017,7 +1321,7 @@ function drawRiemann() {
     if(rule==='left')  sampleX = xi;
     else if(rule==='right') sampleX = xi+dx;
     else if(rule==='mid')   sampleX = xi+dx/2;
-    else sampleX = xi; // trap handled below
+    else sampleX = xi;
     const yi = riemannF(sampleX, fn);
     if(rule==='trap') {
       const yl=riemannF(xi,fn), yr=riemannF(xi+dx,fn);
@@ -1034,12 +1338,11 @@ function drawRiemann() {
       area += yi*dx;
       const ry = Math.min(ty(0), ty(yi)), rh = Math.abs(ty(0)-ty(yi));
       ctx.fillStyle='hsla(24,82%,62%,.35)';
-      ctx.fillRect(tx(xi), ry, dx*40, rh);
+      ctx.fillRect(tx(xi), ry, dx*s, rh);
       ctx.strokeStyle=riemannColor; ctx.lineWidth=1;
-      ctx.strokeRect(tx(xi), ry, dx*40, rh);
+      ctx.strokeRect(tx(xi), ry, dx*s, rh);
     }
   }
-  // Curve
   ctx.strokeStyle='#1e3a5f'; ctx.lineWidth=2.5; ctx.beginPath();
   let first=true;
   for(let t=-7;t<=7;t+=0.04){
@@ -1091,9 +1394,10 @@ function drawAntideriv() {
   document.getElementById('adFn').textContent = adLabels[fn]||fn;
   document.getElementById('adFx').textContent = adFxLabels[fn]||'F(x)+C';
   document.getElementById('adC').textContent = C.toFixed(1);
-  drawAxes(ctx);
-  const tx=(x)=>canvas.width/2+x*40, ty=(y)=>canvas.height/2-y*40;
-  // f(x)
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr, h = canvas.height / dpr;
+  const {w:_, h:__, scale:s} = drawAxes(ctx, canvas);
+  const tx=(x)=>w/2+x*s, ty=(y)=>h/2-y*s;
   ctx.strokeStyle='#16a34a'; ctx.lineWidth=2.5; ctx.beginPath();
   let first=true;
   for(let t=-7;t<=7;t+=0.04){
@@ -1102,7 +1406,6 @@ function drawAntideriv() {
     first?ctx.moveTo(tx(t),ty(yv)):ctx.lineTo(tx(t),ty(yv)); first=false;
   }
   ctx.stroke();
-  // F(x)+C
   ctx.strokeStyle='hsl(160,65%,36%)'; ctx.lineWidth=2.5; ctx.setLineDash([6,4]); ctx.beginPath();
   first=true;
   for(let t=-7;t<=7;t+=0.04){
@@ -1144,9 +1447,10 @@ function drawFTC() {
   document.getElementById('ftcB').textContent = b.toFixed(2);
   const val = ftcAntideriv(b,fn) - ftcAntideriv(a,fn);
   document.getElementById('ftcVal').textContent = val.toFixed(4);
-  drawAxes(ctx);
-  const tx=(x)=>canvas.width/2+x*40, ty=(y)=>canvas.height/2-y*40;
-  // Shaded region
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr, h = canvas.height / dpr;
+  const {w:_, h:__, scale:s} = drawAxes(ctx, canvas);
+  const tx=(x)=>w/2+x*s, ty=(y)=>h/2-y*s;
   if(a!==b){
     const lo=Math.min(a,b),hi=Math.max(a,b);
     ctx.beginPath(); ctx.moveTo(tx(lo),ty(0));
@@ -1154,7 +1458,6 @@ function drawFTC() {
     ctx.lineTo(tx(hi),ty(0)); ctx.closePath();
     ctx.fillStyle='hsla(220,72%,60%,.25)'; ctx.fill();
   }
-  // Curve
   ctx.strokeStyle='hsl(220,72%,44%)'; ctx.lineWidth=2.5; ctx.beginPath();
   let first=true;
   for(let t=-7;t<=7;t+=0.04){
@@ -1163,7 +1466,6 @@ function drawFTC() {
     first?ctx.moveTo(tx(t),ty(yv)):ctx.lineTo(tx(t),ty(yv)); first=false;
   }
   ctx.stroke();
-  // Limit markers
   [a,b].forEach((xv,i)=>{
     const yv=ftcF(xv,fn);
     ctx.strokeStyle=i===0?'#ef4444':'#22c55e'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
@@ -1207,20 +1509,20 @@ function drawArea() {
   document.getElementById('areaBd').textContent = b;
   const area = numericIntegral(a, b, uf, lf);
   document.getElementById('areaVal').textContent = area.toFixed(4);
-  drawAxes(ctx, 6, 4);
-  const tx=(x)=>canvas.width/2+x*40, ty=(y)=>canvas.height/2-y*40;
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr, h = canvas.height / dpr;
+  const {w:_, h:__, scale:s} = drawAxes(ctx, canvas, 6, 4);
+  const tx=(x)=>w/2+x*s, ty=(y)=>h/2-y*s;
   if(a<b) {
     ctx.beginPath(); ctx.moveTo(tx(a),ty(lowerFY(a,lf)));
     for(let t=a;t<=b;t+=0.03) ctx.lineTo(tx(t),ty(upperFY(t,uf)));
     for(let t=b;t>=a;t-=0.03) ctx.lineTo(tx(t),ty(lowerFY(t,lf)));
     ctx.closePath(); ctx.fillStyle='hsla(355,75%,60%,.22)'; ctx.fill();
   }
-  // Upper
   ctx.strokeStyle='hsl(355,75%,46%)'; ctx.lineWidth=2.5; ctx.beginPath();
   let first=true;
   for(let t=-7;t<=7;t+=0.04){const yv=upperFY(t,uf);if(Math.abs(yv)>8){first=true;continue;}first?ctx.moveTo(tx(t),ty(yv)):ctx.lineTo(tx(t),ty(yv));first=false;}
   ctx.stroke();
-  // Lower
   ctx.strokeStyle='#3b82f6'; ctx.lineWidth=2.5; ctx.beginPath(); first=true;
   for(let t=-7;t<=7;t+=0.04){const yv=lowerFY(t,lf);if(Math.abs(yv)>8){first=true;continue;}first?ctx.moveTo(tx(t),ty(yv)):ctx.lineTo(tx(t),ty(yv));first=false;}
   ctx.stroke();
@@ -1239,7 +1541,7 @@ const PROBS = {
     { q:'Find \\(\\int e^{2x}\\,dx\\).', a:'e^2x/2+C', sol:'Let u=2x, du=2dx → (1/2)∫eᵘdu = eᵘ/2 = e²ˣ/2+C', hint:'Use substitution u=2x' },
   ],
   ftc:[
-    { q:'Evaluate \\(\\int_1^3 (2x+1)\\,dx\\) using the FTC.', a:12, sol:'F(x)=x²+x\nF(3)−F(1)=(9+3)−(1+1)=12−2=10\n\nWait — re-check: 12−2=10', a:10, sol:'F(x)=x²+x\nF(3)−F(1)=(9+3)−(1+1)=12−2=10', hint:'Find antiderivative, then evaluate F(b)−F(a)' },
+    { q:'Evaluate \\(\\int_1^3 (2x+1)\\,dx\\) using the FTC.', a:10, sol:'F(x)=x²+x\nF(3)−F(1)=(9+3)−(1+1)=12−2=10', hint:'Find antiderivative, then evaluate F(b)−F(a)' },
     { q:'If \\(g(x)=\\int_0^x \\sin t\\,dt\\), what is \\(g\'(x)\\)?', a:'sin(x)', sol:'By FTC Part 1: g\'(x)=sin(x)', hint:'FTC Part 1: d/dx ∫₀ˣ f(t)dt = f(x)' },
     { q:'Evaluate \\(\\int_0^{\\pi} \\cos x\\,dx\\).', a:0, sol:'F(x)=sin(x)\nF(π)−F(0)=sin(π)−sin(0)=0−0=0', hint:'Antiderivative of cos(x) is sin(x)' },
   ],
@@ -1362,14 +1664,38 @@ function renderGlossary(){
   }
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────
+// ─── INIT & RESIZE ────────────────────────────────────────────────────
+function initCanvases() {
+  resizeAllCanvases();
+  drawRiemann();
+  drawAntideriv();
+  drawFTC();
+  drawArea();
+}
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    resizeAllCanvases();
+    // Redraw whichever canvas is currently visible
+    const active = document.querySelector('.concept.active');
+    if (!active) return;
+    const id = active.getAttribute('data-id');
+    if (id === 'riemann')   drawRiemann();
+    if (id === 'antideriv') drawAntideriv();
+    if (id === 'ftc')       drawFTC();
+    if (id === 'apps')      drawArea();
+  }, 150);
+});
+
 buildGlossary();
-drawRiemann();
-drawAntideriv();
-drawFTC();
-drawArea();
+// Wait for layout before sizing canvases
+requestAnimationFrame(() => {
+  initCanvases();
+  setTimeout(updateMath, 600);
+});
 displayProblem();
-setTimeout(updateMath, 600);
 </script>
 </body>
 </html>
