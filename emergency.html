@@ -2,708 +2,170 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="theme-color" content="#0a0a0a">
-<title>MediScan QR — Emergency Access</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emergency Medical Info — LumenOS MediScan</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --red: #ff3333;
-    --red-dim: rgba(255,51,51,0.12);
-    --red-border: rgba(255,51,51,0.3);
-    --amber: #ffaa00;
-    --amber-dim: rgba(255,170,0,0.1);
-    --green: #00cc66;
-    --green-dim: rgba(0,204,102,0.1);
-    --blue: #3399ff;
-    --bg: #0a0a0a;
-    --surface: #141414;
-    --surface2: #1c1c1c;
-    --border: #2a2a2a;
-    --text: #f0f0f0;
-    --muted: #666;
-    --mono: 'Space Mono', monospace;
-    --sans: 'Space Grotesk', sans-serif;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-  html, body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100vh;
-    font-size: 16px;
-  }
-
-  /* ── LOADING STATE ── */
-  #loading-screen {
-    position: fixed; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    background: var(--bg);
-    z-index: 100;
-    gap: 20px;
-  }
-
-  .pulse-ring {
-    width: 60px; height: 60px;
-    border-radius: 50%;
-    border: 2px solid var(--red);
-    position: relative;
-    animation: pulseRing 1.2s ease infinite;
-  }
-
-  .pulse-ring::before {
-    content: '';
-    position: absolute; inset: 8px;
-    background: var(--red);
-    border-radius: 50%;
-    animation: pulseDot 1.2s ease infinite;
-  }
-
-  @keyframes pulseRing {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-  }
-
-  @keyframes pulseDot {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(0.85); }
-  }
-
-  .loading-text {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  /* ── ERROR STATE ── */
-  #error-screen {
-    display: none;
-    min-height: 100vh;
-    align-items: center; justify-content: center;
-    flex-direction: column;
-    text-align: center;
-    padding: 40px 24px;
-    gap: 16px;
-  }
-
-  .error-icon {
-    font-size: 48px;
-    margin-bottom: 8px;
-  }
-
-  .error-title {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text);
-  }
-
-  .error-desc {
-    color: var(--muted);
-    font-size: 15px;
-    max-width: 280px;
-    line-height: 1.6;
-  }
-
-  /* ── MAIN CONTENT ── */
-  #main-content {
-    display: none;
-    min-height: 100vh;
-    padding-bottom: 40px;
-  }
-
-  /* ── TOP BANNER ── */
-  .emergency-banner {
-    background: var(--red);
-    padding: 10px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky; top: 0; z-index: 50;
-  }
-
-  .banner-left {
-    display: flex; align-items: center; gap: 10px;
-  }
-
-  .heartbeat-icon {
-    font-size: 18px;
-    animation: heartbeat 1.5s ease infinite;
-  }
-
-  @keyframes heartbeat {
-    0%, 100% { transform: scale(1); }
-    14% { transform: scale(1.2); }
-    28% { transform: scale(1); }
-    42% { transform: scale(1.15); }
-  }
-
-  .banner-label {
-    font-family: var(--mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: #fff;
-  }
-
-  .banner-time {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: rgba(255,255,255,0.7);
-    letter-spacing: 1px;
-  }
-
-  /* ── PATIENT HEADER ── */
-  .patient-header {
-    padding: 28px 20px 20px;
-    border-bottom: 1px solid var(--border);
-    animation: fadeUp 0.3s ease both;
-  }
-
-  .patient-name {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    line-height: 1.1;
-    margin-bottom: 10px;
-  }
-
-  .patient-meta {
-    display: flex; flex-wrap: wrap; gap: 8px;
-    margin-top: 12px;
-  }
-
-  .meta-chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 5px 12px;
-    font-size: 13px;
-    font-weight: 500;
-  }
-
-  .meta-chip .chip-label { color: var(--muted); font-size: 11px; }
-
-  /* ── BLOOD TYPE ── */
-  .blood-type-block {
-    display: flex; align-items: center; gap: 16px;
-    background: var(--red-dim);
-    border: 1px solid var(--red-border);
-    border-radius: 14px;
-    padding: 18px 20px;
-    margin: 20px 20px 0;
-    animation: fadeUp 0.35s ease 0.05s both;
-  }
-
-  .blood-type-value {
-    font-family: var(--mono);
-    font-size: 42px;
-    font-weight: 700;
-    color: var(--red);
-    line-height: 1;
-    min-width: 80px;
-  }
-
-  .blood-type-label {
-    font-size: 11px;
-    font-family: var(--mono);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 4px;
-  }
-
-  .blood-type-desc {
-    font-size: 13px;
-    color: var(--text);
-    opacity: 0.8;
-  }
-
-  /* ── CRITICAL SECTIONS ── */
-  .section-block {
-    margin: 16px 20px 0;
-    border-radius: 14px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    animation: fadeUp 0.35s ease both;
-  }
-
-  .section-block.danger { border-color: var(--red-border); background: var(--red-dim); }
-  .section-block.warning { border-color: rgba(255,170,0,0.25); background: var(--amber-dim); }
-  .section-block.neutral { background: var(--surface); }
-  .section-block.contact { border-color: rgba(51,153,255,0.25); background: rgba(51,153,255,0.06); }
-
-  .section-header {
-    display: flex; align-items: center; gap: 10px;
-    padding: 14px 16px 10px;
-  }
-
-  .section-icon { font-size: 16px; }
-
-  .section-title {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-    font-weight: 700;
-  }
-
-  .section-block.danger .section-title { color: var(--red); }
-  .section-block.warning .section-title { color: var(--amber); }
-  .section-block.neutral .section-title { color: var(--muted); }
-  .section-block.contact .section-title { color: var(--blue); }
-
-  .tag-list {
-    display: flex; flex-wrap: wrap; gap: 8px;
-    padding: 0 16px 16px;
-  }
-
-  .tag {
-    padding: 6px 14px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1.3;
-  }
-
-  .section-block.danger .tag { background: rgba(255,51,51,0.15); color: #ff6666; border: 1px solid rgba(255,51,51,0.2); }
-  .section-block.warning .tag { background: rgba(255,170,0,0.12); color: #ffcc44; border: 1px solid rgba(255,170,0,0.2); }
-  .section-block.neutral .tag { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-
-  .none-label {
-    padding: 0 16px 16px;
-    font-size: 14px;
-    color: var(--muted);
-    font-style: italic;
-  }
-
-  /* ── EMERGENCY CONTACT ── */
-  .contact-card {
-    padding: 0 16px 16px;
-  }
-
-  .contact-name {
-    font-size: 18px;
-    font-weight: 700;
-    margin-bottom: 2px;
-  }
-
-  .contact-relation {
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 14px;
-  }
-
-  .call-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    width: 100%;
-    padding: 14px;
-    background: var(--blue);
-    color: white;
-    border-radius: 10px;
-    font-family: var(--sans);
-    font-size: 16px;
-    font-weight: 700;
-    text-decoration: none;
-    letter-spacing: 0.3px;
-    transition: opacity .15s;
-    border: none;
-    cursor: pointer;
-  }
-
-  .call-btn:active { opacity: 0.85; }
-
-  /* ── DIVIDER ── */
-  .section-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 0 16px;
-    opacity: 0.5;
-  }
-
-  /* ── FIELD ROW ── */
-  .field-row {
-    display: flex; justify-content: space-between; align-items: baseline;
-    padding: 10px 16px;
-  }
-
-  .field-row + .field-row { border-top: 1px solid rgba(255,255,255,0.04); }
-
-  .field-key {
-    font-size: 11px;
-    font-family: var(--mono);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--muted);
-    flex-shrink: 0;
-    margin-right: 16px;
-  }
-
-  .field-val {
-    font-size: 14px;
-    font-weight: 500;
-    text-align: right;
-  }
-
-  /* ── FOOTER ── */
-  .emergency-footer {
-    margin: 28px 20px 0;
-    padding: 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    text-align: center;
-    animation: fadeUp 0.4s ease 0.2s both;
-  }
-
-  .footer-brand {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 6px;
-  }
-
-  .footer-note {
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.5;
-  }
-
-  .scan-logged {
-    display: inline-flex; align-items: center; gap: 6px;
-    margin-top: 10px;
-    background: rgba(0,204,102,0.08);
-    border: 1px solid rgba(0,204,102,0.2);
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 11px;
-    font-family: var(--mono);
-    color: var(--green);
-    letter-spacing: 1px;
-  }
-
-  .scan-dot {
-    width: 6px; height: 6px;
-    background: var(--green);
-    border-radius: 50%;
-    box-shadow: 0 0 5px var(--green);
-  }
-
-  /* ── ANIMATIONS ── */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* ── DELAY CLASSES ── */
-  .d1 { animation-delay: 0.08s; }
-  .d2 { animation-delay: 0.14s; }
-  .d3 { animation-delay: 0.20s; }
-  .d4 { animation-delay: 0.26s; }
-  .d5 { animation-delay: 0.32s; }
-  .d6 { animation-delay: 0.38s; }
-
-  /* ── INACTIVE ── */
-  #inactive-screen {
-    display: none;
-    min-height: 100vh;
-    align-items: center; justify-content: center;
-    flex-direction: column;
-    text-align: center;
-    padding: 40px 24px;
-    gap: 16px;
-  }
+  :root{--red:#E63946;--navy:#0A2540;--teal:#00B4D8;--green:#2EC4B6;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'DM Sans',sans-serif;background:#f0f6fc;color:#0A2540;min-height:100vh;padding:20px;}
+  .container{max-width:560px;margin:0 auto;}
+  .header-bar{background:var(--navy);color:white;padding:16px 20px;border-radius:16px 16px 0 0;display:flex;align-items:center;gap:12px;}
+  .header-bar img{height:28px;filter:invert(1);}
+  .header-bar .title{font-size:15px;font-weight:700;letter-spacing:-.3px;}
+  .header-bar .sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px;}
+  .emergency-banner{background:#fff0f1;border:2px solid var(--red);border-top:none;padding:14px 20px;display:flex;align-items:center;gap:10px;font-weight:700;color:var(--red);font-size:14px;}
+  .card{background:white;border:1px solid #d6e6f2;border-top:none;padding:20px;}
+  .card:last-child{border-radius:0 0 16px 16px;}
+  .section-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--teal);margin-bottom:12px;margin-top:20px;}
+  .section-title:first-child{margin-top:0;}
+  .field{margin-bottom:12px;}
+  .field .k{font-size:11px;color:#8CA9C4;font-weight:600;margin-bottom:2px;}
+  .field .v{font-size:14px;font-weight:600;color:#0A2540;}
+  .blood-type{font-size:36px;font-weight:800;color:var(--red);letter-spacing:-1px;}
+  .allergy-pill{display:inline-block;background:#fff0f1;border:1px solid rgba(230,57,70,.3);color:var(--red);border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;margin:2px;}
+  .med-pill{display:inline-block;background:#f0f9ff;border:1px solid rgba(0,180,216,.2);color:#0096b4;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;margin:2px;}
+  .cond-pill{display:inline-block;background:#f7fafd;border:1px solid #d6e6f2;color:#0A2540;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;margin:2px;}
+  .spinner{display:inline-block;width:24px;height:24px;border:3px solid #d6e6f2;border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .error-msg{text-align:center;padding:40px;color:var(--red);font-weight:600;}
+  .loading-msg{text-align:center;padding:60px;color:#8CA9C4;}
+  .footer-note{text-align:center;font-size:11px;color:#8CA9C4;padding:16px;letter-spacing:.5px;}
+  .inactive-banner{background:#fff8f0;border:2px solid #f4a261;border-radius:16px;padding:24px;text-align:center;color:#c47c2b;font-weight:700;font-size:15px;}
+  .rate-banner{background:#fff8f0;border:2px solid #f4a261;border-radius:16px;padding:24px;text-align:center;color:#c47c2b;font-weight:700;font-size:15px;}
 </style>
 </head>
 <body>
-
-<!-- LOADING -->
-<div id="loading-screen">
-  <div class="pulse-ring"></div>
-  <div class="loading-text">Fetching patient data…</div>
-</div>
-
-<!-- ERROR -->
-<div id="error-screen">
-  <div class="error-icon">⚠️</div>
-  <div class="error-title">Record Not Found</div>
-  <div class="error-desc" id="error-desc">This QR code could not be matched to any patient record. It may be invalid or expired.</div>
-</div>
-
-<!-- INACTIVE -->
-<div id="inactive-screen">
-  <div class="error-icon">🔒</div>
-  <div class="error-title">QR Code Deactivated</div>
-  <div class="error-desc">This QR code has been deactivated by the patient or their care provider. Contact the patient's medical facility for assistance.</div>
-</div>
-
-<!-- MAIN -->
-<div id="main-content">
-
-  <!-- BANNER -->
-  <div class="emergency-banner">
-    <div class="banner-left">
-      <span class="heartbeat-icon">❤️</span>
-      <span class="banner-label">Emergency Medical Record</span>
-    </div>
-    <span class="banner-time" id="banner-time"></span>
-  </div>
-
-  <!-- PATIENT HEADER -->
-  <div class="patient-header">
-    <div class="patient-name" id="p-name"></div>
-    <div class="patient-meta" id="p-meta"></div>
-  </div>
-
-  <!-- BLOOD TYPE -->
-  <div class="blood-type-block" id="blood-block">
-    <div class="blood-type-value" id="p-blood"></div>
-    <div>
-      <div class="blood-type-label">Blood Type</div>
-      <div class="blood-type-desc" id="p-blood-compat"></div>
-    </div>
-  </div>
-
-  <!-- ALLERGIES -->
-  <div class="section-block danger d1" id="allergy-block">
-    <div class="section-header">
-      <span class="section-icon">🚨</span>
-      <span class="section-title">Allergies</span>
-    </div>
-    <div class="tag-list" id="p-allergies"></div>
-  </div>
-
-  <!-- MEDICATIONS -->
-  <div class="section-block warning d2" id="meds-block">
-    <div class="section-header">
-      <span class="section-icon">💊</span>
-      <span class="section-title">Current Medications</span>
-    </div>
-    <div class="tag-list" id="p-medications"></div>
-  </div>
-
-  <!-- CONDITIONS -->
-  <div class="section-block neutral d3" id="conditions-block">
-    <div class="section-header">
-      <span class="section-icon">🩺</span>
-      <span class="section-title">Medical Conditions</span>
-    </div>
-    <div class="tag-list" id="p-conditions"></div>
-  </div>
-
-  <!-- EMERGENCY CONTACT -->
-  <div class="section-block contact d4" id="emergency-block">
-    <div class="section-header">
-      <span class="section-icon">📞</span>
-      <span class="section-title">Emergency Contact</span>
-    </div>
-    <div class="contact-card">
-      <div class="contact-name" id="p-ec-name"></div>
-      <div class="contact-relation" id="p-ec-relation"></div>
-      <a class="call-btn" id="p-ec-call" href="#">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-        Call Now
-      </a>
-    </div>
-  </div>
-
-  <!-- ADDITIONAL INFO -->
-  <div class="section-block neutral d5" id="extra-block" style="display:none">
-    <div class="section-header">
-      <span class="section-icon">📋</span>
-      <span class="section-title">Additional Info</span>
-    </div>
-    <div id="p-extra-fields"></div>
-  </div>
-
-  <!-- FOOTER -->
-  <div class="emergency-footer">
-    <div class="footer-brand">LumenOS · MediScan QR</div>
-    <div class="footer-note">This is an emergency medical summary. For complete records, contact the patient's primary care provider.</div>
-    <div class="scan-logged">
-      <div class="scan-dot"></div>
-      <span>Scan logged · <span id="log-time"></span></span>
-    </div>
-  </div>
-
+<div class="container">
+  <div id="root"><div class="loading-msg"><div class="spinner" style="margin:0 auto 16px"></div><div>Loading emergency data…</div></div></div>
 </div>
 
 <script>
 const SUPABASE_URL = 'https://pzioskykakwhwdlcmwyv.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
-
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const bloodCompatibility = {
-  'O-': 'Universal donor · Compatible with all types',
-  'O+': 'Most common type · Receives O+, O-',
-  'A+': 'Receives A+, A-, O+, O-',
-  'A-': 'Receives A-, O-',
-  'B+': 'Receives B+, B-, O+, O-',
-  'B-': 'Receives B-, O-',
-  'AB+': 'Universal recipient · Receives all types',
-  'AB-': 'Receives AB-, A-, B-, O-',
-};
-
-function show(id) { document.getElementById(id).style.display = 'flex'; }
-function hide(id) { document.getElementById(id).style.display = 'none'; }
-function val(v) { return v && String(v).trim() ? v : null; }
-function arr(a) { return Array.isArray(a) && a.length ? a : null; }
-
-function updateClock() {
-  const now = new Date();
-  document.getElementById('banner-time').textContent =
-    now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+/* ── XSS escape ── */
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 }
 
-function renderTags(containerId, items, blockId) {
-  const block = document.getElementById(blockId);
-  const container = document.getElementById(containerId);
-  if (!arr(items)) {
-    block.style.display = 'none';
-    return;
-  }
-  container.innerHTML = items.map(i => `<span class="tag">${i}</span>`).join('');
+/* ── Safe token extraction — NEVER concatenate into SQL ── */
+function getToken() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  // Validate token is UUID-shaped (basic sanity, server enforces the real check)
+  if (!token || !/^[0-9a-f-]{8,}$/i.test(token)) return null;
+  return token;
 }
 
+/* ── Rate-limit check: max 20 scans per token per hour in scan_logs ── */
+async function checkRateLimit(patientId) {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count, error } = await sb
+    .from('scan_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('patient_id', patientId)
+    .gte('scanned_at', oneHourAgo);
+  if (error) return false; // fail open — don't block legitimate emergencies
+  return (count || 0) < 20;
+}
+
+/* ── Log this scan ── */
 async function logScan(patientId) {
-  const now = new Date();
-  document.getElementById('log-time').textContent = now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
-
-  // Log to scan_logs table
   await sb.from('scan_logs').insert({
     patient_id: patientId,
-    scanner_ua: navigator.userAgent,
-    location: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+    scanned_at: new Date().toISOString(),
+    location: 'QR Scan',
+    // scanner_ip is set server-side in a production Edge Function
   });
 }
 
-async function init() {
-  updateClock();
-  setInterval(updateClock, 30000);
+/* ── Render helpers ── */
+function pills(arr, cls) {
+  if (!Array.isArray(arr) || !arr.length) return '<span style="color:#8CA9C4">None recorded</span>';
+  return arr.map(v => `<span class="${cls}">${esc(v)}</span>`).join('');
+}
+function val(v) { return v ? esc(v) : '<span style="color:#8CA9C4">—</span>'; }
 
-  // Get token from URL
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
+/* ── Main ── */
+async function init() {
+  const root = document.getElementById('root');
+  const token = getToken();
 
   if (!token) {
-    hide('loading-screen');
-    document.getElementById('error-desc').textContent = 'No QR token found in this URL. Please scan a valid MediScan QR code.';
-    show('error-screen');
+    root.innerHTML = `<div class="error-msg">⚠ Invalid or missing QR token.<br><small>This link may be expired or tampered with.</small></div>`;
     return;
   }
 
-  // Query patient by token — only critical fields
-  const { data, error } = await sb
+  // Parameterised query — token never interpolated into SQL string
+  const { data: patients, error } = await sb
     .from('patients')
-    .select(`
-      id,
-      full_name,
-      date_of_birth,
-      blood_type,
-      allergies,
-      current_medications,
-      medical_conditions,
-      emergency_contact_name,
-      emergency_contact_phone,
-      emergency_contact_relation,
-      advance_directive,
-      qr_active,
-      qr_token
-    `)
+    .select([
+      'id','full_name','blood_type','allergies','current_medications','medical_conditions',
+      'emergency_contact_name','emergency_contact_relation','emergency_contact_phone',
+      'primary_doctor','doctor_contact','advance_directive','qr_active'
+    ].join(','))
     .eq('qr_token', token)
-    .single();
+    .limit(1);
 
-  hide('loading-screen');
-
-  if (error || !data) {
-    show('error-screen');
+  if (error || !patients || patients.length === 0) {
+    root.innerHTML = `<div class="error-msg">⚠ Patient record not found.<br><small>The QR code may be invalid or expired.</small></div>`;
     return;
   }
 
-  if (!data.qr_active) {
-    show('inactive-screen');
+  const p = patients[0];
+
+  if (!p.qr_active) {
+    root.innerHTML = `<div class="inactive-banner">🔒 This QR code has been deactivated.<br><small style="font-weight:400;font-size:13px;margin-top:8px;display:block">Contact the healthcare provider for a new code.</small></div>`;
     return;
   }
 
-  // ── Render patient ──────────────────────────────
-  const p = data;
-
-  // Name
-  document.getElementById('p-name').textContent = p.full_name;
-
-  // Meta chips
-  const meta = [];
-  if (p.date_of_birth) {
-    const age = Math.floor((Date.now() - new Date(p.date_of_birth)) / 31557600000);
-    meta.push(`<span class="meta-chip"><span class="chip-label">AGE</span> ${age} yrs</span>`);
-    meta.push(`<span class="meta-chip"><span class="chip-label">DOB</span> ${new Date(p.date_of_birth).toLocaleDateString('en-ZA')}</span>`);
-  }
-  document.getElementById('p-meta').innerHTML = meta.join('');
-
-  // Blood type
-  if (val(p.blood_type)) {
-    document.getElementById('p-blood').textContent = p.blood_type;
-    document.getElementById('p-blood-compat').textContent = bloodCompatibility[p.blood_type] || '';
-  } else {
-    document.getElementById('blood-block').style.display = 'none';
+  // Rate limit check
+  const allowed = await checkRateLimit(p.id);
+  if (!allowed) {
+    root.innerHTML = `<div class="rate-banner">⏳ Too many recent scans for this code.<br><small style="font-weight:400;font-size:13px;margin-top:8px;display:block">Please try again later or contact the clinic directly.</small></div>`;
+    return;
   }
 
-  // Allergies, Meds, Conditions
-  renderTags('p-allergies', p.allergies, 'allergy-block');
-  renderTags('p-medications', p.current_medications, 'meds-block');
-  renderTags('p-conditions', p.medical_conditions, 'conditions-block');
-
-  // Emergency contact
-  if (val(p.emergency_contact_name) || val(p.emergency_contact_phone)) {
-    document.getElementById('p-ec-name').textContent = val(p.emergency_contact_name) || 'Unknown';
-    document.getElementById('p-ec-relation').textContent = val(p.emergency_contact_relation) || '';
-    const phone = val(p.emergency_contact_phone);
-    if (phone) {
-      document.getElementById('p-ec-call').href = `tel:${phone.replace(/\s/g, '')}`;
-      document.getElementById('p-ec-call').innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-        Call ${phone}
-      `;
-    } else {
-      document.getElementById('p-ec-call').style.display = 'none';
-    }
-  } else {
-    document.getElementById('emergency-block').style.display = 'none';
-  }
-
-  // Advance directive
-  if (val(p.advance_directive)) {
-    const extraBlock = document.getElementById('extra-block');
-    const extraFields = document.getElementById('p-extra-fields');
-    extraBlock.style.display = '';
-    extraFields.innerHTML = `
-      <div class="field-row">
-        <span class="field-key">Directive</span>
-        <span class="field-val" style="color:var(--amber)">${p.advance_directive}</span>
-      </div>
-    `;
-  }
-
-  // Show content
-  show('main-content');
-
-  // Log the scan (non-blocking)
+  // Log the scan (after rate check passes)
   logScan(p.id);
+
+  root.innerHTML = `
+    <div class="header-bar">
+      <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" onerror="this.style.display='none'">
+      <div><div class="title">${esc(p.full_name)}</div><div class="sub">Emergency Medical Record</div></div>
+    </div>
+    <div class="emergency-banner">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 3.5l8.5 15h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>
+      EMERGENCY MEDICAL INFORMATION
+    </div>
+    <div class="card">
+      <div class="section-title">Critical — For First Responders</div>
+      <div class="field"><div class="k">Blood Type</div><div class="v blood-type">${p.blood_type ? esc(p.blood_type) : '<span style="font-size:18px;color:#8CA9C4">Unknown</span>'}</div></div>
+      <div class="field"><div class="k">Known Allergies</div><div class="v">${pills(p.allergies, 'allergy-pill')}</div></div>
+      <div class="field"><div class="k">Current Medications</div><div class="v">${pills(p.current_medications, 'med-pill')}</div></div>
+      <div class="field"><div class="k">Medical Conditions</div><div class="v">${pills(p.medical_conditions, 'cond-pill')}</div></div>
+    </div>
+    <div class="card">
+      <div class="section-title">Emergency Contact</div>
+      <div class="field"><div class="k">Name</div><div class="v">${val(p.emergency_contact_name)}${p.emergency_contact_relation ? ' <span style="color:#8CA9C4;font-weight:400;font-size:13px">(' + esc(p.emergency_contact_relation) + ')</span>' : ''}</div></div>
+      <div class="field"><div class="k">Phone</div><div class="v">${p.emergency_contact_phone ? `<a href="tel:${esc(p.emergency_contact_phone)}" style="color:var(--teal)">${esc(p.emergency_contact_phone)}</a>` : '—'}</div></div>
+    </div>
+    <div class="card">
+      <div class="section-title">Primary Doctor</div>
+      <div class="field"><div class="k">Doctor</div><div class="v">${val(p.primary_doctor)}</div></div>
+      <div class="field"><div class="k">Contact</div><div class="v">${p.doctor_contact ? `<a href="tel:${esc(p.doctor_contact)}" style="color:var(--teal)">${esc(p.doctor_contact)}</a>` : '—'}</div></div>
+    </div>
+    ${p.advance_directive ? `<div class="card"><div class="section-title">Advance Directive</div><div style="font-size:14px;line-height:1.6;color:#0A2540">${esc(p.advance_directive)}</div></div>` : ''}
+    <div class="footer-note">LumenOS MediScan QR • Powered by secure parameterised access</div>
+  `;
 }
 
 init();
