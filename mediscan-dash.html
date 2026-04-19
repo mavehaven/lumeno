@@ -677,11 +677,15 @@ function esc(str) {
 ═══════════════════════════════════════════════════════ */
 const ROLE_RANK = { receptionist: 1, nurse: 2, doctor: 3, admin: 4 };
 
-function canDo(action) {
+function canDo(action, patient = null) {
   const role = currentProfile?.role || 'receptionist';
   switch (action) {
     case 'insert': return ROLE_RANK[role] >= 1;                  // everyone
-    case 'update': return ROLE_RANK[role] >= 2;                  // nurse+
+    case 'update':
+      if (ROLE_RANK[role] >= 2) return true;                     // nurse+: always
+      if (role === 'receptionist' && patient)                     // receptionist: own records only
+        return patient.user_id === currentUser.id;
+      return false;
     case 'delete': return ROLE_RANK[role] >= 3;                  // doctor+
     case 'manage_team': return role === 'admin';
     default: return false;
@@ -888,9 +892,9 @@ function renderPatients() {
   const iconDel   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
 
   // Build action buttons based on role
-  const editBtn = (id) => canDo('update')
+  const editBtn = (id, p) => canDo('update', p)
     ? `<button class="btn-icon" title="Edit" onclick="editPatient('${esc(id)}')">${iconEdit}</button>` : '';
-  const delBtn = (id, name) => canDo('delete')
+  const delBtn = (id, name) => canDo('delete', null)
     ? `<button class="btn-icon danger" title="Delete" onclick="deletePatient('${esc(id)}','${esc(name)}')">${iconDel}</button>` : '';
 
   tbody.innerHTML = patients.map(p => `
@@ -904,7 +908,7 @@ function renderPatients() {
       <td><div class="row-actions">
         <button class="btn-icon" title="View" onclick="viewPatient('${esc(p.id)}')">${iconView}</button>
         <button class="btn-icon green" title="QR" onclick="showQr('${esc(p.id)}')">${iconQr}</button>
-        ${editBtn(p.id)}
+        ${editBtn(p.id, p)}
         ${delBtn(p.id, p.full_name)}
       </div></td>
     </tr>`).join('');
@@ -923,7 +927,7 @@ function renderPatients() {
       </div>
       <div class="patient-card-actions" onclick="event.stopPropagation()">
         <button class="btn-icon green" title="QR" onclick="showQr('${esc(p.id)}')">${iconQr}</button>
-        ${editBtn(p.id)}
+        ${editBtn(p.id, p)}
       </div>
     </div>`).join('');
 }
@@ -969,7 +973,7 @@ function resetForm() {
 }
 
 function editPatient(id) {
-  if (!canDo('update')) { toast('Your role cannot edit patients', 'error'); return; }
+  if (!canDo('update', p)) { toast('Your role cannot edit patients', 'error'); return; }
   const p = allPatients.find(x => x.id === id);
   if (!p) return;
   if (!enforceOwnership(p)) return;
