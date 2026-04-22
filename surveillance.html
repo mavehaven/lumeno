@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-62Y6PH0F6B"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-62Y6PH0F6B');</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>LumenOS · StereoVision Security</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+  --paper: #f2ede8;
+  --paper2: #e8e2db;
+  --paper3: #ddd7cf;
+  --line: #cdc6be;
+  --line2: #b8b0a6;
+  --muted: #8a837a;
+  --body: #4a4540;
+  --ink: #1a1410;
+  --dark: #0d0b09;
+  --dark2: #141210;
+  --dark3: #1c1916;
+  --dark-border: #2a2520;
+  --dark-border2: #352f28;
+  --dark-muted: #5a5248;
+  --dark-dim: #7a7068;
+  --dark-text: #b0a89e;
+  --dark-bright: #e8e0d8;
+  --red: #c8201a;
+  --red2: #a81812;
+  --red3: #e8302a;
+  --red-glow: rgba(200,32,26,.15);
+  --red-subtle: rgba(200,32,26,.08);
+  --red-border: rgba(200,32,26,.3);
+  --silver: #d0cbc4;
+  --teal: #2a8a7a;
+  --teal-subtle: rgba(42,138,122,.08);
+  --amber: #c07820;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+  --display: 'Bebas Neue', sans-serif;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--paper);
+  color: var(--body);
+  font-family: var(--sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  padding: 0 32px;
+  height: 56px;
+  background: rgba(242,237,232,.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Logo — left anchor */
+.nav-logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  z-index: 2;
+}
+.nav-logo img { height: 26px; object-fit: contain; display: block; }
+
+/* Links — truly centred in the nav bar */
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  list-style: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+.nav-links a {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color .2s;
+  white-space: nowrap;
+}
+.nav-links a:hover { color: var(--red); }
+
+/* Right side — CTA + hamburger */
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  flex-shrink: 0;
+  z-index: 2;
+}
+.nav-cta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: 1.5px solid var(--red);
+  border-radius: 2px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.nav-cta:hover { background: var(--red2); border-color: var(--red2); }
+.nav-hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  padding: 4px;
+}
+.nav-hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 1px;
+  transition: all .25s;
+}
+
+.mobile-nav {
+  display: none;
+  position: fixed;
+  top: 56px; left: 0; right: 0;
+  background: rgba(242,237,232,.98);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--line);
+  padding: 16px 24px 20px;
+  z-index: 499;
+  flex-direction: column;
+  gap: 0;
+}
+.mobile-nav.open { display: flex; }
+.mobile-nav a {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.mobile-nav a:hover { color: var(--red); }
+.mobile-nav a:last-child { border-bottom: none; }
+
+/* ── TICKER ── */
+.ticker {
+  background: var(--dark);
+  border-bottom: 1px solid var(--dark-border);
+  padding: 7px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  margin-top: 56px;
+}
+.ticker-inner {
+  display: inline-flex;
+  animation: ticker 28s linear infinite;
+}
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 28px;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: .12em;
+  color: var(--red3);
+  text-transform: uppercase;
+}
+.ticker-item::before { content: '■'; font-size: 5px; opacity: .5; }
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* ── HERO ── */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding: 80px 24px 60px;
+  overflow: hidden;
+}
+
+/* Background surveillance image */
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: url('//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1776387328657x710168575836529900/jkkkl.mp4');
+  background-size: cover;
+  background-position: center 40%;
+  background-repeat: no-repeat;
+}
+/* Dark overlay so text remains readable */
+.hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(13,11,9,.78);
+}
+/* Red atmospheric gradient */
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 20% 50%, rgba(200,32,26,.08) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(13,11,9,.1) 0%, rgba(13,11,9,.35) 100%);
+}
+
+/* Noise grain over everything */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size: 300px;
+  pointer-events: none;
+}
+
+.hero-ghost {
+  position: absolute;
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--display);
+  font-size: clamp(140px, 22vw, 400px);
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(200,32,26,.08);
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+.hero-line {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, transparent, var(--red) 20%, var(--red) 80%, transparent);
+  z-index: 3;
+}
+.hero-inner {
+  position: relative;
+  z-index: 3;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--red3);
+  margin-bottom: 18px;
+  animation: fadeUp .5s ease both;
+}
+.hero-eyebrow .dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: pulse 2s ease infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(200,32,26,.5); }
+  50% { box-shadow: 0 0 0 6px rgba(200,32,26,0); }
+}
+.hero-h1 {
+  font-family: var(--display);
+  font-size: clamp(60px, 8vw, 130px);
+  line-height: .92;
+  letter-spacing: .01em;
+  color: var(--dark-bright);
+  margin-bottom: 4px;
+  animation: fadeUp .6s .08s ease both;
+}
+.hero-h1 .red { color: var(--red3); }
+.hero-sub {
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--dark-text);
+  line-height: 1.75;
+  max-width: 440px;
+  margin: 20px 0 30px;
+  animation: fadeUp .6s .16s ease both;
+}
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  animation: fadeUp .6s .24s ease both;
+}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 28px;
+  background: var(--red);
+  border: 1.5px solid var(--red);
+  border-radius: 2px;
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s;
+  box-shadow: 0 4px 24px rgba(200,32,26,.3);
+}
+.btn-primary:hover { background: var(--red2); transform: translateY(-2px); }
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: rgba(255,255,255,.06);
+  border: 1.5px solid rgba(255,255,255,.18);
+  border-radius: 2px;
+  color: var(--dark-text);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s;
+  backdrop-filter: blur(4px);
+}
+.btn-ghost:hover { border-color: var(--red3); color: var(--red3); }
+
+/* Ghost button for light sections */
+.btn-ghost-light {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: transparent;
+  border: 1.5px solid var(--line2);
+  border-radius: 2px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all .2s;
+}
+.btn-ghost-light:hover { border-color: var(--red); color: var(--red); }
+
+.hero-stats-panel {
+  background: rgba(13,11,9,.88);
+  border: 1px solid var(--dark-border2);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 40px 80px rgba(0,0,0,.6);
+  animation: fadeUp .6s .32s ease both;
+  backdrop-filter: blur(12px);
+}
+.hsp-top {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--dark-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hsp-status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--red3);
+  animation: pulse 1.8s ease infinite;
+}
+.hsp-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: .14em;
+  color: var(--dark-muted);
+  text-transform: uppercase;
+}
+.hsp-label span { color: var(--red3); margin-left: 6px; }
+.hsp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--dark-border);
+}
+.hsp-stat {
+  background: rgba(20,18,16,.9);
+  padding: 18px 16px;
+  text-align: center;
+}
+.hsp-val {
+  font-family: var(--display);
+  font-size: 38px;
+  color: var(--dark-bright);
+  line-height: 1;
+  letter-spacing: .02em;
+  margin-bottom: 4px;
+}
+.hsp-val.red { color: var(--red3); }
+.hsp-lbl {
+  font-family: var(--mono);
+  font-size: 7.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--dark-muted);
+}
+.hsp-bottom {
+  padding: 10px 16px;
+  border-top: 1px solid var(--dark-border);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hsp-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 7.5px;
+  color: var(--dark-muted);
+  letter-spacing: .1em;
+}
+.hsp-tag i { color: var(--teal); font-size: 8px; }
+.hero-preview-img {
+  margin-top: 18px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--dark-border2);
+  background: #0b0907;
+}
+.hero-preview-img img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  opacity: 0.92;
+  transition: opacity 0.3s;
+}
+.hero-preview-img:hover img { opacity: 1; }
+
+/* ── PROBLEM SECTION ── */
+.problem-section {
+  background: var(--dark);
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+.problem-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--red), var(--red3), transparent);
+}
+.problem-outer {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 90px 24px;
+}
+.problem-intro {
+  text-align: center;
+  margin-bottom: 70px;
+}
+.problem-intro .sec-label { justify-content: center; margin-bottom: 16px; }
+.problem-h2 {
+  font-family: var(--display);
+  font-size: clamp(40px, 6vw, 72px);
+  color: var(--dark-bright);
+  line-height: 1;
+  letter-spacing: .02em;
+  margin-bottom: 16px;
+}
+.problem-h2 .red { color: var(--red3); }
+.problem-sub {
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--dark-text);
+  line-height: 1.75;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.pain-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--dark-border);
+  border: 1px solid var(--dark-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 70px;
+}
+.pain-card {
+  background: var(--dark2);
+  padding: 32px 24px;
+  position: relative;
+  transition: background .2s;
+}
+.pain-card:hover { background: var(--dark3); }
+.pain-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--red);
+  opacity: .4;
+}
+.pain-num {
+  font-family: var(--display);
+  font-size: 72px;
+  color: var(--red);
+  opacity: .18;
+  line-height: 1;
+  margin-bottom: 0;
+}
+.pain-title {
+  font-family: var(--display);
+  font-size: 26px;
+  color: var(--dark-bright);
+  letter-spacing: .02em;
+  margin-bottom: 10px;
+  margin-top: -12px;
+}
+.pain-desc {
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--dark-text);
+  line-height: 1.7;
+}
+.pain-cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: .12em;
+  color: #ff8888;
+  border: 1px solid rgba(200,32,26,.3);
+  background: rgba(200,32,26,.07);
+  padding: 4px 9px;
+  border-radius: 2px;
+  margin-top: 14px;
+}
+.vs-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 0;
+}
+.vs-side {
+  border: 1px solid var(--dark-border2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.vs-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--dark-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.vs-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.vs-side.old .vs-title { color: var(--dark-dim); }
+.vs-side.new .vs-title { color: var(--red3); }
+.vs-side.new { border-color: rgba(200,32,26,.3); }
+.vs-side.new .vs-header { border-color: rgba(200,32,26,.15); background: rgba(200,32,26,.03); }
+.vs-rows { padding: 8px 0; }
+.vs-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+}
+.vs-row:last-child { border-bottom: none; }
+.vs-icon { font-size: 11px; flex-shrink: 0; width: 16px; text-align: center; }
+.vs-row-text {
+  font-size: 12.5px;
+  font-weight: 300;
+  line-height: 1.5;
+}
+.vs-side.old .vs-row-text { color: var(--dark-text); }
+.vs-side.new .vs-row-text { color: var(--dark-bright); }
+.vs-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.vs-vs {
+  font-family: var(--display);
+  font-size: 36px;
+  color: var(--dark-dim);
+  line-height: 1;
+}
+
+/* ── STATS SECTION ── */
+.stats-section {
+  background: var(--paper);
+  padding: 90px 24px;
+  position: relative;
+}
+.stats-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--red), transparent);
+}
+.stats-outer { max-width: 1200px; margin: 0 auto; }
+.mega-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 56px 0 60px;
+}
+.mega-stat {
+  background: var(--paper);
+  padding: 32px 20px;
+  text-align: center;
+  position: relative;
+  transition: background .2s;
+}
+.mega-stat:hover { background: var(--paper2); }
+.mega-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--red);
+  opacity: 0;
+  transition: opacity .2s;
+}
+.mega-stat:hover::before { opacity: 1; }
+.mega-num {
+  font-family: var(--display);
+  font-size: clamp(44px, 5vw, 64px);
+  color: var(--red);
+  line-height: 1;
+  letter-spacing: .02em;
+}
+.mega-unit {
+  font-family: var(--display);
+  font-size: clamp(22px, 2.5vw, 32px);
+  color: var(--red);
+  opacity: .7;
+}
+.mega-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+.mega-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 300;
+  margin-top: 4px;
+  opacity: .8;
+}
+.comp-table-wrap {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 60px;
+}
+.comp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.comp-table thead { background: var(--dark); }
+.comp-table th {
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--dark-muted);
+  border-right: 1px solid var(--dark-border);
+}
+.comp-table th:last-child { border-right: none; }
+.comp-table th.lumenos-col { color: var(--red3); }
+.comp-table tr {
+  border-bottom: 1px solid var(--line);
+  transition: background .15s;
+}
+.comp-table tbody tr:last-child { border-bottom: none; }
+.comp-table tbody tr:hover { background: var(--paper2); }
+.comp-table td {
+  padding: 13px 16px;
+  font-size: 12.5px;
+  color: var(--body);
+  border-right: 1px solid var(--line);
+  vertical-align: middle;
+}
+.comp-table td:last-child { border-right: none; }
+.comp-table td.lumenos-col {
+  background: rgba(200,32,26,.04);
+  font-weight: 500;
+  color: var(--ink);
+  border-right: 1px solid rgba(200,32,26,.12);
+}
+.comp-table td.feature-col {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--paper2);
+  font-weight: 400;
+}
+.comp-check { color: var(--teal); font-size: 12px; }
+.comp-cross { color: #cc5555; font-size: 12px; }
+.comp-partial { color: var(--amber); font-size: 11px; }
+.cost-compare {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.cost-card {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 24px 20px;
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+}
+.cost-card.featured {
+  border-color: var(--red);
+  background: var(--paper);
+  box-shadow: 0 8px 32px rgba(200,32,26,.12);
+}
+.cost-card.featured::before {
+  content: 'LUMENOS';
+  position: absolute;
+  top: 0; right: 0;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: .14em;
+  padding: 3px 8px;
+  border-bottom-left-radius: 3px;
+}
+.cost-product { font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.cost-product.red { color: var(--red); }
+.cost-price { font-family: var(--display); font-size: 42px; color: var(--ink); line-height: 1; margin-bottom: 4px; }
+.cost-price .currency { font-size: 22px; }
+.cost-price.red { color: var(--red); }
+.cost-period { font-size: 12px; color: var(--muted); margin-bottom: 14px; font-weight: 300; }
+.cost-features { display: flex; flex-direction: column; gap: 7px; }
+.cost-feat { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; font-weight: 300; color: var(--muted); line-height: 1.45; }
+.cost-feat i { font-size: 9px; margin-top: 2px; flex-shrink: 0; }
+.cost-feat.good i { color: var(--teal); }
+.cost-feat.bad i { color: #cc5555; }
+
+/* ── PRICING ── */
+.pricing-section {
+  background: var(--dark);
+  padding: 90px 24px;
+  position: relative;
+  overflow: hidden;
+}
+.pricing-section::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--red), transparent);
+}
+.pricing-outer { max-width: 1200px; margin: 0 auto; }
+.pricing-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin: 40px auto 0;
+  border: 1px solid var(--dark-border2);
+  border-radius: 3px;
+  overflow: hidden;
+  width: fit-content;
+}
+.ptab {
+  padding: 9px 22px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--dark-muted);
+  cursor: pointer;
+  background: var(--dark2);
+  border: none;
+  transition: all .2s;
+}
+.ptab.active { background: var(--red); color: #fff; }
+.ptab:not(.active):hover { color: var(--dark-bright); }
+.pricing-panel { display: none; }
+.pricing-panel.active { display: block; }
+.consumer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--dark-border);
+  border: 1px solid var(--dark-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 40px;
+}
+.plan-card {
+  background: var(--dark2);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: background .2s;
+}
+.plan-card:hover { background: var(--dark3); }
+.plan-card.featured {
+  background: var(--dark3);
+  outline: 2px solid rgba(200,32,26,.45);
+  outline-offset: -1px;
+  z-index: 2;
+}
+.plan-popular-badge {
+  display: none;
+  background: var(--red);
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: .16em;
+  color: #fff;
+  padding: 5px 0;
+  text-transform: uppercase;
+}
+.plan-card.featured .plan-popular-badge { display: block; }
+.plan-header {
+  padding: 24px 22px 18px;
+  border-bottom: 1px solid var(--dark-border);
+  flex-shrink: 0;
+}
+.plan-tier {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--dark-muted);
+  margin-bottom: 12px;
+}
+.plan-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.plan-currency { font-family: var(--display); font-size: 22px; color: var(--dark-bright); opacity: .6; }
+.plan-amount { font-family: var(--display); font-size: 52px; color: var(--dark-bright); line-height: 1; letter-spacing: .01em; }
+.plan-amount.free-col { color: var(--teal); }
+.plan-amount.lifetime-col { color: var(--red3); }
+.plan-period { font-size: 11.5px; color: var(--dark-muted); font-weight: 300; margin-bottom: 14px; }
+.plan-highlight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: .08em;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+.plan-highlight.trial-hl { background: rgba(42,138,122,.08); border: 1px solid rgba(42,138,122,.2); color: #5dceba; }
+.plan-highlight.std-hl { background: rgba(255,255,255,.04); border: 1px solid var(--dark-border2); color: var(--dark-text); }
+.plan-highlight.pro-hl { background: rgba(200,32,26,.07); border: 1px solid rgba(200,32,26,.22); color: #ff9090; }
+.plan-highlight.life-hl { background: rgba(200,32,26,.07); border: 1px solid rgba(200,32,26,.2); color: #ff9090; }
+.plan-body { padding: 18px 22px; flex: 1; }
+.plan-features { display: flex; flex-direction: column; gap: 8px; margin-bottom: 0; }
+.plan-feat { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; font-weight: 300; color: var(--dark-text); line-height: 1.4; }
+.plan-feat i { font-size: 8.5px; margin-top: 2px; flex-shrink: 0; }
+.plan-feat.on i { color: var(--teal); }
+.plan-feat.off i { color: var(--dark-muted); opacity: .5; }
+.plan-feat.red i { color: var(--red3); }
+.plan-feat.amber i { color: var(--amber); }
+.plan-divider { height: 1px; background: var(--dark-border); margin: 12px 0; }
+.plan-cta {
+  display: block;
+  text-align: center;
+  margin: 0 22px 22px;
+  padding: 11px;
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all .2s;
+  border: 1px solid;
+}
+.plan-cta.ghost-btn { border-color: var(--dark-border2); color: var(--dark-muted); background: transparent; }
+.plan-cta.ghost-btn:hover { border-color: var(--red-border); color: var(--red3); }
+.plan-cta.primary-btn { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 4px 20px rgba(200,32,26,.25); }
+.plan-cta.primary-btn:hover { background: var(--red2); }
+.plan-cta.teal-btn { background: rgba(42,138,122,.15); border-color: rgba(42,138,122,.4); color: #5dceba; }
+.plan-cta.teal-btn:hover { background: rgba(42,138,122,.25); }
+.cam-badge { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 7.5px; color: var(--dark-muted); border: 1px solid var(--dark-border2); border-radius: 2px; padding: 2px 7px; margin-top: 8px; }
+.cam-badge i { font-size: 7px; }
+
+/* B2B */
+.b2b-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 40px; }
+.b2b-card { border: 1px solid var(--dark-border2); border-radius: 4px; overflow: hidden; background: var(--dark2); position: relative; }
+.b2b-card.featured { border-color: rgba(200,32,26,.4); box-shadow: 0 0 40px rgba(200,32,26,.06); }
+.b2b-card-header { padding: 28px 28px 20px; border-bottom: 1px solid var(--dark-border); }
+.b2b-label { font-family: var(--mono); font-size: 8px; letter-spacing: .22em; text-transform: uppercase; color: var(--red3); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.b2b-label::after { content: ''; height: 1px; flex: 1; max-width: 50px; background: linear-gradient(90deg, rgba(200,32,26,.4), transparent); }
+.b2b-title { font-family: var(--display); font-size: 34px; color: var(--dark-bright); line-height: 1; letter-spacing: .02em; margin-bottom: 8px; }
+.b2b-price-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+.b2b-currency { font-family: var(--display); font-size: 24px; color: var(--red3); opacity: .7; }
+.b2b-amount { font-family: var(--display); font-size: 64px; color: var(--red3); line-height: 1; }
+.b2b-period { font-size: 12px; color: var(--dark-muted); font-weight: 300; }
+.b2b-tagline { font-size: 13px; font-weight: 300; color: var(--dark-text); line-height: 1.6; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--dark-border); font-style: italic; }
+.b2b-body { padding: 24px 28px; }
+.b2b-features { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.b2b-feat { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; font-weight: 300; color: var(--dark-text); line-height: 1.45; }
+.b2b-feat i { font-size: 9px; margin-top: 2px; flex-shrink: 0; color: var(--teal); }
+.b2b-feat.amber-feat i { color: var(--amber); }
+.b2b-cta { display: block; text-align: center; padding: 13px; border-radius: 2px; font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; text-decoration: none; cursor: pointer; transition: all .2s; }
+.b2b-cta.primary-btn { background: var(--red); border: 1px solid var(--red); color: #fff; box-shadow: 0 4px 20px rgba(200,32,26,.3); }
+.b2b-cta.primary-btn:hover { background: var(--red2); }
+.b2b-cta.ghost-btn { border: 1px solid var(--dark-border2); color: var(--dark-muted); background: transparent; }
+.b2b-cta.ghost-btn:hover { border-color: var(--red-border); color: var(--red3); }
+.b2b-value-strip { margin-top: 16px; border: 1px solid var(--dark-border); border-radius: 3px; overflow: hidden; }
+.b2b-value-header { padding: 10px 18px; background: rgba(200,32,26,.05); border-bottom: 1px solid var(--dark-border); font-family: var(--mono); font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: var(--red3); }
+.b2b-value-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--dark-border); }
+.b2b-value-cell { background: var(--dark2); padding: 16px; text-align: center; }
+.b2b-value-num { font-family: var(--display); font-size: 32px; color: var(--red3); line-height: 1; margin-bottom: 4px; }
+.b2b-value-lbl { font-family: var(--mono); font-size: 7.5px; letter-spacing: .12em; color: var(--dark-muted); text-transform: uppercase; line-height: 1.4; }
+.plans-footer { margin-top: 40px; border: 1px solid var(--dark-border); border-radius: 4px; overflow: hidden; }
+.pf-header { padding: 12px 20px; background: rgba(255,255,255,.02); border-bottom: 1px solid var(--dark-border); font-family: var(--mono); font-size: 8px; letter-spacing: .16em; text-transform: uppercase; color: var(--dark-muted); display: flex; align-items: center; gap: 8px; }
+.pf-header i { color: var(--teal); }
+.pf-grid { display: flex; flex-wrap: wrap; gap: 0; }
+.pf-item { display: flex; align-items: center; gap: 7px; padding: 11px 20px; font-size: 12.5px; font-weight: 300; color: var(--dark-text); border-right: 1px solid var(--dark-border); border-bottom: 1px solid var(--dark-border); flex: 1; min-width: 200px; }
+.pf-item i { color: var(--teal); font-size: 9px; flex-shrink: 0; }
+
+/* ── PREVIEW SECTION ── */
+.preview-section { background: var(--dark); padding: 90px 24px; position: relative; overflow: hidden; }
+.preview-section::before { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--red), transparent); }
+.section-header { max-width: 1200px; margin: 0 auto 50px; }
+.sec-label { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--red); margin-bottom: 14px; }
+.sec-label::after { content: ''; height: 1px; width: 60px; background: linear-gradient(90deg, rgba(200,32,26,.4), transparent); }
+.sec-title { font-family: var(--display); font-size: clamp(38px, 5.5vw, 72px); color: var(--dark-bright); line-height: 1; letter-spacing: .02em; margin-bottom: 12px; }
+.sec-title.ink { color: var(--ink); }
+.sec-body { font-size: 15px; font-weight: 300; color: var(--dark-text); line-height: 1.75; max-width: 500px; }
+.sec-body.muted { color: var(--muted); }
+.dash-mockup-outer { max-width: 1200px; margin: 0 auto; border: 1px solid var(--dark-border2); border-radius: 6px; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,.7); }
+.mock-topbar { height: 38px; background: rgba(10,8,6,.97); border-bottom: 1px solid rgba(26,22,18,.9); display: flex; align-items: center; padding: 0 14px; gap: 12px; }
+.mock-logo-icon { width: 18px; height: 18px; background: rgba(200,32,26,.12); border: 1px solid rgba(200,32,26,.3); border-radius: 3px; display: flex; align-items: center; justify-content: center; }
+.mock-logo-icon i { font-size: 7px; color: var(--red); }
+.mock-logo-text { font-family: var(--mono); font-size: 7.5px; color: var(--dark-dim); letter-spacing: .1em; }
+.mock-pills { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+.mock-pill { font-family: var(--mono); font-size: 7px; color: var(--dark-muted); letter-spacing: .1em; }
+.mock-pill .v { color: var(--red3); }
+.mock-body { display: flex; height: 400px; background: var(--dark); overflow: hidden; }
+.mock-sidebar { width: 136px; background: rgba(10,8,6,.97); border-right: 1px solid rgba(26,22,18,.8); flex-shrink: 0; padding: 8px 0; }
+.mock-nav-sect { padding: 4px 0; border-bottom: 1px solid var(--dark-border); }
+.mock-nav-lbl { font-family: var(--mono); font-size: 6.5px; letter-spacing: .15em; color: var(--dark-muted); text-transform: uppercase; padding: 3px 10px; }
+.mock-nav-item { display: flex; align-items: center; gap: 6px; padding: 5px 10px; font-size: 9px; color: var(--dark-muted); border-left: 2px solid transparent; }
+.mock-nav-item.active { color: var(--red3); background: rgba(200,32,26,.06); border-left-color: var(--red); }
+.mock-nav-item i { font-size: 7px; width: 11px; text-align: center; }
+.mock-main { flex: 1; display: grid; grid-template-columns: 1fr 178px; gap: 6px; padding: 6px; overflow: hidden; }
+.mock-cam-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; background: var(--dark2); border: 1px solid var(--dark-border); border-radius: 3px; padding: 3px; }
+.mock-cam { position: relative; background: var(--dark2); border: 1px solid var(--dark-border); border-radius: 2px; overflow: hidden; min-height: 80px; }
+.mock-cam-inner { position: absolute; inset: 0; }
+.mock-cam:nth-child(1) .mock-cam-inner { background: linear-gradient(135deg, #0d0a08 0%, #1a1008 60%, #080f09 100%); }
+.mock-cam:nth-child(2) .mock-cam-inner { background: linear-gradient(135deg, #0d0a08 0%, #1a0c08 70%, #120808 100%); }
+.mock-cam:nth-child(3) .mock-cam-inner { background: linear-gradient(135deg, #0a0a0a 0%, #120808 70%, #0d0808 100%); }
+.mock-cam:nth-child(4) .mock-cam-inner { background: linear-gradient(135deg, #0d0a08 0%, #081216 60%, #080d12 100%); }
+.mock-cam-inner::before { content: ''; position: absolute; inset: 0; background-image: linear-gradient(rgba(200,32,26,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(200,32,26,.03) 1px, transparent 1px); background-size: 18px 18px; }
+.mock-cam:nth-child(1) .mock-cam-inner::after { content: ''; position: absolute; left: 0; right: 0; height: 1px; background: rgba(200,32,26,.5); animation: scanLine 3s ease-in-out infinite; box-shadow: 0 0 8px rgba(200,32,26,.6); }
+@keyframes scanLine { 0% { top: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+.mock-badge { position: absolute; top: 3px; left: 3px; font-family: var(--mono); font-size: 5.5px; letter-spacing: .08em; padding: 1px 4px; border-radius: 1px; }
+.mock-badge.live { background: rgba(200,32,26,.2); border: 1px solid rgba(200,32,26,.5); color: #ff7070; }
+.mock-badge.ai { position: absolute; top: 3px; right: 3px; background: rgba(42,138,122,.2); border: 1px solid rgba(42,138,122,.5); color: #5dceba; }
+.mock-cam-lbl { position: absolute; bottom: 3px; left: 3px; font-family: var(--mono); font-size: 5.5px; color: rgba(255,255,255,.45); background: rgba(6,4,2,.75); padding: 1px 4px; border-radius: 1px; }
+.mock-fps { position: absolute; bottom: 3px; right: 3px; font-family: var(--mono); font-size: 5.5px; color: var(--dark-muted); }
+.mock-det-box { position: absolute; border: 1px solid; }
+.mock-det-lbl-box { font-family: var(--mono); font-size: 4.5px; padding: 1px 2px; background: rgba(6,4,2,.85); position: absolute; top: -9px; left: 0; }
+.mock-right { display: flex; flex-direction: column; gap: 5px; overflow: hidden; }
+.mock-panel { background: rgba(10,8,6,.9); border: 1px solid var(--dark-border); border-radius: 3px; overflow: hidden; }
+.mock-panel-hdr { padding: 4px 8px; border-bottom: 1px solid var(--dark-border); font-family: var(--mono); font-size: 7px; letter-spacing: .1em; text-transform: uppercase; color: var(--dark-dim); display: flex; align-items: center; gap: 5px; }
+.mock-panel-hdr i { font-size: 7px; color: var(--red); }
+.mock-panel-body { padding: 6px 8px; }
+.mock-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.mock-stat { padding: 5px 6px; background: rgba(6,4,2,.6); border: 1px solid var(--dark-border); border-left: 2px solid; border-radius: 2px; }
+.mock-stat.ok { border-left-color: var(--teal); }
+.mock-stat.red-s { border-left-color: var(--red); }
+.mock-stat.warn { border-left-color: var(--amber); }
+.mock-stat.ai { border-left-color: var(--teal); }
+.ms-lbl { font-family: var(--mono); font-size: 5.5px; letter-spacing: .1em; color: var(--dark-muted); text-transform: uppercase; margin-bottom: 2px; }
+.ms-val { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--dark-bright); line-height: 1; }
+.mock-ai-det { display: flex; align-items: center; gap: 4px; padding: 3px 5px; background: rgba(200,32,26,.04); border: 1px solid rgba(200,32,26,.1); border-radius: 2px; margin-bottom: 2px; }
+.mad-lbl { font-family: var(--mono); font-size: 7px; color: #ff9090; flex: 1; }
+.mad-conf { font-family: var(--mono); font-size: 6.5px; color: var(--red); }
+.mock-threat { font-family: var(--mono); font-size: 5.5px; padding: 1px 3px; border-radius: 1px; }
+.mock-threat.low { background: rgba(42,138,122,.09); color: #5dceba; border: 1px solid rgba(42,138,122,.2); }
+.mock-threat.med { background: rgba(192,120,32,.09); color: var(--amber); border: 1px solid rgba(192,120,32,.2); }
+.mock-threat.high { background: rgba(200,32,26,.12); color: #ff7070; border: 1px solid rgba(200,32,26,.3); }
+.mock-alert { display: flex; gap: 5px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.03); }
+.mock-adot { width: 4px; height: 4px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+.mock-adot.red { background: var(--red); }
+.mock-adot.warn { background: var(--amber); }
+.mock-adot.ok { background: var(--teal); }
+.mock-amsg { font-size: 7.5px; color: var(--dark-text); line-height: 1.35; }
+.mock-atime { font-family: var(--mono); font-size: 6px; color: var(--dark-muted); }
+
+/* ── FEATURES ── */
+.features-section { background: var(--paper); padding: 90px 24px; position: relative; }
+.features-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--red), transparent); }
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; max-width: 1200px; margin: 50px auto 0; }
+.feature-card { background: var(--paper); padding: 32px 26px; position: relative; transition: background .2s; }
+.feature-card:hover { background: var(--paper2); }
+.feat-corner { position: absolute; top: 0; right: 0; width: 8px; height: 8px; border-top: 1.5px solid rgba(200,32,26,.2); border-right: 1.5px solid rgba(200,32,26,.2); }
+.feat-icon { width: 40px; height: 40px; border: 1.5px solid var(--line2); border-radius: 4px; background: var(--paper2); display: flex; align-items: center; justify-content: center; margin-bottom: 18px; font-size: 16px; color: var(--red); transition: all .2s; }
+.feature-card:hover .feat-icon { border-color: var(--red); background: rgba(200,32,26,.06); }
+.feat-title { font-family: var(--display); font-size: 22px; color: var(--ink); margin-bottom: 10px; }
+.feat-desc { font-size: 12.5px; font-weight: 300; color: var(--muted); line-height: 1.7; }
+.feat-tag { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 7.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--red); border: 1px solid rgba(200,32,26,.2); background: rgba(200,32,26,.05); padding: 3px 8px; border-radius: 2px; margin-top: 16px; }
+
+/* ── AI SECTION ── */
+.ai-section { background: var(--dark); padding: 90px 24px; position: relative; }
+.ai-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--red), transparent); }
+.ai-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.ai-model-card { display: flex; align-items: flex-start; gap: 14px; padding: 16px; background: rgba(10,8,6,.9); border: 1px solid var(--dark-border2); border-radius: 4px; transition: all .2s; margin-bottom: 8px; }
+.ai-model-card:hover { border-color: var(--red-border); }
+.ai-model-card.active { border-color: rgba(200,32,26,.4); background: rgba(200,32,26,.04); }
+.amc-icon { width: 34px; height: 34px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; background: rgba(200,32,26,.08); border: 1px solid rgba(200,32,26,.2); color: var(--red3); }
+.amc-icon.teal { background: rgba(42,138,122,.08); border-color: rgba(42,138,122,.2); color: #5dceba; }
+.amc-title { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dark-bright); margin-bottom: 5px; }
+.amc-desc { font-size: 12px; font-weight: 300; color: var(--dark-text); line-height: 1.6; }
+.amc-status { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 7.5px; padding: 2px 7px; border-radius: 2px; margin-top: 7px; }
+.amc-status.on { background: rgba(200,32,26,.1); color: #ff8888; border: 1px solid rgba(200,32,26,.25); }
+.amc-status.stub { background: rgba(255,255,255,.04); color: var(--dark-muted); border: 1px solid var(--dark-border2); }
+.waveform { display: flex; align-items: center; gap: 3px; height: 22px; margin-top: 10px; }
+.wave-bar { width: 3px; background: var(--red); border-radius: 2px; opacity: .5; animation: waveBounce var(--dur, .8s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+@keyframes waveBounce { 0%,100% { height: 4px; opacity: .25; } 50% { height: var(--max, 14px); opacity: .7; } }
+
+/* ── ZONES ── */
+.zones-section { background: var(--paper2); padding: 90px 24px; position: relative; }
+.zones-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--red), transparent); }
+.zones-inner { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.zone-mockup { border: 1.5px solid var(--line2); border-radius: 4px; overflow: hidden; background: #f0ebe5; box-shadow: 0 20px 60px rgba(0,0,0,.12); }
+.zone-toolbar { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: var(--paper3); border-bottom: 1px solid var(--line); }
+.zt-btn { padding: 3px 8px; border: 1px solid var(--line); border-radius: 2px; background: var(--paper2); color: var(--muted); font-family: var(--mono); font-size: 7.5px; cursor: pointer; }
+.zt-btn.on { color: var(--red); border-color: rgba(200,32,26,.4); background: rgba(200,32,26,.05); }
+.zone-canvas { padding: 12px; position: relative; height: 240px; }
+.zone-canvas::before { content: ''; position: absolute; inset: 12px; background-image: linear-gradient(rgba(200,32,26,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(200,32,26,.06) 1px, transparent 1px); background-size: 30px 30px; border-radius: 2px; }
+.mock-zone { position: absolute; border: 1.5px solid; border-radius: 1px; }
+.mock-zone-lbl { position: absolute; top: -11px; left: 0; font-family: var(--mono); font-size: 6.5px; padding: 1px 5px; background: var(--paper3); }
+.handle-dot { position: absolute; width: 6px; height: 6px; border-radius: 50%; }
+.zone-features { display: flex; flex-direction: column; gap: 10px; }
+.zone-feat { display: flex; align-items: flex-start; gap: 12px; padding: 14px; background: var(--paper); border: 1px solid var(--line); border-left: 2.5px solid; border-radius: 3px; }
+
+/* ── DEPLOY ── */
+.deploy-section { background: var(--paper); padding: 90px 24px; position: relative; }
+.deploy-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--red), transparent); }
+.deploy-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; max-width: 1200px; margin: 50px auto 0; }
+.deploy-card { background: var(--paper); padding: 28px 24px; display: flex; flex-direction: column; gap: 10px; transition: background .2s; position: relative; }
+.deploy-card:hover { background: var(--paper2); }
+.deploy-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: transparent; transition: background .3s; }
+.deploy-card:hover::before { background: var(--red); }
+.deploy-num { font-family: var(--display); font-size: 50px; color: rgba(200,32,26,.12); line-height: 1; }
+.deploy-title { font-family: var(--display); font-size: 20px; color: var(--ink); letter-spacing: .02em; }
+.deploy-desc { font-size: 12px; font-weight: 300; color: var(--muted); line-height: 1.65; }
+
+/* ── CTA ── */
+.cta-section { background: var(--dark); padding: 110px 24px; text-align: center; position: relative; overflow: hidden; }
+.cta-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--red), transparent); }
+.cta-ghost { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: var(--display); font-size: clamp(120px, 22vw, 280px); color: transparent; -webkit-text-stroke: 1px rgba(200,32,26,.05); letter-spacing: .05em; pointer-events: none; white-space: nowrap; }
+.cta-inner { position: relative; z-index: 2; max-width: 640px; margin: 0 auto; }
+.cta-label { font-family: var(--mono); font-size: 8.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--red); margin-bottom: 16px; }
+.cta-h2 { font-family: var(--display); font-size: clamp(50px, 8vw, 96px); color: var(--dark-bright); line-height: .95; letter-spacing: .02em; margin-bottom: 16px; }
+.cta-h2 .red { color: var(--red); }
+.cta-sub { font-size: 15px; font-weight: 300; color: var(--dark-text); line-height: 1.7; margin-bottom: 36px; }
+.cta-checks { display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 28px; flex-wrap: wrap; }
+.cta-check { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 8px; color: var(--dark-muted); }
+.cta-check i { color: var(--teal); font-size: 9px; }
+
+/* ── FOOTER ── */
+footer { background: var(--paper); border-top: 1px solid var(--line); padding: 28px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.footer-left { display: flex; align-items: center; gap: 12px; }
+.footer-logo img { height: 18px; }
+.footer-copy { font-family: var(--mono); font-size: 7.5px; color: var(--muted); letter-spacing: .1em; }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-family: var(--mono); font-size: 8px; color: var(--muted); text-decoration: none; letter-spacing: .1em; transition: color .2s; }
+.footer-links a:hover { color: var(--red); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity .65s ease, transform .65s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* ── STORY ── */
+.story-section { background: var(--dark); padding: 0; position: relative; overflow: hidden; }
+.story-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--red), var(--red3), transparent); }
+.story-outer { max-width: 1200px; margin: 0 auto; padding: 90px 24px; }
+.story-header { display: grid; grid-template-columns: auto 1fr; gap: 36px; align-items: start; margin-bottom: 70px; }
+.story-big-year { font-family: var(--display); font-size: clamp(80px, 10vw, 120px); line-height: 1; color: var(--red); text-shadow: 0 0 60px rgba(200,32,26,.3); }
+.story-sub-label { font-family: var(--mono); font-size: 8px; letter-spacing: .2em; color: var(--dark-muted); text-transform: uppercase; margin-top: -4px; }
+.story-text-col { padding-top: 12px; }
+.story-section-label { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--red); margin-bottom: 16px; }
+.story-section-label::after { content: ''; height: 1px; width: 60px; background: linear-gradient(90deg, rgba(200,32,26,.4), transparent); }
+.story-h2 { font-family: var(--display); font-size: clamp(36px, 5vw, 64px); line-height: 1; color: var(--dark-bright); margin-bottom: 18px; }
+.story-p { font-size: 15px; font-weight: 300; color: var(--dark-text); line-height: 1.8; max-width: 560px; }
+.story-p + .story-p { margin-top: 14px; }
+.story-p em { color: var(--dark-bright); font-style: normal; font-weight: 400; }
+.story-timeline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--dark-border); border: 1px solid var(--dark-border); border-radius: 3px; overflow: hidden; margin-bottom: 70px; }
+.tl-node { background: var(--dark2); padding: 24px 20px; position: relative; transition: background .2s; }
+.tl-node:hover { background: var(--dark3); }
+.tl-node::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--dark-border); transition: background .2s; }
+.tl-node.active::before { background: var(--red); }
+.tl-node.active { background: var(--dark3); }
+.tl-yr { font-family: var(--display); font-size: 48px; color: var(--red); line-height: 1; margin-bottom: 8px; opacity: .8; }
+.tl-node.active .tl-yr { opacity: 1; }
+.tl-title { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dark-bright); margin-bottom: 10px; }
+.tl-desc { font-size: 12px; font-weight: 300; color: var(--dark-text); line-height: 1.65; }
+.carousel-wrap { position: relative; margin-bottom: 16px; }
+.carousel-label { font-family: var(--mono); font-size: 8.5px; letter-spacing: .2em; color: var(--red); text-transform: uppercase; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
+.carousel-label::after { content: ''; height: 1px; flex: 1; max-width: 80px; background: linear-gradient(90deg, rgba(200,32,26,.4), transparent); }
+.carousel-track-outer { overflow: hidden; border-radius: 4px; border: 1px solid var(--dark-border2); }
+.carousel-track { display: flex; transition: transform .5s cubic-bezier(.4,0,.2,1); }
+.carousel-slide { min-width: 100%; position: relative; }
+.image-box { position: relative; width: 100%; padding-top: 56.25%; background: var(--dark); overflow: hidden; }
+.image-box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: none; filter: brightness(0.9) contrast(1.1); }
+.carousel-caption { padding: 14px 18px; background: var(--dark2); border-top: 1px solid var(--dark-border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cc-title { font-family: var(--mono); font-size: 9px; color: var(--dark-bright); letter-spacing: .08em; text-transform: uppercase; }
+.cc-sub { font-size: 11px; color: var(--dark-muted); font-weight: 300; margin-top: 2px; }
+.carousel-nav { display: flex; align-items: center; gap: 8px; }
+.cn-btn { width: 30px; height: 30px; border: 1px solid var(--dark-border2); border-radius: 2px; background: var(--dark3); color: var(--dark-muted); font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .2s; }
+.cn-btn:hover { border-color: var(--red-border); color: var(--red); }
+.carousel-dots { display: flex; gap: 6px; }
+.cdot { width: 6px; height: 6px; border-radius: 50%; background: var(--dark-border2); cursor: pointer; transition: all .2s; }
+.cdot.active { background: var(--red); box-shadow: 0 0 8px rgba(200,32,26,.5); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 960px) {
+  .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+  .hero-ghost { display: none; }
+  .ai-inner { grid-template-columns: 1fr; gap: 40px; }
+  .zones-inner { grid-template-columns: 1fr; gap: 40px; }
+  .story-timeline { grid-template-columns: 1fr; }
+  .features-grid { grid-template-columns: 1fr 1fr; }
+  .deploy-grid { grid-template-columns: 1fr 1fr; }
+  .nav-links { display: none; }
+  .nav-hamburger { display: flex; }
+  .pain-grid { grid-template-columns: 1fr; }
+  .vs-grid { grid-template-columns: 1fr; gap: 12px; }
+  .vs-divider { flex-direction: row; padding: 4px 0; }
+  .vs-vs { font-size: 24px; }
+  .mega-stats { grid-template-columns: 1fr 1fr; }
+  .cost-compare { grid-template-columns: 1fr; gap: 10px; }
+  .consumer-grid { grid-template-columns: 1fr 1fr; }
+  .b2b-grid { grid-template-columns: 1fr; }
+  .b2b-value-grid { grid-template-columns: 1fr 1fr 1fr; }
+  .story-header { grid-template-columns: 1fr; gap: 16px; }
+  .mock-sidebar { width: 110px; }
+  .mock-main { grid-template-columns: 1fr; }
+  .mock-right { display: none; }
+  .mock-body { height: 260px; }
+  .comp-table-wrap { overflow-x: auto; }
+  .comp-table { min-width: 580px; }
+}
+@media (max-width: 600px) {
+  .hero { padding: 70px 20px 50px; min-height: auto; }
+  .hero-h1 { font-size: clamp(52px, 14vw, 72px); }
+  .features-grid { grid-template-columns: 1fr; }
+  .deploy-grid { grid-template-columns: 1fr; }
+  .mega-stats { grid-template-columns: 1fr 1fr; }
+  .consumer-grid { grid-template-columns: 1fr; }
+  .b2b-grid { grid-template-columns: 1fr; }
+  .b2b-value-grid { grid-template-columns: 1fr; }
+  .story-timeline { grid-template-columns: 1fr; }
+  .nav-cta { display: none; }
+  .comp-table { min-width: 520px; }
+  .mock-body { height: 220px; }
+  .mock-sidebar { display: none; }
+  .mock-right { display: none; }
+  .vs-grid { grid-template-columns: 1fr; }
+  .sec-title { font-size: clamp(36px, 10vw, 52px); }
+  .cta-h2 { font-size: clamp(44px, 12vw, 60px); }
+  .pf-item { min-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS">
+  </div>
+  <ul class="nav-links">
+    <li><a href="#problem">The Problem</a></li>
+    <li><a href="#compare">vs Legacy</a></li>
+    <li><a href="#story">Story</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#features">Features</a></li>
+  </ul>
+  <div class="nav-right">
+    <a href="stereovision.html" class="nav-cta"><i class="fas fa-play" style="font-size:7px;"></i> Launch Platform</a>
+    <div class="nav-hamburger" onclick="toggleNav()" id="hamburger">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</nav>
+
+<div class="mobile-nav" id="mobileNav">
+  <a href="#problem" onclick="toggleNav()">The Problem</a>
+  <a href="#compare" onclick="toggleNav()">vs Legacy</a>
+  <a href="#story" onclick="toggleNav()">Our Story</a>
+  <a href="#pricing" onclick="toggleNav()">Pricing</a>
+  <a href="#features" onclick="toggleNav()">Features</a>
+  <a href="#deploy" onclick="toggleNav()">Setup</a>
+</div>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="ticker-inner">
+    <span class="ticker-item">SYSTEM ONLINE</span>
+    <span class="ticker-item">LUMENOS AI PLATFORM ACTIVE</span>
+    <span class="ticker-item">FREE TRIAL · 14 DAYS</span>
+    <span class="ticker-item">REAL-TIME MOTION DETECTION</span>
+    <span class="ticker-item">STANDARD FROM $49/MO</span>
+    <span class="ticker-item">RAF BOT ORIGIN — 2022</span>
+    <span class="ticker-item">AI OBJECT RECOGNITION</span>
+    <span class="ticker-item">BROWSER-NATIVE · ZERO INSTALL</span>
+    <span class="ticker-item">SYSTEM ONLINE</span>
+    <span class="ticker-item">LUMENOS AI PLATFORM ACTIVE</span>
+    <span class="ticker-item">FREE TRIAL · 14 DAYS</span>
+    <span class="ticker-item">REAL-TIME MOTION DETECTION</span>
+    <span class="ticker-item">STANDARD FROM $49/MO</span>
+    <span class="ticker-item">RAF BOT ORIGIN — 2022</span>
+    <span class="ticker-item">AI OBJECT RECOGNITION</span>
+    <span class="ticker-item">BROWSER-NATIVE · ZERO INSTALL</span>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <!-- Darkened surveillance background image -->
+  <div class="hero-bg"></div>
+  <div class="hero-line"></div>
+  <div class="hero-ghost">AI</div>
+  <div class="hero-inner">
+    <div>
+      <h1 class="hero-h1">AUTONOMOUS<br><span class="red">SURVEILLANCE</span><br>REIMAGINED</h1>
+      <p class="hero-sub">Turn your existing cameras into an AI surveillance system in under 60 seconds starting at $49/month</p>
+      <div class="hero-actions">
+        <a href="stereovision.html" class="btn-primary"><i class="fas fa-play"></i> Open Dashboard</a>
+        <a href="#problem" class="btn-ghost"><i class="fas fa-arrow-down" style="font-size:10px;"></i> See The Problem</a>
+      </div>
+    </div>
+    <div class="hero-stats-panel reveal">
+      <div class="hsp-top">
+        <div class="hsp-status-dot"></div>
+        <div class="hsp-label">System Status <span>ONLINE</span></div>
+      </div>
+      <div class="hsp-grid">
+        <div class="hsp-stat"><div class="hsp-val red">9+</div><div class="hsp-lbl">Camera Feeds</div></div>
+        <div class="hsp-stat"><div class="hsp-val">&#x221E;</div><div class="hsp-lbl">Detection Zones</div></div>
+        <div class="hsp-stat"><div class="hsp-val">AI</div><div class="hsp-lbl">LumenOS Vision</div></div>
+        <div class="hsp-stat"><div class="hsp-val">0<span style="font-size:16px;">ms</span></div><div class="hsp-lbl">Install Required</div></div>
+      </div>
+      <div class="hsp-bottom">
+        <div class="hsp-tag"><i class="fas fa-check"></i> Browser-native</div>
+        <div class="hsp-tag"><i class="fas fa-check"></i> 14-day free trial</div>
+        <div class="hsp-tag"><i class="fas fa-check"></i> Plans from $49/mo</div>
+      </div>
+      <div class="hero-preview-img">
+        <img src="//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1776164187840x522761185666554800/Screen%20Recording%202026-04-14%20at%2011.18.30.mov" alt="Surveillance camera with AI overlay" style="width:100%; height:140px; object-fit:cover;">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM SECTION -->
+<section class="problem-section" id="problem">
+  <div class="problem-outer">
+    <div class="problem-intro reveal">
+      <div class="sec-label" style="color:var(--red);justify-content:center;"><i class="fas fa-exclamation-triangle" style="font-size:9px;"></i> The Real Problem</div>
+      <h2 class="problem-h2">YOUR CURRENT SYSTEM<br>IS <span class="red">FAILING YOU.</span></h2>
+      <p class="problem-sub">Legacy security software was built in a different era, expensive, inflexible, and completely unable to leverage modern AI. You're overpaying for yesterday's technology.</p>
+    </div>
+    <div class="pain-grid reveal">
+      <div class="pain-card">
+        <div class="pain-num">01</div>
+        <div class="pain-title">Locked In Contracts</div>
+        <div class="pain-desc">Enterprise NVR software demands 3-year licensing deals, per-camera fees, and mandatory professional installation. Switching costs are engineered to keep you trapped.</div>
+        <div class="pain-cost"><i class="fas fa-lock" style="font-size:9px;"></i> $400–$1,200/month typical spend</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-num">02</div>
+        <div class="pain-title">Dumb Alerts, Endless Noise</div>
+        <div class="pain-desc">Motion triggers fire on passing cars, shadows, and tree branches. Without real AI classification, security teams spend more time dismissing false alarms than responding to real threats.</div>
+        <div class="pain-cost"><i class="fas fa-bell" style="font-size:9px;"></i> 95% of alerts are false positives</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-num">03</div>
+        <div class="pain-title">No Intelligence Layer</div>
+        <div class="pain-desc">Traditional cameras record and playback, that's it. No object classification, no zone-based intrusion logic, no confidence scoring. You're flying blind when it matters most.</div>
+        <div class="pain-cost"><i class="fas fa-robot" style="font-size:9px;"></i> Zero AI in 80% of deployments</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-num">04</div>
+        <div class="pain-title">Requires Dedicated Hardware</div>
+        <div class="pain-desc">NVR boxes, dedicated servers, proprietary dongles. Every deployment requires an IT project, physical hardware, and ongoing maintenance overhead that adds up fast.</div>
+        <div class="pain-cost"><i class="fas fa-server" style="font-size:9px;"></i> $2,000–$15,000 hardware setup</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-num">05</div>
+        <div class="pain-title">Cloud = Sending Your Footage Away</div>
+        <div class="pain-desc">Cloud-based platforms route your live footage through third-party servers, raising serious privacy, latency, and compliance concerns. Who actually owns your security data?</div>
+        <div class="pain-cost"><i class="fas fa-cloud-upload-alt" style="font-size:9px;"></i> Privacy risk every millisecond</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-num">06</div>
+        <div class="pain-title">SMBs Simply Can't Afford It</div>
+        <div class="pain-desc">Enterprise-grade AI surveillance is priced for enterprise budgets. Small businesses, schools, and independent operators are left with consumer cameras that offer zero intelligence.</div>
+        <div class="pain-cost"><i class="fas fa-ban" style="font-size:9px;"></i> AI security inaccessible to 90% of orgs</div>
+      </div>
+    </div>
+    <div class="vs-grid reveal">
+      <div class="vs-side old">
+        <div class="vs-header" style="background:rgba(255,255,255,.03);">
+          <i class="fas fa-times-circle" style="color:#775555;font-size:12px;"></i>
+          <div class="vs-title">Legacy Security Software</div>
+        </div>
+        <div class="vs-rows">
+          <div class="vs-row"><span class="vs-icon" style="color:#cc5555;"><i class="fas fa-times"></i></span><div class="vs-row-text">Expensive annual licensing, per-seat or per-camera fees</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:#cc5555;"><i class="fas fa-times"></i></span><div class="vs-row-text">Requires dedicated NVR hardware and IT infrastructure</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:#cc5555;"><i class="fas fa-times"></i></span><div class="vs-row-text">Dumb motion detection — no object recognition or classification</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:#cc5555;"><i class="fas fa-times"></i></span><div class="vs-row-text">Complex installation, hours of setup, mandatory training</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:#cc5555;"><i class="fas fa-times"></i></span><div class="vs-row-text">Footage routed through external cloud servers</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:#cc5555;"><i class="fas fa-times"></i></span><div class="vs-row-text">Locked to proprietary ecosystems, no interoperability</div></div>
+        </div>
+      </div>
+      <div class="vs-divider"><div class="vs-vs">VS</div></div>
+      <div class="vs-side new">
+        <div class="vs-header">
+          <i class="fas fa-shield-alt" style="color:var(--red3);font-size:12px;"></i>
+          <div class="vs-title">LumenOS Platform</div>
+        </div>
+        <div class="vs-rows">
+          <div class="vs-row"><span class="vs-icon" style="color:var(--teal);"><i class="fas fa-check"></i></span><div class="vs-row-text">Try free for 14 days. Then simple monthly plans from $49</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:var(--teal);"><i class="fas fa-check"></i></span><div class="vs-row-text">100% browser-native. Works on any device with Chrome or Firefox</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:var(--teal);"><i class="fas fa-check"></i></span><div class="vs-row-text">Real-time AI object recognition with confidence scores and threat levels</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:var(--teal);"><i class="fas fa-check"></i></span><div class="vs-row-text">Open in browser, add cameras, go live in under 60 seconds</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:var(--teal);"><i class="fas fa-check"></i></span><div class="vs-row-text">All processing is local — your footage never leaves your device</div></div>
+          <div class="vs-row"><span class="vs-icon" style="color:var(--teal);"><i class="fas fa-check"></i></span><div class="vs-row-text">Open streams, MJPEG/HLS compatible. Use any camera you already own</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DASHBOARD PREVIEW -->
+<section class="preview-section" id="preview">
+  <div class="section-header">
+    <div class="sec-label reveal"><i class="fas fa-desktop" style="font-size:9px;"></i> Dashboard Preview</div>
+    <h2 class="sec-title reveal">EVERYTHING VISIBLE.<br>NOTHING MISSED.</h2>
+    <p class="sec-body reveal">A command-centre UI designed for clarity under pressure. Monitor all feeds, track objects, review AI detections, all from one screen.</p>
+  </div>
+  <div class="dash-mockup-outer reveal">
+    <div class="mock-topbar">
+      <div class="mock-logo-icon"><i class="fas fa-shield-alt"></i></div>
+      <span class="mock-logo-text">LUMENOS / <span style="color:var(--red3);">DASHBOARD</span></span>
+      <div class="mock-pills">
+        <div class="mock-pill">STATUS <span class="v">ONLINE</span></div>
+        <div class="mock-pill" style="color:var(--dark-muted);">CAMS <span style="color:var(--dark-text);">4</span></div>
+        <div class="mock-pill" style="color:var(--dark-muted);">ALERTS <span style="color:#ff7070;">7</span></div>
+        <div class="mock-pill" style="color:var(--dark-muted);">AI <span style="color:#5dceba;">ON</span></div>
+        <div class="mock-pill" style="color:var(--dark-muted);">TIME <span style="color:var(--dark-text);" id="mockTime">—</span></div>
+      </div>
+    </div>
+    <div class="mock-body">
+      <div class="mock-sidebar">
+        <div class="mock-nav-sect">
+          <div class="mock-nav-lbl">Workspace</div>
+          <div class="mock-nav-item active"><i class="fas fa-th-large"></i> Dashboard</div>
+          <div class="mock-nav-item"><i class="fas fa-chart-area"></i> Analytics</div>
+          <div class="mock-nav-item"><i class="fas fa-vector-square"></i> Zones</div>
+          <div class="mock-nav-item"><i class="fas fa-brain"></i> AI Platform</div>
+          <div class="mock-nav-item"><i class="fas fa-file-export"></i> Export</div>
+        </div>
+        <div class="mock-nav-sect">
+          <div class="mock-nav-lbl">System</div>
+          <div class="mock-nav-item"><i class="fas fa-history"></i> Event Log</div>
+          <div class="mock-nav-item"><i class="fas fa-coins"></i> Plan</div>
+        </div>
+      </div>
+      <div class="mock-main">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:center;gap:5px;padding:4px 7px;background:rgba(10,8,6,.9);border:1px solid var(--dark-border);border-radius:3px 3px 0 0;">
+            <span style="font-family:var(--mono);font-size:7px;color:var(--dark-dim);">CAMERA GRID</span>
+            <div style="display:flex;align-items:center;gap:4px;padding:2px 7px;border:1px solid rgba(200,32,26,.3);border-radius:2px;background:rgba(200,32,26,.06);color:#ff8888;font-family:var(--mono);font-size:7px;margin-left:auto;"><i class="fas fa-brain" style="font-size:6px;"></i> AI ALL · Standard Plan</div>
+          </div>
+          <div class="mock-cam-grid">
+            <div class="mock-cam"><div class="mock-cam-inner"><div class="mock-badge live"><span style="display:inline-block;width:3px;height:3px;border-radius:50%;background:#ff7070;margin-right:2px;"></span>LIVE</div><div class="mock-badge ai">AI</div><div class="mock-cam-lbl">ENTRANCE</div><div class="mock-fps">28fps</div><div class="mock-det-box" style="left:38%;top:30%;width:22%;height:38%;border-color:var(--amber);"><div class="mock-det-lbl-box" style="color:var(--amber);">PERSON · MED</div></div></div></div>
+            <div class="mock-cam"><div class="mock-cam-inner"><div class="mock-badge live" style="border-color:rgba(200,32,26,.6);background:rgba(200,32,26,.25);color:#ff5555;"><span style="display:inline-block;width:3px;height:3px;border-radius:50%;background:#ff5555;margin-right:2px;"></span>MOTION</div><div class="mock-cam-lbl">PERIMETER</div><div class="mock-fps">30fps</div><div class="mock-det-box" style="left:20%;top:25%;width:18%;height:30%;border-color:var(--red3);"><div class="mock-det-lbl-box" style="color:var(--red3);">HIGH 0.8m</div></div><div class="mock-det-box" style="left:60%;top:40%;width:14%;height:24%;border-color:#5dceba;"><div class="mock-det-lbl-box" style="color:#5dceba;">LOW 2.1m</div></div></div></div>
+            <div class="mock-cam"><div class="mock-cam-inner"><div class="mock-badge live"><span style="display:inline-block;width:3px;height:3px;border-radius:50%;background:#ff7070;margin-right:2px;"></span>LIVE</div><div class="mock-badge ai">AI</div><div class="mock-cam-lbl">PARKING LOT</div><div class="mock-fps">24fps</div></div></div>
+            <div class="mock-cam"><div class="mock-cam-inner"><div class="mock-badge" style="background:rgba(6,4,2,.7);border:1px solid var(--dark-border2);color:var(--dark-muted);font-family:var(--mono);font-size:5.5px;padding:1px 3px;top:3px;left:3px;border-radius:1px;">REC</div><div class="mock-cam-lbl">REAR DOOR</div><div class="mock-fps">25fps</div></div></div>
+          </div>
+        </div>
+        <div class="mock-right">
+          <div class="mock-panel"><div class="mock-panel-hdr"><i class="fas fa-tachometer-alt"></i> Status</div><div class="mock-panel-body"><div class="mock-stat-grid"><div class="mock-stat ok"><div class="ms-lbl">System</div><div class="ms-val" style="font-size:8px;">ONLINE</div></div><div class="mock-stat red-s"><div class="ms-lbl">Alerts</div><div class="ms-val" style="color:#ff7070;">7</div></div><div class="mock-stat warn"><div class="ms-lbl">Objects</div><div class="ms-val">3</div></div><div class="mock-stat ai"><div class="ms-lbl">Plan</div><div class="ms-val" style="font-size:7px;color:#5dceba;">STD</div></div></div></div></div>
+          <div class="mock-panel" style="border-color:rgba(200,32,26,.2);"><div class="mock-panel-hdr" style="color:#cc8888;"><i class="fas fa-brain" style="color:var(--red);"></i> LumenOS AI</div><div class="mock-panel-body"><div class="mock-ai-det"><span class="mad-lbl">Person</span><span class="mad-conf">94%</span><span class="mock-threat high">HIGH</span></div><div class="mock-ai-det"><span class="mad-lbl">Vehicle</span><span class="mad-conf">88%</span><span class="mock-threat med">MED</span></div><div class="mock-ai-det"><span class="mad-lbl">Package</span><span class="mad-conf">76%</span><span class="mock-threat low">LOW</span></div></div></div>
+          <div class="mock-panel" style="flex:1;"><div class="mock-panel-hdr"><i class="fas fa-bell"></i> Alerts</div><div class="mock-panel-body"><div class="mock-alert"><div class="mock-adot red"></div><div><div class="mock-amsg">PERIMETER: Motion HIGH</div><div class="mock-atime">14:32:18</div></div></div><div class="mock-alert"><div class="mock-adot warn"></div><div><div class="mock-amsg">AI: 3 objects — CAM-02</div><div class="mock-atime">14:32:15</div></div></div><div class="mock-alert"><div class="mock-adot ok"></div><div><div class="mock-amsg">ENTRANCE: Connected</div><div class="mock-atime">14:31:00</div></div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS / COMPARISON -->
+<section class="stats-section" id="compare">
+  <div class="stats-outer">
+    <div class="sec-label reveal" style="color:var(--red);"><i class="fas fa-chart-bar" style="font-size:9px;"></i> By The Numbers</div>
+    <h2 class="sec-title ink reveal">THE ADVANTAGE<br>IS UNDENIABLE.</h2>
+    <p class="sec-body muted reveal">LumenOS isn't just affordable, it's architecturally premium. Here's what the numbers actually look like.</p>
+    <div class="mega-stats reveal">
+      <div class="mega-stat"><div><span class="mega-num">95</span><span class="mega-unit">%</span></div><div class="mega-label">Lower startup cost<br>vs NVR hardware</div><div class="mega-sub">$0 vs avg $8,000+</div></div>
+      <div class="mega-stat"><div><span class="mega-num">&lt;60</span><span class="mega-unit">s</span></div><div class="mega-label">Time to first<br>live AI feed</div><div class="mega-sub">vs 4–12hr install</div></div>
+      <div class="mega-stat"><div><span class="mega-num">9</span><span class="mega-unit">+</span></div><div class="mega-label">Simultaneous cameras<br>per instance</div><div class="mega-sub">On a single browser tab</div></div>
+      <div class="mega-stat"><div><span class="mega-num">0</span></div><div class="mega-label">Data leaves<br>your device</div><div class="mega-sub">100% local processing</div></div>
+    </div>
+    <div class="comp-table-wrap reveal">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th style="width:28%;">Feature</th>
+            <th class="lumenos-col">LumenOS</th>
+            <th>Milestone XProtect</th>
+            <th>Verkada</th>
+            <th>Hanwha Wisenet</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="feature-col">Setup time</td><td class="lumenos-col" style="color:var(--teal);font-size:12px;">Under 60 seconds</td><td>4–12 hours</td><td>2–6 hours</td><td>4–8 hours</td></tr>
+          <tr><td class="feature-col">Hardware required</td><td class="lumenos-col"><span class="comp-check"><i class="fas fa-check"></i></span> None</td><td><span class="comp-cross"><i class="fas fa-times"></i></span> NVR server</td><td><span class="comp-cross"><i class="fas fa-times"></i></span> Proprietary cameras</td><td><span class="comp-cross"><i class="fas fa-times"></i></span> NVR + cameras</td></tr>
+          <tr><td class="feature-col">AI object recognition</td><td class="lumenos-col"><span class="comp-check"><i class="fas fa-check"></i></span> Real-time, all cams</td><td><span class="comp-partial"><i class="fas fa-exclamation"></i></span> Add-on license</td><td><span class="comp-partial"><i class="fas fa-exclamation"></i></span> Cloud only</td><td><span class="comp-partial"><i class="fas fa-exclamation"></i></span> Limited models</td></tr>
+          <tr><td class="feature-col">Pricing model</td><td class="lumenos-col" style="color:var(--teal);font-size:12px;">Free trial + monthly plans</td><td>Per-camera licensing</td><td>Per-camera/month</td><td>Hardware + software</td></tr>
+          <tr><td class="feature-col">Data privacy</td><td class="lumenos-col"><span class="comp-check"><i class="fas fa-check"></i></span> 100% local</td><td><span class="comp-check"><i class="fas fa-check"></i></span> Local</td><td><span class="comp-cross"><i class="fas fa-times"></i></span> Cloud-streamed</td><td><span class="comp-partial"><i class="fas fa-exclamation"></i></span> Partial cloud</td></tr>
+          <tr><td class="feature-col">Custom detection zones</td><td class="lumenos-col"><span class="comp-check"><i class="fas fa-check"></i></span> Unlimited, drag & drop</td><td><span class="comp-partial"><i class="fas fa-exclamation"></i></span> Limited</td><td><span class="comp-check"><i class="fas fa-check"></i></span> Yes</td><td><span class="comp-partial"><i class="fas fa-exclamation"></i></span> Basic</td></tr>
+          <tr><td class="feature-col">Browser-native</td><td class="lumenos-col"><span class="comp-check"><i class="fas fa-check"></i></span> Full platform</td><td><span class="comp-cross"><i class="fas fa-times"></i></span> Desktop client</td><td><span class="comp-partial"><i class="fas fa-exclamation"></i></span> Limited web view</td><td><span class="comp-cross"><i class="fas fa-times"></i></span> Desktop client</td></tr>
+          <tr><td class="feature-col">Entry cost</td><td class="lumenos-col" style="color:var(--teal);font-size:12px;">Free 14-day trial</td><td>$3,000–$15,000+</td><td>$299+/month</td><td>$1,500–$8,000+</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cost-compare reveal">
+      <div class="cost-card">
+        <div class="cost-product">Milestone XProtect</div>
+        <div class="cost-price"><span class="currency">$</span>8,000</div>
+        <div class="cost-period">typical first-year cost · 8 cameras</div>
+        <div class="cost-features">
+          <div class="cost-feat bad"><i class="fas fa-times"></i> Separate hardware NVR required</div>
+          <div class="cost-feat bad"><i class="fas fa-times"></i> Per-camera license renewal</div>
+          <div class="cost-feat bad"><i class="fas fa-times"></i> AI recognition is a paid add-on</div>
+          <div class="cost-feat bad"><i class="fas fa-times"></i> 4–12 hour professional setup</div>
+        </div>
+      </div>
+      <div class="cost-card">
+        <div class="cost-product">Verkada</div>
+        <div class="cost-price"><span class="currency">$</span>3,600</div>
+        <div class="cost-period">per year · 4 cameras minimum</div>
+        <div class="cost-features">
+          <div class="cost-feat bad"><i class="fas fa-times"></i> Proprietary cameras only</div>
+          <div class="cost-feat bad"><i class="fas fa-times"></i> Footage routed to Verkada cloud</div>
+          <div class="cost-feat good"><i class="fas fa-check"></i> Good AI, but cloud-dependent</div>
+          <div class="cost-feat bad"><i class="fas fa-times"></i> Locked in once hardware purchased</div>
+        </div>
+      </div>
+      <div class="cost-card featured">
+        <div class="cost-product red">LumenOS — Standard Plan</div>
+        <div class="cost-price red"><span class="currency">$</span>49</div>
+        <div class="cost-period">per month · 8 cameras · 20k AI scans</div>
+        <div class="cost-features">
+          <div class="cost-feat good"><i class="fas fa-check"></i> Use any cameras you already own</div>
+          <div class="cost-feat good"><i class="fas fa-check"></i> All footage stays on your device</div>
+          <div class="cost-feat good"><i class="fas fa-check"></i> Full AI included in plan</div>
+          <div class="cost-feat good"><i class="fas fa-check"></i> Live in under 60 seconds</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STORY SECTION -->
+<section class="story-section" id="story">
+  <div class="story-outer">
+    <div class="story-header reveal">
+      <div class="story-year-stack">
+        <div class="story-big-year">2022</div>
+        <div class="story-sub-label">Where it began</div>
+      </div>
+      <div class="story-text-col">
+        <div class="story-section-label"><i class="fas fa-landmark" style="font-size:9px;"></i> Origin Story</div>
+        <h2 class="story-h2">THE RAF BOT.<br>THE FIRST SIGNAL.</h2>
+        <p class="story-p">In 2022, we set out to build something that had never existed before — <em>the RAF bot</em>. A browser-native surveillance intelligence that could see, reason, and respond in real time. We had a vision far bigger than our resources.</p>
+        <p class="story-p">No infrastructure. No team. Just a problem worth solving and the conviction that <em>AI-powered security shouldn't require an enterprise budget</em>. We started building anyway.</p>
+        <p class="story-p">The years that followed were not quiet. Each iteration pushed the boundary of what a browser could do, what a model could see, and what a small team could deliver. <em>The journey continues to expand.</em></p>
+      </div>
+    </div>
+    <div class="story-timeline reveal">
+      <div class="tl-node active"><div class="tl-yr">22</div><div class="tl-title">RAF Bot: Genesis</div><div class="tl-desc">First prototype of the RAF surveillance bot. Single-camera, manual zones, basic motion detection. Ran in a browser tab. Proof of concept that the idea was real.</div></div>
+      <div class="tl-node"><div class="tl-yr">23</div><div class="tl-title">Multi-Camera Expansion</div><div class="tl-desc">Grid layout introduced. Multi-feed synchronisation, per-camera HUD overlays, and the first version of the zone editor. Scale begins to take shape.</div></div>
+      <div class="tl-node"><div class="tl-yr">24–25</div><div class="tl-title">LumenOS AI Platform</div><div class="tl-desc">LumenOS AI Vision integration live. Real-time object recognition, confidence scoring, threat classification. The RAF bot grows into something far greater.</div></div>
+    </div>
+    <div class="carousel-wrap reveal">
+      <div class="carousel-label"><i class="fas fa-film" style="font-size:9px;"></i> Evolution — Three Chapters</div>
+      <div class="carousel-track-outer">
+        <div class="carousel-track" id="carouselTrack">
+          <div class="carousel-slide">
+            <div class="image-box">
+              <img src="//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1776164829964x722625904761637600/Untitled%20design.mp4" alt="RAF Bot Genesis 2022 - code and camera">
+              <div class="vp-year" style="position:absolute; top:14px; left:14px; font-family:var(--display); font-size:36px; color:rgba(200,32,26,.3);">2022</div>
+            </div>
+            <div class="carousel-caption">
+              <div class="cc-info"><div class="cc-title">Chapter I · 2022: RAF Bot Genesis</div><div class="cc-sub">The prototype. One camera. One browser tab. One idea that wouldn't quit.</div></div>
+            </div>
+          </div>
+          <div class="carousel-slide">
+            <div class="image-box">
+              <img src="//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1776165498498x658270247886517600/istockphoto-1413583964-612x612.jpg" alt="Multi-Camera Expansion 2023">
+              <div class="vp-year" style="position:absolute; top:14px; left:14px; font-family:var(--display); font-size:36px; color:rgba(200,32,26,.3);">2023</div>
+            </div>
+            <div class="carousel-caption">
+              <div class="cc-info"><div class="cc-title">Chapter II · 2023: Scale Arrives</div><div class="cc-sub">LumenOS can empower autonomous syetems. Multi-feed. Grid layouts. Zone editor. The system starts to breathe.</div></div>
+            </div>
+          </div>
+          <div class="carousel-slide">
+            <div class="image-box">
+              <img src="//d7ae6844498e43f31183ab9e14bb48d9.cdn.bubble.io/f1776165625921x884092954309410000/male-security-guard-radio-speaking-600nw-2472843217.jpg.webp" alt="LumenOS AI Platform 2025">
+              <div class="vp-year" style="position:absolute; top:14px; left:14px; font-family:var(--display); font-size:36px; color:rgba(200,32,26,.3);">2025</div>
+            </div>
+            <div class="carousel-caption">
+              <div class="cc-info"><div class="cc-title">Chapter III · 2024–25: LumenOS AI</div><div class="cc-sub">LumenOS Vision. Real-time inference. The RAF bot becomes LumenOS.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;">
+        <div class="carousel-dots">
+          <div class="cdot active" onclick="goSlide(0)"></div>
+          <div class="cdot" onclick="goSlide(1)"></div>
+          <div class="cdot" onclick="goSlide(2)"></div>
+        </div>
+        <div class="carousel-nav">
+          <div class="cn-btn" onclick="prevSlide()"><i class="fas fa-chevron-left"></i></div>
+          <div class="cn-btn" onclick="nextSlide()"><i class="fas fa-chevron-right"></i></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING SECTION -->
+<section class="pricing-section" id="pricing">
+  <div class="pricing-outer">
+    <div class="sec-label reveal"><i class="fas fa-coins" style="font-size:9px;"></i> Pricing</div>
+    <h2 class="sec-title reveal">SIMPLE PRICING.<br>SERIOUS CAPABILITY.</h2>
+    <p class="sec-body reveal">Start free for 14 days, no card required. Then choose the plan that fits your deployment. Security integrators get a dedicated one-time path built for your workflow.</p>
+
+    <div class="pricing-toggle reveal" id="pricingToggle">
+      <button class="ptab active" onclick="switchPanel('consumer', this)"><i class="fas fa-user" style="font-size:7px;margin-right:5px;"></i> For End-Users</button>
+      <button class="ptab" onclick="switchPanel('b2b', this)"><i class="fas fa-building" style="font-size:7px;margin-right:5px;"></i> For Integrators (B2B)</button>
+    </div>
+
+    <div class="pricing-panel active" id="panel-consumer">
+      <div class="consumer-grid reveal">
+        <div class="plan-card">
+          <div class="plan-popular-badge">MOST POPULAR</div>
+          <div class="plan-header">
+            <div class="plan-tier">Free Trial</div>
+            <div class="plan-price-row">
+              <div class="plan-amount free-col">Free</div>
+            </div>
+            <div class="plan-period">14 days · no card required</div>
+            <div class="plan-highlight trial-hl">
+              <i class="fas fa-clock" style="font-size:8px;"></i>
+              100 AI scans/day · 2 camera feeds
+            </div>
+            <div class="cam-badge"><i class="fas fa-video"></i> 2 cameras</div>
+          </div>
+          <div class="plan-body">
+            <div class="plan-features">
+              <div class="plan-feat on"><i class="fas fa-check"></i> Motion detection + zones</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Analytics dashboard</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Export logs & snapshots</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> 100 AI scans per day</div>
+              <div class="plan-divider"></div>
+              <div class="plan-feat off"><i class="fas fa-lock"></i> Email support</div>
+              <div class="plan-feat off"><i class="fas fa-lock"></i> More than 2 cameras</div>
+            </div>
+          </div>
+          <a href="stereovision.html" class="plan-cta teal-btn">Start Free Trial</a>
+        </div>
+        <div class="plan-card featured">
+          <div class="plan-popular-badge">MOST POPULAR</div>
+          <div class="plan-header">
+            <div class="plan-tier">Standard</div>
+            <div class="plan-price-row">
+              <div class="plan-currency">$</div>
+              <div class="plan-amount">49</div>
+            </div>
+            <div class="plan-period">per month · billed monthly</div>
+            <div class="plan-highlight std-hl">
+              <i class="fas fa-brain" style="font-size:8px;color:var(--red3);"></i>
+              20,000 AI scans/month included
+            </div>
+            <div class="cam-badge"><i class="fas fa-video"></i> 8 cameras</div>
+          </div>
+          <div class="plan-body">
+            <div class="plan-features">
+              <div class="plan-feat on"><i class="fas fa-check"></i> Everything in Free Trial</div>
+              <div class="plan-feat red"><i class="fas fa-brain"></i> 20,000 AI recognition scans/mo</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Up to 8 camera feeds</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Object + confidence scoring</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Threat level classification</div>
+              <div class="plan-divider"></div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Email support</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Cancel anytime</div>
+            </div>
+          </div>
+          <a href="#" class="plan-cta primary-btn">Get Standard</a>
+        </div>
+        <div class="plan-card">
+          <div class="plan-popular-badge">MOST POPULAR</div>
+          <div class="plan-header">
+            <div class="plan-tier">Pro</div>
+            <div class="plan-price-row">
+              <div class="plan-currency">$</div>
+              <div class="plan-amount">99</div>
+            </div>
+            <div class="plan-period">per month · billed monthly</div>
+            <div class="plan-highlight pro-hl">
+              <i class="fas fa-brain" style="font-size:8px;"></i>
+              100,000 AI scans/month included
+            </div>
+            <div class="cam-badge"><i class="fas fa-video"></i> Unlimited cameras</div>
+          </div>
+          <div class="plan-body">
+            <div class="plan-features">
+              <div class="plan-feat on"><i class="fas fa-check"></i> Everything in Standard</div>
+              <div class="plan-feat red"><i class="fas fa-brain"></i> 100,000 AI recognition scans/mo</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Unlimited camera feeds</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Priority processing queue</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Bulk export with AI metadata</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> All 3 AI modes: Security, Detail, Count</div>
+              <div class="plan-divider"></div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Priority email support</div>
+            </div>
+          </div>
+          <a href="#" class="plan-cta ghost-btn">Get Pro</a>
+        </div>
+        <div class="plan-card">
+          <div class="plan-popular-badge">MOST POPULAR</div>
+          <div class="plan-header">
+            <div class="plan-tier">Lifetime</div>
+            <div class="plan-price-row">
+              <div class="plan-currency">$</div>
+              <div class="plan-amount lifetime-col">499</div>
+            </div>
+            <div class="plan-period">one-time payment · yours forever</div>
+            <div class="plan-highlight life-hl">
+              <i class="fas fa-key" style="font-size:8px;"></i>
+              Bring your own AI key · 1yr updates
+            </div>
+            <div class="cam-badge"><i class="fas fa-video"></i> Unlimited cameras</div>
+          </div>
+          <div class="plan-body">
+            <div class="plan-features">
+              <div class="plan-feat on"><i class="fas fa-check"></i> Everything in Pro</div>
+              <div class="plan-feat amber"><i class="fas fa-key"></i> Bring your own AI API key</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Unlimited cameras, forever</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> 1 year of platform updates</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> No ongoing subscription</div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Priority support</div>
+              <div class="plan-divider"></div>
+              <div class="plan-feat on"><i class="fas fa-check"></i> Pay once, own it</div>
+            </div>
+          </div>
+          <a href="#" class="plan-cta ghost-btn">Buy Lifetime</a>
+        </div>
+      </div>
+      <div style="margin-top:20px;padding:14px 20px;background:rgba(200,32,26,.04);border:1px solid rgba(200,32,26,.15);border-radius:3px;display:flex;align-items:flex-start;gap:10px;" class="reveal">
+        <i class="fas fa-shield-alt" style="color:var(--red3);font-size:11px;margin-top:2px;flex-shrink:0;"></i>
+        <div>
+          <div style="font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:var(--red3);text-transform:uppercase;margin-bottom:5px;">Save 80% vs. Cloud Camera Subscriptions</div>
+          <div style="font-size:12.5px;font-weight:300;color:var(--dark-text);line-height:1.6;">Ring and Nest charge $3–$10 per camera per month. A standard 8-camera setup costs $24–$80/month with them, before any AI features. LumenOS Standard delivers AI-powered monitoring for all 8 cameras at $49/month flat, with footage that never leaves your device.</div>
+        </div>
+      </div>
+      <div class="plans-footer reveal">
+        <div class="pf-header"><i class="fas fa-check-circle"></i> All plans include</div>
+        <div class="pf-grid">
+          <div class="pf-item"><i class="fas fa-check"></i> Motion detection & heat maps</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Custom detection zones</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Analytics dashboard</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Export logs, CSV & JSON</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Depth estimation</div>
+          <div class="pf-item"><i class="fas fa-check"></i> 100% local footage processing</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Works with any IP camera</div>
+          <div class="pf-item"><i class="fas fa-check"></i> No vendor lock-in</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pricing-panel" id="panel-b2b">
+      <div style="margin-top:32px;padding:16px 20px;background:rgba(42,138,122,.06);border:1px solid rgba(42,138,122,.2);border-radius:3px;display:flex;align-items:flex-start;gap:10px;" class="reveal">
+        <i class="fas fa-info-circle" style="color:#5dceba;font-size:11px;margin-top:2px;flex-shrink:0;"></i>
+        <div style="font-size:13px;font-weight:300;color:var(--dark-text);line-height:1.6;">
+          <strong style="color:var(--dark-bright);font-weight:400;">LumenOS replaces your NVR software at a fraction of the cost.</strong> Unlimited cameras, no recurring licensing — one-time payment per installation. We also offer a white-label version with your branding.
+        </div>
+      </div>
+      <div class="b2b-grid reveal">
+        <div class="b2b-card featured">
+          <div class="b2b-card-header">
+            <div class="b2b-label"><i class="fas fa-building" style="font-size:8px;"></i> Per Installation</div>
+            <div class="b2b-title">INTEGRATOR<br>LICENSE</div>
+            <div class="b2b-price-row">
+              <div class="b2b-currency">$</div>
+              <div class="b2b-amount">499</div>
+            </div>
+            <div class="b2b-period">one-time payment · per site installation</div>
+            <div class="b2b-tagline">"Unlimited cameras, no recurring fees, one-time payment of $499 per installation."</div>
+          </div>
+          <div class="b2b-body">
+            <div class="b2b-features">
+              <div class="b2b-feat"><i class="fas fa-check"></i> Unlimited cameras per installation</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> No monthly subscription or per-camera fees</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> Full AI platform with client's own API key</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> 1 year of platform updates included</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> MJPEG/HLS compatible — works with existing cameras</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> Deployable in under 60 seconds per site</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> Priority integrator support channel</div>
+            </div>
+            <a href="#" class="b2b-cta primary-btn">Get Integrator License</a>
+          </div>
+        </div>
+        <div class="b2b-card">
+          <div class="b2b-card-header">
+            <div class="b2b-label"><i class="fas fa-tag" style="font-size:8px;"></i> White Label</div>
+            <div class="b2b-title">WHITE LABEL<br>EDITION</div>
+            <div class="b2b-price-row">
+              <div class="b2b-currency">$</div>
+              <div class="b2b-amount" style="color:var(--dark-bright);">1,999</div>
+            </div>
+            <div class="b2b-period">one-time payment · includes your branding</div>
+            <div class="b2b-tagline">"Your brand. Your platform. Built on the same battle-tested LumenOS engine."</div>
+          </div>
+          <div class="b2b-body">
+            <div class="b2b-features">
+              <div class="b2b-feat"><i class="fas fa-check"></i> Everything in Integrator License</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> Custom branding: logo, name, colour scheme</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> Removable LumenOS attribution</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> Unlimited site deployments under your brand</div>
+              <div class="b2b-feat amber-feat"><i class="fas fa-star"></i> Sell to your own clients under your name</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> 1 year platform updates + priority roadmap input</div>
+              <div class="b2b-feat"><i class="fas fa-check"></i> Dedicated onboarding session</div>
+            </div>
+            <a href="#" class="b2b-cta ghost-btn">Enquire About White Label</a>
+          </div>
+        </div>
+      </div>
+      <div class="b2b-value-strip reveal">
+        <div class="b2b-value-header"><i class="fas fa-chart-line" style="font-size:8px;"></i> Why integrators choose LumenOS</div>
+        <div class="b2b-value-grid">
+          <div class="b2b-value-cell">
+            <div class="b2b-value-num">80<span style="font-size:18px;">%</span></div>
+            <div class="b2b-value-lbl">Lower cost vs<br>NVR software</div>
+          </div>
+          <div class="b2b-value-cell">
+            <div class="b2b-value-num">&lt;60<span style="font-size:18px;">s</span></div>
+            <div class="b2b-value-lbl">Per-site<br>deployment time</div>
+          </div>
+          <div class="b2b-value-cell">
+            <div class="b2b-value-num">$0</div>
+            <div class="b2b-value-lbl">Recurring license<br>fees per camera</div>
+          </div>
+        </div>
+      </div>
+      <div class="plans-footer reveal">
+        <div class="pf-header"><i class="fas fa-check-circle"></i> All B2B licenses include</div>
+        <div class="pf-grid">
+          <div class="pf-item"><i class="fas fa-check"></i> Motion detection & heat maps</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Custom detection zones</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Full analytics dashboard</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Export logs, CSV & JSON</div>
+          <div class="pf-item"><i class="fas fa-check"></i> 100% local footage processing</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Works with any IP camera brand</div>
+          <div class="pf-item"><i class="fas fa-check"></i> No per-camera fees ever</div>
+          <div class="pf-item"><i class="fas fa-check"></i> Bring-your-own AI API key</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features-section" id="features">
+  <div style="max-width:1200px;margin:0 auto;">
+    <div class="sec-label reveal" style="color:var(--red);"><i class="fas fa-layer-group" style="font-size:9px;"></i> Core Capabilities</div>
+    <h2 class="sec-title ink reveal">BUILT FOR THE EDGE.<br>RUNS IN THE BROWSER.</h2>
+  </div>
+  <div class="features-grid reveal">
+    <div class="feature-card"><div class="feat-corner"></div><div class="feat-icon"><i class="fas fa-th-large"></i></div><div class="feat-title">Multi-Camera Grid</div><div class="feat-desc">Monitor up to 9+ simultaneous feeds in flexible grid layouts. Each feed has independent HUD overlays and controls.</div><div class="feat-tag"><i class="fas fa-expand" style="font-size:7px;"></i> 5 Layout Modes</div></div>
+    <div class="feature-card"><div class="feat-corner"></div><div class="feat-icon"><i class="fas fa-running"></i></div><div class="feat-title">Motion Detection</div><div class="feat-desc">Frame-differencing motion engine with configurable sensitivity and pixel threshold. Per-camera heat grids accumulate over time.</div><div class="feat-tag"><i class="fas fa-sliders-h" style="font-size:7px;"></i> Per-Camera Config</div></div>
+    <div class="feature-card"><div class="feat-corner"></div><div class="feat-icon"><i class="fas fa-brain"></i></div><div class="feat-title">LumenOS Vision AI</div><div class="feat-desc">Real-time object recognition per camera. Labelled detections with confidence scores and threat classification.</div><div class="feat-tag"><i class="fas fa-robot" style="font-size:7px;"></i> Included in Plans</div></div>
+    <div class="feature-card"><div class="feat-corner"></div><div class="feat-icon"><i class="fas fa-vector-square"></i></div><div class="feat-title">Detection Zones</div><div class="feat-desc">Draw, resize, and snap custom zones directly on the canvas. Per-zone sensitivity, colour coding, and intrusion alerting built in.</div><div class="feat-tag"><i class="fas fa-draw-polygon" style="font-size:7px;"></i> Drag & Drop</div></div>
+    <div class="feature-card"><div class="feat-corner"></div><div class="feat-icon"><i class="fas fa-ruler-combined"></i></div><div class="feat-title">Depth Estimation</div><div class="feat-desc">Built-in monocular depth estimator generates per-camera depth maps and proximity scores with a 0–10m range gauge.</div><div class="feat-tag"><i class="fas fa-cube" style="font-size:7px;"></i> 0–10m Range</div></div>
+    <div class="feature-card"><div class="feat-corner"></div><div class="feat-icon"><i class="fas fa-file-export"></i></div><div class="feat-title">Export & Reporting</div><div class="feat-desc">Export analysis reports, raw JSON tracking data, security event logs, and PNG snapshots with time-range filters.</div><div class="feat-tag"><i class="fas fa-download" style="font-size:7px;"></i> JSON · CSV · TXT</div></div>
+  </div>
+</section>
+
+<!-- AI -->
+<section class="ai-section" id="ai">
+  <div class="ai-inner">
+    <div>
+      <div class="sec-label reveal"><i class="fas fa-brain" style="font-size:9px;"></i> LumenOS AI Platform</div>
+      <h2 class="sec-title reveal">LUMENOS AI,<br>AT THE EDGE.</h2>
+      <p class="sec-body reveal">Vision inference runs per-camera with configurable scan intervals. Each camera has its own queue, no bottlenecks, no missed frames. AI cost scales perfectly with your plan.</p>
+      <div class="waveform reveal">
+        <div class="wave-bar" style="--dur:.6s;--delay:0s;--max:8px;"></div>
+        <div class="wave-bar" style="--dur:.8s;--delay:.1s;--max:14px;"></div>
+        <div class="wave-bar" style="--dur:.7s;--delay:.2s;--max:18px;"></div>
+        <div class="wave-bar" style="--dur:.9s;--delay:.05s;--max:12px;"></div>
+        <div class="wave-bar" style="--dur:.65s;--delay:.3s;--max:20px;"></div>
+        <div class="wave-bar" style="--dur:.85s;--delay:.15s;--max:16px;"></div>
+        <div class="wave-bar" style="--dur:.7s;--delay:.25s;--max:10px;"></div>
+        <div class="wave-bar" style="--dur:.6s;--delay:.4s;--max:14px;"></div>
+      </div>
+    </div>
+    <div class="reveal">
+      <div class="ai-model-card active"><div class="amc-icon"><i class="fas fa-eye"></i></div><div><div class="amc-title">Object Recognition</div><div class="amc-desc">Identifies people, vehicles, animals, and objects with confidence scores. Three modes: Security, Detailed, and Count.</div><div class="amc-status on"><i class="fas fa-check"></i> LUMENOS AI — ACTIVE</div></div></div>
+      <div class="ai-model-card"><div class="amc-icon teal"><i class="fas fa-layer-group"></i></div><div><div class="amc-title">Depth Estimation</div><div class="amc-desc">Monocular depth mapping using luminance-based estimator. Full model integration available.</div><div class="amc-status stub"><i class="fas fa-plug"></i> BUILT-IN ESTIMATOR</div></div></div>
+      <div class="ai-model-card"><div class="amc-icon"><i class="fas fa-comments"></i></div><div><div class="amc-title">LLM Advisor</div><div class="amc-desc">Scene narration and alert reasoning across all camera feeds. Coming in the next release.</div><div class="amc-status stub"><i class="fas fa-plug"></i> COMING SOON</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ZONES -->
+<section class="zones-section" id="zones">
+  <div class="zones-inner">
+    <div class="zone-mockup reveal">
+      <div class="zone-toolbar"><div class="zt-btn on"><i class="fas fa-draw-polygon" style="font-size:8px;"></i> Draw</div><div class="zt-btn"><i class="fas fa-mouse-pointer" style="font-size:8px;"></i> Select</div><div style="width:1px;height:14px;background:var(--line);"></div><div class="zt-btn"><i class="fas fa-magnet" style="font-size:8px;"></i> Snap</div><div style="margin-left:auto;font-family:var(--mono);font-size:7.5px;color:var(--muted);">3 zones active</div></div>
+      <div class="zone-canvas">
+        <div class="mock-zone" style="left:44px;top:30px;width:120px;height:92px;border-color:rgba(200,32,26,.7);"><div class="mock-zone-lbl" style="color:var(--red);">ENTRANCE</div><div class="handle-dot" style="top:0;left:0;background:var(--red);transform:translate(-50%,-50%);"></div><div class="handle-dot" style="top:0;right:0;background:var(--red);transform:translate(50%,-50%);"></div><div class="handle-dot" style="bottom:0;left:0;background:var(--red);transform:translate(-50%,50%);"></div><div class="handle-dot" style="bottom:0;right:0;background:var(--red);transform:translate(50%,50%);"></div></div>
+        <div class="mock-zone" style="left:210px;top:52px;width:90px;height:76px;border-color:rgba(192,120,32,.65);border-style:dashed;"><div class="mock-zone-lbl" style="color:var(--amber);">PERIMETER</div></div>
+        <div class="mock-zone" style="left:90px;top:148px;width:84px;height:58px;border-color:rgba(42,138,122,.55);border-style:dashed;opacity:.75;"><div class="mock-zone-lbl" style="color:var(--teal);">REAR EXIT</div></div>
+        <div style="position:absolute;bottom:12px;left:14px;font-family:var(--mono);font-size:7px;color:rgba(200,32,26,.2);">DRAW MODE — 3 zone(s)</div>
+      </div>
+    </div>
+    <div>
+      <div class="sec-label reveal" style="color:var(--red);"><i class="fas fa-vector-square" style="font-size:9px;"></i> Detection Zones</div>
+      <h2 class="sec-title ink reveal">DRAW ONCE.<br>WATCH ALWAYS.</h2>
+      <p class="sec-body muted reveal">Zones are your virtual tripwires. Draw them directly on the canvas with your mouse. Snap to grid, nudge by pixel. Zones persist across sessions.</p>
+      <div class="zone-features reveal">
+        <div class="zone-feat" style="border-left-color:var(--red);"><i class="fas fa-draw-polygon" style="color:var(--red);font-size:13px;"></i><div><div style="font-family:var(--mono);font-size:9px;color:var(--ink);margin-bottom:5px;">CLICK & DRAG TO DRAW</div><div style="font-size:12px;color:var(--muted);">Freehand rectangle drawing in draw mode. Zones are created instantly on mouse-up.</div></div></div>
+        <div class="zone-feat" style="border-left-color:var(--amber);"><i class="fas fa-magnet" style="color:var(--amber);"></i><div><div style="font-family:var(--mono);font-size:9px;color:var(--ink);">SNAPPING & ALIGNMENT</div><div style="font-size:12px;color:var(--muted);">Snap edges and centres to existing zones within 12px. Arrow-key nudging with Shift for 10px steps.</div></div></div>
+        <div class="zone-feat" style="border-left-color:var(--teal);"><i class="fas fa-database" style="color:var(--teal);"></i><div><div style="font-family:var(--mono);font-size:9px;color:var(--ink);">PERSISTENT STORAGE</div><div style="font-size:12px;color:var(--muted);">Zones save to localStorage and reload automatically on your next session.</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEPLOY -->
+<section class="deploy-section" id="deploy">
+  <div style="max-width:1200px;margin:0 auto;">
+    <div class="sec-label reveal" style="color:var(--red);"><i class="fas fa-rocket" style="font-size:9px;"></i> Getting Started</div>
+    <h2 class="sec-title ink reveal">ZERO INSTALL.<br>INSTANT DEPLOYMENT.</h2>
+    <p class="sec-body muted reveal">LumenOS runs entirely in the browser, no backend, no server, no installation. Open the dashboard and connect your cameras in under a minute.</p>
+    <div class="deploy-grid reveal">
+      <div class="deploy-card"><div class="deploy-num">01</div><div class="deploy-title">Start Free Trial</div><div class="deploy-desc">Launch the LumenOS dashboard in Chrome, Firefox, or Edge. No account required for the 14-day trial. No card needed.</div></div>
+      <div class="deploy-card"><div class="deploy-num">02</div><div class="deploy-title">Add Cameras</div><div class="deploy-desc">Enter your MJPEG/HLS stream URL, or upload a local video file. Feeds save for quick reconnection next session.</div></div>
+      <div class="deploy-card"><div class="deploy-num">03</div><div class="deploy-title">Draw Zones</div><div class="deploy-desc">Navigate to Zones and draw detection areas on the canvas. Set sensitivity per zone. Zones persist automatically.</div></div>
+      <div class="deploy-card"><div class="deploy-num">04</div><div class="deploy-title">Choose Your Plan</div><div class="deploy-desc">Pick Standard, Pro, or Lifetime once your trial ends. Upgrade in seconds — AI activates immediately with no downtime.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-ghost">SEE</div>
+  <div class="cta-inner reveal">
+    <div class="cta-label">Ready to deploy</div>
+    <h2 class="cta-h2">START WATCHING<br><span class="red">SMARTER.</span></h2>
+    <p class="cta-sub">14-day free trial. No hardware. No subscriptions to start. Plans from $49/month, AI-powered security that scales exactly with your needs.</p>
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;">
+      <a href="#" class="btn-primary" style="font-size:11px;padding:15px 32px;"><i class="fas fa-shield-alt"></i> Start Free Trial</a>
+      <a href="#pricing" class="btn-ghost" style="font-size:11px;padding:14px 24px;color:var(--dark-text);border-color:var(--dark-border2);"><i class="fas fa-coins" style="font-size:10px;"></i> View Pricing</a>
+    </div>
+    <div class="cta-checks">
+      <div class="cta-check"><i class="fas fa-check"></i> 14-day free trial</div>
+      <div class="cta-check"><i class="fas fa-check"></i> No card required</div>
+      <div class="cta-check"><i class="fas fa-check"></i> Plans from $49/mo</div>
+      <div class="cta-check"><i class="fas fa-check"></i> Cancel anytime</div>
+      <div class="cta-check"><i class="fas fa-check"></i> Your footage stays local</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left">
+    <div class="footer-logo"><img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS"></div>
+    <div class="footer-copy">LUMENOS · STEREOVISION SECURITY · BROWSER-NATIVE SURVEILLANCE PLATFORM</div>
+  </div>
+  <div class="footer-links">
+    <a href="#">Documentation</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#">Privacy</a>
+    <a href="#">Investors</a>
+  </div>
+</footer>
+
+<script>
+  // Dynamic header on scroll
+  const nav = document.getElementById('mainNav');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 20) {
+      nav.classList.add('scrolled');
+    } else {
+      nav.classList.remove('scrolled');
+    }
+  });
+
+  function updateMockTime() {
+    const el = document.getElementById('mockTime');
+    if (el) el.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+  }
+  setInterval(updateMockTime, 1000);
+  updateMockTime();
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 70);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.06, rootMargin: '0px 0px -30px 0px' });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  let currentSlide = 0;
+  const totalSlides = 3;
+  function goSlide(n) {
+    currentSlide = n;
+    document.getElementById('carouselTrack').style.transform = `translateX(-${n * 100}%)`;
+    document.querySelectorAll('.cdot').forEach((d, i) => d.classList.toggle('active', i === n));
+  }
+  function nextSlide() { goSlide((currentSlide + 1) % totalSlides); }
+  function prevSlide() { goSlide((currentSlide - 1 + totalSlides) % totalSlides); }
+  setInterval(nextSlide, 6000);
+
+  function toggleNav() {
+    document.getElementById('mobileNav').classList.toggle('open');
+  }
+  document.addEventListener('click', (e) => {
+    const navM = document.getElementById('mobileNav');
+    const hamburger = document.getElementById('hamburger');
+    if (!navM.contains(e.target) && !hamburger.contains(e.target)) {
+      navM.classList.remove('open');
+    }
+  });
+
+  function switchPanel(panelId, btn) {
+    document.querySelectorAll('.ptab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.pricing-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + panelId).classList.add('active');
+    document.querySelectorAll('#panel-' + panelId + ' .reveal:not(.visible)').forEach((el, i) => {
+      setTimeout(() => el.classList.add('visible'), i * 60 + 50);
+    });
+  }
+
+  window.addEventListener('scroll', () => {
+    const ghost = document.querySelector('.hero-ghost');
+    if (ghost) ghost.style.transform = `translateY(calc(-50% + ${window.scrollY * 0.08}px))`;
+  }, { passive: true });
+</script>
+</body>
+</html>
