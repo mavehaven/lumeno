@@ -1036,6 +1036,23 @@ let editingPatientId = null, viewingPatient = null, qrPatientId = null, roleEdit
 let activeFilter = 'all';
 let pillData = { allergies:[], current_medications:[], medical_conditions:[], surgical_history:[], vaccination_history:[] };
 
+/* ════════════════ PENDING PROFILE STORAGE ════════════════ */
+// Uses an in-memory variable with sessionStorage fallback (avoids Safari private mode crashes)
+let _pendingProfile = null;
+function savePending(data) {
+  _pendingProfile = data;
+  try { sessionStorage.setItem('lumenos_pp', JSON.stringify(data)); } catch(e) {}
+}
+function readPending() {
+  if (_pendingProfile) return _pendingProfile;
+  try { return JSON.parse(sessionStorage.getItem('lumenos_pp') || 'null'); } catch(e) { return null; }
+}
+function clearPending() {
+  _pendingProfile = null;
+  try { sessionStorage.removeItem('lumenos_pp'); } catch(e) {}
+  try { localStorage.removeItem('pendingProfile'); } catch(e) {} // clean up old key
+}
+
 /* ════════════════ SECURITY ════════════════ */
 function esc(str) {
   if (str == null) return '';
@@ -1044,361 +1061,422 @@ function esc(str) {
 const ROLE_RANK = { receptionist:1, nurse:2, doctor:3, admin:4 };
 function canDo(action, patient=null) {
   const role = currentProfile?.role || 'receptionist';
-  if (action==='insert') return ROLE_RANK[role]>=1;
-  if (action==='update') { if(ROLE_RANK[role]>=2)return true; return role==='receptionist'&&patient&&patient.user_id===currentUser.id; }
-  if (action==='delete') return ROLE_RANK[role]>=3;
-  if (action==='manage_team') return role==='admin';
+  if (action==='insert') return ROLE_RANK[role] >= 1;
+  if (action==='update') {
+    if (ROLE_RANK[role] >= 2) return true;
+    return role === 'receptionist' && patient && patient.user_id === currentUser.id;
+  }
+  if (action==='delete') return ROLE_RANK[role] >= 3;
+  if (action==='manage_team') return role === 'admin';
   return false;
 }
 function enforceOwnership(patient) {
-  if (!patient||patient.user_id!==currentUser.id){toast('Unauthorized — not your record','error');return false;}
+  if (!patient || patient.user_id !== currentUser.id) {
+    toast('Unauthorized — not your record', 'error');
+    return false;
+  }
   return true;
 }
 
 /* ════════════════ UI HELPERS ════════════════ */
 function toast(msg, type='info') {
-  const icons={success:'✓',error:'✕',info:'ℹ',warn:'⚠'};
-  const el=document.createElement('div');
-  el.className=`toast ${type}`;
-  el.innerHTML=`<div class="toast-icon">${icons[type]||'ℹ'}</div><span>${esc(msg)}</span>`;
+  const icons = { success:'✓', error:'✕', info:'ℹ', warn:'⚠' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<div class="toast-icon">${icons[type]||'ℹ'}</div><span>${esc(msg)}</span>`;
   document.getElementById('toast-container').appendChild(el);
-  setTimeout(()=>el.remove(),4000);
+  setTimeout(() => el.remove(), 4000);
 }
-function fmtDate(d){return d?new Date(d).toLocaleDateString('en-ZA'):'—';}
-function setLoading(btn,on){if(on){btn.dataset.orig=btn.innerHTML;btn.innerHTML='<span class="spinner" style="width:16px;height:16px;border-width:2px"></span>';btn.disabled=true;}else{btn.innerHTML=btn.dataset.orig||btn.innerHTML;btn.disabled=false;}}
-function getInitials(n){if(!n)return'?';const p=n.trim().split(' ');return(p[0][0]+(p[1]?p[1][0]:'')).toUpperCase();}
-function roleBadgeHtml(role){const c={admin:'role-admin',doctor:'role-doctor',nurse:'role-nurse',receptionist:'role-receptionist'};return`<span class="role-badge ${c[role]||'role-receptionist'}">${esc(role||'user')}</span>`;}
-
+function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-ZA') : '—'; }
+function setLoading(btn, on) {
+  if (on) { btn.dataset.orig = btn.innerHTML; btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px"></span>'; btn.disabled = true; }
+  else { btn.innerHTML = btn.dataset.orig || btn.innerHTML; btn.disabled = false; }
+}
+function getInitials(n) {
+  if (!n) return '?';
+  const p = n.trim().split(' ');
+  return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase();
+}
+function roleBadgeHtml(role) {
+  const c = { admin:'role-admin', doctor:'role-doctor', nurse:'role-nurse', receptionist:'role-receptionist' };
+  return `<span class="role-badge ${c[role]||'role-receptionist'}">${esc(role||'user')}</span>`;
+}
 function riskScore(p) {
   let s = 0;
-  if (Array.isArray(p.allergies)&&p.allergies.length) s += 2;
-  if (Array.isArray(p.medical_conditions)&&p.medical_conditions.length) s += p.medical_conditions.length;
-  if (Array.isArray(p.current_medications)&&p.current_medications.length) s += Math.min(p.current_medications.length,3);
-  if (p.blood_type&&['O-','AB-','B-','A-'].includes(p.blood_type)) s += 1;
+  if (Array.isArray(p.allergies) && p.allergies.length) s += 2;
+  if (Array.isArray(p.medical_conditions) && p.medical_conditions.length) s += p.medical_conditions.length;
+  if (Array.isArray(p.current_medications) && p.current_medications.length) s += Math.min(p.current_medications.length, 3);
+  if (p.blood_type && ['O-','AB-','B-','A-'].includes(p.blood_type)) s += 1;
   return s;
 }
 function riskBadge(p) {
-  const s=riskScore(p);
-  if(s>=5) return `<span class="risk-badge risk-high">High</span>`;
-  if(s>=2) return `<span class="risk-badge risk-medium">Medium</span>`;
+  const s = riskScore(p);
+  if (s >= 5) return `<span class="risk-badge risk-high">High</span>`;
+  if (s >= 2) return `<span class="risk-badge risk-medium">Medium</span>`;
   return `<span class="risk-badge risk-low">Low</span>`;
 }
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 
 /* ════════════════ AUTH ════════════════ */
-function switchAuthTab(tab){
-  document.getElementById('login-view').style.display=tab==='login'?'':'none';
-  document.getElementById('register-view').style.display=tab==='register'?'':'none';
-  document.getElementById('tab-login').classList.toggle('active',tab==='login');
-  document.getElementById('tab-register').classList.toggle('active',tab==='register');
-  document.getElementById('auth-error').textContent='';
+function switchAuthTab(tab) {
+  document.getElementById('login-view').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('register-view').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('auth-error').textContent = '';
 }
 
-async function doLogin(){
-  const email=document.getElementById('auth-email').value.trim();
-  const pw=document.getElementById('auth-password').value;
-  if(!email||!pw){document.getElementById('auth-error').textContent='Email and password required';return;}
-  const btn=document.getElementById('btn-login');setLoading(btn,true);
-  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
-  setLoading(btn,false);
-  if(error){document.getElementById('auth-error').textContent=error.message;return;}
-  currentUser=data.user;
+async function doLogin() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pw = document.getElementById('auth-password').value;
+  if (!email || !pw) { document.getElementById('auth-error').textContent = 'Email and password required'; return; }
+  const btn = document.getElementById('btn-login');
+  setLoading(btn, true);
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+  setLoading(btn, false);
+  if (error) { document.getElementById('auth-error').textContent = error.message; return; }
+  currentUser = data.user;
   await loadProfile();
   showApp();
 }
 
-async function doRegister(){
-  const name=document.getElementById('reg-name').value.trim();
-  const email=document.getElementById('reg-email').value.trim();
-  const pw=document.getElementById('reg-password').value;
-  const roleEl=document.querySelector('input[name="reg-role"]:checked');
-  const role=roleEl?roleEl.value:'receptionist';
+async function doRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pw = document.getElementById('reg-password').value;
+  const roleEl = document.querySelector('input[name="reg-role"]:checked');
+  const role = roleEl ? roleEl.value : 'receptionist';
 
-  // Validation
-  if(!name){document.getElementById('auth-error').textContent='Full name is required';return;}
-  if(!email){document.getElementById('auth-error').textContent='Email is required';return;}
-  if(!pw||pw.length<6){document.getElementById('auth-error').textContent='Password must be at least 6 characters';return;}
+  if (!name) { document.getElementById('auth-error').textContent = 'Full name is required'; return; }
+  if (!email) { document.getElementById('auth-error').textContent = 'Email is required'; return; }
+  if (!pw || pw.length < 6) { document.getElementById('auth-error').textContent = 'Password must be at least 6 characters'; return; }
 
-  const btn=document.getElementById('btn-register');setLoading(btn,true);
-  document.getElementById('auth-error').textContent='';
+  const btn = document.getElementById('btn-register');
+  setLoading(btn, true);
+  document.getElementById('auth-error').textContent = '';
 
-  // Step 1: Create auth account
-  const{data,error}=await sb.auth.signUp({
+  // Store pending profile data BEFORE signUp so it survives any redirect
+  savePending({ name, role, email });
+
+  const { data, error } = await sb.auth.signUp({
     email,
-    password:pw,
-    options:{
-      // Store role & name in user_metadata so it's available immediately
-      // and we can also seed the profiles table via a trigger or on first login
-      data:{ full_name:name, role }
+    password: pw,
+    options: {
+      data: { full_name: name, role } // saved to raw_user_meta_data, picked up by DB trigger
     }
   });
 
-  if(error){
-    setLoading(btn,false);
-    document.getElementById('auth-error').textContent=error.message;
+  if (error) {
+    setLoading(btn, false);
+    document.getElementById('auth-error').textContent = error.message;
     return;
   }
 
-  // Step 2: If session is immediately available (email confirmation disabled),
-  // create the profile record right now
-  if(data.session){
+  // If session is immediately available (email confirmation disabled)
+  if (data.session) {
     await createProfileRecord(data.user.id, email, name, role);
-    currentUser=data.user;
+    currentUser = data.user;
     await loadProfile();
-    setLoading(btn,false);
-    toast(`Welcome, ${name}! Signed in as ${role}.`,'success');
+    setLoading(btn, false);
+    clearPending();
+    toast(`Welcome, ${name}! Signed in as ${role}.`, 'success');
     showApp();
     return;
   }
 
-  // Step 3: Email confirmation required — store pending profile data in
-  // localStorage so we can create the profile on first confirmed login
-  try{
-    localStorage.setItem('pendingProfile', JSON.stringify({name,role,email}));
-  }catch(e){}
+  setLoading(btn, false);
 
-  setLoading(btn,false);
-
-  // Show the pending verification screen
-  document.getElementById('auth-screen').style.display='none';
-  const ps=document.getElementById('pending-screen');
-  ps.style.display='flex';
-  document.getElementById('pending-email-display').textContent=email;
-  document.getElementById('pending-role-display').textContent=role;
+  // Email confirmation required — show pending screen
+  document.getElementById('auth-screen').style.display = 'none';
+  const ps = document.getElementById('pending-screen');
+  ps.style.display = 'flex';
+  document.getElementById('pending-email-display').textContent = email;
+  document.getElementById('pending-role-display').textContent = role;
 }
 
-async function createProfileRecord(uid, email, fullName, role){
-  // Upsert so we don't fail if a trigger already inserted a row
-  const{error}=await sb.from('profiles').upsert({
+async function createProfileRecord(uid, email, fullName, role) {
+  const { error } = await sb.from('profiles').upsert({
     id: uid,
     email,
     full_name: fullName,
     role
-  },{onConflict:'id'});
-  if(error) console.warn('Profile upsert warning:', error.message);
+  }, { onConflict: 'id' });
+  if (error) console.warn('Profile upsert warning:', error.message);
 }
 
-async function doLogout(){await sb.auth.signOut();location.reload();}
+async function doLogout() { await sb.auth.signOut(); location.reload(); }
 
 /* ════════════════ PROFILE ════════════════ */
-async function loadProfile(){
-  const{data}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
+async function loadProfile() {
+  const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
 
-  if(data){
-    currentProfile=data;
-  } else {
-    // Profile doesn't exist yet — this happens on first login after email confirmation
-    // Try to read the pending metadata we stored at registration time
-    let pending=null;
-    try{ pending=JSON.parse(localStorage.getItem('pendingProfile')||'null'); }catch(e){}
+  if (data) {
+    currentProfile = data;
 
-    const meta=currentUser.user_metadata||{};
-    const name=pending?.name||meta.full_name||currentUser.email.split('@')[0];
-    const role=pending?.role||meta.role||'receptionist';
-
-    await createProfileRecord(currentUser.id, currentUser.email, name, role);
-
-    // Clean up
-    try{localStorage.removeItem('pendingProfile');}catch(e){}
-
-    // Re-fetch
-    const{data:fresh}=await sb.from('profiles').select('*').eq('id',currentUser.id).single();
-    currentProfile=fresh||{role,full_name:name};
+    // If the profile exists but is missing full_name or has wrong role,
+    // patch it using any pending data we stored during registration
+    const pending = readPending();
+    if (pending && (!data.full_name || data.role === 'receptionist' && pending.role !== 'receptionist')) {
+      await sb.from('profiles').update({
+        full_name: pending.name || data.full_name,
+        role: pending.role || data.role
+      }).eq('id', currentUser.id);
+      // Re-fetch after patch
+      const { data: patched } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+      currentProfile = patched || currentProfile;
+      clearPending();
+    }
+    return;
   }
+
+  // Profile doesn't exist yet — create it
+  const pending = readPending();
+  const meta = currentUser.user_metadata || {};
+  const name = pending?.name || meta.full_name || currentUser.email.split('@')[0];
+  const role = pending?.role || meta.role || 'receptionist';
+
+  await createProfileRecord(currentUser.id, currentUser.email, name, role);
+  clearPending();
+
+  // Re-fetch
+  const { data: fresh } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = fresh || { role, full_name: name };
 }
 
-function showApp(){
-  document.getElementById('auth-screen').style.display='none';
-  document.getElementById('pending-screen').style.display='none';
-  const appEl=document.getElementById('app');
-  appEl.style.display='flex';
-
-  const role=currentProfile?.role||'user';
-  const displayName=currentProfile?.full_name||currentUser.email.split('@')[0];
-
-  document.getElementById('user-label').textContent=currentUser.email;
-  const rb=document.getElementById('user-role-badge');
-  const cls={admin:'role-admin-h',doctor:'role-doctor-h',nurse:'role-nurse-h',receptionist:'role-receptionist-h'}[role]||'role-receptionist-h';
-  rb.className=`role-badge-header ${cls}`;rb.textContent=role;
-
-  document.getElementById('profile-name').textContent=displayName;
-  document.getElementById('profile-email').textContent=currentUser.email;
-  document.getElementById('profile-role').innerHTML=roleBadgeHtml(role);
-  document.getElementById('profile-uid').textContent=currentUser.id;
-  document.getElementById('logout-desktop').style.display='';
-
-  // Greeting
-  const h=new Date().getHours();
-  const g=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
-  document.getElementById('dash-greeting').textContent=g;
-  document.getElementById('dash-name').textContent=displayName;
-  document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-ZA',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-
-  if(canDo('manage_team')){
-    document.getElementById('nav-admin-label').style.display='';
-    document.getElementById('nav-team').style.display='';
-  }
-  if(!canDo('insert')){const btn=document.getElementById('btn-new-patient');if(btn)btn.style.display='none';}
-
-  const isMobile=window.innerWidth<=768;
-  if(isMobile){showSection('patients',null);setBottomNav('patients');}
-  else{showSection('dashboard',null);}
-  loadPatients();
-  loadScanLogs();
-}
-
-/* On session restore, also handle pending profiles */
-(async()=>{
-  const{data:{session}}=await sb.auth.getSession();
-  if(session){
-    currentUser=session.user;
-    await loadProfile();
-    showApp();
+/* ════════════════ SESSION RESTORE ════════════════ */
+// Wrapped in try/catch — if profile table is missing or RLS blocks it,
+// we stay on the auth screen instead of crashing into a broken app state
+(async () => {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      await loadProfile();
+      showApp();
+    }
+  } catch (err) {
+    console.error('Session restore failed:', err);
+    // Stay on auth screen — user will re-login
   }
 })();
 
 /* ════════════════ NAV ════════════════ */
-const sectionLabels={dashboard:'Dashboard',patients:'Patients',scanlogs:'Scan Logs',team:'Team',profile:'Profile',notifications:'Alerts'};
-function showSection(name,evt){
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const sec=document.getElementById('section-'+name);
-  if(sec)sec.classList.add('active');
-  if(evt&&evt.currentTarget)evt.currentTarget.classList.add('active');
-  else{const nb=document.getElementById('navbtn-'+name);if(nb)nb.classList.add('active');}
-  document.getElementById('header-section-label').textContent=sectionLabels[name]||'';
-  document.getElementById('main-scroll').scrollTop=0;
-  if(name==='scanlogs')loadScanLogs();
-  if(name==='team')loadTeam();
-  if(name==='dashboard')renderDashboard();
-  if(name==='notifications')renderNotifications();
+const sectionLabels = { dashboard:'Dashboard', patients:'Patients', scanlogs:'Scan Logs', team:'Team', profile:'Profile', notifications:'Alerts' };
+function showSection(name, evt) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const sec = document.getElementById('section-' + name);
+  if (sec) sec.classList.add('active');
+  if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
+  else { const nb = document.getElementById('navbtn-' + name); if (nb) nb.classList.add('active'); }
+  document.getElementById('header-section-label').textContent = sectionLabels[name] || '';
+  document.getElementById('main-scroll').scrollTop = 0;
+  if (name === 'scanlogs') loadScanLogs();
+  if (name === 'team') loadTeam();
+  // FIX: Don't call renderDashboard here — loadPatients() handles it after data is ready
+  if (name === 'notifications') renderNotifications();
 }
-function setBottomNav(name){
-  document.querySelectorAll('.bottom-nav-item').forEach(b=>b.classList.remove('active'));
-  const el=document.getElementById('bnav-'+name);if(el)el.classList.add('active');
+function setBottomNav(name) {
+  document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('bnav-' + name);
+  if (el) el.classList.add('active');
+}
+
+/* ════════════════ APP INIT ════════════════ */
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('pending-screen').style.display = 'none';
+  const appEl = document.getElementById('app');
+  appEl.style.display = 'flex';
+
+  const role = currentProfile?.role || 'user';
+  const displayName = currentProfile?.full_name || currentUser.email.split('@')[0];
+
+  document.getElementById('user-label').textContent = currentUser.email;
+  const rb = document.getElementById('user-role-badge');
+  const cls = { admin:'role-admin-h', doctor:'role-doctor-h', nurse:'role-nurse-h', receptionist:'role-receptionist-h' }[role] || 'role-receptionist-h';
+  rb.className = `role-badge-header ${cls}`;
+  rb.textContent = role;
+
+  document.getElementById('profile-name').textContent = displayName;
+  document.getElementById('profile-email').textContent = currentUser.email;
+  document.getElementById('profile-role').innerHTML = roleBadgeHtml(role);
+  document.getElementById('profile-uid').textContent = currentUser.id;
+  document.getElementById('logout-desktop').style.display = '';
+
+  // Greeting
+  const h = new Date().getHours();
+  const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('dash-greeting').textContent = g;
+  document.getElementById('dash-name').textContent = displayName;
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-ZA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  if (canDo('manage_team')) {
+    document.getElementById('nav-admin-label').style.display = '';
+    document.getElementById('nav-team').style.display = '';
+  }
+  if (!canDo('insert')) {
+    const btn = document.getElementById('btn-new-patient');
+    if (btn) btn.style.display = 'none';
+  }
+
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) { showSection('patients', null); setBottomNav('patients'); }
+  else { showSection('dashboard', null); }
+
+  // Load data — renderDashboard is called inside loadPatients() after data arrives
+  loadPatients();
+  loadScanLogs();
 }
 
 /* ════════════════ PATIENTS ════════════════ */
-async function loadPatients(){
-  const loading='<tr class="loading-row"><td colspan="7"><span class="spinner"></span></td></tr>';
-  document.getElementById('patients-tbody').innerHTML=loading;
-  document.getElementById('patient-card-list').innerHTML='<div style="padding:36px;text-align:center;color:var(--text-muted)"><span class="spinner"></span></div>';
-  const{data,error}=await sb.from('patients').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false});
-  if(error){toast('Load failed: '+error.message,'error');return;}
-  allPatients=data||[];patients=[...allPatients];
+async function loadPatients() {
+  const loading = '<tr class="loading-row"><td colspan="7"><span class="spinner"></span></td></tr>';
+  document.getElementById('patients-tbody').innerHTML = loading;
+  document.getElementById('patient-card-list').innerHTML = '<div style="padding:36px;text-align:center;color:var(--text-muted)"><span class="spinner"></span></div>';
+
+  const { data, error } = await sb.from('patients').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+  if (error) { toast('Load failed: ' + error.message, 'error'); return; }
+
+  allPatients = data || [];
+  patients = [...allPatients];
   renderPatients();
-  renderDashboard();
+  renderDashboard(); // Only called here — after data is loaded
 }
 
-function setFilter(f,el){
-  activeFilter=f;
-  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-  if(el)el.classList.add('active');
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
   filterPatients();
 }
 
-function filterPatients(){
-  const q=document.getElementById('patient-search').value.toLowerCase();
-  let list=q?allPatients.filter(p=>(p.full_name||'').toLowerCase().includes(q)||(p.phone||'').toLowerCase().includes(q)||(p.id_number||'').toLowerCase().includes(q)||(p.email||'').toLowerCase().includes(q)):[...allPatients];
-  if(activeFilter==='active')list=list.filter(p=>p.qr_active);
-  else if(activeFilter==='allergies')list=list.filter(p=>Array.isArray(p.allergies)&&p.allergies.length);
-  else if(activeFilter==='insured')list=list.filter(p=>p.medical_aid_provider);
-  else if(activeFilter==='highrisk')list=list.filter(p=>riskScore(p)>=5);
-  patients=list;renderPatients();
+function filterPatients() {
+  const q = document.getElementById('patient-search').value.toLowerCase();
+  let list = q
+    ? allPatients.filter(p =>
+        (p.full_name||'').toLowerCase().includes(q) ||
+        (p.phone||'').toLowerCase().includes(q) ||
+        (p.id_number||'').toLowerCase().includes(q) ||
+        (p.email||'').toLowerCase().includes(q)
+      )
+    : [...allPatients];
+  if (activeFilter === 'active') list = list.filter(p => p.qr_active);
+  else if (activeFilter === 'allergies') list = list.filter(p => Array.isArray(p.allergies) && p.allergies.length);
+  else if (activeFilter === 'insured') list = list.filter(p => p.medical_aid_provider);
+  else if (activeFilter === 'highrisk') list = list.filter(p => riskScore(p) >= 5);
+  patients = list;
+  renderPatients();
 }
 
-function renderPatients(){
-  const tbody=document.getElementById('patients-tbody');
-  const cardList=document.getElementById('patient-card-list');
-  if(!patients.length){
-    const e=`<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-title">No patients found</div><div class="empty-desc">Try adjusting filters or add a new patient</div></div>`;
-    tbody.innerHTML=`<tr><td colspan="7">${e}</td></tr>`;cardList.innerHTML=e;return;
+function renderPatients() {
+  const tbody = document.getElementById('patients-tbody');
+  const cardList = document.getElementById('patient-card-list');
+  if (!patients.length) {
+    const e = `<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-title">No patients found</div><div class="empty-desc">Try adjusting filters or add a new patient</div></div>`;
+    tbody.innerHTML = `<tr><td colspan="7">${e}</td></tr>`;
+    cardList.innerHTML = e;
+    return;
   }
-  const iconView=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-  const iconQr=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3"/><rect x="18" y="14" width="3" height="3"/><rect x="14" y="18" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>`;
-  const iconEdit=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  const iconDel=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
-  const editBtn=(id,p)=>canDo('update',p)?`<button class="btn-icon" title="Edit" onclick="editPatient('${esc(id)}')">${iconEdit}</button>`:'';
-  const delBtn=(id,name)=>canDo('delete')?`<button class="btn-icon danger" title="Delete" onclick="deletePatient('${esc(id)}','${esc(name)}')">${iconDel}</button>`:'';
-  tbody.innerHTML=patients.map(p=>`<tr>
+  const iconView = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const iconQr = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3"/><rect x="18" y="14" width="3" height="3"/><rect x="14" y="18" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>`;
+  const iconEdit = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const iconDel = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+  const editBtn = (id, p) => canDo('update', p) ? `<button class="btn-icon" title="Edit" onclick="editPatient('${esc(id)}')">${iconEdit}</button>` : '';
+  const delBtn = (id, name) => canDo('delete') ? `<button class="btn-icon danger" title="Delete" onclick="deletePatient('${esc(id)}','${esc(name)}')">${iconDel}</button>` : '';
+
+  tbody.innerHTML = patients.map(p => `<tr>
     <td><div style="font-weight:600">${esc(p.full_name)}</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:1px">${esc(p.id_number||p.email||'')}</div></td>
     <td style="color:var(--text-secondary);font-size:13px">${fmtDate(p.date_of_birth)}</td>
-    <td>${p.blood_type?`<span class="badge badge-red">${esc(p.blood_type)}</span>`:'<span style="color:var(--text-muted)">—</span>'}</td>
+    <td>${p.blood_type ? `<span class="badge badge-red">${esc(p.blood_type)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
     <td>${riskBadge(p)}</td>
-    <td>${p.medical_aid_provider?`<span class="badge badge-blue">${esc(p.medical_aid_provider)}</span>`:'<span style="color:var(--text-muted)">—</span>'}</td>
-    <td><span class="badge ${p.qr_active?'badge-green':'badge-red'}">${p.qr_active?'Active':'Off'}</span></td>
+    <td>${p.medical_aid_provider ? `<span class="badge badge-blue">${esc(p.medical_aid_provider)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
+    <td><span class="badge ${p.qr_active ? 'badge-green' : 'badge-red'}">${p.qr_active ? 'Active' : 'Off'}</span></td>
     <td><div class="row-actions">
       <button class="btn-icon" title="View" onclick="viewPatient('${esc(p.id)}')">${iconView}</button>
       <button class="btn-icon green" title="QR" onclick="showQr('${esc(p.id)}')">${iconQr}</button>
-      ${editBtn(p.id,p)}${delBtn(p.id,p.full_name)}
+      ${editBtn(p.id, p)}${delBtn(p.id, p.full_name)}
     </div></td>
   </tr>`).join('');
-  cardList.innerHTML=patients.map(p=>`<div class="patient-card" onclick="viewPatient('${esc(p.id)}')">
+
+  cardList.innerHTML = patients.map(p => `<div class="patient-card" onclick="viewPatient('${esc(p.id)}')">
     <div class="patient-avatar">${esc(getInitials(p.full_name))}</div>
     <div class="patient-card-info">
       <div class="patient-card-name">${esc(p.full_name)}</div>
       <div class="patient-card-sub">${esc(p.phone||p.id_number||p.email||'No contact info')}</div>
       <div class="patient-card-meta">
-        ${p.blood_type?`<span class="badge badge-red">${esc(p.blood_type)}</span>`:''}
+        ${p.blood_type ? `<span class="badge badge-red">${esc(p.blood_type)}</span>` : ''}
         ${riskBadge(p)}
-        <span class="badge ${p.qr_active?'badge-green':'badge-red'}">${p.qr_active?'QR ✓':'QR Off'}</span>
+        <span class="badge ${p.qr_active ? 'badge-green' : 'badge-red'}">${p.qr_active ? 'QR ✓' : 'QR Off'}</span>
       </div>
     </div>
     <div class="patient-card-actions" onclick="event.stopPropagation()">
       <button class="btn-icon green" title="QR" onclick="showQr('${esc(p.id)}')">${iconQr}</button>
-      ${editBtn(p.id,p)}
+      ${editBtn(p.id, p)}
     </div>
   </div>`).join('');
 }
 
 /* ════════════════ DASHBOARD ════════════════ */
-function renderDashboard(){
-  const total=allPatients.length;
-  const active=allPatients.filter(p=>p.qr_active).length;
-  const insured=allPatients.filter(p=>p.medical_aid_provider).length;
-  const highRisk=allPatients.filter(p=>riskScore(p)>=5).length;
-  const medRisk=allPatients.filter(p=>{const s=riskScore(p);return s>=2&&s<5;}).length;
-  const lowRisk=allPatients.filter(p=>riskScore(p)<2).length;
-  const withAllergies=allPatients.filter(p=>Array.isArray(p.allergies)&&p.allergies.length).length;
-  const onMeds=allPatients.filter(p=>Array.isArray(p.current_medications)&&p.current_medications.length).length;
+function renderDashboard() {
+  const total = allPatients.length;
+  const active = allPatients.filter(p => p.qr_active).length;
+  const insured = allPatients.filter(p => p.medical_aid_provider).length;
+  const highRisk = allPatients.filter(p => riskScore(p) >= 5).length;
+  const medRisk = allPatients.filter(p => { const s = riskScore(p); return s >= 2 && s < 5; }).length;
+  const lowRisk = allPatients.filter(p => riskScore(p) < 2).length;
+  const withAllergies = allPatients.filter(p => Array.isArray(p.allergies) && p.allergies.length).length;
+  const onMeds = allPatients.filter(p => Array.isArray(p.current_medications) && p.current_medications.length).length;
 
-  setText('kpi-total',total);setText('kpi-active',active);setText('kpi-alerts',highRisk);
-  setText('stat-total',total);setText('stat-active',active);setText('stat-insured',insured);
+  setText('kpi-total', total);
+  setText('kpi-active', active);
+  setText('kpi-alerts', highRisk);
+  setText('stat-total', total);
+  setText('stat-active', active);
+  setText('stat-insured', insured);
 
-  const activePct=total?Math.round(active/total*100):0;
-  const insuredPct=total?Math.round(insured/total*100):0;
-  setText('stat-active-pct',activePct+'% coverage');
-  setText('stat-insured-pct',insuredPct+'% of patients');
-  setText('stat-total-change',`↑ ${total} registered`);
+  const activePct = total ? Math.round(active / total * 100) : 0;
+  const insuredPct = total ? Math.round(insured / total * 100) : 0;
+  setText('stat-active-pct', activePct + '% coverage');
+  setText('stat-insured-pct', insuredPct + '% of patients');
+  setText('stat-total-change', `↑ ${total} registered`);
+  setText('risk-high-n', highRisk);
+  setText('risk-medium-n', medRisk);
+  setText('risk-low-n', lowRisk);
 
-  setText('risk-high-n',highRisk);setText('risk-medium-n',medRisk);setText('risk-low-n',lowRisk);
+  // Blood type grid
+  const btypes = ['A+','A-','B+','B-','O+','O-','AB+','AB-'];
+  const btCells = document.querySelectorAll('#bt-grid .blood-cell');
+  btypes.forEach((t, i) => {
+    if (btCells[i]) btCells[i].querySelector('.bt').textContent = allPatients.filter(p => p.blood_type === t).length;
+  });
 
-  const btypes=['A+','A-','B+','B-','O+','O-','AB+','AB-'];
-  const btCount={};btypes.forEach(t=>{btCount[t]=allPatients.filter(p=>p.blood_type===t).length;});
-  const btCells=document.querySelectorAll('#bt-grid .blood-cell');
-  btypes.forEach((t,i)=>{if(btCells[i]){btCells[i].querySelector('.bt').textContent=btCount[t];}});
-
-  const donutArc=document.getElementById('donut-active');
-  const circ=2*Math.PI*42;
-  const filled=(activePct/100)*circ;
-  donutArc.setAttribute('stroke-dasharray',`${filled} ${circ}`);
-  donutArc.setAttribute('stroke-dashoffset',0);
-  setText('donut-center-val',activePct+'%');
-  setText('legend-active-pct',active+'/'+total);
-  setText('legend-insured-pct',insured+'/'+total);
-  setText('legend-allergy-pct',withAllergies+'/'+total);
-  setText('legend-meds-pct',onMeds+'/'+total);
+  // Donut chart
+  const circ = 2 * Math.PI * 42;
+  const filled = (activePct / 100) * circ;
+  const donutArc = document.getElementById('donut-active');
+  donutArc.setAttribute('stroke-dasharray', `${filled} ${circ}`);
+  donutArc.setAttribute('stroke-dashoffset', 0);
+  setText('donut-center-val', activePct + '%');
+  setText('legend-active-pct', active + '/' + total);
+  setText('legend-insured-pct', insured + '/' + total);
+  setText('legend-allergy-pct', withAllergies + '/' + total);
+  setText('legend-meds-pct', onMeds + '/' + total);
 
   renderRegTrend();
 
-  const allConditions=[];
-  allPatients.forEach(p=>{if(Array.isArray(p.medical_conditions))allConditions.push(...p.medical_conditions);});
-  const condCount={};allConditions.forEach(c=>{const k=c.trim().toLowerCase();condCount[k]=(condCount[k]||0)+1;});
-  const topConds=Object.entries(condCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const condEl=document.getElementById('top-conditions-list');
-  if(!topConds.length){condEl.innerHTML='<div style="color:var(--text-muted);font-size:12px;padding:8px 0">No conditions recorded</div>';}
-  else{
-    const max=topConds[0][1];
-    condEl.innerHTML=topConds.map(([name,count])=>`
+  // Top conditions
+  const allConditions = [];
+  allPatients.forEach(p => { if (Array.isArray(p.medical_conditions)) allConditions.push(...p.medical_conditions); });
+  const condCount = {};
+  allConditions.forEach(c => { const k = c.trim().toLowerCase(); condCount[k] = (condCount[k] || 0) + 1; });
+  const topConds = Object.entries(condCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const condEl = document.getElementById('top-conditions-list');
+  if (!topConds.length) {
+    condEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">No conditions recorded</div>';
+  } else {
+    const max = topConds[0][1];
+    condEl.innerHTML = topConds.map(([name, count]) => `
       <div style="display:flex;align-items:center;gap:10px">
         <div style="flex:1;min-width:0">
           <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:capitalize">${esc(name)}</div>
@@ -1408,15 +1486,17 @@ function renderDashboard(){
       </div>`).join('');
   }
 
-  const sorted=[...allPatients].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,5);
-  const actEl=document.getElementById('dash-activity');
-  if(!sorted.length){actEl.innerHTML='<div style="color:var(--text-muted);font-size:12px;padding:8px">No patients yet</div>';}
-  else{
-    actEl.innerHTML=sorted.map(p=>`<div class="activity-item">
+  // Recent activity
+  const sorted = [...allPatients].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
+  const actEl = document.getElementById('dash-activity');
+  if (!sorted.length) {
+    actEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px">No patients yet</div>';
+  } else {
+    actEl.innerHTML = sorted.map(p => `<div class="activity-item">
       <div class="activity-icon" style="background:var(--teal-subtle)">👤</div>
       <div class="activity-info">
         <div class="activity-title">${esc(p.full_name)}</div>
-        <div class="activity-sub">${p.blood_type?`Blood: ${esc(p.blood_type)} · `:''}${Array.isArray(p.allergies)&&p.allergies.length?'⚠ Allergies':p.qr_active?'QR Active':'No QR'}</div>
+        <div class="activity-sub">${p.blood_type ? `Blood: ${esc(p.blood_type)} · ` : ''}${Array.isArray(p.allergies) && p.allergies.length ? '⚠ Allergies' : p.qr_active ? 'QR Active' : 'No QR'}</div>
       </div>
       <div class="activity-time">${fmtDate(p.created_at)}</div>
     </div>`).join('');
@@ -1425,55 +1505,61 @@ function renderDashboard(){
   renderAlerts();
 }
 
-function renderRegTrend(){
-  const now=new Date();
-  const months=[];
-  for(let i=5;i>=0;i--){
-    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-    months.push({label:d.toLocaleString('default',{month:'short'}),year:d.getFullYear(),month:d.getMonth(),count:0});
+function renderRegTrend() {
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ label: d.toLocaleString('default', { month:'short' }), year: d.getFullYear(), month: d.getMonth(), count: 0 });
   }
-  allPatients.forEach(p=>{
-    const d=new Date(p.created_at);
-    const m=months.find(x=>x.year===d.getFullYear()&&x.month===d.getMonth());
-    if(m)m.count++;
+  allPatients.forEach(p => {
+    const d = new Date(p.created_at);
+    const m = months.find(x => x.year === d.getFullYear() && x.month === d.getMonth());
+    if (m) m.count++;
   });
-  const max=Math.max(...months.map(m=>m.count),1);
-  const chart=document.getElementById('reg-bar-chart');
-  chart.innerHTML=months.map((m,i)=>`<div class="bar-wrap">
-    <div class="bar${i===5?' highlight':''}" style="height:${Math.round(m.count/max*100)}%" title="${m.count} patients"></div>
+  const max = Math.max(...months.map(m => m.count), 1);
+  const chart = document.getElementById('reg-bar-chart');
+  chart.innerHTML = months.map((m, i) => `<div class="bar-wrap">
+    <div class="bar${i === 5 ? ' highlight' : ''}" style="height:${Math.round(m.count / max * 100)}%" title="${m.count} patients"></div>
     <div class="bar-label">${m.label}</div>
   </div>`).join('');
 }
 
-function renderAlerts(){
-  const alerts=[];
-  allPatients.forEach(p=>{
-    if(riskScore(p)>=5)alerts.push({msg:`${p.full_name} — High risk patient`,icon:'🚨'});
-    if(Array.isArray(p.allergies)&&p.allergies.length&&!p.qr_active)alerts.push({msg:`${p.full_name} has allergies but QR is inactive`,icon:'⚠️'});
-    if(!p.emergency_contact_name)alerts.push({msg:`${p.full_name} — No emergency contact on file`,icon:'📞'});
+function renderAlerts() {
+  const alerts = [];
+  allPatients.forEach(p => {
+    if (riskScore(p) >= 5) alerts.push({ msg:`${p.full_name} — High risk patient`, icon:'🚨' });
+    if (Array.isArray(p.allergies) && p.allergies.length && !p.qr_active) alerts.push({ msg:`${p.full_name} has allergies but QR is inactive`, icon:'⚠️' });
+    if (!p.emergency_contact_name) alerts.push({ msg:`${p.full_name} — No emergency contact on file`, icon:'📞' });
   });
-  setText('kpi-alerts',alerts.length);
-  if(alerts.length){document.getElementById('notif-dot').style.display='';}
-  const alertsEl=document.getElementById('alerts-list');
-  const nEl=document.getElementById('alerts-count-badge');
-  if(nEl)nEl.innerHTML=alerts.length?`<span class="badge badge-red" style="margin-left:6px">${alerts.length}</span>`:'';
-  if(!alerts.length){alertsEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12.5px">✓ No active alerts</div>';return;}
-  alertsEl.innerHTML=alerts.slice(0,8).map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(214,230,242,.5)">
+  setText('kpi-alerts', alerts.length);
+  if (alerts.length) document.getElementById('notif-dot').style.display = '';
+  const alertsEl = document.getElementById('alerts-list');
+  const nEl = document.getElementById('alerts-count-badge');
+  if (nEl) nEl.innerHTML = alerts.length ? `<span class="badge badge-red" style="margin-left:6px">${alerts.length}</span>` : '';
+  if (!alerts.length) {
+    alertsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12.5px">✓ No active alerts</div>';
+    return;
+  }
+  alertsEl.innerHTML = alerts.slice(0, 8).map(a => `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(214,230,242,.5)">
     <div style="font-size:16px;flex-shrink:0">${a.icon}</div>
     <div style="font-size:13px;font-weight:500;color:var(--text-primary)">${esc(a.msg)}</div>
   </div>`).join('');
 }
 
-function renderNotifications(){
-  const el=document.getElementById('notif-list');
-  const alerts=[];
-  allPatients.forEach(p=>{
-    if(riskScore(p)>=5)alerts.push({msg:`High risk patient: ${p.full_name}`,sub:'Multiple allergies, conditions, or medications flagged',icon:'🚨',bg:'var(--red-dim)',border:'var(--red-border)'});
-    if(Array.isArray(p.allergies)&&p.allergies.length&&!p.qr_active)alerts.push({msg:`Inactive QR with allergies: ${p.full_name}`,sub:'Emergency responders cannot access allergy info',icon:'⚠️',bg:'var(--amber-dim)',border:'rgba(244,162,97,.25)'});
-    if(!p.emergency_contact_name)alerts.push({msg:`Missing emergency contact: ${p.full_name}`,sub:'Add emergency contact information',icon:'📞',bg:'var(--teal-subtle)',border:'rgba(0,180,216,.2)'});
+function renderNotifications() {
+  const el = document.getElementById('notif-list');
+  const alerts = [];
+  allPatients.forEach(p => {
+    if (riskScore(p) >= 5) alerts.push({ msg:`High risk patient: ${p.full_name}`, sub:'Multiple allergies, conditions, or medications flagged', icon:'🚨', bg:'var(--red-dim)', border:'var(--red-border)' });
+    if (Array.isArray(p.allergies) && p.allergies.length && !p.qr_active) alerts.push({ msg:`Inactive QR with allergies: ${p.full_name}`, sub:'Emergency responders cannot access allergy info', icon:'⚠️', bg:'var(--amber-dim)', border:'rgba(244,162,97,.25)' });
+    if (!p.emergency_contact_name) alerts.push({ msg:`Missing emergency contact: ${p.full_name}`, sub:'Add emergency contact information', icon:'📞', bg:'var(--teal-subtle)', border:'rgba(0,180,216,.2)' });
   });
-  if(!alerts.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">All clear</div><div class="empty-desc">No clinical alerts at this time</div></div>';return;}
-  el.innerHTML=alerts.map(a=>`<div style="display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border-bottom:1px solid rgba(214,230,242,.5)">
+  if (!alerts.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">All clear</div><div class="empty-desc">No clinical alerts at this time</div></div>';
+    return;
+  }
+  el.innerHTML = alerts.map(a => `<div style="display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border-bottom:1px solid rgba(214,230,242,.5)">
     <div style="width:34px;height:34px;border-radius:9px;background:${a.bg};border:1px solid ${a.border};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${a.icon}</div>
     <div style="flex:1">
       <div style="font-size:13.5px;font-weight:600;color:var(--text-primary)">${esc(a.msg)}</div>
@@ -1482,96 +1568,163 @@ function renderNotifications(){
   </div>`).join('');
 }
 
-function setText(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
-
 /* ════════════════ SCAN LOGS ════════════════ */
-async function loadScanLogs(){
-  const c=document.getElementById('scan-logs-list');
-  c.innerHTML='<div style="padding:44px;text-align:center;color:var(--text-muted)"><span class="spinner"></span></div>';
-  const{data,error}=await sb.from('scan_logs').select('*, patients(full_name,user_id)').order('scanned_at',{ascending:false}).limit(50);
-  if(error){c.innerHTML=`<div style="padding:20px;color:var(--red)">${esc(error.message)}</div>`;return;}
-  const myLogs=(data||[]).filter(log=>!log.patients||log.patients.user_id===currentUser.id);
-  const scanCount=myLogs.length;
-  setText('stat-scans',scanCount);setText('kpi-scans',scanCount);setText('stat-scans-sub','All time');
-  if(!myLogs.length){c.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No scans yet</div><div class="empty-desc">Scan logs appear when QR codes are accessed</div></div>`;return;}
-  c.innerHTML=myLogs.map(log=>`<div class="scan-log-item">
+async function loadScanLogs() {
+  const c = document.getElementById('scan-logs-list');
+  c.innerHTML = '<div style="padding:44px;text-align:center;color:var(--text-muted)"><span class="spinner"></span></div>';
+
+  const { data, error } = await sb.from('scan_logs')
+    .select('*, patients(full_name, user_id)')
+    .order('scanned_at', { ascending: false })
+    .limit(50);
+
+  if (error) { c.innerHTML = `<div style="padding:20px;color:var(--red)">${esc(error.message)}</div>`; return; }
+
+  // FIX: Only include logs where the patient is confirmed as belonging to this user
+  // (removed the !log.patients fallback that was leaking orphaned logs)
+  const myLogs = (data || []).filter(log => log.patients?.user_id === currentUser.id);
+
+  const scanCount = myLogs.length;
+  setText('stat-scans', scanCount);
+  setText('kpi-scans', scanCount);
+  setText('stat-scans-sub', 'All time');
+
+  if (!myLogs.length) {
+    c.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No scans yet</div><div class="empty-desc">Scan logs appear when QR codes are accessed</div></div>`;
+    return;
+  }
+  c.innerHTML = myLogs.map(log => `<div class="scan-log-item">
     <div class="scan-indicator"></div>
     <div class="scan-info">
-      <div class="scan-patient">${esc(log.patients?.full_name||'Unknown Patient')}</div>
-      <div class="scan-meta">${esc(log.location||log.scanner_ip||'Unknown location')}</div>
+      <div class="scan-patient">${esc(log.patients?.full_name || 'Unknown Patient')}</div>
+      <div class="scan-meta">${esc(log.location || log.scanner_ip || 'Unknown location')}</div>
     </div>
     <div class="scan-time">${esc(new Date(log.scanned_at).toLocaleString('en-ZA'))}</div>
   </div>`).join('');
 }
 
 /* ════════════════ MODALS ════════════════ */
-function openModal(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
-function closeModal(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
+function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
 
 /* ════════════════ PATIENT FORM ════════════════ */
-function openAddModal(){
-  if(!canDo('insert')){toast('No permission to add patients','error');return;}
-  editingPatientId=null;
-  document.getElementById('modal-title').textContent='New Patient';
-  resetForm();switchFormTab('identity',null);openModal('patient-modal');
+function openAddModal() {
+  if (!canDo('insert')) { toast('No permission to add patients', 'error'); return; }
+  editingPatientId = null;
+  document.getElementById('modal-title').textContent = 'New Patient';
+  resetForm();
+  switchFormTab('identity', null);
+  openModal('patient-modal');
 }
-function resetForm(){
-  ['full_name','id_number','date_of_birth','phone','email','blood_type','emergency_contact_name','emergency_contact_relation','emergency_contact_phone','medical_aid_provider','medical_aid_number','primary_doctor','doctor_contact','advance_directive','notes'].forEach(f=>{const el=document.getElementById('f-'+f);if(el)el.value='';});
-  Object.keys(pillData).forEach(k=>{pillData[k]=[];renderPills(k);});
+function resetForm() {
+  ['full_name','id_number','date_of_birth','phone','email','blood_type','emergency_contact_name','emergency_contact_relation','emergency_contact_phone','medical_aid_provider','medical_aid_number','primary_doctor','doctor_contact','advance_directive','notes'].forEach(f => {
+    const el = document.getElementById('f-' + f); if (el) el.value = '';
+  });
+  Object.keys(pillData).forEach(k => { pillData[k] = []; renderPills(k); });
 }
-function editPatient(id){
-  const p=allPatients.find(x=>x.id===id);if(!p)return;
-  if(!canDo('update',p)){toast('No permission to edit','error');return;}
-  if(!enforceOwnership(p))return;
-  editingPatientId=id;
-  document.getElementById('modal-title').textContent='Edit Patient';
-  ['full_name','id_number','date_of_birth','phone','email','blood_type','emergency_contact_name','emergency_contact_relation','emergency_contact_phone','medical_aid_provider','medical_aid_number','primary_doctor','doctor_contact','advance_directive','notes'].forEach(f=>{const el=document.getElementById('f-'+f);if(el)el.value=p[f]||'';});
-  Object.keys(pillData).forEach(k=>{pillData[k]=Array.isArray(p[k])?[...p[k]]:[];renderPills(k);});
-  switchFormTab('identity',null);openModal('patient-modal');
+function editPatient(id) {
+  const p = allPatients.find(x => x.id === id); if (!p) return;
+  if (!canDo('update', p)) { toast('No permission to edit', 'error'); return; }
+  if (!enforceOwnership(p)) return;
+  editingPatientId = id;
+  document.getElementById('modal-title').textContent = 'Edit Patient';
+  ['full_name','id_number','date_of_birth','phone','email','blood_type','emergency_contact_name','emergency_contact_relation','emergency_contact_phone','medical_aid_provider','medical_aid_number','primary_doctor','doctor_contact','advance_directive','notes'].forEach(f => {
+    const el = document.getElementById('f-' + f); if (el) el.value = p[f] || '';
+  });
+  Object.keys(pillData).forEach(k => { pillData[k] = Array.isArray(p[k]) ? [...p[k]] : []; renderPills(k); });
+  switchFormTab('identity', null);
+  openModal('patient-modal');
 }
-async function savePatient(){
-  const name=document.getElementById('f-full_name').value.trim();
-  if(!name){toast('Full name required','error');switchFormTab('identity',null);return;}
-  const btn=document.getElementById('save-btn');setLoading(btn,true);
-  const payload={full_name:name,id_number:document.getElementById('f-id_number').value.trim()||null,date_of_birth:document.getElementById('f-date_of_birth').value||null,phone:document.getElementById('f-phone').value.trim()||null,email:document.getElementById('f-email').value.trim()||null,blood_type:document.getElementById('f-blood_type').value||null,emergency_contact_name:document.getElementById('f-emergency_contact_name').value.trim()||null,emergency_contact_relation:document.getElementById('f-emergency_contact_relation').value.trim()||null,emergency_contact_phone:document.getElementById('f-emergency_contact_phone').value.trim()||null,medical_aid_provider:document.getElementById('f-medical_aid_provider').value.trim()||null,medical_aid_number:document.getElementById('f-medical_aid_number').value.trim()||null,primary_doctor:document.getElementById('f-primary_doctor').value.trim()||null,doctor_contact:document.getElementById('f-doctor_contact').value.trim()||null,advance_directive:document.getElementById('f-advance_directive').value.trim()||null,notes:document.getElementById('f-notes').value.trim()||null,allergies:pillData.allergies.length?pillData.allergies:null,current_medications:pillData.current_medications.length?pillData.current_medications:null,medical_conditions:pillData.medical_conditions.length?pillData.medical_conditions:null,surgical_history:pillData.surgical_history.length?pillData.surgical_history:null,vaccination_history:pillData.vaccination_history.length?pillData.vaccination_history:null};
+async function savePatient() {
+  const name = document.getElementById('f-full_name').value.trim();
+  if (!name) { toast('Full name required', 'error'); switchFormTab('identity', null); return; }
+  const btn = document.getElementById('save-btn');
+  setLoading(btn, true);
+  const payload = {
+    full_name: name,
+    id_number: document.getElementById('f-id_number').value.trim() || null,
+    date_of_birth: document.getElementById('f-date_of_birth').value || null,
+    phone: document.getElementById('f-phone').value.trim() || null,
+    email: document.getElementById('f-email').value.trim() || null,
+    blood_type: document.getElementById('f-blood_type').value || null,
+    emergency_contact_name: document.getElementById('f-emergency_contact_name').value.trim() || null,
+    emergency_contact_relation: document.getElementById('f-emergency_contact_relation').value.trim() || null,
+    emergency_contact_phone: document.getElementById('f-emergency_contact_phone').value.trim() || null,
+    medical_aid_provider: document.getElementById('f-medical_aid_provider').value.trim() || null,
+    medical_aid_number: document.getElementById('f-medical_aid_number').value.trim() || null,
+    primary_doctor: document.getElementById('f-primary_doctor').value.trim() || null,
+    doctor_contact: document.getElementById('f-doctor_contact').value.trim() || null,
+    advance_directive: document.getElementById('f-advance_directive').value.trim() || null,
+    notes: document.getElementById('f-notes').value.trim() || null,
+    allergies: pillData.allergies.length ? pillData.allergies : null,
+    current_medications: pillData.current_medications.length ? pillData.current_medications : null,
+    medical_conditions: pillData.medical_conditions.length ? pillData.medical_conditions : null,
+    surgical_history: pillData.surgical_history.length ? pillData.surgical_history : null,
+    vaccination_history: pillData.vaccination_history.length ? pillData.vaccination_history : null
+  };
   let error;
-  if(editingPatientId){
-    const existing=allPatients.find(x=>x.id===editingPatientId);
-    if(!enforceOwnership(existing)){setLoading(btn,false);return;}
-    ({error}=await sb.from('patients').update(payload).eq('id',editingPatientId).eq('user_id',currentUser.id));
-  }else{payload.user_id=currentUser.id;({error}=await sb.from('patients').insert(payload));}
-  setLoading(btn,false);
-  if(error){toast('Save failed: '+error.message,'error');return;}
-  toast(editingPatientId?'Patient updated':'Patient added','success');
-  closeModal('patient-modal');loadPatients();
+  if (editingPatientId) {
+    const existing = allPatients.find(x => x.id === editingPatientId);
+    if (!enforceOwnership(existing)) { setLoading(btn, false); return; }
+    ({ error } = await sb.from('patients').update(payload).eq('id', editingPatientId).eq('user_id', currentUser.id));
+  } else {
+    payload.user_id = currentUser.id;
+    ({ error } = await sb.from('patients').insert(payload));
+  }
+  setLoading(btn, false);
+  if (error) { toast('Save failed: ' + error.message, 'error'); return; }
+  toast(editingPatientId ? 'Patient updated' : 'Patient added', 'success');
+  closeModal('patient-modal');
+  loadPatients();
 }
-async function deletePatient(id,name){
-  if(!canDo('delete')){toast('No permission to delete','error');return;}
-  const p=allPatients.find(x=>x.id===id);if(!enforceOwnership(p))return;
-  if(!confirm(`Delete "${name}"? This cannot be undone.`))return;
-  const{error}=await sb.from('patients').delete().eq('id',id).eq('user_id',currentUser.id);
-  if(error){toast('Delete failed: '+error.message,'error');return;}
-  toast('Patient deleted','success');loadPatients();
+async function deletePatient(id, name) {
+  if (!canDo('delete')) { toast('No permission to delete', 'error'); return; }
+  const p = allPatients.find(x => x.id === id);
+  if (!enforceOwnership(p)) return;
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  const { error } = await sb.from('patients').delete().eq('id', id).eq('user_id', currentUser.id);
+  if (error) { toast('Delete failed: ' + error.message, 'error'); return; }
+  toast('Patient deleted', 'success');
+  loadPatients();
 }
-function switchFormTab(name,evt){
-  document.querySelectorAll('.form-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('[id^="ftab-"]').forEach(t=>t.style.display='none');
-  document.getElementById('ftab-'+name).style.display='';
-  if(evt&&evt.currentTarget)evt.currentTarget.classList.add('active');
-  else document.querySelectorAll('.form-tab').forEach(t=>{if((t.getAttribute('onclick')||'').includes("'"+name+"'"))t.classList.add('active');});
+function switchFormTab(name, evt) {
+  document.querySelectorAll('.form-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('[id^="ftab-"]').forEach(t => t.style.display = 'none');
+  document.getElementById('ftab-' + name).style.display = '';
+  if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
+  else document.querySelectorAll('.form-tab').forEach(t => { if ((t.getAttribute('onclick') || '').includes("'" + name + "'")) t.classList.add('active'); });
 }
-function focusPillInput(c){c.querySelector('.pill-input').focus();}
-function handlePillKey(e,key){if(e.key==='Enter'){e.preventDefault();const v=e.target.value.trim();if(v&&!pillData[key].includes(v)){pillData[key].push(v);renderPills(key);}e.target.value='';}}
-function renderPills(key){const c=document.getElementById('pills-'+key);const inp=c.querySelector('.pill-input');c.innerHTML='';pillData[key].forEach((v,i)=>{const p=document.createElement('div');p.className=`pill${key==='allergies'?' danger':''}`;p.innerHTML=`${esc(v)}<button onclick="removePill('${esc(key)}',${i})">×</button>`;c.appendChild(p);});c.appendChild(inp);}
-function removePill(key,idx){pillData[key].splice(idx,1);renderPills(key);}
+function focusPillInput(c) { c.querySelector('.pill-input').focus(); }
+function handlePillKey(e, key) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const v = e.target.value.trim();
+    if (v && !pillData[key].includes(v)) { pillData[key].push(v); renderPills(key); }
+    e.target.value = '';
+  }
+}
+function renderPills(key) {
+  const c = document.getElementById('pills-' + key);
+  const inp = c.querySelector('.pill-input');
+  c.innerHTML = '';
+  pillData[key].forEach((v, i) => {
+    const p = document.createElement('div');
+    p.className = `pill${key === 'allergies' ? ' danger' : ''}`;
+    p.innerHTML = `${esc(v)}<button onclick="removePill('${esc(key)}',${i})">×</button>`;
+    c.appendChild(p);
+  });
+  c.appendChild(inp);
+}
+function removePill(key, idx) { pillData[key].splice(idx, 1); renderPills(key); }
 
 /* ════════════════ VIEW ════════════════ */
-function viewPatient(id){
-  const p=allPatients.find(x=>x.id===id);if(!p)return;viewingPatient=p;
-  document.getElementById('view-modal-title').textContent=p.full_name;
-  const arr=a=>Array.isArray(a)&&a.length?a.map(esc).join(', '):'—';
-  const val=v=>v?esc(v):'—';
-  document.getElementById('view-modal-body').innerHTML=`
+function viewPatient(id) {
+  const p = allPatients.find(x => x.id === id); if (!p) return;
+  viewingPatient = p;
+  document.getElementById('view-modal-title').textContent = p.full_name;
+  const arr = a => Array.isArray(a) && a.length ? a.map(esc).join(', ') : '—';
+  const val = v => v ? esc(v) : '—';
+  document.getElementById('view-modal-body').innerHTML = `
     <div style="margin-bottom:10px">${riskBadge(p)}&nbsp;<span style="font-size:12px;color:var(--text-muted)">Risk score: ${riskScore(p)}</span></div>
     <div class="patient-view">
       <div class="view-section critical">
@@ -1580,7 +1733,7 @@ function viewPatient(id){
         <div class="view-field"><div class="key">Allergies</div><div class="val" style="color:var(--red);font-weight:600">${arr(p.allergies)}</div></div>
         <div class="view-field"><div class="key">Medications</div><div class="val">${arr(p.current_medications)}</div></div>
         <div class="view-field"><div class="key">Conditions</div><div class="val">${arr(p.medical_conditions)}</div></div>
-        <div class="view-field"><div class="key">Emergency Contact</div><div class="val">${val(p.emergency_contact_name)} <span style="color:var(--text-muted);font-size:12px">${p.emergency_contact_relation?'('+esc(p.emergency_contact_relation)+')':''}</span></div></div>
+        <div class="view-field"><div class="key">Emergency Contact</div><div class="val">${val(p.emergency_contact_name)} <span style="color:var(--text-muted);font-size:12px">${p.emergency_contact_relation ? '(' + esc(p.emergency_contact_relation) + ')' : ''}</span></div></div>
         <div class="view-field"><div class="key">Emergency Phone</div><div class="val">${val(p.emergency_contact_phone)}</div></div>
       </div>
       <div class="view-section">
@@ -1607,75 +1760,100 @@ function viewPatient(id){
     </div>`;
   openModal('view-modal');
 }
-function openQrFromView(){if(!viewingPatient)return;closeModal('view-modal');showQr(viewingPatient.id);}
+function openQrFromView() { if (!viewingPatient) return; closeModal('view-modal'); showQr(viewingPatient.id); }
 
 /* ════════════════ QR ════════════════ */
-function showQr(id){
-  const p=allPatients.find(x=>x.id===id);if(!p)return;
-  qrPatientId=id;
-  document.getElementById('qr-patient-name').textContent=p.full_name;
-  document.getElementById('toggle-qr-btn').textContent=p.qr_active?'Deactivate QR':'Activate QR';
-  const qrDiv=document.getElementById('qr-code-div');qrDiv.innerHTML='';
-  const base=location.href.replace(/\/[^/]*$/,'');
-  const qrUrl=`${base}/emergency.html?token=${encodeURIComponent(p.qr_token)}`;
-  document.getElementById('qr-token-display').textContent=p.qr_token;
-  new QRCode(qrDiv,{text:qrUrl,width:200,height:200,colorDark:'#0A2540',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});
+function showQr(id) {
+  const p = allPatients.find(x => x.id === id); if (!p) return;
+  qrPatientId = id;
+  document.getElementById('qr-patient-name').textContent = p.full_name;
+  document.getElementById('toggle-qr-btn').textContent = p.qr_active ? 'Deactivate QR' : 'Activate QR';
+  const qrDiv = document.getElementById('qr-code-div');
+  qrDiv.innerHTML = '';
+  const base = location.href.replace(/\/[^/]*$/, '');
+  const qrUrl = `${base}/emergency.html?token=${encodeURIComponent(p.qr_token)}`;
+  document.getElementById('qr-token-display').textContent = p.qr_token;
+  new QRCode(qrDiv, { text: qrUrl, width: 200, height: 200, colorDark: '#0A2540', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
   openModal('qr-modal');
 }
-async function toggleQrActive(){
-  const p=allPatients.find(x=>x.id===qrPatientId);if(!p)return;if(!enforceOwnership(p))return;
-  const ns=!p.qr_active;
-  const{error}=await sb.from('patients').update({qr_active:ns}).eq('id',qrPatientId).eq('user_id',currentUser.id);
-  if(error){toast('Update failed: '+error.message,'error');return;}
-  toast(`QR ${ns?'activated':'deactivated'}`,ns?'success':'warn');
-  p.qr_active=ns;document.getElementById('toggle-qr-btn').textContent=ns?'Deactivate QR':'Activate QR';
-  renderPatients();renderDashboard();
+async function toggleQrActive() {
+  const p = allPatients.find(x => x.id === qrPatientId); if (!p) return;
+  if (!enforceOwnership(p)) return;
+  const ns = !p.qr_active;
+  const { error } = await sb.from('patients').update({ qr_active: ns }).eq('id', qrPatientId).eq('user_id', currentUser.id);
+  if (error) { toast('Update failed: ' + error.message, 'error'); return; }
+  toast(`QR ${ns ? 'activated' : 'deactivated'}`, ns ? 'success' : 'warn');
+  p.qr_active = ns;
+  document.getElementById('toggle-qr-btn').textContent = ns ? 'Deactivate QR' : 'Activate QR';
+  renderPatients();
+  renderDashboard();
 }
-async function regenerateToken(){
-  const p=allPatients.find(x=>x.id===qrPatientId);if(!p)return;if(!enforceOwnership(p))return;
-  if(!confirm('Rotate the QR token? Old QR codes will stop working.'))return;
-  const newToken=crypto.randomUUID();
-  const{error}=await sb.from('patients').update({qr_token:newToken}).eq('id',qrPatientId).eq('user_id',currentUser.id);
-  if(error){toast('Token rotation failed: '+error.message,'error');return;}
-  toast('QR token rotated — print a new code','warn');p.qr_token=newToken;
-  closeModal('qr-modal');showQr(qrPatientId);
+async function regenerateToken() {
+  const p = allPatients.find(x => x.id === qrPatientId); if (!p) return;
+  if (!enforceOwnership(p)) return;
+  if (!confirm('Rotate the QR token? Old QR codes will stop working.')) return;
+  const newToken = crypto.randomUUID();
+  const { error } = await sb.from('patients').update({ qr_token: newToken }).eq('id', qrPatientId).eq('user_id', currentUser.id);
+  if (error) { toast('Token rotation failed: ' + error.message, 'error'); return; }
+  toast('QR token rotated — print a new code', 'warn');
+  p.qr_token = newToken;
+  closeModal('qr-modal');
+  showQr(qrPatientId);
 }
-function printQr(){
-  const qrDiv=document.getElementById('qr-code-div');const img=qrDiv.querySelector('img')||qrDiv.querySelector('canvas');if(!img)return;
-  const win=window.open('','_blank');const name=esc(document.getElementById('qr-patient-name').textContent);
-  win.document.write(`<html><head><title>QR — ${name}</title><style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#f0f6fc;color:#0A2540}h2{margin-bottom:6px;font-size:22px}.sub{color:#5A7A96;font-size:13px;margin-bottom:20px}.qr{background:white;padding:20px;border-radius:16px;box-shadow:0 8px 32px rgba(10,37,64,.12)}.foot{color:#8CA9C4;margin-top:14px;font-size:12px;letter-spacing:1px;text-transform:uppercase}</style></head><body><h2>${name}</h2><div class="sub">Emergency Medical Access</div><div class="qr">${img.outerHTML}</div><div class="foot">LumenOS MediScan QR</div></body></html>`);
-  win.print();
+// FIX: Wait 150ms for QRCode.js to finish rendering before printing
+function printQr() {
+  setTimeout(() => {
+    const qrDiv = document.getElementById('qr-code-div');
+    const img = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
+    if (!img) { toast('QR not ready, try again', 'warn'); return; }
+    const win = window.open('', '_blank');
+    const name = esc(document.getElementById('qr-patient-name').textContent);
+    win.document.write(`<html><head><title>QR — ${name}</title><style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#f0f6fc;color:#0A2540}h2{margin-bottom:6px;font-size:22px}.sub{color:#5A7A96;font-size:13px;margin-bottom:20px}.qr{background:white;padding:20px;border-radius:16px;box-shadow:0 8px 32px rgba(10,37,64,.12)}.foot{color:#8CA9C4;margin-top:14px;font-size:12px;letter-spacing:1px;text-transform:uppercase}</style></head><body><h2>${name}</h2><div class="sub">Emergency Medical Access</div><div class="qr">${img.outerHTML}</div><div class="foot">LumenOS MediScan QR</div></body></html>`);
+    win.print();
+  }, 150);
 }
 
 /* ════════════════ TEAM ════════════════ */
-async function loadTeam(){
-  if(!canDo('manage_team'))return;
-  const tl=document.getElementById('team-list');
-  tl.innerHTML='<div style="padding:44px;text-align:center;color:var(--text-muted)"><span class="spinner"></span></div>';
-  const{data,error}=await sb.from('profiles').select('*').order('created_at');
-  if(error){tl.innerHTML=`<div style="padding:20px;color:var(--red)">${esc(error.message)}</div>`;return;}
-  tl.innerHTML=(data||[]).map(m=>`<div class="team-member-row">
-    <div class="team-avatar">${esc(getInitials(m.full_name||m.email||'?'))}</div>
+async function loadTeam() {
+  if (!canDo('manage_team')) return;
+  const tl = document.getElementById('team-list');
+  tl.innerHTML = '<div style="padding:44px;text-align:center;color:var(--text-muted)"><span class="spinner"></span></div>';
+  const { data, error } = await sb.from('profiles').select('*').order('created_at');
+  if (error) { tl.innerHTML = `<div style="padding:20px;color:var(--red)">${esc(error.message)}</div>`; return; }
+  tl.innerHTML = (data || []).map(m => `<div class="team-member-row">
+    <div class="team-avatar">${esc(getInitials(m.full_name || m.email || '?'))}</div>
     <div class="team-info">
-      <div class="team-name">${esc(m.full_name||m.email||'Unknown')}</div>
-      <div class="team-email">${esc(m.email||m.id)}</div>
+      <div class="team-name">${esc(m.full_name || m.email || 'Unknown')}</div>
+      <div class="team-email">${esc(m.email || m.id)}</div>
     </div>
     ${roleBadgeHtml(m.role)}
-    ${m.id!==currentUser.id?`<button class="btn-ghost" style="padding:5px 11px;font-size:12px;margin-left:8px" onclick="openRoleEditor('${esc(m.id)}','${esc(m.email||m.full_name)}','${esc(m.role)}')">Edit</button>`:'<span style="font-size:11px;color:var(--text-muted);margin-left:8px">You</span>'}
+    ${m.id !== currentUser.id
+      ? `<button class="btn-ghost" style="padding:5px 11px;font-size:12px;margin-left:8px" onclick="openRoleEditor('${esc(m.id)}','${esc(m.email||m.full_name)}','${esc(m.role)}')">Edit</button>`
+      : '<span style="font-size:11px;color:var(--text-muted);margin-left:8px">You</span>'
+    }
   </div>`).join('');
 }
-function openRoleEditor(uid,email,role){roleEditingId=uid;document.getElementById('role-edit-email').textContent=email;document.getElementById('role-select').value=role;openModal('role-modal');}
-async function saveRole(){
-  if(!canDo('manage_team')){toast('Unauthorized','error');return;}
-  const newRole=document.getElementById('role-select').value;
-  const{error}=await sb.from('profiles').update({role:newRole}).eq('id',roleEditingId);
-  if(error){toast('Role update failed: '+error.message,'error');return;}
-  toast('Role updated','success');closeModal('role-modal');loadTeam();
+function openRoleEditor(uid, email, role) {
+  roleEditingId = uid;
+  document.getElementById('role-edit-email').textContent = email;
+  document.getElementById('role-select').value = role;
+  openModal('role-modal');
+}
+async function saveRole() {
+  if (!canDo('manage_team')) { toast('Unauthorized', 'error'); return; }
+  const newRole = document.getElementById('role-select').value;
+  const { error } = await sb.from('profiles').update({ role: newRole }).eq('id', roleEditingId);
+  if (error) { toast('Role update failed: ' + error.message, 'error'); return; }
+  toast('Role updated', 'success');
+  closeModal('role-modal');
+  loadTeam();
 }
 
 /* ════════════════ CLOSE ON BACKDROP ════════════════ */
-document.querySelectorAll('.modal-overlay').forEach(o=>{
-  o.addEventListener('click',e=>{if(e.target===o){o.classList.remove('open');document.body.style.overflow='';}});
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => {
+    if (e.target === o) { o.classList.remove('open'); document.body.style.overflow = ''; }
+  });
 });
 </script>
 </body>
