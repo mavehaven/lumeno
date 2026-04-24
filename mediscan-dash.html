@@ -1054,9 +1054,9 @@ let patients = [], allPatients = [];
 let editingPatientId = null, viewingPatient = null, qrPatientId = null, roleEditingId = null;
 let activeFilter = 'all';
 let pillData = { allergies:[], current_medications:[], medical_conditions:[], surgical_history:[], vaccination_history:[] };
+let appInitialized = false; // guard so onAuthStateChange doesn't double-init
 
 /* ════════════════ PENDING PROFILE STORAGE ════════════════ */
-// Uses an in-memory variable with sessionStorage fallback (avoids Safari private mode crashes)
 let _pendingProfile = null;
 function savePending(data) {
   _pendingProfile = data;
@@ -1069,7 +1069,7 @@ function readPending() {
 function clearPending() {
   _pendingProfile = null;
   try { sessionStorage.removeItem('lumenos_pp'); } catch(e) {}
-  try { localStorage.removeItem('pendingProfile'); } catch(e) {} // clean up old key
+  try { localStorage.removeItem('pendingProfile'); } catch(e) {}
 }
 
 /* ════════════════ SECURITY ════════════════ */
@@ -1144,7 +1144,6 @@ function switchAuthTab(tab) {
   document.getElementById('tab-login').classList.toggle('active', tab === 'login' || tab === 'forgot');
   document.getElementById('tab-register').classList.toggle('active', tab === 'register');
   document.getElementById('auth-error').textContent = '';
-  // Pre-fill forgot email from login field if available
   if (tab === 'forgot') {
     const loginEmail = document.getElementById('auth-email').value.trim();
     if (loginEmail) document.getElementById('forgot-email').value = loginEmail;
@@ -1158,11 +1157,10 @@ async function doForgotPassword() {
   setLoading(btn, true);
   document.getElementById('auth-error').textContent = '';
   const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href // returns user back to this page after reset
+    redirectTo: window.location.href
   });
   setLoading(btn, false);
   if (error) { document.getElementById('auth-error').textContent = error.message; return; }
-  // Show success — replace the forgot form with a confirmation message
   document.getElementById('forgot-view').innerHTML = `
     <div style="text-align:center;padding:10px 0">
       <div style="width:52px;height:52px;border-radius:16px;background:rgba(46,196,182,.12);border:1px solid rgba(46,196,182,.25);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px">📬</div>
@@ -1181,9 +1179,7 @@ async function doLogin() {
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
   setLoading(btn, false);
   if (error) { document.getElementById('auth-error').textContent = error.message; return; }
-  currentUser = data.user;
-  await loadProfile();
-  showApp();
+  // onAuthStateChange SIGNED_IN will handle the rest
 }
 
 async function doRegister() {
@@ -1201,15 +1197,12 @@ async function doRegister() {
   setLoading(btn, true);
   document.getElementById('auth-error').textContent = '';
 
-  // Store pending profile data BEFORE signUp so it survives any redirect
   savePending({ name, role, email });
 
   const { data, error } = await sb.auth.signUp({
     email,
     password: pw,
-    options: {
-      data: { full_name: name, role } // saved to raw_user_meta_data, picked up by DB trigger
-    }
+    options: { data: { full_name: name, role } }
   });
 
   if (error) {
@@ -1218,26 +1211,17 @@ async function doRegister() {
     return;
   }
 
-  // If session is immediately available (email confirmation disabled)
-  if (data.session) {
-    await createProfileRecord(data.user.id, email, name, role);
-    currentUser = data.user;
-    await loadProfile();
+  // If email confirmation is disabled, session is immediate — onAuthStateChange handles it
+  if (!data.session) {
     setLoading(btn, false);
-    clearPending();
-    toast(`Welcome, ${name}! Signed in as ${role}.`, 'success');
-    showApp();
-    return;
+    // Email confirmation required — show pending screen
+    document.getElementById('auth-screen').style.display = 'none';
+    const ps = document.getElementById('pending-screen');
+    ps.style.display = 'flex';
+    document.getElementById('pending-email-display').textContent = email;
+    document.getElementById('pending-role-display').textContent = role;
   }
-
-  setLoading(btn, false);
-
-  // Email confirmation required — show pending screen
-  document.getElementById('auth-screen').style.display = 'none';
-  const ps = document.getElementById('pending-screen');
-  ps.style.display = 'flex';
-  document.getElementById('pending-email-display').textContent = email;
-  document.getElementById('pending-role-display').textContent = role;
+  // If session exists, onAuthStateChange SIGNED_IN fires and takes over
 }
 
 async function createProfileRecord(uid, email, fullName, role) {
@@ -1250,7 +1234,11 @@ async function createProfileRecord(uid, email, fullName, role) {
   if (error) console.warn('Profile upsert warning:', error.message);
 }
 
-async function doLogout() { await sb.auth.signOut(); location.reload(); }
+async function doLogout() {
+  appInitialized = false;
+  await sb.auth.signOut();
+  location.reload();
+}
 
 /* ════════════════ PROFILE ════════════════ */
 async function loadProfile() {
@@ -1258,16 +1246,12 @@ async function loadProfile() {
 
   if (data) {
     currentProfile = data;
-
-    // If the profile exists but is missing full_name or has wrong role,
-    // patch it using any pending data we stored during registration
     const pending = readPending();
-    if (pending && (!data.full_name || data.role === 'receptionist' && pending.role !== 'receptionist')) {
+    if (pending && (!data.full_name || (data.role === 'receptionist' && pending.role !== 'receptionist'))) {
       await sb.from('profiles').update({
         full_name: pending.name || data.full_name,
         role: pending.role || data.role
       }).eq('id', currentUser.id);
-      // Re-fetch after patch
       const { data: patched } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
       currentProfile = patched || currentProfile;
       clearPending();
@@ -1275,7 +1259,6 @@ async function loadProfile() {
     return;
   }
 
-  // Profile doesn't exist yet — create it
   const pending = readPending();
   const meta = currentUser.user_metadata || {};
   const name = pending?.name || meta.full_name || currentUser.email.split('@')[0];
@@ -1284,54 +1267,50 @@ async function loadProfile() {
   await createProfileRecord(currentUser.id, currentUser.email, name, role);
   clearPending();
 
-  // Re-fetch
   const { data: fresh } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = fresh || { role, full_name: name };
 }
 
-/* ════════════════ PASSWORD RESET (handles Supabase redirect back) ════════════════ */
-// Supabase appends #access_token=...&type=recovery to the URL after clicking the email link.
-// We detect this, show a "set new password" UI, and call updateUser() to save it.
-(async () => {
-  const hash = window.location.hash;
-  if (hash.includes('type=recovery')) {
-    // Exchange the token in the URL for a live session
-    const { data, error } = await sb.auth.getSession();
-    if (error || !data.session) return; // fallback — let normal auth flow handle it
+/* ════════════════ PASSWORD RESET UI ════════════════ */
+function showResetPasswordScreen() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('pending-screen').style.display = 'none';
+  const existing = document.getElementById('reset-screen');
+  if (existing) existing.remove();
 
-    // Hide auth screen and show the reset password card
-    document.getElementById('auth-screen').style.display = 'none';
-    const resetScreen = document.createElement('div');
-    resetScreen.id = 'reset-screen';
-    resetScreen.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;background:var(--navy-deep);background-image:radial-gradient(ellipse 90% 70% at 70% -10%,rgba(0,180,216,.22) 0%,transparent 55%)';
-    resetScreen.innerHTML = `
-      <div class="auth-card">
-        <div class="auth-logo">
-          <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" onerror="this.style.display='none'">
-          <div class="sub">MediScan QR</div>
-        </div>
-        <div style="font-size:17px;font-weight:700;color:white;margin-bottom:6px">Set New Password</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:22px">Choose a strong password for your account.</div>
-        <div class="auth-field">
-          <label>New Password</label>
-          <input type="password" id="reset-pw" placeholder="Minimum 6 characters" autocomplete="new-password">
-        </div>
-        <div class="auth-field">
-          <label>Confirm Password</label>
-          <input type="password" id="reset-pw-confirm" placeholder="Repeat password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doResetPassword()">
-        </div>
-        <button class="btn-auth" id="btn-reset-pw" onclick="doResetPassword()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          Update Password
-        </button>
-        <div class="auth-error" id="reset-error"></div>
-      </div>`;
-    document.body.appendChild(resetScreen);
-
-    // Clear the hash from the URL so a page refresh doesn't re-trigger this
-    history.replaceState(null, '', window.location.pathname + window.location.search);
-  }
-})();
+  const resetScreen = document.createElement('div');
+  resetScreen.id = 'reset-screen';
+  resetScreen.style.cssText = [
+    'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;',
+    'z-index:100;padding:20px;background:var(--navy-deep);',
+    'background-image:radial-gradient(ellipse 90% 70% at 70% -10%,rgba(0,180,216,.22) 0%,transparent 55%)'
+  ].join('');
+  resetScreen.innerHTML = `
+    <div class="auth-card">
+      <div class="auth-logo">
+        <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <div style="display:none;font-size:22px;font-weight:700;color:white">LumenOS</div>
+        <div class="sub">MediScan QR</div>
+      </div>
+      <div style="font-size:17px;font-weight:700;color:white;margin-bottom:6px">Set New Password</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:22px">Choose a strong password for your account.</div>
+      <div class="auth-field">
+        <label>New Password</label>
+        <input type="password" id="reset-pw" placeholder="Minimum 6 characters" autocomplete="new-password">
+      </div>
+      <div class="auth-field">
+        <label>Confirm Password</label>
+        <input type="password" id="reset-pw-confirm" placeholder="Repeat password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doResetPassword()">
+      </div>
+      <button class="btn-auth" id="btn-reset-pw" onclick="doResetPassword()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Update Password
+      </button>
+      <div class="auth-error" id="reset-error"></div>
+    </div>`;
+  document.body.appendChild(resetScreen);
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
 
 async function doResetPassword() {
   const pw = document.getElementById('reset-pw').value;
@@ -1345,31 +1324,40 @@ async function doResetPassword() {
   const { error } = await sb.auth.updateUser({ password: pw });
   setLoading(btn, false);
   if (error) { errEl.textContent = error.message; return; }
-  // Success — remove reset screen and log in normally
-  document.getElementById('reset-screen').remove();
+  const resetScreen = document.getElementById('reset-screen');
+  if (resetScreen) resetScreen.remove();
   toast('Password updated! You are now signed in.', 'success');
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    await loadProfile();
-    showApp();
-  }
+  // Session is already live after updateUser — onAuthStateChange SIGNED_IN fires next
 }
-// Wrapped in try/catch — if profile table is missing or RLS blocks it,
-// we stay on the auth screen instead of crashing into a broken app state
-(async () => {
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (session) {
-      currentUser = session.user;
+
+/* ════════════════ AUTH STATE LISTENER ════════════════ */
+// This single listener replaces both the old hash-sniffing IIFE and the
+// manual getSession() IIFE. Supabase fires PASSWORD_RECOVERY reliably
+// after parsing the recovery token from the URL hash — no race condition.
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    showResetPasswordScreen();
+    return; // don't fall through to app init
+  }
+
+  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+    if (appInitialized) return; // already running, ignore duplicate fires
+    appInitialized = true;
+    currentUser = session.user;
+    try {
       await loadProfile();
       showApp();
+    } catch (err) {
+      console.error('App init failed:', err);
+      appInitialized = false; // allow retry
     }
-  } catch (err) {
-    console.error('Session restore failed:', err);
-    // Stay on auth screen — user will re-login
+    return;
   }
-})();
+
+  if (event === 'SIGNED_OUT') {
+    appInitialized = false;
+  }
+});
 
 /* ════════════════ NAV ════════════════ */
 const sectionLabels = { dashboard:'Dashboard', patients:'Patients', scanlogs:'Scan Logs', team:'Team', profile:'Profile', notifications:'Alerts' };
@@ -1384,7 +1372,6 @@ function showSection(name, evt) {
   document.getElementById('main-scroll').scrollTop = 0;
   if (name === 'scanlogs') loadScanLogs();
   if (name === 'team') loadTeam();
-  // FIX: Don't call renderDashboard here — loadPatients() handles it after data is ready
   if (name === 'notifications') renderNotifications();
 }
 function setBottomNav(name) {
@@ -1415,7 +1402,6 @@ function showApp() {
   document.getElementById('profile-uid').textContent = currentUser.id;
   document.getElementById('logout-desktop').style.display = '';
 
-  // Greeting
   const h = new Date().getHours();
   const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('dash-greeting').textContent = g;
@@ -1435,7 +1421,6 @@ function showApp() {
   if (isMobile) { showSection('patients', null); setBottomNav('patients'); }
   else { showSection('dashboard', null); }
 
-  // Load data — renderDashboard is called inside loadPatients() after data arrives
   loadPatients();
   loadScanLogs();
 }
@@ -1452,7 +1437,7 @@ async function loadPatients() {
   allPatients = data || [];
   patients = [...allPatients];
   renderPatients();
-  renderDashboard(); // Only called here — after data is loaded
+  renderDashboard();
 }
 
 function setFilter(f, el) {
@@ -1555,14 +1540,12 @@ function renderDashboard() {
   setText('risk-medium-n', medRisk);
   setText('risk-low-n', lowRisk);
 
-  // Blood type grid
   const btypes = ['A+','A-','B+','B-','O+','O-','AB+','AB-'];
   const btCells = document.querySelectorAll('#bt-grid .blood-cell');
   btypes.forEach((t, i) => {
     if (btCells[i]) btCells[i].querySelector('.bt').textContent = allPatients.filter(p => p.blood_type === t).length;
   });
 
-  // Donut chart
   const circ = 2 * Math.PI * 42;
   const filled = (activePct / 100) * circ;
   const donutArc = document.getElementById('donut-active');
@@ -1576,7 +1559,6 @@ function renderDashboard() {
 
   renderRegTrend();
 
-  // Top conditions
   const allConditions = [];
   allPatients.forEach(p => { if (Array.isArray(p.medical_conditions)) allConditions.push(...p.medical_conditions); });
   const condCount = {};
@@ -1597,7 +1579,6 @@ function renderDashboard() {
       </div>`).join('');
   }
 
-  // Recent activity
   const sorted = [...allPatients].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
   const actEl = document.getElementById('dash-activity');
   if (!sorted.length) {
@@ -1691,8 +1672,6 @@ async function loadScanLogs() {
 
   if (error) { c.innerHTML = `<div style="padding:20px;color:var(--red)">${esc(error.message)}</div>`; return; }
 
-  // FIX: Only include logs where the patient is confirmed as belonging to this user
-  // (removed the !log.patients fallback that was leaking orphaned logs)
   const myLogs = (data || []).filter(log => log.patients?.user_id === currentUser.id);
 
   const scanCount = myLogs.length;
@@ -1911,7 +1890,6 @@ async function regenerateToken() {
   closeModal('qr-modal');
   showQr(qrPatientId);
 }
-// FIX: Wait 150ms for QRCode.js to finish rendering before printing
 function printQr() {
   setTimeout(() => {
     const qrDiv = document.getElementById('qr-code-div');
