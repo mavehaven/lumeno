@@ -557,8 +557,27 @@ tbody tr:hover td{background:rgba(0,180,216,.02);}
     <!-- LOGIN -->
     <div id="login-view">
       <div class="auth-field"><label>Email</label><input type="email" id="auth-email" placeholder="doctor@clinic.com" autocomplete="email" inputmode="email"></div>
-      <div class="auth-field"><label>Password</label><input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="auth-field">
+        <label style="display:flex;align-items:center;justify-content:space-between">
+          Password
+          <span onclick="switchAuthTab('forgot')" style="font-size:10.5px;color:rgba(0,180,216,.7);cursor:pointer;text-transform:none;letter-spacing:0;font-weight:500">Forgot password?</span>
+        </label>
+        <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
       <button class="btn-auth" onclick="doLogin()" id="btn-login">Sign In</button>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div id="forgot-view" style="display:none">
+      <div style="font-size:13px;color:rgba(255,255,255,.45);margin-bottom:18px;line-height:1.6">Enter your email and we'll send you a link to reset your password.</div>
+      <div class="auth-field"><label>Email</label><input type="email" id="forgot-email" placeholder="doctor@clinic.com" autocomplete="email" inputmode="email" onkeydown="if(event.key==='Enter')doForgotPassword()"></div>
+      <button class="btn-auth" onclick="doForgotPassword()" id="btn-forgot">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Send Reset Link
+      </button>
+      <div style="text-align:center;margin-top:14px">
+        <span onclick="switchAuthTab('login')" style="font-size:12.5px;color:rgba(255,255,255,.35);cursor:pointer;">← Back to Sign In</span>
+      </div>
     </div>
 
     <!-- REGISTER -->
@@ -1121,9 +1140,36 @@ function setText(id, val) { const el = document.getElementById(id); if (el) el.t
 function switchAuthTab(tab) {
   document.getElementById('login-view').style.display = tab === 'login' ? '' : 'none';
   document.getElementById('register-view').style.display = tab === 'register' ? '' : 'none';
-  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('forgot-view').style.display = tab === 'forgot' ? '' : 'none';
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login' || tab === 'forgot');
   document.getElementById('tab-register').classList.toggle('active', tab === 'register');
   document.getElementById('auth-error').textContent = '';
+  // Pre-fill forgot email from login field if available
+  if (tab === 'forgot') {
+    const loginEmail = document.getElementById('auth-email').value.trim();
+    if (loginEmail) document.getElementById('forgot-email').value = loginEmail;
+  }
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!email) { document.getElementById('auth-error').textContent = 'Please enter your email address'; return; }
+  const btn = document.getElementById('btn-forgot');
+  setLoading(btn, true);
+  document.getElementById('auth-error').textContent = '';
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href // returns user back to this page after reset
+  });
+  setLoading(btn, false);
+  if (error) { document.getElementById('auth-error').textContent = error.message; return; }
+  // Show success — replace the forgot form with a confirmation message
+  document.getElementById('forgot-view').innerHTML = `
+    <div style="text-align:center;padding:10px 0">
+      <div style="width:52px;height:52px;border-radius:16px;background:rgba(46,196,182,.12);border:1px solid rgba(46,196,182,.25);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px">📬</div>
+      <div style="font-size:16px;font-weight:700;color:white;margin-bottom:8px">Check your inbox</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.4);line-height:1.6;margin-bottom:20px">A password reset link has been sent to<br><strong style="color:rgba(255,255,255,.7)">${esc(email)}</strong></div>
+      <span onclick="switchAuthTab('login')" style="font-size:12.5px;color:rgba(0,180,216,.7);cursor:pointer;">← Back to Sign In</span>
+    </div>`;
 }
 
 async function doLogin() {
@@ -1243,7 +1289,72 @@ async function loadProfile() {
   currentProfile = fresh || { role, full_name: name };
 }
 
-/* ════════════════ SESSION RESTORE ════════════════ */
+/* ════════════════ PASSWORD RESET (handles Supabase redirect back) ════════════════ */
+// Supabase appends #access_token=...&type=recovery to the URL after clicking the email link.
+// We detect this, show a "set new password" UI, and call updateUser() to save it.
+(async () => {
+  const hash = window.location.hash;
+  if (hash.includes('type=recovery')) {
+    // Exchange the token in the URL for a live session
+    const { data, error } = await sb.auth.getSession();
+    if (error || !data.session) return; // fallback — let normal auth flow handle it
+
+    // Hide auth screen and show the reset password card
+    document.getElementById('auth-screen').style.display = 'none';
+    const resetScreen = document.createElement('div');
+    resetScreen.id = 'reset-screen';
+    resetScreen.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;background:var(--navy-deep);background-image:radial-gradient(ellipse 90% 70% at 70% -10%,rgba(0,180,216,.22) 0%,transparent 55%)';
+    resetScreen.innerHTML = `
+      <div class="auth-card">
+        <div class="auth-logo">
+          <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" onerror="this.style.display='none'">
+          <div class="sub">MediScan QR</div>
+        </div>
+        <div style="font-size:17px;font-weight:700;color:white;margin-bottom:6px">Set New Password</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:22px">Choose a strong password for your account.</div>
+        <div class="auth-field">
+          <label>New Password</label>
+          <input type="password" id="reset-pw" placeholder="Minimum 6 characters" autocomplete="new-password">
+        </div>
+        <div class="auth-field">
+          <label>Confirm Password</label>
+          <input type="password" id="reset-pw-confirm" placeholder="Repeat password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doResetPassword()">
+        </div>
+        <button class="btn-auth" id="btn-reset-pw" onclick="doResetPassword()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Update Password
+        </button>
+        <div class="auth-error" id="reset-error"></div>
+      </div>`;
+    document.body.appendChild(resetScreen);
+
+    // Clear the hash from the URL so a page refresh doesn't re-trigger this
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+})();
+
+async function doResetPassword() {
+  const pw = document.getElementById('reset-pw').value;
+  const confirm = document.getElementById('reset-pw-confirm').value;
+  const errEl = document.getElementById('reset-error');
+  if (!pw || pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; return; }
+  if (pw !== confirm) { errEl.textContent = 'Passwords do not match'; return; }
+  const btn = document.getElementById('btn-reset-pw');
+  setLoading(btn, true);
+  errEl.textContent = '';
+  const { error } = await sb.auth.updateUser({ password: pw });
+  setLoading(btn, false);
+  if (error) { errEl.textContent = error.message; return; }
+  // Success — remove reset screen and log in normally
+  document.getElementById('reset-screen').remove();
+  toast('Password updated! You are now signed in.', 'success');
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadProfile();
+    showApp();
+  }
+}
 // Wrapped in try/catch — if profile table is missing or RLS blocks it,
 // we stay on the auth screen instead of crashing into a broken app state
 (async () => {
