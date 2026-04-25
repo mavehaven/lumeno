@@ -94,6 +94,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--off-white);color:var(--te
 .btn-pending{width:100%;padding:13px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:var(--r-sm);color:rgba(255,255,255,.6);font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:500;cursor:pointer;transition:all .2s;}
 .btn-pending:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9);}
 
+/* Reset password screen */
+#reset-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;
+  background:var(--navy-deep);
+  background-image:radial-gradient(ellipse 90% 70% at 70% -10%,rgba(0,180,216,.22) 0%,transparent 55%);}
+
 /* ─── APP SHELL ─── */
 #app{display:none;height:100vh;height:100dvh;flex-direction:column;overflow:hidden;}
 
@@ -1056,7 +1061,6 @@ let activeFilter = 'all';
 let pillData = { allergies:[], current_medications:[], medical_conditions:[], surgical_history:[], vaccination_history:[] };
 
 /* ════════════════ PENDING PROFILE STORAGE ════════════════ */
-// Uses an in-memory variable with sessionStorage fallback (avoids Safari private mode crashes)
 let _pendingProfile = null;
 function savePending(data) {
   _pendingProfile = data;
@@ -1069,7 +1073,7 @@ function readPending() {
 function clearPending() {
   _pendingProfile = null;
   try { sessionStorage.removeItem('lumenos_pp'); } catch(e) {}
-  try { localStorage.removeItem('pendingProfile'); } catch(e) {} // clean up old key
+  try { localStorage.removeItem('pendingProfile'); } catch(e) {}
 }
 
 /* ════════════════ SECURITY ════════════════ */
@@ -1136,7 +1140,7 @@ function riskBadge(p) {
 }
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
 
-/* ════════════════ AUTH ════════════════ */
+/* ════════════════ AUTH TAB SWITCHING ════════════════ */
 function switchAuthTab(tab) {
   document.getElementById('login-view').style.display = tab === 'login' ? '' : 'none';
   document.getElementById('register-view').style.display = tab === 'register' ? '' : 'none';
@@ -1144,13 +1148,13 @@ function switchAuthTab(tab) {
   document.getElementById('tab-login').classList.toggle('active', tab === 'login' || tab === 'forgot');
   document.getElementById('tab-register').classList.toggle('active', tab === 'register');
   document.getElementById('auth-error').textContent = '';
-  // Pre-fill forgot email from login field if available
   if (tab === 'forgot') {
     const loginEmail = document.getElementById('auth-email').value.trim();
     if (loginEmail) document.getElementById('forgot-email').value = loginEmail;
   }
 }
 
+/* ════════════════ FORGOT PASSWORD ════════════════ */
 async function doForgotPassword() {
   const email = document.getElementById('forgot-email').value.trim();
   if (!email) { document.getElementById('auth-error').textContent = 'Please enter your email address'; return; }
@@ -1158,11 +1162,10 @@ async function doForgotPassword() {
   setLoading(btn, true);
   document.getElementById('auth-error').textContent = '';
   const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href // returns user back to this page after reset
+    redirectTo: window.location.href
   });
   setLoading(btn, false);
   if (error) { document.getElementById('auth-error').textContent = error.message; return; }
-  // Show success — replace the forgot form with a confirmation message
   document.getElementById('forgot-view').innerHTML = `
     <div style="text-align:center;padding:10px 0">
       <div style="width:52px;height:52px;border-radius:16px;background:rgba(46,196,182,.12);border:1px solid rgba(46,196,182,.25);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px">📬</div>
@@ -1172,6 +1175,7 @@ async function doForgotPassword() {
     </div>`;
 }
 
+/* ════════════════ LOGIN ════════════════ */
 async function doLogin() {
   const email = document.getElementById('auth-email').value.trim();
   const pw = document.getElementById('auth-password').value;
@@ -1186,6 +1190,7 @@ async function doLogin() {
   showApp();
 }
 
+/* ════════════════ REGISTER ════════════════ */
 async function doRegister() {
   const name = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
@@ -1201,15 +1206,12 @@ async function doRegister() {
   setLoading(btn, true);
   document.getElementById('auth-error').textContent = '';
 
-  // Store pending profile data BEFORE signUp so it survives any redirect
   savePending({ name, role, email });
 
   const { data, error } = await sb.auth.signUp({
     email,
     password: pw,
-    options: {
-      data: { full_name: name, role } // saved to raw_user_meta_data, picked up by DB trigger
-    }
+    options: { data: { full_name: name, role } }
   });
 
   if (error) {
@@ -1218,7 +1220,6 @@ async function doRegister() {
     return;
   }
 
-  // If session is immediately available (email confirmation disabled)
   if (data.session) {
     await createProfileRecord(data.user.id, email, name, role);
     currentUser = data.user;
@@ -1231,8 +1232,6 @@ async function doRegister() {
   }
 
   setLoading(btn, false);
-
-  // Email confirmation required — show pending screen
   document.getElementById('auth-screen').style.display = 'none';
   const ps = document.getElementById('pending-screen');
   ps.style.display = 'flex';
@@ -1242,10 +1241,7 @@ async function doRegister() {
 
 async function createProfileRecord(uid, email, fullName, role) {
   const { error } = await sb.from('profiles').upsert({
-    id: uid,
-    email,
-    full_name: fullName,
-    role
+    id: uid, email, full_name: fullName, role
   }, { onConflict: 'id' });
   if (error) console.warn('Profile upsert warning:', error.message);
 }
@@ -1258,16 +1254,12 @@ async function loadProfile() {
 
   if (data) {
     currentProfile = data;
-
-    // If the profile exists but is missing full_name or has wrong role,
-    // patch it using any pending data we stored during registration
     const pending = readPending();
-    if (pending && (!data.full_name || data.role === 'receptionist' && pending.role !== 'receptionist')) {
+    if (pending && (!data.full_name || (data.role === 'receptionist' && pending.role !== 'receptionist'))) {
       await sb.from('profiles').update({
         full_name: pending.name || data.full_name,
         role: pending.role || data.role
       }).eq('id', currentUser.id);
-      // Re-fetch after patch
       const { data: patched } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
       currentProfile = patched || currentProfile;
       clearPending();
@@ -1275,7 +1267,6 @@ async function loadProfile() {
     return;
   }
 
-  // Profile doesn't exist yet — create it
   const pending = readPending();
   const meta = currentUser.user_metadata || {};
   const name = pending?.name || meta.full_name || currentUser.email.split('@')[0];
@@ -1284,80 +1275,135 @@ async function loadProfile() {
   await createProfileRecord(currentUser.id, currentUser.email, name, role);
   clearPending();
 
-  // Re-fetch
   const { data: fresh } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   currentProfile = fresh || { role, full_name: name };
 }
 
-/* ════════════════ PASSWORD RESET (handles Supabase redirect back) ════════════════ */
-// Supabase appends #access_token=...&type=recovery to the URL after clicking the email link.
-// We detect this, show a "set new password" UI, and call updateUser() to save it.
+/* ════════════════ PASSWORD RESET ════════════════
+   Supabase appends #access_token=...&refresh_token=...&type=recovery
+   to the URL when the user clicks the email reset link.
+   We MUST call setSession() with those tokens — getSession() alone
+   won't work because no session exists in storage yet.
+════════════════════════════════════════════════ */
 (async () => {
   const hash = window.location.hash;
-  if (hash.includes('type=recovery')) {
-    // Exchange the token in the URL for a live session
-    const { data, error } = await sb.auth.getSession();
-    if (error || !data.session) return; // fallback — let normal auth flow handle it
+  if (!hash.includes('type=recovery')) return;
 
-    // Hide auth screen and show the reset password card
-    document.getElementById('auth-screen').style.display = 'none';
-    const resetScreen = document.createElement('div');
-    resetScreen.id = 'reset-screen';
-    resetScreen.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;background:var(--navy-deep);background-image:radial-gradient(ellipse 90% 70% at 70% -10%,rgba(0,180,216,.22) 0%,transparent 55%)';
-    resetScreen.innerHTML = `
-      <div class="auth-card">
-        <div class="auth-logo">
-          <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" onerror="this.style.display='none'">
-          <div class="sub">MediScan QR</div>
-        </div>
-        <div style="font-size:17px;font-weight:700;color:white;margin-bottom:6px">Set New Password</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:22px">Choose a strong password for your account.</div>
-        <div class="auth-field">
-          <label>New Password</label>
-          <input type="password" id="reset-pw" placeholder="Minimum 6 characters" autocomplete="new-password">
-        </div>
-        <div class="auth-field">
-          <label>Confirm Password</label>
-          <input type="password" id="reset-pw-confirm" placeholder="Repeat password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doResetPassword()">
-        </div>
-        <button class="btn-auth" id="btn-reset-pw" onclick="doResetPassword()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          Update Password
-        </button>
-        <div class="auth-error" id="reset-error"></div>
-      </div>`;
-    document.body.appendChild(resetScreen);
+  // Parse all params from the hash fragment
+  const params = new URLSearchParams(hash.replace(/^#/, ''));
+  const accessToken  = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
 
-    // Clear the hash from the URL so a page refresh doesn't re-trigger this
-    history.replaceState(null, '', window.location.pathname + window.location.search);
+  // Clean the URL immediately so a page refresh doesn't re-trigger this
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+
+  if (!accessToken || !refreshToken) {
+    console.error('Password reset: missing tokens in URL hash');
+    return;
   }
+
+  // Exchange the recovery tokens for a live session
+  const { data, error } = await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+
+  if (error || !data.session) {
+    console.error('Password reset setSession error:', error?.message);
+    // Show the auth screen so user can try again
+    document.getElementById('auth-screen').style.display = 'flex';
+    return;
+  }
+
+  // Hide all other screens
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('pending-screen').style.display = 'none';
+
+  // Build and inject the reset password UI
+  const resetScreen = document.createElement('div');
+  resetScreen.id = 'reset-screen';
+  resetScreen.innerHTML = `
+    <div class="auth-card">
+      <div class="auth-logo">
+        <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png"
+             alt="LumenOS"
+             onerror="this.style.display='none'">
+        <div class="sub">MediScan QR</div>
+      </div>
+      <div style="font-size:17px;font-weight:700;color:white;margin-bottom:6px">Set New Password</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:22px;line-height:1.6">
+        Choose a strong new password for your account.
+      </div>
+      <div class="auth-field">
+        <label>New Password</label>
+        <input type="password" id="reset-pw" placeholder="Minimum 6 characters" autocomplete="new-password">
+      </div>
+      <div class="auth-field">
+        <label>Confirm Password</label>
+        <input type="password" id="reset-pw-confirm" placeholder="Repeat password"
+               autocomplete="new-password"
+               onkeydown="if(event.key==='Enter') doResetPassword()">
+      </div>
+      <button class="btn-auth" id="btn-reset-pw" onclick="doResetPassword()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Update Password
+      </button>
+      <div class="auth-error" id="reset-error"></div>
+    </div>`;
+  document.body.appendChild(resetScreen);
 })();
 
+/* Global — must be top-level so onclick="doResetPassword()" can reach it */
 async function doResetPassword() {
-  const pw = document.getElementById('reset-pw').value;
+  const pw      = document.getElementById('reset-pw').value;
   const confirm = document.getElementById('reset-pw-confirm').value;
-  const errEl = document.getElementById('reset-error');
-  if (!pw || pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; return; }
-  if (pw !== confirm) { errEl.textContent = 'Passwords do not match'; return; }
+  const errEl   = document.getElementById('reset-error');
+
+  if (!pw || pw.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters';
+    return;
+  }
+  if (pw !== confirm) {
+    errEl.textContent = 'Passwords do not match';
+    return;
+  }
+
   const btn = document.getElementById('btn-reset-pw');
   setLoading(btn, true);
   errEl.textContent = '';
+
   const { error } = await sb.auth.updateUser({ password: pw });
   setLoading(btn, false);
-  if (error) { errEl.textContent = error.message; return; }
-  // Success — remove reset screen and log in normally
-  document.getElementById('reset-screen').remove();
+
+  if (error) {
+    errEl.textContent = error.message;
+    return;
+  }
+
+  // Password updated — the session from setSession() is still active
+  const resetScreen = document.getElementById('reset-screen');
+  if (resetScreen) resetScreen.remove();
+
   toast('Password updated! You are now signed in.', 'success');
+
+  // Boot the app using the already-active session
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
     await loadProfile();
     showApp();
+  } else {
+    // Fallback: show login
+    document.getElementById('auth-screen').style.display = 'flex';
+    toast('Please sign in with your new password.', 'info');
   }
 }
-// Wrapped in try/catch — if profile table is missing or RLS blocks it,
-// we stay on the auth screen instead of crashing into a broken app state
+
+/* ════════════════ SESSION RESTORE ON PAGE LOAD ════════════════ */
 (async () => {
+  // Skip restore if we're handling a password reset (the recovery IIFE above takes over)
+  if (window.location.hash.includes('type=recovery')) return;
+
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
@@ -1367,7 +1413,6 @@ async function doResetPassword() {
     }
   } catch (err) {
     console.error('Session restore failed:', err);
-    // Stay on auth screen — user will re-login
   }
 })();
 
@@ -1384,7 +1429,6 @@ function showSection(name, evt) {
   document.getElementById('main-scroll').scrollTop = 0;
   if (name === 'scanlogs') loadScanLogs();
   if (name === 'team') loadTeam();
-  // FIX: Don't call renderDashboard here — loadPatients() handles it after data is ready
   if (name === 'notifications') renderNotifications();
 }
 function setBottomNav(name) {
@@ -1415,7 +1459,6 @@ function showApp() {
   document.getElementById('profile-uid').textContent = currentUser.id;
   document.getElementById('logout-desktop').style.display = '';
 
-  // Greeting
   const h = new Date().getHours();
   const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('dash-greeting').textContent = g;
@@ -1435,7 +1478,6 @@ function showApp() {
   if (isMobile) { showSection('patients', null); setBottomNav('patients'); }
   else { showSection('dashboard', null); }
 
-  // Load data — renderDashboard is called inside loadPatients() after data arrives
   loadPatients();
   loadScanLogs();
 }
@@ -1452,7 +1494,7 @@ async function loadPatients() {
   allPatients = data || [];
   patients = [...allPatients];
   renderPatients();
-  renderDashboard(); // Only called here — after data is loaded
+  renderDashboard();
 }
 
 function setFilter(f, el) {
@@ -1555,14 +1597,12 @@ function renderDashboard() {
   setText('risk-medium-n', medRisk);
   setText('risk-low-n', lowRisk);
 
-  // Blood type grid
   const btypes = ['A+','A-','B+','B-','O+','O-','AB+','AB-'];
   const btCells = document.querySelectorAll('#bt-grid .blood-cell');
   btypes.forEach((t, i) => {
     if (btCells[i]) btCells[i].querySelector('.bt').textContent = allPatients.filter(p => p.blood_type === t).length;
   });
 
-  // Donut chart
   const circ = 2 * Math.PI * 42;
   const filled = (activePct / 100) * circ;
   const donutArc = document.getElementById('donut-active');
@@ -1576,7 +1616,6 @@ function renderDashboard() {
 
   renderRegTrend();
 
-  // Top conditions
   const allConditions = [];
   allPatients.forEach(p => { if (Array.isArray(p.medical_conditions)) allConditions.push(...p.medical_conditions); });
   const condCount = {};
@@ -1597,7 +1636,6 @@ function renderDashboard() {
       </div>`).join('');
   }
 
-  // Recent activity
   const sorted = [...allPatients].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
   const actEl = document.getElementById('dash-activity');
   if (!sorted.length) {
@@ -1691,8 +1729,6 @@ async function loadScanLogs() {
 
   if (error) { c.innerHTML = `<div style="padding:20px;color:var(--red)">${esc(error.message)}</div>`; return; }
 
-  // FIX: Only include logs where the patient is confirmed as belonging to this user
-  // (removed the !log.patients fallback that was leaking orphaned logs)
   const myLogs = (data || []).filter(log => log.patients?.user_id === currentUser.id);
 
   const scanCount = myLogs.length;
@@ -1911,7 +1947,6 @@ async function regenerateToken() {
   closeModal('qr-modal');
   showQr(qrPatientId);
 }
-// FIX: Wait 150ms for QRCode.js to finish rendering before printing
 function printQr() {
   setTimeout(() => {
     const qrDiv = document.getElementById('qr-code-div');
