@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>LumenOS MediScan — Emergency Medical Record</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:#0A2540;--navy-light:#163859;--navy-deep:#061828;
+  --teal:#00B4D8;--teal-dim:#0096b4;--teal-glow:rgba(0,180,216,0.18);--teal-subtle:rgba(0,180,216,0.08);
+  --red:#E63946;--red-dim:rgba(230,57,70,0.10);--red-border:rgba(230,57,70,0.28);
+  --green:#2EC4B6;--green-dim:rgba(46,196,182,0.12);--green-border:rgba(46,196,182,0.3);
+  --amber:#F4A261;
+  --surface:#FFFFFF;--surface-2:#F7FAFD;--surface-3:#EEF5FB;--off-white:#F0F6FC;
+  --border:#D6E6F2;--border-strong:#B8D0E8;
+  --text-primary:#0A2540;--text-secondary:#5A7A96;--text-muted:#8CA9C4;
+  --shadow-sm:0 1px 3px rgba(10,37,64,.07);
+  --shadow-md:0 4px 16px rgba(10,37,64,.09);
+  --shadow-lg:0 16px 48px rgba(10,37,64,.13);
+  --r-sm:8px;--r:12px;--r-lg:16px;--r-xl:20px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{-webkit-font-smoothing:antialiased;}
+body{font-family:'DM Sans',sans-serif;background:var(--off-white);color:var(--text-primary);font-size:14px;line-height:1.5;min-height:100vh;}
+
+/* HEADER */
+.emergency-header{
+  background:var(--red);
+  padding:14px 18px;
+  padding-top:calc(14px + var(--safe-t));
+  display:flex;align-items:center;gap:12px;
+  box-shadow:0 4px 20px rgba(230,57,70,.35);
+  position:sticky;top:0;z-index:50;
+}
+.emergency-header-icon{width:36px;height:36px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.emergency-header-text .title{font-size:15px;font-weight:700;color:white;letter-spacing:-.3px;}
+.emergency-header-text .sub{font-size:11px;color:rgba(255,255,255,.65);font-weight:500;}
+.emergency-header-badge{margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;color:white;letter-spacing:.5px;}
+
+/* LOADING / ERROR */
+#loading-state,#error-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;text-align:center;min-height:60vh;}
+.loader{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;margin-bottom:16px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#loading-state p{color:var(--text-muted);font-size:14px;}
+#error-state .err-icon{width:60px;height:60px;background:var(--red-dim);border:2px solid var(--red-border);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:16px;}
+#error-state h2{font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:6px;}
+#error-state p{color:var(--text-muted);font-size:13px;max-width:280px;line-height:1.6;}
+
+/* CONTENT */
+.main-content{max-width:560px;margin:0 auto;padding:16px;padding-bottom:calc(32px + var(--safe-b));}
+
+/* PATIENT CARD */
+.patient-hero{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 100%);
+  border-radius:var(--r-xl);padding:24px;margin-bottom:14px;
+  position:relative;overflow:hidden;box-shadow:var(--shadow-lg);
+}
+.patient-hero::before{content:'';position:absolute;top:-50px;right:-50px;width:200px;height:200px;background:radial-gradient(circle,rgba(0,180,216,.2) 0%,transparent 70%);pointer-events:none;}
+.patient-hero::after{content:'';position:absolute;bottom:-30px;left:5%;width:160px;height:160px;background:radial-gradient(circle,rgba(230,57,70,.12) 0%,transparent 70%);pointer-events:none;}
+.patient-name{font-size:22px;font-weight:700;color:white;letter-spacing:-.4px;margin-bottom:2px;}
+.patient-meta{font-size:12px;color:rgba(255,255,255,.4);font-family:'DM Mono',monospace;margin-bottom:14px;}
+.hero-chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;}
+.hero-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:20px;font-size:12px;font-weight:700;}
+.hero-chip-red{background:rgba(230,57,70,.22);border:1px solid rgba(230,57,70,.4);color:#ff9aa2;}
+.hero-chip-teal{background:rgba(0,180,216,.18);border:1px solid rgba(0,180,216,.35);color:rgba(0,180,216,.95);}
+.hero-chip-green{background:rgba(46,196,182,.18);border:1px solid rgba(46,196,182,.35);color:#7eede6;}
+.hero-chip-amber{background:rgba(244,162,97,.18);border:1px solid rgba(244,162,97,.35);color:#f7cc80;}
+.blood-type-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(230,57,70,.22);border:1px solid rgba(230,57,70,.4);border-radius:10px;padding:6px 14px;}
+.blood-type-badge .bt-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,.4);}
+.blood-type-badge .bt-val{font-size:22px;font-weight:800;color:#ff9aa2;font-family:'DM Mono',monospace;}
+.hero-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);}
+.verified-badge{display:flex;align-items:center;gap:5px;font-size:12px;color:rgba(46,196,182,.85);font-weight:600;}
+.verified-dot{width:7px;height:7px;background:#2EC4B6;border-radius:50%;box-shadow:0 0 8px #2EC4B6;}
+.hero-timestamp{font-size:10.5px;color:rgba(255,255,255,.28);}
+
+/* ALERT BANNERS */
+.alert-critical{background:var(--red-dim);border:1px solid var(--red-border);border-left:4px solid var(--red);border-radius:var(--r-sm);padding:12px 14px;font-size:13px;color:var(--red);font-weight:600;display:flex;align-items:flex-start;gap:9px;margin-bottom:10px;line-height:1.5;}
+.alert-critical svg{flex-shrink:0;margin-top:1px;}
+
+/* SECTION CARDS */
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-sm);}
+.section-header{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface-2);}
+.section-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.section-icon-red{background:var(--red-dim);border:1px solid var(--red-border);}
+.section-icon-teal{background:var(--teal-subtle);border:1px solid rgba(0,180,216,.2);}
+.section-icon-green{background:var(--green-dim);border:1px solid var(--green-border);}
+.section-icon-amber{background:rgba(244,162,97,.12);border:1px solid rgba(244,162,97,.25);}
+.section-title{font-size:10.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+.info-row{padding:11px 16px;border-bottom:1px solid rgba(214,230,242,.5);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.info-row:last-child{border-bottom:none;}
+.info-key{font-size:11.5px;font-weight:600;color:var(--text-muted);min-width:120px;flex-shrink:0;padding-top:2px;}
+.info-val{font-size:13.5px;color:var(--text-primary);font-weight:500;text-align:right;word-break:break-word;}
+.info-val.danger{color:var(--red);font-weight:700;}
+.info-val.blood{font-size:20px;font-weight:800;color:var(--red);font-family:'DM Mono',monospace;}
+.pills-row{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;}
+.mini-pill{border-radius:5px;padding:3px 8px;font-size:11.5px;font-weight:600;}
+.mini-pill-red{background:var(--red-dim);border:1px solid var(--red-border);color:var(--red);}
+.mini-pill-teal{background:var(--teal-subtle);border:1px solid rgba(0,180,216,.2);color:var(--teal-dim);}
+.mini-pill-green{background:var(--green-dim);border:1px solid var(--green-border);color:#1a9e92;}
+
+/* CALL BUTTON */
+.call-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:linear-gradient(135deg,#2EC4B6,#0dc8e8);color:var(--navy);border:none;border-radius:var(--r-sm);padding:15px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:15px;cursor:pointer;text-decoration:none;box-shadow:0 4px 16px rgba(46,196,182,.3);transition:all .2s;margin-top:4px;margin-bottom:4px;}
+.call-btn:active{opacity:.85;}
+
+/* FOOTER */
+.emergency-footer{text-align:center;padding:20px;font-size:11.5px;color:var(--text-muted);line-height:1.6;}
+.emergency-footer strong{color:var(--text-secondary);}
+
+/* PRINT STYLES */
+@media print{
+  .emergency-header{position:relative;background:#c0392b !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .patient-hero{background:#0A2540 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .call-btn{display:none;}
+}
+</style>
+</head>
+<body>
+
+<header class="emergency-header">
+  <div class="emergency-header-icon">🚨</div>
+  <div class="emergency-header-text">
+    <div class="title">Emergency Medical Record</div>
+    <div class="sub">LumenOS MediScan — Verified Patient</div>
+  </div>
+  <div class="emergency-header-badge">LIVE</div>
+</header>
+
+<!-- LOADING -->
+<div id="loading-state">
+  <div class="loader"></div>
+  <p>Loading medical record…</p>
+</div>
+
+<!-- ERROR -->
+<div id="error-state" style="display:none">
+  <div class="err-icon">⚠️</div>
+  <h2>Record Not Found</h2>
+  <p id="error-msg">This QR code may be invalid or the patient's record may have been removed.</p>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="main-content" class="main-content" style="display:none"></div>
+
+<script>
+const SUPABASE_URL = 'https://pzioskykakwhwdlcmwyv.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function fmtDate(d){ return d ? new Date(d).toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'}) : '—'; }
+function fmtDob(d){
+  if(!d) return '—';
+  const bd = new Date(d);
+  const today = new Date();
+  let age = today.getFullYear() - bd.getFullYear();
+  const m = today.getMonth() - bd.getMonth();
+  if(m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+  return `${fmtDate(d)} (Age: ${age})`;
+}
+const empty = '<span style="color:var(--text-muted);font-size:13px">Not recorded</span>';
+
+function pillsHtml(arr, cls){
+  if(!Array.isArray(arr)||!arr.length) return empty;
+  return `<div class="pills-row">${arr.map(v=>`<span class="mini-pill ${cls}">${esc(v)}</span>`).join('')}</div>`;
+}
+
+function showError(msg){
+  document.getElementById('loading-state').style.display='none';
+  document.getElementById('error-state').style.display='flex';
+  if(msg) document.getElementById('error-msg').textContent=msg;
+}
+
+function render(p){
+  document.getElementById('loading-state').style.display='none';
+  const arr = a => Array.isArray(a)?a:[];
+  const hasAllergies = arr(p.allergies).length > 0;
+
+  let html = '';
+
+  // Hero
+  html += `<div class="patient-hero">
+    <div class="patient-name">${esc(p.full_name||'Unknown Patient')}</div>
+    <div class="patient-meta">${p.id_number?'ID: '+esc(p.id_number)+'  ·  ':''}${fmtDob(p.date_of_birth)}</div>
+    <div class="hero-chips">
+      ${p.blood_type?`<div class="hero-chip hero-chip-red">🩸 Blood: ${esc(p.blood_type)}</div>`:''}
+      ${hasAllergies?`<div class="hero-chip hero-chip-red">⚠ ${arr(p.allergies).length} Known Allerg${arr(p.allergies).length>1?'ies':'y'}</div>`:''}
+      ${arr(p.current_medications).length?`<div class="hero-chip hero-chip-amber">💊 On Medication</div>`:''}
+      ${arr(p.medical_conditions).length?`<div class="hero-chip hero-chip-teal">🏥 ${arr(p.medical_conditions).length} Condition${arr(p.medical_conditions).length>1?'s':''}</div>`:''}
+      ${p.medical_aid_provider?`<div class="hero-chip hero-chip-green">🛡 ${esc(p.medical_aid_provider)}</div>`:''}
+    </div>
+    <div class="hero-bottom">
+      <div class="verified-badge"><div class="verified-dot"></div> Verified MediScan Record</div>
+      <div class="hero-timestamp">Updated ${fmtDate(p.updated_at||p.created_at)}</div>
+    </div>
+  </div>`;
+
+  // Allergy alert banner
+  if(hasAllergies){
+    html += `<div class="alert-critical">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 3.5l8.5 15h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>
+      <div><strong>⚠ ALLERGIES: </strong>${arr(p.allergies).map(a=>esc(a)).join(', ')}</div>
+    </div>`;
+  }
+
+  // Critical section
+  html += `<div class="section-card">
+    <div class="section-header"><div class="section-icon section-icon-red">🚨</div><div class="section-title">Critical — Emergency Info</div></div>
+    <div class="info-row"><div class="info-key">Blood Type</div><div class="info-val blood">${p.blood_type?esc(p.blood_type):empty}</div></div>
+    <div class="info-row"><div class="info-key">Allergies</div><div class="info-val">${pillsHtml(arr(p.allergies),'mini-pill-red')}</div></div>
+    <div class="info-row"><div class="info-key">Medications</div><div class="info-val">${pillsHtml(arr(p.current_medications),'mini-pill-green')}</div></div>
+    <div class="info-row"><div class="info-key">Conditions</div><div class="info-val">${pillsHtml(arr(p.medical_conditions),'mini-pill-teal')}</div></div>
+    ${p.advance_directive?`<div class="info-row"><div class="info-key">Directive / DNR</div><div class="info-val" style="font-size:12.5px;white-space:pre-wrap;max-width:220px">${esc(p.advance_directive)}</div></div>`:''}
+  </div>`;
+
+  // Emergency contact
+  if(p.emergency_contact_name||p.emergency_contact_phone){
+    html += `<div class="section-card">
+      <div class="section-header"><div class="section-icon section-icon-teal">👤</div><div class="section-title">Emergency Contact</div></div>
+      <div class="info-row"><div class="info-key">Name</div><div class="info-val">${p.emergency_contact_name?esc(p.emergency_contact_name):empty}</div></div>
+      <div class="info-row"><div class="info-key">Relationship</div><div class="info-val">${p.emergency_contact_relation?esc(p.emergency_contact_relation):empty}</div></div>
+      <div class="info-row"><div class="info-key">Phone</div><div class="info-val">${p.emergency_contact_phone?`<a href="tel:${esc(p.emergency_contact_phone)}" style="color:var(--teal-dim);font-weight:700">${esc(p.emergency_contact_phone)}</a>`:empty}</div></div>
+    </div>`;
+    if(p.emergency_contact_phone){
+      html += `<a class="call-btn" href="tel:${esc(p.emergency_contact_phone)}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 11.9 19.79 19.79 0 0 1 1.61 3.27 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.56a16 16 0 0 0 6.07 6.07l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        Call Emergency Contact: ${esc(p.emergency_contact_name||p.emergency_contact_phone)}
+      </a>`;
+    }
+  }
+
+  // Medical Aid & Doctor
+  if(p.medical_aid_provider||p.primary_doctor){
+    html += `<div class="section-card">
+      <div class="section-header"><div class="section-icon section-icon-green">🛡</div><div class="section-title">Medical Aid &amp; Doctor</div></div>
+      ${p.medical_aid_provider?`<div class="info-row"><div class="info-key">Provider</div><div class="info-val">${esc(p.medical_aid_provider)}</div></div>`:''}
+      ${p.medical_aid_number?`<div class="info-row"><div class="info-key">Policy No.</div><div class="info-val" style="font-family:'DM Mono',monospace;font-size:12px">${esc(p.medical_aid_number)}</div></div>`:''}
+      ${p.primary_doctor?`<div class="info-row"><div class="info-key">Primary Doctor</div><div class="info-val">${esc(p.primary_doctor)}</div></div>`:''}
+      ${p.doctor_contact?`<div class="info-row"><div class="info-key">Doctor Phone</div><div class="info-val"><a href="tel:${esc(p.doctor_contact)}" style="color:var(--teal-dim)">${esc(p.doctor_contact)}</a></div></div>`:''}
+    </div>`;
+  }
+
+  // History
+  if(arr(p.surgical_history).length||arr(p.vaccination_history).length){
+    html += `<div class="section-card">
+      <div class="section-header"><div class="section-icon section-icon-teal">📋</div><div class="section-title">Medical History</div></div>
+      <div class="info-row"><div class="info-key">Surgical History</div><div class="info-val">${pillsHtml(arr(p.surgical_history),'mini-pill-teal')}</div></div>
+      <div class="info-row"><div class="info-key">Vaccinations</div><div class="info-val">${pillsHtml(arr(p.vaccination_history),'mini-pill-teal')}</div></div>
+    </div>`;
+  }
+
+  // Notes
+  if(p.notes){
+    html += `<div class="section-card">
+      <div class="section-header"><div class="section-icon section-icon-amber">📝</div><div class="section-title">Additional Notes</div></div>
+      <div class="info-row"><div class="info-val" style="text-align:left;font-size:13px;line-height:1.6;white-space:pre-wrap">${esc(p.notes)}</div></div>
+    </div>`;
+  }
+
+  html += `<div class="emergency-footer">
+    <strong>LumenOS MediScan</strong> — Verified Emergency Medical Record<br>
+    This record was last updated ${fmtDate(p.updated_at||p.created_at)}<br>
+    For the patient portal, visit <a href="https://lumenos.app" style="color:var(--teal-dim)">lumenos.app</a>
+  </div>`;
+
+  const el = document.getElementById('main-content');
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+// Parse token from URL
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+
+  if(!token){
+    showError('No medical record token was provided in this URL. The QR code may be damaged or incomplete.');
+    return;
+  }
+
+  // Try share_token first, then qr_token (supports both column names)
+  let { data, error } = await sb
+    .from('patient_accounts')
+    .select('*')
+    .eq('share_token', token)
+    .single();
+
+  if(!data || error){
+    const res2 = await sb
+      .from('patient_accounts')
+      .select('*')
+      .eq('qr_token', token)
+      .single();
+    data = res2.data;
+    error = res2.error;
+  }
+
+  if(error || !data){
+    showError('No medical record was found for this QR code. The patient may have deactivated it, or the link may be expired.');
+    return;
+  }
+
+  if(data.qr_active === false){
+    showError('This patient has deactivated their QR code. Please contact the patient or facility directly.');
+    return;
+  }
+
+  render(data);
+})();
+</script>
+</body>
+</html>
