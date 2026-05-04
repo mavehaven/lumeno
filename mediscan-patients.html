@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>LumenOS MediScan — My Health Card</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:#0A2540;--navy-light:#163859;--navy-deep:#061828;
+  --teal:#00B4D8;--teal-dim:#0096b4;--teal-glow:rgba(0,180,216,0.18);--teal-subtle:rgba(0,180,216,0.08);
+  --red:#E63946;--red-dim:rgba(230,57,70,0.10);--red-border:rgba(230,57,70,0.28);
+  --green:#2EC4B6;--green-dim:rgba(46,196,182,0.12);--green-border:rgba(46,196,182,0.3);
+  --amber:#F4A261;
+  --surface:#FFFFFF;--surface-2:#F7FAFD;--surface-3:#EEF5FB;--off-white:#F0F6FC;
+  --border:#D6E6F2;--border-strong:#B8D0E8;
+  --text-primary:#0A2540;--text-secondary:#5A7A96;--text-muted:#8CA9C4;
+  --shadow-sm:0 1px 3px rgba(10,37,64,.07),0 1px 2px rgba(10,37,64,.04);
+  --shadow-md:0 4px 16px rgba(10,37,64,.09),0 2px 6px rgba(10,37,64,.05);
+  --shadow-lg:0 16px 48px rgba(10,37,64,.13),0 4px 16px rgba(10,37,64,.07);
+  --shadow-xl:0 32px 80px rgba(10,37,64,.18),0 8px 24px rgba(10,37,64,.10);
+  --r-xs:6px;--r-sm:8px;--r:12px;--r-lg:16px;--r-xl:20px;--r-2xl:28px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{min-height:100%;-webkit-font-smoothing:antialiased;}
+body{font-family:'DM Sans',sans-serif;background:var(--off-white);color:var(--text-primary);font-size:14px;line-height:1.5;}
+
+/* ─── SCREENS ─── */
+.screen{display:none;min-height:100vh;}
+.screen.active{display:block;}
+
+/* ─── LANDING ─── */
+#screen-landing{
+  background:var(--navy-deep);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 80% -5%, rgba(0,180,216,.25) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at -5% 100%, rgba(0,180,216,.12) 0%, transparent 50%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:32px 20px;padding-top:calc(32px + var(--safe-t));
+  padding-bottom:calc(40px + var(--safe-b));
+}
+.landing-logo{text-align:center;margin-bottom:44px;}
+.landing-logo img{height:48px;filter:invert(1);display:block;margin:0 auto;}
+.landing-logo .brand{font-size:22px;font-weight:700;color:white;margin-top:14px;letter-spacing:-.5px;}
+.landing-logo .sub{font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:rgba(0,180,216,.6);margin-top:4px;}
+.landing-card{width:100%;max-width:400px;background:rgba(255,255,255,.04);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.09);border-radius:24px;padding:36px 30px;box-shadow:0 40px 100px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08);margin-bottom:20px;}
+.landing-headline{font-size:24px;font-weight:700;color:white;letter-spacing:-.5px;text-align:center;margin-bottom:8px;}
+.landing-subtext{font-size:13.5px;color:rgba(255,255,255,.4);text-align:center;line-height:1.6;margin-bottom:28px;}
+.btn-primary{width:100%;padding:16px;background:linear-gradient(135deg,var(--teal),#22d3f0);color:var(--navy-deep);border:none;border-radius:var(--r-sm);font-family:'DM Sans',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 20px rgba(0,180,216,.35);}
+.btn-primary:active{opacity:.85;transform:scale(.98);}
+.btn-outline{width:100%;padding:15px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:var(--r-sm);color:rgba(255,255,255,.75);font-family:'DM Sans',sans-serif;font-weight:600;font-size:14.5px;cursor:pointer;transition:all .2s;margin-top:10px;}
+.btn-outline:active{background:rgba(255,255,255,.12);}
+.feature-pills{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:20px;}
+.feature-pill{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:5px 12px;font-size:11.5px;color:rgba(255,255,255,.45);display:flex;align-items:center;gap:5px;}
+
+/* ─── AUTH SCREEN ─── */
+#screen-auth{
+  background:var(--navy-deep);
+  background-image:radial-gradient(ellipse 90% 70% at 70% -10%,rgba(0,180,216,.22) 0%,transparent 55%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px;padding-top:calc(20px + var(--safe-t));
+}
+.auth-wrap{width:100%;max-width:420px;}
+.back-btn{display:flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.35);cursor:pointer;margin-bottom:22px;background:none;border:none;font-family:'DM Sans',sans-serif;padding:4px 0;}
+.back-btn:hover{color:rgba(255,255,255,.7);}
+.auth-card{background:rgba(255,255,255,.04);backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,.09);border-radius:24px;padding:32px 28px;box-shadow:0 40px 100px rgba(0,0,0,.5);}
+.auth-title{font-size:20px;font-weight:700;color:white;margin-bottom:4px;}
+.auth-sub{font-size:13px;color:rgba(255,255,255,.38);margin-bottom:24px;line-height:1.5;}
+.auth-field{margin-bottom:14px;}
+.auth-field label{display:block;font-size:10px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:7px;}
+.auth-field input{width:100%;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.10);border-radius:var(--r-sm);padding:14px;color:white;font-family:'DM Sans',sans-serif;font-size:16px;transition:all .2s;outline:none;}
+.auth-field input::placeholder{color:rgba(255,255,255,.18);}
+.auth-field input:focus{border-color:rgba(0,180,216,.6);background:rgba(0,180,216,.07);box-shadow:0 0 0 3px rgba(0,180,216,.12);}
+.auth-error{color:#ff8a95;font-size:12.5px;margin-top:10px;min-height:18px;}
+.auth-info{font-size:12px;color:rgba(255,255,255,.28);line-height:1.6;margin-top:16px;text-align:center;}
+.auth-info a{color:rgba(0,180,216,.65);cursor:pointer;text-decoration:none;}
+
+/* ─── APP ─── */
+#screen-app{background:var(--off-white);display:block;}
+
+/* ─── APP HEADER ─── */
+.app-header{
+  background:var(--navy);
+  padding:0 18px;
+  padding-top:var(--safe-t);
+  height:calc(56px + var(--safe-t));
+  display:flex;align-items:center;justify-content:space-between;
+  box-shadow:0 1px 0 rgba(255,255,255,.06),0 4px 24px rgba(0,0,0,.2);
+  position:sticky;top:0;z-index:50;
+}
+.app-header-logo{display:flex;align-items:center;gap:9px;}
+.app-header-logo img{height:26px;filter:invert(1);}
+.app-header-logo span{font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.35);}
+.app-header-right{display:flex;align-items:center;gap:8px;}
+.user-pill{display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);border-radius:24px;padding:5px 12px 5px 9px;max-width:180px;}
+.online-dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green);flex-shrink:0;}
+.user-pill-name{font-size:12px;color:rgba(255,255,255,.65);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.btn-hdr{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.5);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.btn-hdr:active{background:rgba(255,255,255,.15);}
+
+/* ─── TABS ─── */
+.tab-bar{background:var(--surface);border-bottom:1px solid var(--border);display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.tab-bar::-webkit-scrollbar{display:none;}
+.tab-item{flex-shrink:0;padding:13px 20px;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;background:none;border-left:none;border-right:none;border-top:none;font-family:'DM Sans',sans-serif;}
+.tab-item.active{color:var(--teal-dim);border-bottom-color:var(--teal);}
+
+/* ─── CONTENT ─── */
+.app-content{padding:16px;max-width:600px;margin:0 auto;}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;animation:fadeUp .2s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* ─── HEALTH CARD ─── */
+.health-card{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 100%);
+  border-radius:var(--r-xl);
+  padding:24px;
+  margin-bottom:14px;
+  position:relative;overflow:hidden;
+  box-shadow:var(--shadow-lg);
+}
+.health-card::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(0,180,216,.18) 0%,transparent 70%);pointer-events:none;}
+.health-card::after{content:'';position:absolute;bottom:-40px;left:10%;width:180px;height:180px;background:radial-gradient(circle,rgba(46,196,182,.1) 0%,transparent 70%);pointer-events:none;}
+.hc-name{font-size:20px;font-weight:700;color:white;letter-spacing:-.4px;margin-bottom:2px;}
+.hc-id{font-size:11.5px;color:rgba(255,255,255,.38);font-family:'DM Mono',monospace;}
+.hc-chips{display:flex;gap:7px;margin:14px 0;flex-wrap:wrap;}
+.hc-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:600;}
+.hc-chip-red{background:rgba(230,57,70,.18);border:1px solid rgba(230,57,70,.35);color:#ff8a95;}
+.hc-chip-teal{background:rgba(0,180,216,.15);border:1px solid rgba(0,180,216,.3);color:rgba(0,180,216,.9);}
+.hc-chip-green{background:rgba(46,196,182,.15);border:1px solid rgba(46,196,182,.3);color:#6ee9db;}
+.hc-chip-amber{background:rgba(244,162,97,.15);border:1px solid rgba(244,162,97,.3);color:#f7c267;}
+.hc-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);}
+.hc-status{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;}
+.hc-status-dot{width:7px;height:7px;border-radius:50%;}
+.hc-updated{font-size:10.5px;color:rgba(255,255,255,.3);}
+
+/* ─── QR SECTION ─── */
+.qr-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:22px;text-align:center;box-shadow:var(--shadow-sm);margin-bottom:14px;}
+.qr-title{font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px;}
+.qr-sub{font-size:12.5px;color:var(--text-muted);margin-bottom:18px;line-height:1.5;}
+.qr-box{background:white;border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;display:inline-block;box-shadow:var(--shadow-md);margin-bottom:16px;}
+.share-token-box{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 13px;font-family:'DM Mono',monospace;font-size:12px;color:var(--teal-dim);word-break:break-all;text-align:left;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.share-token-box:active{background:var(--teal-subtle);border-color:rgba(0,180,216,.3);}
+.share-url-box{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 13px;font-size:12px;color:var(--text-secondary);word-break:break-all;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;}
+.qr-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px;}
+
+/* ─── SHARE INSTRUCTION ─── */
+.share-steps{display:flex;flex-direction:column;gap:10px;margin-top:14px;}
+.share-step{display:flex;align-items:flex-start;gap:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r);padding:13px;}
+.share-step-num{width:26px;height:26px;border-radius:50%;background:var(--teal-subtle);border:1px solid rgba(0,180,216,.25);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--teal-dim);flex-shrink:0;}
+.share-step-info{flex:1;}
+.share-step-title{font-size:13px;font-weight:600;color:var(--text-primary);}
+.share-step-desc{font-size:12px;color:var(--text-muted);margin-top:2px;line-height:1.5;}
+
+/* ─── SECTION CARD ─── */
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow-sm);}
+.section-card-header{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--border);}
+.section-card-title{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+.section-card-header .edit-link{font-size:12px;color:var(--teal-dim);cursor:pointer;font-weight:500;}
+.info-row{padding:11px 16px;border-bottom:1px solid rgba(214,230,242,.5);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.info-row:last-child{border-bottom:none;}
+.info-key{font-size:11px;font-weight:600;color:var(--text-muted);min-width:110px;flex-shrink:0;padding-top:2px;}
+.info-val{font-size:13.5px;color:var(--text-primary);font-weight:500;text-align:right;word-break:break-word;}
+.info-val.danger{color:var(--red);font-weight:600;}
+.pills-row{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;}
+.mini-pill{background:var(--teal-subtle);border:1px solid rgba(0,180,216,.2);color:var(--teal-dim);border-radius:5px;padding:2px 8px;font-size:11.5px;font-weight:600;}
+.mini-pill.danger{background:var(--red-dim);border-color:var(--red-border);color:var(--red);}
+.mini-pill.med{background:var(--green-dim);border-color:var(--green-border);color:#1a9e92;}
+
+/* ─── FORM ─── */
+.form-screen{background:var(--off-white);}
+.form-header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:40;}
+.form-header-title{font-size:15px;font-weight:700;color:var(--text-primary);flex:1;}
+.form-body{padding:14px;max-width:600px;margin:0 auto;}
+.fsection-label{font-size:9.5px;letter-spacing:2.5px;text-transform:uppercase;font-weight:700;color:var(--teal-dim);margin-bottom:10px;margin-top:20px;display:flex;align-items:center;gap:10px;}
+.fsection-label:first-child{margin-top:0;}
+.fsection-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.form-full{grid-column:1/-1;}
+.field-group{display:flex;flex-direction:column;gap:5px;}
+.field-group label{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-secondary);}
+.field-group input,.field-group select,.field-group textarea{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;color:var(--text-primary);font-family:'DM Sans',sans-serif;font-size:16px;transition:all .2s;outline:none;-webkit-appearance:none;}
+.field-group input::placeholder{color:var(--text-muted);font-size:14px;}
+.field-group input:focus,.field-group select:focus,.field-group textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-glow);background:var(--surface);}
+.field-group select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238CA9C4' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.field-group textarea{resize:vertical;min-height:72px;font-size:14px;}
+.array-pills{display:flex;flex-wrap:wrap;gap:5px;min-height:44px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:7px 10px;cursor:text;align-items:center;transition:all .2s;}
+.array-pills:focus-within{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-glow);background:var(--surface);}
+.pill{display:flex;align-items:center;gap:4px;background:var(--teal-subtle);border:1px solid rgba(0,180,216,.2);color:var(--teal-dim);border-radius:6px;padding:3px 9px;font-size:12.5px;font-weight:600;}
+.pill.danger{background:var(--red-dim);border-color:var(--red-border);color:var(--red);}
+.pill button{background:none;border:none;cursor:pointer;color:currentColor;font-size:15px;line-height:1;padding:0 0 1px 3px;opacity:.5;}
+.pill-input{border:none;background:none;outline:none;color:var(--text-primary);font-family:'DM Sans',sans-serif;font-size:14px;flex:1;min-width:80px;}
+.pill-input::placeholder{color:var(--text-muted);}
+.form-save-bar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:12px 16px;padding-bottom:calc(12px + var(--safe-b));display:flex;gap:10px;}
+.btn-save{flex:1;padding:14px;background:linear-gradient(135deg,var(--teal),#0dc8e8);color:var(--navy);border:none;border-radius:var(--r-sm);font-family:'DM Sans',sans-serif;font-weight:700;font-size:14.5px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 2px 10px rgba(0,180,216,.25);}
+.btn-save:active{opacity:.85;}
+.btn-save:disabled{opacity:.6;cursor:not-allowed;}
+.btn-cancel{padding:14px 18px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-secondary);border-radius:var(--r-sm);font-family:'DM Sans',sans-serif;font-weight:500;font-size:14px;cursor:pointer;}
+
+/* ─── BUTTONS ─── */
+.btn-teal{background:linear-gradient(135deg,var(--teal),#0dc8e8);color:var(--navy);border:none;border-radius:var(--r-sm);padding:11px 16px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,180,216,.2);}
+.btn-teal:active{opacity:.85;transform:scale(.97);}
+.btn-ghost{background:none;border:1px solid var(--border-strong);color:var(--text-secondary);border-radius:var(--r-sm);padding:10px 14px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:500;display:flex;align-items:center;gap:5px;}
+.btn-ghost:active{background:var(--surface-3);}
+
+/* ─── ALERT BANNER ─── */
+.critical-banner{background:var(--red-dim);border:1px solid var(--red-border);border-radius:var(--r-sm);padding:10px 13px;font-size:12.5px;color:var(--red);font-weight:600;display:flex;align-items:center;gap:7px;margin-bottom:12px;}
+.info-banner{background:var(--teal-subtle);border:1px solid rgba(0,180,216,.2);border-radius:var(--r-sm);padding:10px 13px;font-size:12.5px;color:var(--teal-dim);font-weight:500;display:flex;align-items:flex-start;gap:7px;margin-bottom:12px;line-height:1.5;}
+
+/* ─── MISC ─── */
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.divider{height:1px;background:var(--border);margin:14px 0;}
+#toast-container{position:fixed;bottom:calc(16px + var(--safe-b));right:14px;z-index:999;display:flex;flex-direction:column;gap:6px;pointer-events:none;left:14px;}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:11px 14px;font-size:13px;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:9px;animation:slideIn .22s ease;font-weight:500;pointer-events:auto;}
+.toast.success{border-left:3px solid var(--green);}.toast.success .toast-icon{background:var(--green-dim);color:var(--green);}
+.toast.error{border-left:3px solid var(--red);}.toast.error .toast-icon{background:var(--red-dim);color:var(--red);}
+.toast.info{border-left:3px solid var(--teal);}.toast.info .toast-icon{background:var(--teal-subtle);color:var(--teal-dim);}
+.toast-icon{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+@keyframes slideIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-muted);}
+.empty-icon{width:50px;height:50px;background:var(--surface-3);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px;}
+@media(max-width:500px){.form-grid{grid-template-columns:1fr;}.form-full{grid-column:1;}}
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="screen-landing" class="screen active">
+  <div class="landing-logo">
+    <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <div style="display:none;font-size:26px;font-weight:800;color:white;letter-spacing:-1px">LumenOS</div>
+    <div class="brand">LumenOS</div>
+    <div class="sub">MediScan Patient Portal</div>
+  </div>
+  <div class="landing-card">
+    <div class="landing-headline">Your Emergency Health Card</div>
+    <div class="landing-subtext">Create a digital medical profile and share your QR code with any clinic, hospital, or emergency responder — instantly.</div>
+    <button class="btn-primary" onclick="showAuthScreen('register')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+      Create My Health Card
+    </button>
+    <button class="btn-outline" onclick="showAuthScreen('login')">Sign In to My Account</button>
+  </div>
+  <div class="feature-pills">
+    <div class="feature-pill">🔒 Private &amp; Secure</div>
+    <div class="feature-pill">📱 QR Code Sharing</div>
+    <div class="feature-pill">🏥 Works Everywhere</div>
+    <div class="feature-pill">🆓 Free Forever</div>
+  </div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div id="screen-auth" class="screen">
+  <div class="auth-wrap">
+    <button class="back-btn" onclick="goToLanding()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      Back
+    </button>
+    <div class="auth-card">
+      <!-- Register -->
+      <div id="auth-register">
+        <div class="auth-title">Create your account</div>
+        <div class="auth-sub">Your medical profile lives here, securely.</div>
+        <div class="auth-field"><label>Full Name</label><input type="text" id="reg-name" placeholder="Thabo Nkosi" autocomplete="name"></div>
+        <div class="auth-field"><label>Email Address</label><input type="email" id="reg-email" placeholder="you@email.com" autocomplete="email" inputmode="email"></div>
+        <div class="auth-field"><label>Password</label><input type="password" id="reg-pw" placeholder="Minimum 6 characters" autocomplete="new-password" onkeydown="if(event.key==='Enter')doPatientRegister()"></div>
+        <button class="btn-primary" onclick="doPatientRegister()" id="btn-reg" style="margin-top:6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Create Account
+        </button>
+        <div class="auth-error" id="reg-error"></div>
+        <div class="auth-info">Already have an account? <a onclick="toggleAuthMode('login')">Sign in →</a></div>
+      </div>
+      <!-- Login -->
+      <div id="auth-login" style="display:none">
+        <div class="auth-title">Welcome back</div>
+        <div class="auth-sub">Sign in to view and share your health card.</div>
+        <div class="auth-field"><label>Email Address</label><input type="email" id="login-email" placeholder="you@email.com" autocomplete="email" inputmode="email"></div>
+        <div class="auth-field"><label>Password</label><input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doPatientLogin()"></div>
+        <button class="btn-primary" onclick="doPatientLogin()" id="btn-login" style="margin-top:6px">Sign In</button>
+        <div class="auth-error" id="login-error"></div>
+        <div class="auth-info">No account yet? <a onclick="toggleAuthMode('register')">Create one →</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="screen-app" class="screen" style="display:none">
+  <header class="app-header">
+    <div class="app-header-logo">
+      <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" onerror="this.style.display='none'">
+      <span>MediScan</span>
+    </div>
+    <div class="app-header-right">
+      <div class="user-pill">
+        <div class="online-dot"></div>
+        <span class="user-pill-name" id="header-name">Loading…</span>
+      </div>
+      <button class="btn-hdr" onclick="doSignOut()" title="Sign out">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </header>
+  <div class="tab-bar">
+    <button class="tab-item active" id="tab-btn-card" onclick="switchTab('card')">My Card</button>
+    <button class="tab-item" id="tab-btn-share" onclick="switchTab('share')">Share & QR</button>
+    <button class="tab-item" id="tab-btn-edit" onclick="switchTab('edit')">Edit Profile</button>
+  </div>
+  <div class="app-content">
+
+    <!-- MY CARD TAB -->
+    <div class="tab-pane active" id="tab-card">
+      <div id="health-card-render"></div>
+      <div id="info-sections-render"></div>
+      <div style="height:20px"></div>
+    </div>
+
+    <!-- SHARE TAB -->
+    <div class="tab-pane" id="tab-share">
+      <div class="info-banner">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Show this QR code to any LumenOS-enabled clinic, or share your unique link directly. Emergency responders can scan it even without logging in.
+      </div>
+      <div class="qr-section">
+        <div class="qr-title">Your Emergency QR Code</div>
+        <div class="qr-sub">Anyone who scans this sees your critical medical data</div>
+        <div class="qr-box"><div id="patient-qr-div"></div></div>
+        <div>
+          <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px">Your Share Link</div>
+          <div class="share-url-box" id="share-url-display" onclick="copyShareUrl()">
+            <span id="share-url-text" style="font-family:'DM Mono',monospace;font-size:11.5px;color:var(--text-secondary);word-break:break-all">Loading…</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:6px">Tap to copy • Share via WhatsApp, SMS, or email</div>
+        </div>
+        <div class="qr-actions">
+          <button class="btn-teal" onclick="printPatientQr()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print Card
+          </button>
+          <button class="btn-ghost" onclick="shareViaWhatsApp()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            WhatsApp
+          </button>
+          <button class="btn-ghost" onclick="copyShareUrl()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy Link
+          </button>
+        </div>
+      </div>
+      <div class="section-card">
+        <div class="section-card-header"><div class="section-card-title">How to share with a facility</div></div>
+        <div style="padding:14px">
+          <div class="share-steps">
+            <div class="share-step"><div class="share-step-num">1</div><div class="share-step-info"><div class="share-step-title">Print or save your QR code</div><div class="share-step-desc">Print a physical card or screenshot your QR to your phone gallery.</div></div></div>
+            <div class="share-step"><div class="share-step-num">2</div><div class="share-step-info"><div class="share-step-title">Show it at reception</div><div class="share-step-desc">The clinic scans your QR using LumenOS MediScan and your record is instantly linked.</div></div></div>
+            <div class="share-step"><div class="share-step-num">3</div><div class="share-step-info"><div class="share-step-title">Or share your link directly</div><div class="share-step-desc">Send your share link via WhatsApp or SMS to the clinic number before your appointment.</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDIT TAB -->
+    <div class="tab-pane" id="tab-edit">
+      <div class="critical-banner">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 3.5l8.5 15h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>
+        Critical info is visible to emergency responders — keep it accurate
+      </div>
+
+      <!-- PERSONAL -->
+      <div class="fsection-label">Personal Information</div>
+      <div class="form-grid">
+        <div class="field-group form-full"><label>Full Name *</label><input type="text" id="e-full_name" placeholder="Your legal name" autocomplete="name"></div>
+        <div class="field-group"><label>ID / Passport No.</label><input type="text" id="e-id_number" placeholder="National ID" autocomplete="off"></div>
+        <div class="field-group"><label>Date of Birth</label><input type="date" id="e-date_of_birth"></div>
+        <div class="field-group"><label>Phone</label><input type="tel" id="e-phone" placeholder="+27 82 000 0000" inputmode="tel"></div>
+        <div class="field-group form-full"><label>Email</label><input type="email" id="e-email" placeholder="your@email.com" inputmode="email" autocomplete="off"></div>
+      </div>
+
+      <!-- CRITICAL -->
+      <div class="fsection-label" style="margin-top:22px">⚠ Critical Medical Data</div>
+      <div class="form-grid">
+        <div class="field-group"><label>Blood Type</label><select id="e-blood_type"><option value="">Unknown</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option></select></div>
+        <div class="field-group form-full"><label>Allergies <span style="font-size:10px;color:var(--text-muted);text-transform:none;letter-spacing:0;font-weight:400">(press Enter to add)</span></label><div class="array-pills" id="ep-allergies" onclick="focusPill(this)"><input class="pill-input" placeholder="Penicillin, Latex, Nuts…" onkeydown="addPill(event,'allergies')"></div></div>
+        <div class="field-group form-full"><label>Current Medications</label><div class="array-pills" id="ep-current_medications" onclick="focusPill(this)"><input class="pill-input" placeholder="Metformin 500mg…" onkeydown="addPill(event,'current_medications')"></div></div>
+        <div class="field-group form-full"><label>Medical Conditions</label><div class="array-pills" id="ep-medical_conditions" onclick="focusPill(this)"><input class="pill-input" placeholder="Diabetes Type 2…" onkeydown="addPill(event,'medical_conditions')"></div></div>
+      </div>
+
+      <!-- EMERGENCY CONTACT -->
+      <div class="fsection-label" style="margin-top:22px">Emergency Contact</div>
+      <div class="form-grid">
+        <div class="field-group"><label>Contact Name</label><input type="text" id="e-emergency_contact_name" placeholder="Jane Nkosi" autocomplete="off"></div>
+        <div class="field-group"><label>Relationship</label><input type="text" id="e-emergency_contact_relation" placeholder="Spouse, Parent…" autocomplete="off"></div>
+        <div class="field-group form-full"><label>Contact Phone</label><input type="tel" id="e-emergency_contact_phone" placeholder="+27 82 000 0000" inputmode="tel"></div>
+      </div>
+
+      <!-- MEDICAL AID -->
+      <div class="fsection-label" style="margin-top:22px">Medical Aid</div>
+      <div class="form-grid">
+        <div class="field-group"><label>Provider</label><input type="text" id="e-medical_aid_provider" placeholder="Discovery, Bonitas…" autocomplete="off"></div>
+        <div class="field-group"><label>Policy Number</label><input type="text" id="e-medical_aid_number" placeholder="Policy number" autocomplete="off"></div>
+        <div class="field-group"><label>Primary Doctor</label><input type="text" id="e-primary_doctor" placeholder="Dr. Dlamini" autocomplete="off"></div>
+        <div class="field-group"><label>Doctor Contact</label><input type="tel" id="e-doctor_contact" placeholder="+27 11 000 0000" inputmode="tel"></div>
+      </div>
+
+      <!-- HISTORY -->
+      <div class="fsection-label" style="margin-top:22px">History &amp; Directives</div>
+      <div class="form-grid">
+        <div class="field-group form-full"><label>Surgical History</label><div class="array-pills" id="ep-surgical_history" onclick="focusPill(this)"><input class="pill-input" placeholder="Appendectomy 2018…" onkeydown="addPill(event,'surgical_history')"></div></div>
+        <div class="field-group form-full"><label>Vaccination History</label><div class="array-pills" id="ep-vaccination_history" onclick="focusPill(this)"><input class="pill-input" placeholder="COVID-19 2021…" onkeydown="addPill(event,'vaccination_history')"></div></div>
+        <div class="field-group form-full"><label>Advance Directive / DNR</label><textarea id="e-advance_directive" placeholder="DNR preferences, organ donor status…"></textarea></div>
+        <div class="field-group form-full"><label>Additional Notes</label><textarea id="e-notes" placeholder="Any other info for medical staff…"></textarea></div>
+      </div>
+
+      <div style="height:8px"></div>
+      <div style="display:flex;gap:10px;margin-bottom:30px">
+        <button class="btn-save" onclick="saveProfile()" id="btn-save-profile">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save Profile
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+const SUPABASE_URL = 'https://pzioskykakwhwdlcmwyv.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let patientRecord = null;
+let pillData = { allergies:[], current_medications:[], medical_conditions:[], surgical_history:[], vaccination_history:[] };
+
+/* ─── HELPERS ─── */
+function esc(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function fmtDate(d){ return d ? new Date(d).toLocaleDateString('en-ZA') : '—'; }
+function toast(msg, type='info'){
+  const icons={success:'✓',error:'✕',info:'ℹ'};
+  const el=document.createElement('div');
+  el.className=`toast ${type}`;
+  el.innerHTML=`<div class="toast-icon">${icons[type]||'ℹ'}</div><span>${esc(msg)}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(()=>el.remove(),3500);
+}
+function setBtn(id,on,orig){
+  const b=document.getElementById(id);
+  if(!b)return;
+  if(on){b.dataset.orig=b.innerHTML;b.innerHTML='<span class="spinner" style="width:16px;height:16px;border-width:2px"></span>';b.disabled=true;}
+  else{b.innerHTML=b.dataset.orig||orig||b.innerHTML;b.disabled=false;}
+}
+
+/* ─── SCREENS ─── */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active');s.style.display='none';});
+  const s=document.getElementById('screen-'+id);
+  if(s){s.style.display='';s.classList.add('active');}
+}
+function goToLanding(){ showScreen('landing'); }
+function showAuthScreen(mode){
+  showScreen('auth');
+  toggleAuthMode(mode);
+}
+function toggleAuthMode(mode){
+  document.getElementById('auth-register').style.display=mode==='register'?'':'none';
+  document.getElementById('auth-login').style.display=mode==='login'?'':'none';
+  document.getElementById('reg-error').textContent='';
+  document.getElementById('login-error').textContent='';
+}
+
+/* ─── TABS ─── */
+function switchTab(name){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('tab-btn-'+name).classList.add('active');
+  if(name==='share') renderQr();
+  if(name==='edit') populateForm();
+  if(name==='card') renderCard();
+}
+
+/* ─── AUTH ─── */
+async function doPatientRegister(){
+  const name=document.getElementById('reg-name').value.trim();
+  const email=document.getElementById('reg-email').value.trim();
+  const pw=document.getElementById('reg-pw').value;
+  const errEl=document.getElementById('reg-error');
+  if(!name){errEl.textContent='Full name required';return;}
+  if(!email){errEl.textContent='Email required';return;}
+  if(!pw||pw.length<6){errEl.textContent='Password must be at least 6 characters';return;}
+  setBtn('btn-reg',true);
+  errEl.textContent='';
+  const {data,error}=await sb.auth.signUp({email,password:pw,options:{data:{full_name:name}}});
+  if(error){setBtn('btn-reg',false);errEl.textContent=error.message;return;}
+  currentUser=data.user||data.session?.user;
+  if(!currentUser){setBtn('btn-reg',false);errEl.textContent='Registration failed, try again.';return;}
+  // Create patient_accounts row
+  await upsertPatientAccount(currentUser.id, {full_name:name, email});
+  await loadPatientRecord();
+  setBtn('btn-reg',false);
+  toast(`Welcome, ${name}! Complete your health profile.`,'success');
+  bootApp();
+}
+async function doPatientLogin(){
+  const email=document.getElementById('login-email').value.trim();
+  const pw=document.getElementById('login-pw').value;
+  const errEl=document.getElementById('login-error');
+  if(!email||!pw){errEl.textContent='Email and password required';return;}
+  setBtn('btn-login',true);
+  errEl.textContent='';
+  const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){setBtn('btn-login',false);errEl.textContent=error.message;return;}
+  currentUser=data.user;
+  await loadPatientRecord();
+  setBtn('btn-login',false);
+  bootApp();
+}
+async function doSignOut(){await sb.auth.signOut();location.reload();}
+
+/* ─── PATIENT RECORD ─── */
+async function loadPatientRecord(){
+  const {data}=await sb.from('patient_accounts').select('*').eq('id',currentUser.id).single();
+  if(data){
+    patientRecord=data;
+    return;
+  }
+  // Create skeleton record
+  await upsertPatientAccount(currentUser.id,{
+    full_name: currentUser.user_metadata?.full_name || currentUser.email.split('@')[0],
+    email: currentUser.email
+  });
+  const {data:fresh}=await sb.from('patient_accounts').select('*').eq('id',currentUser.id).single();
+  patientRecord=fresh;
+}
+
+async function upsertPatientAccount(uid, fields){
+  const {error}=await sb.from('patient_accounts').upsert({id:uid,...fields},{onConflict:'id'});
+  if(error) console.warn('upsert warn:',error.message);
+}
+
+/* ─── BOOT ─── */
+function bootApp(){
+  document.getElementById('header-name').textContent=(patientRecord?.full_name||currentUser?.email||'Patient').split(' ')[0];
+  showScreen('app');
+  renderCard();
+  renderQr();
+  populateForm();
+}
+
+/* ─── RENDER CARD ─── */
+function renderCard(){
+  if(!patientRecord) return;
+  const p=patientRecord;
+  const arr=a=>Array.isArray(a)?a:[];
+  const hasAllergies=arr(p.allergies).length>0;
+  const hasMeds=arr(p.current_medications).length>0;
+  const hasConds=arr(p.medical_conditions).length>0;
+
+  // Top health card
+  document.getElementById('health-card-render').innerHTML=`
+    <div class="health-card">
+      <div class="hc-name">${esc(p.full_name||'Your Name')}</div>
+      <div class="hc-id">${p.id_number?'ID: '+esc(p.id_number):'No ID on file'} &nbsp;·&nbsp; ${fmtDate(p.date_of_birth)}</div>
+      <div class="hc-chips">
+        ${p.blood_type?`<div class="hc-chip hc-chip-red">🩸 ${esc(p.blood_type)}</div>`:''}
+        ${hasAllergies?`<div class="hc-chip hc-chip-red">⚠ ${arr(p.allergies).length} Allerg${arr(p.allergies).length>1?'ies':'y'}</div>`:''}
+        ${hasMeds?`<div class="hc-chip hc-chip-amber">💊 ${arr(p.current_medications).length} Med${arr(p.current_medications).length>1?'s':''}</div>`:''}
+        ${hasConds?`<div class="hc-chip hc-chip-teal">🏥 ${arr(p.medical_conditions).length} Condition${arr(p.medical_conditions).length>1?'s':''}</div>`:''}
+        ${p.medical_aid_provider?`<div class="hc-chip hc-chip-green">🛡 ${esc(p.medical_aid_provider)}</div>`:''}
+      </div>
+      <div class="hc-bottom">
+        <div class="hc-status">
+          <div class="hc-status-dot" style="background:${p.qr_active!==false?'#2EC4B6':'#E63946'};box-shadow:0 0 8px ${p.qr_active!==false?'#2EC4B6':'#E63946'}"></div>
+          <span style="color:rgba(255,255,255,.6);font-size:12px">QR ${p.qr_active!==false?'Active':'Inactive'}</span>
+        </div>
+        <div class="hc-updated">Updated ${fmtDate(p.updated_at||p.created_at)}</div>
+      </div>
+    </div>`;
+
+  // Info sections
+  const empty='<span style="color:var(--text-muted);font-size:13px">—</span>';
+  const pillsHtml=(arr,cls='')=>arr&&arr.length?`<div class="pills-row">${arr.map(v=>`<span class="mini-pill${cls}">${esc(v)}</span>`).join('')}</div>`:empty;
+
+  document.getElementById('info-sections-render').innerHTML=`
+    <div class="section-card">
+      <div class="section-card-header"><div class="section-card-title">⚠ Critical — Emergency</div><div class="edit-link" onclick="switchTab('edit')">Edit →</div></div>
+      <div class="info-row"><div class="info-key">Blood Type</div><div class="info-val danger" style="font-size:17px;font-weight:700">${p.blood_type?esc(p.blood_type):empty}</div></div>
+      <div class="info-row"><div class="info-key">Allergies</div><div class="info-val">${pillsHtml(arr(p.allergies),' danger')}</div></div>
+      <div class="info-row"><div class="info-key">Medications</div><div class="info-val">${pillsHtml(arr(p.current_medications),' med')}</div></div>
+      <div class="info-row"><div class="info-key">Conditions</div><div class="info-val">${pillsHtml(arr(p.medical_conditions))}</div></div>
+    </div>
+    <div class="section-card">
+      <div class="section-card-header"><div class="section-card-title">Emergency Contact</div></div>
+      <div class="info-row"><div class="info-key">Name</div><div class="info-val">${p.emergency_contact_name?esc(p.emergency_contact_name):empty}</div></div>
+      <div class="info-row"><div class="info-key">Relationship</div><div class="info-val">${p.emergency_contact_relation?esc(p.emergency_contact_relation):empty}</div></div>
+      <div class="info-row"><div class="info-key">Phone</div><div class="info-val">${p.emergency_contact_phone?`<a href="tel:${esc(p.emergency_contact_phone)}" style="color:var(--teal-dim)">${esc(p.emergency_contact_phone)}</a>`:empty}</div></div>
+    </div>
+    <div class="section-card">
+      <div class="section-card-header"><div class="section-card-title">Medical Aid &amp; Doctor</div></div>
+      <div class="info-row"><div class="info-key">Provider</div><div class="info-val">${p.medical_aid_provider?esc(p.medical_aid_provider):empty}</div></div>
+      <div class="info-row"><div class="info-key">Policy No.</div><div class="info-val">${p.medical_aid_number?esc(p.medical_aid_number):empty}</div></div>
+      <div class="info-row"><div class="info-key">Primary Doctor</div><div class="info-val">${p.primary_doctor?esc(p.primary_doctor):empty}</div></div>
+    </div>
+    <div class="section-card">
+      <div class="section-card-header"><div class="section-card-title">History</div></div>
+      <div class="info-row"><div class="info-key">Surgical</div><div class="info-val">${pillsHtml(arr(p.surgical_history))}</div></div>
+      <div class="info-row"><div class="info-key">Vaccinations</div><div class="info-val">${pillsHtml(arr(p.vaccination_history))}</div></div>
+      <div class="info-row"><div class="info-key">Directive</div><div class="info-val" style="text-align:right;max-width:200px;white-space:pre-wrap;font-size:12.5px">${p.advance_directive?esc(p.advance_directive):empty}</div></div>
+    </div>`;
+}
+
+/* ─── RENDER QR ─── */
+function renderQr(){
+  if(!patientRecord) return;
+  const token=patientRecord.share_token||patientRecord.qr_token;
+  const shareUrl=`${location.origin}/mediscan-emergency.html?token=${encodeURIComponent(token)}`;
+  document.getElementById('share-url-text').textContent=shareUrl;
+
+  const qrDiv=document.getElementById('patient-qr-div');
+  qrDiv.innerHTML='';
+  new QRCode(qrDiv,{
+    text:shareUrl, width:200, height:200,
+    colorDark:'#0A2540', colorLight:'#ffffff',
+    correctLevel:QRCode.CorrectLevel.H
+  });
+}
+
+function copyShareUrl(){
+  const url=document.getElementById('share-url-text').textContent;
+  navigator.clipboard.writeText(url).then(()=>toast('Link copied to clipboard','success')).catch(()=>toast('Copy failed — select the link manually','error'));
+}
+
+function shareViaWhatsApp(){
+  const url=document.getElementById('share-url-text').textContent;
+  const msg=`Hi, here is my emergency medical card (LumenOS MediScan): ${url}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
+
+function printPatientQr(){
+  const qrDiv=document.getElementById('patient-qr-div');
+  const img=qrDiv.querySelector('img')||qrDiv.querySelector('canvas');
+  if(!img){toast('QR not ready','error');return;}
+  const name=esc(patientRecord?.full_name||'Patient');
+  const win=window.open('','_blank');
+  win.document.write(`<html><head><title>Emergency QR — ${name}</title><style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:system-ui,sans-serif;background:#f0f6fc;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+    .card{background:white;border-radius:20px;padding:30px 28px;text-align:center;box-shadow:0 8px 40px rgba(10,37,64,.15);max-width:320px;width:100%;}
+    .logo{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#8CA9C4;margin-bottom:12px;}
+    .name{font-size:20px;font-weight:700;color:#0A2540;margin-bottom:4px;}
+    .blood{font-size:13px;color:#E63946;font-weight:600;margin-bottom:14px;}
+    .qr{background:white;padding:12px;border-radius:12px;border:1px solid #D6E6F2;display:inline-block;margin-bottom:14px;}
+    .footer{font-size:10.5px;color:#8CA9C4;line-height:1.5;}
+    .footer strong{color:#0A2540;}
+    @media print{body{background:white;}.card{box-shadow:none;}}
+  </style></head><body>
+    <div class="card">
+      <div class="logo">LumenOS · MediScan</div>
+      <div class="name">${name}</div>
+      <div class="blood">${patientRecord?.blood_type?'Blood Type: '+patientRecord.blood_type:''}${patientRecord?.allergies?.length?' · ⚠ Allergies':''}</div>
+      <div class="qr">${img.outerHTML}</div>
+      <div class="footer"><strong>Emergency Medical Access</strong><br>Scan to view full medical record</div>
+    </div>
+  </body></html>`);
+  win.print();
+}
+
+/* ─── FORM ─── */
+function populateForm(){
+  if(!patientRecord) return;
+  const p=patientRecord;
+  const fields=['full_name','id_number','date_of_birth','phone','email','blood_type','emergency_contact_name','emergency_contact_relation','emergency_contact_phone','medical_aid_provider','medical_aid_number','primary_doctor','doctor_contact','advance_directive','notes'];
+  fields.forEach(f=>{
+    const el=document.getElementById('e-'+f);
+    if(el) el.value=p[f]||'';
+  });
+  Object.keys(pillData).forEach(k=>{
+    pillData[k]=Array.isArray(p[k])?[...p[k]]:[];
+    renderPillContainer(k);
+  });
+}
+
+async function saveProfile(){
+  const name=document.getElementById('e-full_name').value.trim();
+  if(!name){toast('Full name is required','error');return;}
+  setBtn('btn-save-profile',true);
+  const fields=['full_name','id_number','date_of_birth','phone','email','blood_type','emergency_contact_name','emergency_contact_relation','emergency_contact_phone','medical_aid_provider','medical_aid_number','primary_doctor','doctor_contact','advance_directive','notes'];
+  const payload={updated_at:new Date().toISOString()};
+  fields.forEach(f=>{
+    const el=document.getElementById('e-'+f);
+    if(el) payload[f]=el.value.trim()||null;
+  });
+  Object.keys(pillData).forEach(k=>{ payload[k]=pillData[k].length?pillData[k]:null; });
+  const {error}=await sb.from('patient_accounts').update(payload).eq('id',currentUser.id);
+  setBtn('btn-save-profile',false);
+  if(error){toast('Save failed: '+error.message,'error');return;}
+  toast('Profile saved successfully','success');
+  Object.assign(patientRecord,payload);
+  renderCard();
+  renderQr();
+  switchTab('card');
+}
+
+/* ─── PILLS ─── */
+function focusPill(c){c.querySelector('.pill-input').focus();}
+function addPill(e,key){
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const v=e.target.value.trim();
+    if(v&&!pillData[key].includes(v)){pillData[key].push(v);renderPillContainer(key);}
+    e.target.value='';
+  }
+}
+function renderPillContainer(key){
+  const c=document.getElementById('ep-'+key);
+  if(!c) return;
+  const inp=c.querySelector('.pill-input');
+  c.innerHTML='';
+  pillData[key].forEach((v,i)=>{
+    const p=document.createElement('div');
+    p.className=`pill${key==='allergies'?' danger':''}`;
+    p.innerHTML=`${esc(v)}<button onclick="rmPill('${key}',${i})">×</button>`;
+    c.appendChild(p);
+  });
+  c.appendChild(inp);
+}
+function rmPill(key,idx){pillData[key].splice(idx,1);renderPillContainer(key);}
+
+/* ─── SESSION RESTORE ─── */
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){
+    currentUser=session.user;
+    await loadPatientRecord();
+    bootApp();
+  }
+})();
+</script>
+</body>
+</html>
