@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Insight Layer — Light Operational Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+  </script>
+
+  <style>
+    /* ═══════════════════════════════════════════════
+       ROOT TOKENS — LIGHT APPLE-INSPIRED THEME
+       Logo remains original (works on white)
+    ═══════════════════════════════════════════════ */
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f7;
+      --bg-tertiary: #e8e8ed;
+      --surface-glass: rgba(255, 255, 255, 0.8);
+      --text-primary: #1d1d1f;
+      --text-secondary: #86868b;
+      --text-tertiary: #aeaeb2;
+      --border-light: rgba(0, 0, 0, 0.06);
+      --border-medium: rgba(0, 0, 0, 0.12);
+      --accent-blue: #0071e3;
+      --accent-blue-dim: rgba(0, 113, 227, 0.08);
+      --accent-teal: #30b0b0;
+      --accent-orange: #ff6b4a;
+      --accent-green: #34c759;
+      --display-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono-font: 'Space Mono', monospace;
+      --serif-font: 'Playfair Display', serif;
+      --radius-sm: 10px;
+      --radius-md: 18px;
+      --radius-lg: 24px;
+      --nav-width: 260px;
+      --topbar-height: 64px;
+      --transition-smooth: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+      --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.05);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 15px;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--display-font);
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-tertiary);
+      border-radius: 12px;
+    }
+
+    /* ══════ AUTH SCREEN ══════ */
+    #auth-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #f9f9fb 0%, #ffffff 100%);
+      z-index: 1000;
+      padding: 24px;
+    }
+
+    .auth-wrap {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .auth-logo-img {
+      height: 48px;
+      width: auto;
+      margin-bottom: 12px;
+    }
+
+    .auth-tagline {
+      font-family: var(--serif-font);
+      font-style: italic;
+      font-size: 17px;
+      color: var(--text-secondary);
+      margin-bottom: 36px;
+    }
+
+    .auth-box {
+      width: 100%;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 12px 0;
+      background: none;
+      border: none;
+      font-family: var(--display-font);
+      font-weight: 500;
+      font-size: 15px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: var(--transition-smooth);
+    }
+
+    .auth-tab.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+
+    .auth-panel {
+      display: none;
+    }
+
+    .auth-panel.active {
+      display: block;
+    }
+
+    .f-group {
+      margin-bottom: 18px;
+    }
+
+    .f-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .f-input {
+      width: 100%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-light);
+      color: var(--text-primary);
+      font-family: var(--display-font);
+      font-size: 15px;
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: var(--transition-smooth);
+    }
+
+    .f-input:focus {
+      border-color: var(--accent-blue);
+      background: #fff;
+      box-shadow: 0 0 0 3px var(--accent-blue-dim);
+    }
+
+    .f-select {
+      padding-right: 32px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent-blue);
+      color: white;
+      border: none;
+      font-weight: 600;
+      font-size: 16px;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      letter-spacing: -0.02em;
+      margin-top: 8px;
+      font-family: var(--display-font);
+    }
+
+    .btn-primary:hover {
+      background: #0077ed;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0, 113, 227, 0.28);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .auth-msg {
+      font-size: 13px;
+      text-align: center;
+      margin-top: 14px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      display: none;
+    }
+
+    .auth-msg.error {
+      background: #ffe5e0;
+      color: #c73a1f;
+      display: block;
+    }
+
+    .auth-msg.success {
+      background: #e3f9ea;
+      color: #1e7b3a;
+      display: block;
+    }
+
+    .auth-role-note {
+      font-family: var(--mono-font);
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-top: 20px;
+      line-height: 1.6;
+    }
+
+    /* ══════ APP SHELL ══════ */
+    #app {
+      display: none;
+      min-height: 100vh;
+      background: var(--bg-primary);
+    }
+
+    .topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--topbar-height);
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(25px);
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px 0 0;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      width: var(--nav-width);
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo,
+    .topbar-logo-icon {
+      height: 28px;
+      cursor: pointer;
+    }
+
+    .topbar-logo-icon {
+      display: none;
+    }
+
+    .topbar-center {
+      flex: 1;
+      padding: 0 20px;
+    }
+
+    .topbar-breadcrumb {
+      font-size: 14px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    .topbar-breadcrumb span {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .btn-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-light);
+      color: var(--text-primary);
+      cursor: pointer;
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      transition: var(--transition-smooth);
+    }
+
+    .btn-icon:hover {
+      background: #fff;
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .topbar-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .user-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--accent-blue-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: var(--accent-blue);
+    }
+
+    .user-name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .user-role {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      top: var(--topbar-height);
+      left: 0;
+      bottom: 0;
+      width: var(--nav-width);
+      background: rgba(248, 248, 252, 0.9);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--border-light);
+      z-index: 90;
+      overflow-y: auto;
+      padding: 20px 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav-section-label {
+      font-family: var(--mono-font);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      padding: 12px 24px 6px;
+      margin-top: 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 24px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: var(--transition-smooth);
+      margin: 2px 0;
+      text-decoration: none;
+    }
+
+    .nav-item:hover {
+      background: rgba(0, 113, 227, 0.04);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      color: var(--accent-blue);
+      background: rgba(0, 113, 227, 0.06);
+      border-left-color: var(--accent-blue);
+    }
+
+    .nav-icon {
+      font-size: 18px;
+      width: 20px;
+      text-align: center;
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      background: var(--accent-orange);
+      color: white;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .nav-footer {
+      margin-top: auto;
+      padding: 16px 24px;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .signout-btn {
+      width: 100%;
+      padding: 12px;
+      background: none;
+      border: 1px solid var(--border-medium);
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 14px;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+
+    .signout-btn:hover {
+      border-color: var(--accent-orange);
+      color: var(--accent-orange);
+    }
+
+    .org-selector {
+      padding: 0 24px 20px;
+    }
+
+    .org-sel-label {
+      font-family: var(--mono-font);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .org-sel-select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 30px;
+      border: 1px solid var(--border-light);
+      background: white;
+      font-family: var(--display-font);
+      font-size: 14px;
+      outline: none;
+    }
+
+    /* Main Content */
+    .main-content {
+      margin-left: var(--nav-width);
+      margin-top: var(--topbar-height);
+      padding: 32px;
+    }
+
+    .page {
+      display: none;
+    }
+
+    .page.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    /* Cards & UI */
+    .page-header {
+      margin-bottom: 28px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+    }
+
+    .page-title em {
+      font-family: var(--serif-font);
+      font-style: italic;
+      color: var(--accent-blue);
+    }
+
+    .page-sub {
+      font-size: 15px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-accent {
+      border-top: 3px solid var(--accent-blue);
+    }
+
+    .card-title {
+      font-family: var(--mono-font);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .kpi-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition-smooth);
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card);
+    }
+
+    .kpi-label {
+      font-family: var(--mono-font);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .kpi-value {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .kpi-change {
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    .kpi-change.up {
+      color: var(--accent-green);
+    }
+    .kpi-change.down {
+      color: var(--accent-orange);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      border: none;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    .btn-gold,
+    .btn-primary-action {
+      background: var(--accent-blue);
+      color: white;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-medium);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+    }
+
+    .btn-sm {
+      padding: 6px 14px;
+      font-size: 13px;
+    }
+
+    .badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .badge-blue {
+      background: #e6f0ff;
+      color: var(--accent-blue);
+    }
+    .badge-green {
+      background: #e3f9ea;
+      color: var(--accent-green);
+    }
+    .badge-red {
+      background: #ffe5e0;
+      color: var(--accent-orange);
+    }
+    .badge-grey {
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      font-family: var(--mono-font);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    td {
+      padding: 14px 16px;
+      font-size: 15px;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(8px);
+      z-index: 500;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal {
+      background: #fff;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-sm {
+      max-width: 440px;
+    }
+    .modal-md {
+      max-width: 600px;
+    }
+    .modal-lg {
+      max-width: 860px;
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text-secondary);
+    }
+
+    .modal-body {
+      padding: 24px;
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border-light);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .form-row {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .form-input,
+    .form-select,
+    .form-textarea {
+      width: 100%;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-light);
+      padding: 12px 14px;
+      border-radius: var(--radius-sm);
+      font-family: var(--display-font);
+      font-size: 15px;
+      outline: none;
+    }
+
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast-item {
+      padding: 12px 20px;
+      border-radius: 30px;
+      color: white;
+      font-weight: 500;
+      background: var(--accent-blue);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .toast-error {
+      background: var(--accent-orange);
+    }
+    .toast-success {
+      background: var(--accent-green);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+
+    @media(max-width: 768px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s;
+      }
+      .sidebar.open {
+        transform: none;
+      }
+      .main-content {
+        margin-left: 0;
+      }
+      .topbar-left {
+        width: auto;
+      }
+      .topbar-logo {
+        display: none;
+      }
+      .topbar-logo-icon {
+        display: block;
+      }
+      .grid-4,
+      .grid-3,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════ AUTH SCREEN ══════════ -->
+  <div id="auth-screen">
+    <div class="auth-wrap">
+      <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="Insight Layer" class="auth-logo-img" id="auth-logo-anim">
+      <p class="auth-tagline">Identify. Understand. Transform.</p>
+      <div class="auth-box">
+        <div class="auth-tabs">
+          <button class="auth-tab active" onclick="authTab('signin',this)">Sign In</button>
+          <button class="auth-tab" onclick="authTab('signup',this)">Register</button>
+        </div>
+        <div id="ap-signin" class="auth-panel active">
+          <div class="f-group"><label class="f-label">Email</label><input type="email" class="f-input" id="si-email" placeholder="you@org.com"></div>
+          <div class="f-group"><label class="f-label">Password</label><input type="password" class="f-input" id="si-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignIn()"></div>
+          <button class="btn-primary" onclick="doSignIn()" id="si-btn">Access Insight Layer</button>
+          <div class="auth-msg" id="si-msg"></div>
+        </div>
+        <div id="ap-signup" class="auth-panel">
+          <div class="f-group"><label class="f-label">Full Name</label><input type="text" class="f-input" id="su-name" placeholder="Your full name"></div>
+          <div class="f-group"><label class="f-label">Email</label><input type="email" class="f-input" id="su-email" placeholder="you@org.com"></div>
+          <div class="f-group"><label class="f-label">Password</label><input type="password" class="f-input" id="su-pass" placeholder="Min 8 characters"></div>
+          <div class="f-group">
+            <label class="f-label">Role</label>
+            <select class="f-input f-select" id="su-role">
+              <option value="operator">Operator (builds forms, manages clients)</option>
+              <option value="client">Client (fills forms, views own data)</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="doSignUp()" id="su-btn">Create Account</button>
+          <div class="auth-msg" id="su-msg"></div>
+        </div>
+        <p class="auth-role-note">Operators manage multiple client organisations.<br>Clients access their own intelligence dashboard.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ APP SHELL ══════════ -->
+  <div id="app">
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="Insight Layer" class="topbar-logo" id="tb-logo-full" onclick="toggleSidebar()">
+        <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760617575427x227577865881120960/S.png" alt="LumenOS" class="topbar-logo-icon" id="tb-logo-icon" onclick="toggleSidebar()">
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-breadcrumb">Insight Layer &rsaquo; <span id="breadcrumb-current">Dashboard</span></div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-icon" onclick="navTo('settings')" data-tip="Settings">⚙</button>
+        <div class="topbar-user">
+          <div>
+            <span class="user-name" id="tb-username">—</span>
+            <span class="user-role" id="tb-role">—</span>
+          </div>
+          <div class="user-avatar" id="tb-avatar">?</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <nav class="sidebar" id="sidebar">
+      <div class="org-selector" id="org-selector-wrap">
+        <div class="org-sel-label">Active Organisation</div>
+        <select class="org-sel-select" id="org-selector" onchange="onOrgChange(this.value)">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+
+      <div class="nav-section-label">Overview</div>
+      <div class="nav-item active" onclick="navTo('dashboard')">
+        <span class="nav-icon">▦</span> Dashboard
+      </div>
+
+      <div class="nav-section-label">Intelligence</div>
+      <div class="nav-item" onclick="navTo('forms')">
+        <span class="nav-icon">◫</span> Form Builder
+      </div>
+      <div class="nav-item" onclick="navTo('responses')">
+        <span class="nav-icon">◈</span> Responses
+        <span class="nav-badge" id="responses-badge" style="display:none">0</span>
+      </div>
+      <div class="nav-item" onclick="navTo('ai')">
+        <span class="nav-icon">◎</span> AI Analysis
+      </div>
+
+      <div class="nav-section-label">Management</div>
+      <div class="nav-item operator-only" onclick="navTo('orgs')">
+        <span class="nav-icon">⬡</span> Organisations
+      </div>
+      <div class="nav-item operator-only" onclick="navTo('users')">
+        <span class="nav-icon">◷</span> Users
+      </div>
+      <div class="nav-item" onclick="navTo('metrics')">
+        <span class="nav-icon">◉</span> Live Metrics
+      </div>
+
+      <div class="nav-footer">
+        <button class="signout-btn" onclick="doSignOut()">Sign Out</button>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- ══ DASHBOARD ══ -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Good morning, <em id="dash-name">—</em></div>
+            <div class="page-sub" id="dash-sub">Here's what's happening across your operation.</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-outline btn-sm" onclick="navTo('forms')">+ New Form</button>
+            <button class="btn btn-gold btn-sm" onclick="navTo('ai')">⚡ AI Analysis</button>
+          </div>
+        </div>
+
+        <div class="dash-kpi-row grid-4" style="margin-bottom:24px">
+          <div class="kpi-card card-accent">
+            <div class="kpi-label">Total Responses</div>
+            <div class="kpi-value" id="kpi-responses">0</div>
+            <div class="kpi-change neutral" id="kpi-responses-change">No data yet</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Active Forms</div>
+            <div class="kpi-value" id="kpi-forms">0</div>
+            <div class="kpi-change neutral" id="kpi-forms-change">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Avg. Readiness Score</div>
+            <div class="kpi-value" id="kpi-score">—</div>
+            <div class="kpi-change neutral" id="kpi-score-change">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Organisations</div>
+            <div class="kpi-value" id="kpi-orgs">0</div>
+            <div class="kpi-change neutral">Active clients</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">Recent Activity</div>
+            <div id="activity-feed">
+              <div class="empty-state">No activity yet</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Top Forms</div>
+            <div id="dash-top-forms"><div class="empty-state">No forms created</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ FORMS ══ -->
+      <div class="page" id="page-forms">
+        <div class="page-header">
+          <div class="page-title">Form <em>Builder</em></div>
+          <button class="btn btn-gold" onclick="openNewFormModal()">+ New Form</button>
+        </div>
+        <div id="forms-grid" class="grid-2"></div>
+      </div>
+
+      <!-- ══ RESPONSES ══ -->
+      <div class="page" id="page-responses">
+        <div class="page-header"><div class="page-title">Form <em>Responses</em></div></div>
+        <div class="card"><div id="responses-tbody"></div></div>
+      </div>
+
+      <!-- ══ AI ANALYSIS ══ -->
+      <div class="page" id="page-ai">
+        <div class="page-header"><div class="page-title">AI <em>Analysis</em></div></div>
+        <div class="card"><p>Select a response and configure your API key to begin.</p></div>
+      </div>
+
+      <!-- ══ ORGS ══ -->
+      <div class="page" id="page-orgs">
+        <div class="page-header"><div class="page-title">Client <em>Organisations</em></div></div>
+        <div id="orgs-grid" class="grid-3"></div>
+      </div>
+
+      <!-- ══ USERS ══ -->
+      <div class="page" id="page-users">
+        <div class="page-header"><div class="page-title">User <em>Management</em></div></div>
+        <div class="card"><div id="users-tbody"></div></div>
+      </div>
+
+      <!-- ══ METRICS ══ -->
+      <div class="page" id="page-metrics">
+        <div class="page-header"><div class="page-title">Live <em>Metrics</em></div></div>
+        <div id="metrics-content">Metrics dashboard</div>
+      </div>
+
+      <!-- ══ SETTINGS ══ -->
+      <div class="page" id="page-settings">
+        <div class="page-header"><div class="page-title">Settings</div></div>
+        <div class="card">API keys and preferences</div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ══════════ MODALS ══════════ -->
+  <div class="modal-overlay" id="modal-new-form">
+    <div class="modal modal-sm">
+      <div class="modal-header"><div class="modal-title">New Form</div><button class="modal-close" onclick="closeModal('modal-new-form')">×</button></div>
+      <div class="modal-body">
+        <div class="form-row"><label class="form-label">Form Name</label><input type="text" class="form-input" id="nf-name" placeholder="e.g. Operational Assessment"></div>
+        <div class="form-row"><label class="form-label">Organisation</label><select class="form-select" id="nf-org"></select></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('modal-new-form')">Cancel</button>
+        <button class="btn btn-gold" onclick="createNewForm()">Create & Build</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast"></div>
+
+  <!-- ══════════ JAVASCRIPT ══════════ -->
+  <script>
+    (function() {
+      // ═══════════════════════════════════════════════════════════
+      //  CONFIG & SUPABASE INIT
+      // ═══════════════════════════════════════════════════════════
+      let SUPABASE_URL = localStorage.getItem('il_sb_url') || 'https://pzioskykakwhwdlcmwyv.supabase.co';
+      let SUPABASE_KEY = localStorage.getItem('il_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
+
+      const { createClient } = supabase;
+      let sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // App state
+      let currentUser = null;
+      let currentRole = 'client';
+      let currentOrgId = null;
+      let allOrgs = [];
+      let allForms = [];
+      let allResponses = [];
+      let currentForm = null;
+
+      // ═══════════════════════════════════════════════════════════
+      //  AUTH
+      // ═══════════════════════════════════════════════════════════
+      window.authTab = function(tab, btn) {
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('ap-' + tab).classList.add('active');
+      };
+
+      window.doSignIn = async function() {
+        const email = document.getElementById('si-email').value.trim();
+        const pass = document.getElementById('si-pass').value;
+        const btn = document.getElementById('si-btn');
+        const msg = document.getElementById('si-msg');
+        if (!email || !pass) return showAuthMsg(msg, 'error', 'Enter email and password');
+        btn.disabled = true;
+        btn.textContent = 'Signing in…';
+        const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+        btn.disabled = false;
+        btn.textContent = 'Access Insight Layer';
+        if (error) return showAuthMsg(msg, 'error', error.message);
+        await bootApp(data.user);
+      };
+
+      window.doSignUp = async function() {
+        const name = document.getElementById('su-name').value.trim();
+        const email = document.getElementById('su-email').value.trim();
+        const pass = document.getElementById('su-pass').value;
+        const role = document.getElementById('su-role').value;
+        const btn = document.getElementById('su-btn');
+        const msg = document.getElementById('su-msg');
+        if (!name || !email || !pass) return showAuthMsg(msg, 'error', 'Fill in all fields');
+        btn.disabled = true;
+        btn.textContent = 'Creating…';
+        const { data, error } = await sb.auth.signUp({
+          email,
+          password: pass,
+          options: { data: { full_name: name, role } }
+        });
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+        if (error) return showAuthMsg(msg, 'error', error.message);
+        showAuthMsg(msg, 'success', 'Account created! Check your email to confirm, then sign in.');
+      };
+
+      window.doSignOut = async function() {
+        await sb.auth.signOut();
+        currentUser = null;
+        document.getElementById('app').style.display = 'none';
+        document.getElementById('auth-screen').style.display = 'flex';
+      };
+
+      function showAuthMsg(el, type, text) {
+        el.className = 'auth-msg ' + type;
+        el.textContent = text;
+      }
+
+      // Boot on load
+      sb.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) await bootApp(session.user);
+      });
+
+      async function bootApp(user) {
+        currentUser = user;
+        const meta = user.user_metadata || {};
+        currentRole = meta.role || 'operator';
+
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+
+        const name = meta.full_name || user.email.split('@')[0];
+        document.getElementById('tb-username').textContent = name;
+        document.getElementById('tb-role').textContent = currentRole;
+        document.getElementById('tb-avatar').textContent = name[0].toUpperCase();
+        document.getElementById('dash-name').textContent = name.split(' ')[0];
+
+        if (currentRole === 'client') {
+          document.querySelectorAll('.operator-only').forEach(el => el.style.display = 'none');
+        }
+
+        await loadOrgs();
+        await loadForms();
+        await loadDashboard();
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      //  NAVIGATION
+      // ═══════════════════════════════════════════════════════════
+      window.navTo = function(page) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        const targetPage = document.getElementById('page-' + page);
+        if (targetPage) targetPage.classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(n => {
+          if (n.textContent.toLowerCase().includes(page)) n.classList.add('active');
+        });
+        document.getElementById('breadcrumb-current').textContent = page.charAt(0).toUpperCase() + page.slice(1);
+        if (page === 'dashboard') loadDashboard();
+        if (page === 'forms') loadFormsPage();
+        if (page === 'orgs') loadOrgsPage();
+        if (page === 'responses') loadResponses();
+      };
+
+      window.toggleSidebar = function() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('sidebar-overlay').classList.toggle('open');
+      };
+
+      // ═══════════════════════════════════════════════════════════
+      //  TOAST
+      // ═══════════════════════════════════════════════════════════
+      window.toast = function(msg, type = 'info') {
+        const container = document.getElementById('toast');
+        const el = document.createElement('div');
+        el.className = `toast-item toast-${type}`;
+        el.textContent = msg;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 3000);
+      };
+
+      // ═══════════════════════════════════════════════════════════
+      //  MODALS
+      // ═══════════════════════════════════════════════════════════
+      window.openModal = function(id) { document.getElementById(id)?.classList.add('open'); };
+      window.closeModal = function(id) { document.getElementById(id)?.classList.remove('open'); };
+
+      // ═══════════════════════════════════════════════════════════
+      //  ORGS
+      // ═══════════════════════════════════════════════════════════
+      async function loadOrgs() {
+        try {
+          const { data, error } = await sb.from('il_organisations').select('*').order('created_at', { ascending: false });
+          if (error) throw error;
+          allOrgs = data || [];
+          const sel = document.getElementById('org-selector');
+          sel.innerHTML = allOrgs.length ? allOrgs.map(o => `<option value="${o.id}">${o.name}</option>`).join('') :
+            '<option value="">No organisations</option>';
+          if (allOrgs.length && !currentOrgId) {
+            currentOrgId = allOrgs[0].id;
+            sel.value = currentOrgId;
+          }
+          const nfOrg = document.getElementById('nf-org');
+          if (nfOrg) nfOrg.innerHTML = allOrgs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+        } catch (e) { /* offline mode */ }
+      }
+
+      window.onOrgChange = function(id) {
+        currentOrgId = id;
+        loadForms();
+        loadDashboard();
+      };
+
+      function loadOrgsPage() {
+        const grid = document.getElementById('orgs-grid');
+        if (!allOrgs.length) {
+          grid.innerHTML =
+            `<div class="empty-state"><p>No organisations yet.</p><button class="btn btn-gold btn-sm" onclick="openNewOrgModal()">+ New Organisation</button></div>`;
+          return;
+        }
+        grid.innerHTML = allOrgs.map(o => `
+          <div class="card" onclick="currentOrgId='${o.id}';document.getElementById('org-selector').value='${o.id}';navTo('dashboard')">
+            <div style="font-weight:700;font-size:18px">${o.name}</div>
+            <div style="color:var(--text-secondary);font-size:14px">${o.industry || 'General'}</div>
+            <div style="margin-top:12px"><span class="badge badge-blue">${o.contact_email || '—'}</span></div>
+          </div>`).join('');
+      }
+
+      window.openNewOrgModal = function() {
+        document.getElementById('no-name').value = '';
+        openModal('modal-new-org');
+      };
+
+      // ═══════════════════════════════════════════════════════════
+      //  DASHBOARD
+      // ═══════════════════════════════════════════════════════════
+      async function loadDashboard() {
+        try {
+          const { data: responses } = await sb.from('il_responses').select('*').order('created_at', { ascending: false });
+          allResponses = responses || [];
+          const totalResp = allResponses.length;
+          document.getElementById('kpi-responses').textContent = totalResp;
+          document.getElementById('kpi-forms').textContent = allForms.length;
+          document.getElementById('kpi-orgs').textContent = allOrgs.length;
+          const avgScore = totalResp ? Math.round(allResponses.reduce((a, r) => a + (r.readiness_score || 0), 0) / totalResp) : 0;
+          document.getElementById('kpi-score').textContent = totalResp ? avgScore : '—';
+          document.getElementById('responses-badge').style.display = totalResp > 0 ? 'inline' : 'none';
+          document.getElementById('responses-badge').textContent = totalResp;
+
+          const feed = document.getElementById('activity-feed');
+          if (allResponses.length) {
+            feed.innerHTML = allResponses.slice(0, 4).map(r => `
+              <div style="padding:12px 0;border-bottom:1px solid var(--border-light)">
+                <strong>${r.org_name || 'Anonymous'}</strong> submitted a response
+                <div style="font-size:13px;color:var(--text-secondary)">${new Date(r.created_at).toLocaleDateString()}</div>
+              </div>`).join('');
+          }
+        } catch (e) {}
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      //  FORMS
+      // ═══════════════════════════════════════════════════════════
+      async function loadForms() {
+        try {
+          const { data } = await sb.from('il_forms').select('*').order('created_at', { ascending: false });
+          allForms = data || [];
+        } catch (e) { allForms = []; }
+      }
+
+      async function loadFormsPage() {
+        await loadForms();
+        const grid = document.getElementById('forms-grid');
+        if (!allForms.length) {
+          grid.innerHTML =
+            `<div class="empty-state" style="grid-column:1/-1"><p>No forms yet.</p><button class="btn btn-gold btn-sm" onclick="openNewFormModal()">+ New Form</button></div>`;
+          return;
+        }
+        grid.innerHTML = allForms.map(f => `
+          <div class="card" style="cursor:pointer" onclick="openFormBuilder('${f.id}')">
+            <div style="font-weight:700;font-size:18px">${f.name}</div>
+            <div style="color:var(--text-secondary)">${f.description || 'No description'}</div>
+            <div style="margin-top:14px"><span class="badge badge-green">${(f.fields||[]).length} fields</span></div>
+          </div>`).join('');
+      }
+
+      window.openNewFormModal = function() {
+        const nfOrg = document.getElementById('nf-org');
+        nfOrg.innerHTML = allOrgs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+        document.getElementById('nf-name').value = '';
+        openModal('modal-new-form');
+      };
+
+      window.createNewForm = async function() {
+        const name = document.getElementById('nf-name').value.trim();
+        const orgId = document.getElementById('nf-org').value;
+        if (!name) return toast('Form name required', 'error');
+        const { data, error } = await sb.from('il_forms').insert([{
+          name,
+          org_id: orgId || null,
+          fields: [],
+          active: true,
+          created_by: currentUser.id
+        }]).select();
+        if (error) return toast(error.message, 'error');
+        toast('Form created!', 'success');
+        closeModal('modal-new-form');
+        allForms.unshift(data[0]);
+        loadFormsPage();
+      };
+
+      window.openFormBuilder = function(id) {
+        currentForm = allForms.find(f => f.id === id);
+        navTo('forms');
+        toast('Editing ' + (currentForm?.name || 'form'), 'info');
+      };
+
+      // ═══════════════════════════════════════════════════════════
+      //  RESPONSES
+      // ═══════════════════════════════════════════════════════════
+      async function loadResponses() {
+        const { data } = await sb.from('il_responses').select('*').order('created_at', { ascending: false });
+        allResponses = data || [];
+        const tbody = document.getElementById('responses-tbody');
+        if (!allResponses.length) {
+          tbody.innerHTML = '<div class="empty-state">No responses recorded.</div>';
+          return;
+        }
+        tbody.innerHTML = '<table><tr><th>Org</th><th>Form</th><th>Score</th><th>Date</th></tr>' +
+          allResponses.map(r => `
+            <tr>
+              <td>${r.org_name || '—'}</td>
+              <td>${allForms.find(f=>f.id===r.form_id)?.name || '—'}</td>
+              <td><span class="badge badge-blue">${r.readiness_score || 0}</span></td>
+              <td>${new Date(r.created_at).toLocaleDateString()}</td>
+            </tr>`).join('') + '</table>';
+      }
+
+      // Initial trigger
+      window.addEventListener('load', () => {
+        if (localStorage.getItem('il_sb_url')) {
+          document.getElementById('sb-url-input').value = localStorage.getItem('il_sb_url');
+        }
+      });
+
+    })();
+  </script>
+</body>
+</html>
