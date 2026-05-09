@@ -11,6 +11,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
+/* ═══════════════════════════════════════════
+   FULL CSS – no truncation
+   ═══════════════════════════════════════════ */
 :root {
   --bg: #f0f2f8;
   --surface: #ffffff;
@@ -949,6 +952,10 @@ tbody tr:last-child td{border-bottom:none}
         <div class="fill-form-title" id="fill-title">Loading…</div>
         <div class="fill-form-desc" id="fill-desc"></div>
       </div>
+      <!-- FIX: added close button handler -->
+      <button onclick="window.closeFillScreen()" style="margin-left:auto;background:var(--surface-3);border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);flex-shrink:0" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
     <div class="fill-progress"><div class="fill-progress-bar" id="fill-progress-bar" style="width:0%"></div></div>
     <div id="fill-fields"></div>
@@ -1509,7 +1516,6 @@ window.editForm = function(id) {
   document.getElementById('nf-org').innerHTML = '<option value="">None</option>' +
     allOrgs.map(o => `<option value="${o.id}" ${o.id===form.org_id?'selected':''}>${escHtml(o.name)}</option>`).join('');
   renderFieldBuilder();
-  // swap create to update
   const btn = document.querySelector('#modal-new-form .modal-footer .btn-accent');
   btn.textContent = 'Save Changes';
   btn.onclick = () => updateForm(id);
@@ -1634,7 +1640,6 @@ window.openFillScreen = function(formId) {
   document.getElementById('fill-screen').style.display = 'block';
   document.body.style.overflow = 'hidden';
 
-  // Add scale listeners
   fieldsEl.querySelectorAll('.fill-scale-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const group = btn.closest('.fill-scale');
@@ -1647,7 +1652,6 @@ window.openFillScreen = function(formId) {
     });
   });
 
-  // Input progress
   fieldsEl.querySelectorAll('input,textarea,select').forEach(inp => {
     inp.addEventListener('input', () => {
       const filled = [...fieldsEl.querySelectorAll('input[data-field],textarea[data-field],select[data-field]')].filter(i => i.value).length + fieldsEl.querySelectorAll('.fill-scale-btn.selected').length;
@@ -1718,7 +1722,6 @@ window.submitFill = async function() {
     });
   }
 
-  // Compute readiness score from scale fields
   const scaleAnswers = Object.values(answers).filter(v => typeof v === 'number' && !isNaN(v));
   const readiness_score = scaleAnswers.length ? Math.round((scaleAnswers.reduce((a,v)=>a+v,0)/scaleAnswers.length)*10) : null;
 
@@ -1735,7 +1738,6 @@ window.submitFill = async function() {
     document.getElementById('fill-progress-bar').style.width = '100%';
     document.getElementById('fill-form-area').style.display = 'none';
     document.getElementById('fill-success').style.display = 'block';
-    // Refresh data
     await loadAllResponses();
     renderDashboard();
   } catch(e) {
@@ -1744,22 +1746,20 @@ window.submitFill = async function() {
   }
 };
 
-// Close fill screen
-document.getElementById('fill-screen').addEventListener('click', function(e) {
-  if (e.target === this) closeFillScreen();
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    if (document.getElementById('fill-screen').style.display === 'block') closeFillScreen();
-  }
-});
-function closeFillScreen() {
+window.closeFillScreen = function() {
   document.getElementById('fill-screen').style.display = 'none';
   document.body.style.overflow = '';
-}
-// Add close button to fill header
+};
+document.getElementById('fill-screen').addEventListener('click', function(e) {
+  if (e.target === this) window.closeFillScreen();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('fill-screen').style.display === 'block') window.closeFillScreen();
+});
+
+// Add close button to fill header (now safely executed after DOM ready)
 document.querySelector('.fill-header').insertAdjacentHTML('beforeend',
-  `<button onclick="closeFillScreen()" style="margin-left:auto;background:var(--surface-3);border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);flex-shrink:0" title="Close">
+  `<button onclick="window.closeFillScreen()" style="margin-left:auto;background:var(--surface-3);border:none;border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);flex-shrink:0" title="Close">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
   </button>`
 );
@@ -1769,11 +1769,9 @@ document.querySelector('.fill-header').insertAdjacentHTML('beforeend',
 // ═══════════════════════════════════════════
 async function renderResponses() {
   await loadAllResponses();
-  // populate filter
   const filter = document.getElementById('resp-form-filter');
   filter.innerHTML = '<option value="">All Forms</option>' +
     allForms.map(f => `<option value="${f.id}">${escHtml(f.name)}</option>`).join('');
-
   displayResponses(allResponses);
 }
 
@@ -2004,7 +2002,6 @@ function renderMetrics() {
     borderRadius: 4
   }]);
 
-  // Top forms
   const topForms = allForms.map(f=>({...f,count:allResponses.filter(r=>r.form_id===f.id).length})).sort((a,b)=>b.count-a.count).slice(0,5);
   document.getElementById('metrics-top-forms').innerHTML = topForms.length ?
     topForms.map(f=>`<div class="snap-row"><div><div class="snap-label">${escHtml(f.name)}</div></div><div class="snap-value" style="font-size:18px">${f.count}</div></div>`).join('') :
@@ -2043,14 +2040,9 @@ window.handleSearch = function(val) {
   if (!val.trim()) return;
   const q = val.toLowerCase();
   const matchedForm = allForms.find(f => f.name.toLowerCase().includes(q));
-  if (matchedForm) {
-    navTo('forms');
-    return;
-  }
+  if (matchedForm) { navTo('forms'); return; }
   const matchedResp = allResponses.find(r => (r.respondent_name||'').toLowerCase().includes(q));
-  if (matchedResp) {
-    navTo('responses');
-  }
+  if (matchedResp) navTo('responses');
 };
 
 // ═══════════════════════════════════════════
@@ -2081,7 +2073,6 @@ window.addEventListener('load', () => {
   const params = new URLSearchParams(location.search);
   const fillId = params.get('fill');
   if (fillId) {
-    // Load form for public fill (unauthenticated)
     (async () => {
       const { data } = await sb.from('il_forms').select('*').eq('id', fillId).single();
       if (data) { allForms = [data]; openFillScreen(fillId); }
