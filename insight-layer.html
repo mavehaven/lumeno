@@ -1023,12 +1023,29 @@ async function bootApp(user) {
     document.querySelectorAll('.operator-only').forEach(el => el.style.display = 'none');
   }
 
+  // FIX: Attach field-type listener here after DOM is guaranteed ready
+  attachFieldTypeListener();
+
   startFocusTimer();
   drawInsightMap();
   await loadOrgs();
   await loadForms();
   await loadAllResponses();
   renderDashboard();
+}
+
+// FIX: Extracted into its own function and called after boot to avoid timing issues
+function attachFieldTypeListener() {
+  const sel = document.getElementById('field-type-input');
+  if (!sel) return;
+  // Remove any previous listeners by replacing the node
+  const fresh = sel.cloneNode(true);
+  sel.parentNode.replaceChild(fresh, sel);
+  fresh.addEventListener('change', function() {
+    const needs = ['select','radio','checkbox'].includes(this.value);
+    const wrap = document.getElementById('field-options-input-wrap');
+    if (wrap) wrap.style.display = needs ? 'block' : 'none';
+  });
 }
 
 // ─── FOCUS TIMER ──────────────────────────
@@ -1212,14 +1229,13 @@ function drawInsightMap() {
   });
 }
 
-// ─── SPARKLINES (FIXED: proper canvas sizing) ──
+// ─── SPARKLINES ──────────────────────────
 function drawSparklines() {
   function makeSparkline(id, data, color, bg) {
     const wrap = document.getElementById(id)?.closest('.snap-chart-wrap');
     const canvas = document.getElementById(id);
     if (!canvas || !wrap) return;
     if (sparkCharts[id]) { sparkCharts[id].destroy(); delete sparkCharts[id]; }
-    // Set canvas pixel dimensions explicitly to match container
     const w = wrap.offsetWidth || 70;
     const h = wrap.offsetHeight || 32;
     canvas.width = w;
@@ -1285,39 +1301,78 @@ window.openNewFormModal = function() {
   document.getElementById('nf-desc').value = '';
   document.getElementById('modal-form-title').textContent = 'Create New Form';
   document.getElementById('nf-submit-btn').textContent = 'Create Form';
-  document.getElementById('nf-org').innerHTML = '<option value="">None</option>' + allOrgs.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+
+  // FIX: Populate org dropdown freshly every time modal opens
+  const orgSel = document.getElementById('nf-org');
+  orgSel.innerHTML = '<option value="">None</option>' + allOrgs.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+
+  // FIX: Reset field type select and hide options input
+  const ftInput = document.getElementById('field-type-input');
+  if (ftInput) ftInput.value = 'text';
+  const optWrap = document.getElementById('field-options-input-wrap');
+  if (optWrap) optWrap.style.display = 'none';
+  const optInput = document.getElementById('field-options-input');
+  if (optInput) optInput.value = '';
+  const labelInput = document.getElementById('field-label-input');
+  if (labelInput) labelInput.value = '';
+
   renderFieldBuilder();
   openModal('modal-new-form');
 };
 
-// Show/hide options input for choice fields
-document.getElementById('field-type-input').addEventListener('change', function() {
-  const needs = ['select','radio','checkbox'].includes(this.value);
-  document.getElementById('field-options-input-wrap').style.display = needs ? 'block' : 'none';
-});
-
+// FIX: addField is now robust — reads current state of DOM elements safely
 window.addField = function() {
-  const label = document.getElementById('field-label-input').value.trim();
-  const type = document.getElementById('field-type-input').value;
+  const labelInput = document.getElementById('field-label-input');
+  const typeInput = document.getElementById('field-type-input');
+  const optionsInput = document.getElementById('field-options-input');
+  const optWrap = document.getElementById('field-options-input-wrap');
+
+  if (!labelInput || !typeInput) return toast('Form not ready', 'error');
+
+  const label = labelInput.value.trim();
+  const type = typeInput.value;
   if (!label) return toast('Enter a field label', 'error');
+
   const field = { id: Date.now().toString(), label, type, required: false, options: [] };
+
   if (['select','radio','checkbox'].includes(type)) {
-    const rawOpts = document.getElementById('field-options-input').value.trim();
-    field.options = rawOpts ? rawOpts.split(',').map(s => s.trim()).filter(Boolean) : ['Option 1','Option 2','Option 3'];
-    document.getElementById('field-options-input').value = '';
+    const rawOpts = optionsInput ? optionsInput.value.trim() : '';
+    field.options = rawOpts
+      ? rawOpts.split(',').map(s => s.trim()).filter(Boolean)
+      : ['Option 1','Option 2','Option 3'];
   }
+
   formFields.push(field);
-  document.getElementById('field-label-input').value = '';
-  document.getElementById('field-options-input-wrap').style.display = 'none';
-  document.getElementById('field-type-input').value = 'text';
+
+  // Reset inputs
+  labelInput.value = '';
+  if (optionsInput) optionsInput.value = '';
+  if (optWrap) optWrap.style.display = 'none';
+  typeInput.value = 'text';
+
   renderFieldBuilder();
+  // FIX: Focus label input after adding for fast multi-field entry
+  labelInput.focus();
 };
 
 function renderFieldBuilder() {
   const list = document.getElementById('field-builder-list');
-  if (!formFields.length) { list.innerHTML = '<div style="font-size:12px;color:var(--text-3);padding:7px 0">No fields added yet.</div>'; return; }
-  list.innerHTML = formFields.map((f,i) => `<div class="field-item"><span class="field-item-label">${esc(f.label)}</span><span class="field-item-type">${f.type}</span><button class="btn-icon btn-icon-red" style="width:22px;height:22px" onclick="removeField(${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`).join('');
+  if (!list) return;
+  if (!formFields.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-3);padding:7px 0">No fields added yet.</div>';
+    return;
+  }
+  list.innerHTML = formFields.map((f,i) => `
+    <div class="field-item">
+      <span class="field-item-label">${esc(f.label)}</span>
+      <span class="field-item-type">${esc(f.type)}</span>
+      ${f.options && f.options.length ? `<span style="font-size:10px;color:var(--text-3)">(${f.options.length} opts)</span>` : ''}
+      <button class="btn-icon btn-icon-red" style="width:22px;height:22px;margin-left:auto" onclick="removeField(${i})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`).join('');
 }
+
 window.removeField = function(i) { formFields.splice(i,1); renderFieldBuilder(); };
 
 window.submitFormModal = async function() {
@@ -1333,15 +1388,42 @@ async function createNewForm() {
   const name = document.getElementById('nf-name').value.trim();
   const desc = document.getElementById('nf-desc').value.trim();
   const orgId = document.getElementById('nf-org').value;
-  if (!name) return toast('Form name required', 'error');
-  const { data, error } = await sb.from('il_forms').insert([{ name, description: desc||null, org_id: orgId||null, fields: formFields, active: true, created_by: currentUser.id }]).select();
-  if (error) return toast(error.message, 'error');
-  toast('Form created!', 'success');
-  closeModal('modal-new-form');
-  allForms.unshift(data[0]);
-  document.getElementById('sb-forms-count').textContent = allForms.length;
-  renderDashboard();
-  renderFormsPage();
+
+  if (!name) return toast('Form name is required', 'error');
+
+  // FIX: Disable button to prevent double-submit
+  const submitBtn = document.getElementById('nf-submit-btn');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Creating…'; }
+
+  try {
+    const payload = {
+      name,
+      description: desc || null,
+      org_id: orgId || null,
+      fields: formFields,
+      active: true,
+      created_by: currentUser.id
+    };
+
+    const { data, error } = await sb.from('il_forms').insert([payload]).select();
+
+    if (error) throw error;
+
+    toast('Form created!', 'success');
+    closeModal('modal-new-form');
+    allForms.unshift(data[0]);
+    document.getElementById('sb-forms-count').textContent = allForms.length;
+    renderDashboard();
+    // FIX: Only re-render forms page if it's currently active
+    if (document.getElementById('page-forms').classList.contains('active')) {
+      renderFormsPage();
+    }
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    console.error('createNewForm error:', e);
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Create Form'; }
+  }
 }
 
 window.editForm = function(id) {
@@ -1353,7 +1435,16 @@ window.editForm = function(id) {
   document.getElementById('nf-desc').value = form.description || '';
   document.getElementById('modal-form-title').textContent = 'Edit Form';
   document.getElementById('nf-submit-btn').textContent = 'Save Changes';
-  document.getElementById('nf-org').innerHTML = '<option value="">None</option>' + allOrgs.map(o => `<option value="${o.id}" ${o.id===form.org_id?'selected':''}>${esc(o.name)}</option>`).join('');
+
+  const orgSel = document.getElementById('nf-org');
+  orgSel.innerHTML = '<option value="">None</option>' + allOrgs.map(o => `<option value="${o.id}" ${o.id===form.org_id?'selected':''}>${esc(o.name)}</option>`).join('');
+
+  // Reset add-field inputs
+  const ftInput = document.getElementById('field-type-input');
+  if (ftInput) ftInput.value = 'text';
+  const optWrap = document.getElementById('field-options-input-wrap');
+  if (optWrap) optWrap.style.display = 'none';
+
   renderFieldBuilder();
   openModal('modal-new-form');
 };
@@ -1362,14 +1453,33 @@ async function saveFormEdit(id) {
   const name = document.getElementById('nf-name').value.trim();
   const desc = document.getElementById('nf-desc').value.trim();
   const orgId = document.getElementById('nf-org').value;
+
   if (!name) return toast('Form name required', 'error');
-  const { error } = await sb.from('il_forms').update({ name, description: desc||null, org_id: orgId||null, fields: formFields }).eq('id', id);
-  if (error) return toast(error.message, 'error');
-  toast('Form updated!', 'success');
-  closeModal('modal-new-form');
-  await loadForms();
-  renderFormsPage();
-  renderDashboard();
+
+  const submitBtn = document.getElementById('nf-submit-btn');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving…'; }
+
+  try {
+    const { error } = await sb.from('il_forms').update({
+      name,
+      description: desc || null,
+      org_id: orgId || null,
+      fields: formFields
+    }).eq('id', id);
+
+    if (error) throw error;
+
+    toast('Form updated!', 'success');
+    closeModal('modal-new-form');
+    await loadForms();
+    renderFormsPage();
+    renderDashboard();
+  } catch(e) {
+    toast('Error: ' + e.message, 'error');
+    console.error('saveFormEdit error:', e);
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Save Changes'; }
+  }
 }
 
 window.deleteForm = async function(id) {
@@ -1471,7 +1581,6 @@ window.openFillScreen = function(formId) {
   const fields = form.fields || [];
   fieldsEl.innerHTML = fields.map((f,i) => renderFillField(f,i)).join('');
 
-  // Scale button interactions
   fieldsEl.querySelectorAll('.fill-scale-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       btn.closest('.fill-scale').querySelectorAll('.fill-scale-btn').forEach(b => b.classList.remove('selected'));
@@ -1524,7 +1633,7 @@ function renderFillField(f, i) {
     case 'scale':
       input = `<div class="fill-scale" id="${id}">${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`; break;
     case 'radio':
-      input = `<div class="fill-radio-group" id="${id}">${opts.map((o,j) => `<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
+      input = `<div class="fill-radio-group" id="${id}">${opts.map((o) => `<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
     case 'checkbox':
       input = `<div class="fill-checkbox-group" id="${id}">${opts.map(o => `<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
     case 'select':
@@ -1726,9 +1835,8 @@ window.copyAIOutput = function() {
   navigator.clipboard.writeText(document.getElementById('ai-output').innerText).then(() => toast('Copied!', 'success'));
 };
 
-// ─── METRICS (FIXED: proper chart containers) ──
+// ─── METRICS ──────────────────────────────
 function renderMetrics() {
-  // Destroy existing charts
   if (metricsCharts.volume) { metricsCharts.volume.destroy(); delete metricsCharts.volume; }
   if (metricsCharts.score) { metricsCharts.score.destroy(); delete metricsCharts.score; }
 
