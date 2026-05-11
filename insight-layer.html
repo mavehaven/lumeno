@@ -110,6 +110,22 @@ a { color: inherit; text-decoration: none; }
 .auth-msg.error { background: var(--red-soft); color: var(--red); display: block; border: 1px solid rgba(240,91,91,0.2); }
 .auth-msg.success { background: var(--green-soft); color: var(--green); display: block; border: 1px solid rgba(45,224,138,0.2); }
 
+/* Forgot password link */
+.auth-forgot {
+  display: block; text-align: right; font-size: 11.5px;
+  color: var(--accent); margin-top: -6px; margin-bottom: 12px;
+  cursor: pointer; background: none; border: none; padding: 0;
+  transition: var(--t);
+}
+.auth-forgot:hover { opacity: 0.75; }
+.auth-back {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11.5px; color: var(--text-3); background: none; border: none;
+  cursor: pointer; margin-bottom: 14px; transition: var(--t); padding: 0;
+}
+.auth-back:hover { color: var(--text-1); }
+.auth-back svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; }
+
 /* ── APP SHELL ───────────────────────────────────────────── */
 #app { display: none; min-height: 100vh; }
 
@@ -567,31 +583,59 @@ tbody tr:last-child td { border-bottom: none; }
 <div id="auth-screen">
   <div class="auth-card">
     <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" class="auth-logo" onerror="this.style.display='none'">
-    <div class="auth-title">Welcome back</div>
-    <div class="auth-desc">Sign in to access your intelligence dashboard.</div>
-    <div class="auth-tabs">
-      <button class="auth-tab active" onclick="authTab('signin',this)">Sign In</button>
-      <button class="auth-tab" onclick="authTab('signup',this)">Register</button>
-    </div>
-    <div id="ap-signin" class="auth-panel active">
-      <div class="f-group"><label class="f-label">Email</label><input type="email" class="f-input" id="si-email" placeholder="you@org.com"></div>
-      <div class="f-group"><label class="f-label">Password</label><input type="password" class="f-input" id="si-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignIn()"></div>
-      <button class="btn-auth" onclick="doSignIn()" id="si-btn">Access Insight Layer</button>
-      <div class="auth-msg" id="si-msg"></div>
-    </div>
-    <div id="ap-signup" class="auth-panel">
-      <div class="f-group"><label class="f-label">Full Name</label><input type="text" class="f-input" id="su-name" placeholder="Your full name"></div>
-      <div class="f-group"><label class="f-label">Email</label><input type="email" class="f-input" id="su-email" placeholder="you@org.com"></div>
-      <div class="f-group"><label class="f-label">Password</label><input type="password" class="f-input" id="su-pass" placeholder="Min 8 characters"></div>
-      <div class="f-group">
-        <label class="f-label">Role</label>
-        <select class="f-input" id="su-role">
-          <option value="operator">Operator — manages clients &amp; forms</option>
-          <option value="client">Client — fills forms, views own data</option>
-        </select>
+
+    <!-- Sign In / Register tabs (hidden when showing reset panel) -->
+    <div id="auth-main">
+      <div class="auth-title">Welcome back</div>
+      <div class="auth-desc">Sign in to access your intelligence dashboard.</div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="authTab('signin',this)">Sign In</button>
+        <button class="auth-tab" onclick="authTab('signup',this)">Register</button>
       </div>
-      <button class="btn-auth" onclick="doSignUp()" id="su-btn">Create Account</button>
-      <div class="auth-msg" id="su-msg"></div>
+
+      <!-- Sign In -->
+      <div id="ap-signin" class="auth-panel active">
+        <div class="f-group"><label class="f-label">Email</label><input type="email" class="f-input" id="si-email" placeholder="you@org.com"></div>
+        <div class="f-group">
+          <label class="f-label">Password</label>
+          <input type="password" class="f-input" id="si-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignIn()">
+        </div>
+        <button class="auth-forgot" onclick="showResetPanel()">Forgot password?</button>
+        <button class="btn-auth" onclick="doSignIn()" id="si-btn">Access Insight Layer</button>
+        <div class="auth-msg" id="si-msg"></div>
+      </div>
+
+      <!-- Register -->
+      <div id="ap-signup" class="auth-panel">
+        <div class="f-group"><label class="f-label">Full Name</label><input type="text" class="f-input" id="su-name" placeholder="Your full name"></div>
+        <div class="f-group"><label class="f-label">Email</label><input type="email" class="f-input" id="su-email" placeholder="you@org.com"></div>
+        <div class="f-group"><label class="f-label">Password</label><input type="password" class="f-input" id="su-pass" placeholder="Min 8 characters"></div>
+        <div class="f-group">
+          <label class="f-label">Role</label>
+          <select class="f-input" id="su-role">
+            <option value="operator">Operator — manages clients &amp; forms</option>
+            <option value="client">Client — fills forms, views own data</option>
+          </select>
+        </div>
+        <button class="btn-auth" onclick="doSignUp()" id="su-btn">Create Account</button>
+        <div class="auth-msg" id="su-msg"></div>
+      </div>
+    </div>
+
+    <!-- Password Reset Panel (replaces main auth UI) -->
+    <div id="auth-reset" style="display:none">
+      <button class="auth-back" onclick="hideResetPanel()">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to sign in
+      </button>
+      <div class="auth-title">Reset password</div>
+      <div class="auth-desc">We'll send a reset link to your email address.</div>
+      <div class="f-group" id="reset-email-group">
+        <label class="f-label">Email</label>
+        <input type="email" class="f-input" id="reset-email" placeholder="you@org.com" onkeydown="if(event.key==='Enter')doPasswordReset()">
+      </div>
+      <button class="btn-auth" onclick="doPasswordReset()" id="reset-btn">Send Reset Link</button>
+      <div class="auth-msg" id="reset-msg"></div>
     </div>
   </div>
 </div>
@@ -952,7 +996,10 @@ tbody tr:last-child td { border-bottom: none; }
           <div class="card-header"><span class="card-label">Account</span></div>
           <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">Signed in as <strong id="settings-email">—</strong></div>
           <div class="form-row"><label class="form-label">Role</label><input type="text" class="form-input" id="settings-role" disabled></div>
-          <button class="btn btn-outline" onclick="doSignOut()">Sign Out</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-outline" onclick="doSignOut()">Sign Out</button>
+            <button class="btn btn-ghost" onclick="showResetPanel(); navTo('dashboard'); document.getElementById('auth-screen').style.display='none';" style="display:none" id="settings-reset-btn">Change Password</button>
+          </div>
         </div>
       </div>
     </div>
@@ -973,7 +1020,6 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="form-row"><label class="form-label">Form Name *</label><input type="text" class="form-input" id="nf-name" placeholder="e.g. Operational Readiness Assessment"></div>
       <div class="form-row"><label class="form-label">Description</label><input type="text" class="form-input" id="nf-desc" placeholder="What this form assesses…"></div>
       <div class="form-row"><label class="form-label">Organisation</label><select class="form-select" id="nf-org"><option value="">None</option></select></div>
-
       <div class="form-row">
         <label class="form-label">Fields</label>
         <div class="field-builder-list" id="field-builder-list"></div>
@@ -1118,9 +1164,6 @@ tbody tr:last-child td { border-bottom: none; }
 
 <!-- ═══════════ SCRIPT ═══════════ -->
 <script>
-  const { data, error } = await sb.from('il_organisations').select('*');
-// if (error) { console.error('Permission error:', error); toast(error.message, 'error'); return; }
-
 (function () {
 'use strict';
 
@@ -1138,7 +1181,7 @@ let currentOrgId = '';
 let allOrgs = [];
 let allForms = [];
 let allResponses = [];
-let formFields = []; // fields being built in the modal
+let formFields = [];
 let currentShareFormId = null;
 let sparkCharts = {};
 let metricsCharts = {};
@@ -1172,13 +1215,6 @@ function toast(msg, type = 'info') {
   setTimeout(() => el.remove(), 3800);
 }
 
-function setBtn(id, disabled, text) {
-  const btn = document.getElementById(id);
-  if (!btn) return;
-  btn.disabled = disabled;
-  if (text !== undefined) btn.textContent = text;
-}
-
 /* ── AUTH ────────────────────────────────────────────────── */
 window.authTab = function (tab, btn) {
   document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
@@ -1189,17 +1225,65 @@ window.authTab = function (tab, btn) {
 
 function showAuthMsg(elId, type, text) {
   const el = document.getElementById(elId);
+  if (!el) return;
   el.className = 'auth-msg ' + type;
   el.textContent = text;
 }
+
+/* ── PASSWORD RESET ──────────────────────────────────────── */
+window.showResetPanel = function () {
+  document.getElementById('auth-main').style.display = 'none';
+  document.getElementById('auth-reset').style.display = 'block';
+  document.getElementById('reset-email').value = document.getElementById('si-email')?.value || '';
+  document.getElementById('reset-msg').className = 'auth-msg';
+  document.getElementById('reset-msg').textContent = '';
+  document.getElementById('reset-btn').disabled = false;
+  document.getElementById('reset-btn').textContent = 'Send Reset Link';
+};
+
+window.hideResetPanel = function () {
+  document.getElementById('auth-reset').style.display = 'none';
+  document.getElementById('auth-main').style.display = 'block';
+};
+
+window.doPasswordReset = async function () {
+  const email = document.getElementById('reset-email').value.trim();
+  if (!email) return showAuthMsg('reset-msg', 'error', 'Please enter your email address.');
+
+  const btn = document.getElementById('reset-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  // redirectTo should point back to the app so Supabase can complete the flow
+  const redirectTo = `${location.protocol}//${location.host}${location.pathname}`;
+
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+
+  if (error) {
+    showAuthMsg('reset-msg', 'error', error.message);
+    btn.disabled = false;
+    btn.textContent = 'Send Reset Link';
+  } else {
+    showAuthMsg('reset-msg', 'success', 'Reset link sent! Check your inbox (and spam folder).');
+    btn.textContent = 'Sent ✓';
+    // Auto-return to sign-in after 4s
+    setTimeout(() => {
+      hideResetPanel();
+      authTab('signin', document.querySelector('.auth-tab'));
+    }, 4000);
+  }
+};
 
 window.doSignIn = async function () {
   const email = document.getElementById('si-email').value.trim();
   const pass = document.getElementById('si-pass').value;
   if (!email || !pass) return showAuthMsg('si-msg', 'error', 'Enter email and password');
-  setBtn('si-btn', true, 'Signing in…');
+  const btn = document.getElementById('si-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-  setBtn('si-btn', false, 'Access Insight Layer');
+  btn.disabled = false;
+  btn.textContent = 'Access Insight Layer';
   if (error) return showAuthMsg('si-msg', 'error', error.message);
   await bootApp(data.user);
 };
@@ -1211,9 +1295,12 @@ window.doSignUp = async function () {
   const role = document.getElementById('su-role').value;
   if (!name || !email || !pass) return showAuthMsg('su-msg', 'error', 'Fill in all fields');
   if (pass.length < 8) return showAuthMsg('su-msg', 'error', 'Password must be at least 8 characters');
-  setBtn('su-btn', true, 'Creating…');
+  const btn = document.getElementById('su-btn');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
   const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name, role } } });
-  setBtn('su-btn', false, 'Create Account');
+  btn.disabled = false;
+  btn.textContent = 'Create Account';
   if (error) return showAuthMsg('su-msg', 'error', error.message);
   showAuthMsg('su-msg', 'success', 'Account created! Check your email, then sign in.');
 };
@@ -1223,10 +1310,31 @@ window.doSignOut = async function () {
   currentUser = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
+  hideResetPanel();
 };
 
-sb.auth.onAuthStateChange(async (_event, session) => {
-  if (session?.user && !currentUser) await bootApp(session.user);
+// Handle Supabase auth events — including PASSWORD_RECOVERY
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    // User clicked the reset link in their email — prompt new password
+    const newPass = prompt('Enter your new password (min 8 characters):');
+    if (!newPass || newPass.length < 8) {
+      toast('Password must be at least 8 characters. Please try again.', 'error');
+      return;
+    }
+    const { error } = await sb.auth.updateUser({ password: newPass });
+    if (error) {
+      toast('Could not update password: ' + error.message, 'error');
+    } else {
+      toast('Password updated successfully! You are now signed in.', 'success');
+      if (session?.user) await bootApp(session.user);
+    }
+    return;
+  }
+
+  if (event === 'SIGNED_IN' && session?.user && !currentUser) {
+    await bootApp(session.user);
+  }
 });
 
 /* ── BOOT ────────────────────────────────────────────────── */
@@ -1251,9 +1359,7 @@ async function bootApp(user) {
     document.querySelectorAll('.operator-only').forEach(el => el.style.display = 'none');
   }
 
-  // Wire up the form modal buttons ONCE here
   wireFormModal();
-
   startFocusTimer();
   drawInsightMap();
   await loadOrgs();
@@ -1449,7 +1555,7 @@ function drawInsightMap() {
     { label: 'Organisations', x: 20, y: 82, size: 28, color: 'var(--text-3)' },
     { label: 'Share & QR', x: 68, y: 78, size: 30, color: 'var(--red)' },
   ];
-  const edges = [[0, 1], [0, 2], [0, 3], [2, 4], [3, 5], [1, 3]];
+  const edges = [[0,1],[0,2],[0,3],[2,4],[3,5],[1,3]];
 
   if (svg) {
     edges.forEach(([a, b]) => {
@@ -1457,7 +1563,8 @@ function drawInsightMap() {
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       line.setAttribute('x1', na.x + '%'); line.setAttribute('y1', na.y + '%');
       line.setAttribute('x2', nb.x + '%'); line.setAttribute('y2', nb.y + '%');
-      line.setAttribute('stroke', 'rgba(255,255,255,0.06)'); line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('stroke', 'rgba(255,255,255,0.06)');
+      line.setAttribute('stroke-width', '1.5');
       line.setAttribute('stroke-dasharray', '4 3');
       svg.appendChild(line);
     });
@@ -1487,7 +1594,7 @@ function drawSparklines() {
     const wrap = document.querySelector(`#${id}`)?.closest('.snap-chart-wrap');
     const canvas = document.getElementById(id);
     if (!canvas || !wrap) return;
-    if (sparkCharts[id]) { sparkCharts[id].destroy(); delete sparkCharts[id]; }
+    if (sparkCharts[id]) { try { sparkCharts[id].destroy(); } catch(e){} delete sparkCharts[id]; }
     canvas.width = wrap.offsetWidth || 68;
     canvas.height = wrap.offsetHeight || 30;
     sparkCharts[id] = new Chart(canvas, {
@@ -1511,7 +1618,7 @@ function drawSparklines() {
 
   makeSparkline('chart-forms', formsData.some(v => v > 0) ? formsData : fallback8(allForms.length), '#2de08a', 'rgba(45,224,138,0.10)');
   makeSparkline('chart-resp', respData.some(v => v > 0) ? respData : fallback8(allResponses.length), '#6c7ef8', 'rgba(108,126,248,0.10)');
-  makeSparkline('chart-score', [58, 62, 65, 68, 70, 72, 74, 76], '#f5b942', 'rgba(245,185,66,0.10)');
+  makeSparkline('chart-score', [58,62,65,68,70,72,74,76], '#f5b942', 'rgba(245,185,66,0.10)');
 }
 
 function buildCumulative(items, days) {
@@ -1571,57 +1678,27 @@ async function renderFormsPage() {
   }).join('');
 }
 
-/* ── FORM MODAL (CRITICAL SECTION) ───────────────────────── */
-
-/**
- * Wire all form-modal interactivity ONCE after boot.
- * This avoids race conditions from duplicated event listeners.
- */
+/* ── FORM MODAL ──────────────────────────────────────────── */
 function wireFormModal() {
-  // Field type select → show/hide options input
   const typeSelect = document.getElementById('field-type-input');
   const optWrap = document.getElementById('field-options-input-wrap');
   if (typeSelect && optWrap) {
     typeSelect.addEventListener('change', function () {
-      const needs = ['select', 'radio', 'checkbox'].includes(this.value);
-      optWrap.style.display = needs ? 'block' : 'none';
+      optWrap.style.display = ['select','radio','checkbox'].includes(this.value) ? 'block' : 'none';
     });
   }
 
-  // Add field button
   const addBtn = document.getElementById('add-field-btn');
-  if (addBtn) {
-    addBtn.addEventListener('click', function (e) {
-      e.preventDefault();
-      addField();
-    });
-  }
+  if (addBtn) addBtn.addEventListener('click', e => { e.preventDefault(); addField(); });
 
-  // Allow pressing Enter in the label input to add the field
   const labelInput = document.getElementById('field-label-input');
-  if (labelInput) {
-    labelInput.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); addField(); }
-    });
-  }
+  if (labelInput) labelInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addField(); } });
 
-  // Submit / save button
   const submitBtn = document.getElementById('nf-submit-btn');
-  if (submitBtn) {
-    submitBtn.addEventListener('click', function (e) {
-      e.preventDefault();
-      submitFormModal();
-    });
-  }
+  if (submitBtn) submitBtn.addEventListener('click', e => { e.preventDefault(); submitFormModal(); });
 
-  // Fill screen submit
   const fillSubmit = document.getElementById('fill-submit-btn');
-  if (fillSubmit) {
-    fillSubmit.addEventListener('click', function (e) {
-      e.preventDefault();
-      submitFill();
-    });
-  }
+  if (fillSubmit) fillSubmit.addEventListener('click', e => { e.preventDefault(); submitFill(); });
 }
 
 window.openNewFormModal = function () {
@@ -1630,15 +1707,14 @@ window.openNewFormModal = function () {
   document.getElementById('nf-name').value = '';
   document.getElementById('nf-desc').value = '';
   document.getElementById('modal-form-title').textContent = 'Create New Form';
-  document.getElementById('nf-submit-btn').textContent = 'Create Form';
-  document.getElementById('nf-submit-btn').disabled = false;
+  const btn = document.getElementById('nf-submit-btn');
+  btn.textContent = 'Create Form';
+  btn.disabled = false;
 
-  // Populate org select freshly
   const orgSel = document.getElementById('nf-org');
   orgSel.innerHTML = '<option value="">None</option>' +
     allOrgs.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
 
-  // Reset field add area
   document.getElementById('field-label-input').value = '';
   document.getElementById('field-type-input').value = 'text';
   document.getElementById('field-options-input').value = '';
@@ -1661,21 +1737,16 @@ function addField() {
   const type = typeEl.value;
   const field = { id: String(Date.now()), label, type, required: false, options: [] };
 
-  if (['select', 'radio', 'checkbox'].includes(type)) {
+  if (['select','radio','checkbox'].includes(type)) {
     const raw = optionsEl ? optionsEl.value.trim() : '';
-    field.options = raw
-      ? raw.split(',').map(s => s.trim()).filter(Boolean)
-      : ['Option 1', 'Option 2', 'Option 3'];
+    field.options = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : ['Option 1','Option 2','Option 3'];
   }
 
   formFields.push(field);
-
-  // Reset add-area
   labelEl.value = '';
   if (optionsEl) optionsEl.value = '';
   if (optWrap) optWrap.style.display = 'none';
   typeEl.value = 'text';
-
   renderFieldBuilder();
   labelEl.focus();
 }
@@ -1692,7 +1763,7 @@ function renderFieldBuilder() {
       <span class="field-item-label">${esc(f.label)}</span>
       <span class="field-item-type">${esc(f.type)}</span>
       ${f.options && f.options.length ? `<span style="font-size:10px;color:var(--text-3)">(${f.options.length} opts)</span>` : ''}
-      <button class="btn-icon btn-icon-red" style="width:22px;height:22px;margin-left:auto" onclick="removeField(${i})" title="Remove field">
+      <button class="btn-icon btn-icon-red" style="width:22px;height:22px;margin-left:auto" onclick="removeField(${i})" title="Remove">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>`).join('');
@@ -1705,18 +1776,14 @@ window.removeField = function (i) {
 
 async function submitFormModal() {
   const editId = document.getElementById('nf-edit-id').value;
-  if (editId) {
-    await saveFormEdit(editId);
-  } else {
-    await createNewForm();
-  }
+  if (editId) await saveFormEdit(editId);
+  else await createNewForm();
 }
 
 async function createNewForm() {
   const name = document.getElementById('nf-name').value.trim();
   const desc = document.getElementById('nf-desc').value.trim();
   const orgId = document.getElementById('nf-org').value;
-
   if (!name) { toast('Form name is required', 'error'); return; }
 
   const btn = document.getElementById('nf-submit-btn');
@@ -1724,33 +1791,20 @@ async function createNewForm() {
   btn.textContent = 'Creating…';
 
   try {
-    const payload = {
-      name,
-      description: desc || null,
-      org_id: orgId || null,
-      fields: formFields,
-      active: true,
-      created_by: currentUser.id
-    };
-
-    const { data, error } = await sb.from('il_forms').insert([payload]).select();
+    const { data, error } = await sb.from('il_forms').insert([{
+      name, description: desc || null, org_id: orgId || null,
+      fields: formFields, active: true, created_by: currentUser.id
+    }]).select();
     if (error) throw error;
 
     closeModal('modal-new-form');
     toast('Form created!', 'success');
-
-    // Add to local cache immediately
     allForms.unshift(data[0]);
     document.getElementById('sb-forms-count').textContent = allForms.length;
     renderDashboard();
-
-    // Only re-render forms grid if that page is currently visible
-    if (document.getElementById('page-forms').classList.contains('active')) {
-      renderFormsPage();
-    }
+    if (document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
   } catch (e) {
     toast('Error: ' + e.message, 'error');
-    console.error('createNewForm:', e);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Create Form';
@@ -1760,22 +1814,19 @@ async function createNewForm() {
 window.editForm = function (id) {
   const form = allForms.find(f => f.id === id);
   if (!form) return;
-
-  // Deep-copy fields so editing doesn't mutate the original until saved
   formFields = JSON.parse(JSON.stringify(form.fields || []));
-
   document.getElementById('nf-edit-id').value = id;
   document.getElementById('nf-name').value = form.name;
   document.getElementById('nf-desc').value = form.description || '';
   document.getElementById('modal-form-title').textContent = 'Edit Form';
-  document.getElementById('nf-submit-btn').textContent = 'Save Changes';
-  document.getElementById('nf-submit-btn').disabled = false;
+  const btn = document.getElementById('nf-submit-btn');
+  btn.textContent = 'Save Changes';
+  btn.disabled = false;
 
   const orgSel = document.getElementById('nf-org');
   orgSel.innerHTML = '<option value="">None</option>' +
     allOrgs.map(o => `<option value="${o.id}" ${o.id === form.org_id ? 'selected' : ''}>${esc(o.name)}</option>`).join('');
 
-  // Reset add-area
   document.getElementById('field-label-input').value = '';
   document.getElementById('field-type-input').value = 'text';
   document.getElementById('field-options-input').value = '';
@@ -1797,15 +1848,10 @@ async function saveFormEdit(id) {
 
   try {
     const { data, error } = await sb.from('il_forms').update({
-      name,
-      description: desc || null,
-      org_id: orgId || null,
-      fields: formFields
+      name, description: desc || null, org_id: orgId || null, fields: formFields
     }).eq('id', id).select();
-
     if (error) throw error;
 
-    // Patch local cache
     const idx = allForms.findIndex(f => f.id === id);
     if (idx !== -1) allForms[idx] = data[0];
 
@@ -1815,7 +1861,6 @@ async function saveFormEdit(id) {
     if (document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
   } catch (e) {
     toast('Error: ' + e.message, 'error');
-    console.error('saveFormEdit:', e);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Save Changes';
@@ -1826,7 +1871,6 @@ window.deleteForm = async function (id) {
   if (!confirm('Delete this form and all its responses? This cannot be undone.')) return;
   const { error } = await sb.from('il_forms').delete().eq('id', id);
   if (error) return toast(error.message, 'error');
-  // Cascade delete on DB handles responses; clean local cache too
   allForms = allForms.filter(f => f.id !== id);
   allResponses = allResponses.filter(r => r.form_id !== id);
   toast('Form deleted', 'info');
@@ -1851,7 +1895,6 @@ window.openShareModal = function (formId) {
   document.getElementById('share-form-name').textContent = form.name;
   document.getElementById('share-form-org').textContent = org ? org.name : 'LumenOS';
   document.getElementById('share-url-text').textContent = getFormURL(formId);
-  // Reset to link tab
   document.querySelectorAll('.share-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
   document.querySelectorAll('.share-panel').forEach((p, i) => p.classList.toggle('active', i === 0));
   openModal('modal-share');
@@ -1911,10 +1954,8 @@ window.shareTo = function (platform) {
 
 /* ── FILL SCREEN ─────────────────────────────────────────── */
 window.openFillScreen = function (formId) {
-  // Try local cache first; fall back to a shell with the id
   const form = allForms.find(f => f.id === formId);
   if (!form) {
-    // Load from DB for public ?fill= access
     sb.from('il_forms').select('*').eq('id', formId).single().then(({ data, error }) => {
       if (error || !data) { toast('Form not found', 'error'); return; }
       if (!allForms.find(f => f.id === data.id)) allForms.push(data);
@@ -1940,7 +1981,6 @@ function _openFillWith(form) {
   const fields = form.fields || [];
   fieldsEl.innerHTML = fields.map((f, i) => renderFillField(f, i)).join('');
 
-  // Scale buttons
   fieldsEl.querySelectorAll('.fill-scale-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       btn.closest('.fill-scale').querySelectorAll('.fill-scale-btn').forEach(b => b.classList.remove('selected'));
@@ -1949,7 +1989,6 @@ function _openFillWith(form) {
     });
   });
 
-  // Any input change updates progress bar
   fieldsEl.querySelectorAll('input, select, textarea').forEach(inp => {
     inp.addEventListener('change', () => updateFillProgress(fields));
     inp.addEventListener('input', () => updateFillProgress(fields));
@@ -1981,31 +2020,18 @@ function updateFillProgress(fields) {
 
 function renderFillField(f, i) {
   const id = `fill-f-${i}`;
-  const opts = (f.options && f.options.length) ? f.options : ['Option 1', 'Option 2', 'Option 3'];
+  const opts = (f.options && f.options.length) ? f.options : ['Option 1','Option 2','Option 3'];
   let input = '';
   switch (f.type) {
-    case 'textarea':
-      input = `<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your answer…"></textarea>`; break;
-    case 'number':
-      input = `<input type="number" class="fill-input" id="${id}" placeholder="0">`; break;
-    case 'email':
-      input = `<input type="email" class="fill-input" id="${id}" placeholder="you@email.com">`; break;
-    case 'date':
-      input = `<input type="date" class="fill-input" id="${id}">`; break;
-    case 'scale':
-      input = `<div class="fill-scale" id="${id}">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n =>
-        `<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`; break;
-    case 'radio':
-      input = `<div class="fill-radio-group" id="${id}">${opts.map(o =>
-        `<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
-    case 'checkbox':
-      input = `<div class="fill-checkbox-group" id="${id}">${opts.map(o =>
-        `<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
-    case 'select':
-      input = `<select class="fill-input" id="${id}"><option value="">Select…</option>${opts.map(o =>
-        `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`; break;
-    default:
-      input = `<input type="text" class="fill-input" id="${id}" placeholder="Your answer…">`;
+    case 'textarea': input = `<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your answer…"></textarea>`; break;
+    case 'number': input = `<input type="number" class="fill-input" id="${id}" placeholder="0">`; break;
+    case 'email': input = `<input type="email" class="fill-input" id="${id}" placeholder="you@email.com">`; break;
+    case 'date': input = `<input type="date" class="fill-input" id="${id}">`; break;
+    case 'scale': input = `<div class="fill-scale" id="${id}">${[1,2,3,4,5,6,7,8,9,10].map(n => `<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`; break;
+    case 'radio': input = `<div class="fill-radio-group" id="${id}">${opts.map(o => `<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
+    case 'checkbox': input = `<div class="fill-checkbox-group" id="${id}">${opts.map(o => `<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
+    case 'select': input = `<select class="fill-input" id="${id}"><option value="">Select…</option>${opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`; break;
+    default: input = `<input type="text" class="fill-input" id="${id}" placeholder="Your answer…">`;
   }
   return `<div class="fill-field">
     <div class="fill-field-label">${esc(f.label)}${f.required ? '<span class="fill-required">*</span>' : ''}</div>
@@ -2023,7 +2049,6 @@ async function submitFill() {
   btn.textContent = 'Submitting…';
   document.getElementById('fill-progress-bar').style.width = '95%';
 
-  // Collect answers
   const answers = {};
   if (form?.fields) {
     form.fields.forEach((f, i) => {
@@ -2035,8 +2060,7 @@ async function submitFill() {
         const sel = document.querySelector(`input[name="${id}"]:checked`);
         answers[f.label] = sel ? sel.value : null;
       } else if (f.type === 'checkbox') {
-        const sels = [...document.querySelectorAll(`#${id} input:checked`)];
-        answers[f.label] = sels.map(s => s.value);
+        answers[f.label] = [...document.querySelectorAll(`#${id} input:checked`)].map(s => s.value);
       } else {
         const el = document.getElementById(id);
         answers[f.label] = el ? (el.value || null) : null;
@@ -2044,7 +2068,6 @@ async function submitFill() {
     });
   }
 
-  // Compute readiness score from scale fields
   const scaleVals = Object.values(answers).filter(v => typeof v === 'number' && !isNaN(v));
   const readiness_score = scaleVals.length
     ? Math.round((scaleVals.reduce((a, v) => a + v, 0) / scaleVals.length) * 10)
@@ -2155,7 +2178,7 @@ window.exportCSV = function () {
   const id = document.getElementById('resp-form-filter').value;
   const data = id ? allResponses.filter(r => r.form_id === id) : allResponses;
   if (!data.length) return toast('No data to export', 'error');
-  const headers = ['ID', 'Respondent', 'Form', 'Score', 'Submitted', 'Answers'];
+  const headers = ['ID','Respondent','Form','Score','Submitted','Answers'];
   const rows = data.map(r => {
     const form = allForms.find(f => f.id === r.form_id);
     const a = JSON.stringify(r.answers || {}).replace(/"/g, '""');
@@ -2216,7 +2239,6 @@ window.createOrg = async function () {
   await loadOrgs();
   renderOrgsPage();
   document.getElementById('kpi-orgs').textContent = allOrgs.length;
-  // Reset form
   document.getElementById('no-name').value = '';
   document.getElementById('no-industry').value = '';
   document.getElementById('no-email').value = '';
@@ -2239,7 +2261,7 @@ window.runAI = async function () {
   const toAnalyse = formId ? allResponses.filter(r => r.form_id === formId) : allResponses;
   if (!toAnalyse.length) return toast('No responses to analyse', 'error');
 
-  output.innerHTML = '<div style="color:var(--text-3);font-size:13px;padding:20px;text-align:center;animation:pulse 1.5s ease infinite">Analysing with Claude…</div>';
+  output.innerHTML = '<div style="color:var(--text-3);font-size:13px;padding:20px;text-align:center">Analysing with Claude…</div>';
   document.getElementById('ai-copy-btn').style.display = 'none';
 
   const form = formId ? allForms.find(f => f.id === formId) : null;
@@ -2283,18 +2305,16 @@ window.copyAIOutput = function () {
 
 /* ── METRICS ─────────────────────────────────────────────── */
 function renderMetrics() {
-  // Destroy old charts
-  Object.values(metricsCharts).forEach(c => { try { c.destroy(); } catch (e) { } });
+  Object.values(metricsCharts).forEach(c => { try { c.destroy(); } catch(e){} });
   metricsCharts = {};
 
-  // Volume chart
   const labels30 = Array.from({ length: 30 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - 29 + i);
     return d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
   });
   const volData = labels30.map((_, i) => {
     const d = new Date(); d.setDate(d.getDate() - 29 + i);
-    const s = new Date(d).setHours(0, 0, 0, 0), e = s + 86400000;
+    const s = new Date(d).setHours(0,0,0,0), e = s + 86400000;
     return allResponses.filter(r => { const t = new Date(r.created_at).getTime(); return t >= s && t < e; }).length;
   });
 
@@ -2307,10 +2327,7 @@ function renderMetrics() {
         datasets: [{
           label: 'Responses',
           data: volData.some(v => v > 0) ? volData : labels30.map((_, i) => Math.floor(Math.sin(i / 3) * 3 + 4)),
-          backgroundColor: 'rgba(108,126,248,0.45)',
-          borderColor: '#6c7ef8',
-          borderWidth: 1,
-          borderRadius: 3
+          backgroundColor: 'rgba(108,126,248,0.45)', borderColor: '#6c7ef8', borderWidth: 1, borderRadius: 3
         }]
       },
       options: {
@@ -2324,7 +2341,6 @@ function renderMetrics() {
     });
   }
 
-  // Score distribution
   const scored = allResponses.filter(r => r.readiness_score != null);
   const buckets = { '0–39': 0, '40–59': 0, '60–79': 0, '80–100': 0 };
   scored.forEach(r => {
@@ -2341,8 +2357,8 @@ function renderMetrics() {
       data: {
         labels: Object.keys(buckets),
         datasets: [{
-          data: scored.length ? Object.values(buckets) : [2, 5, 8, 4],
-          backgroundColor: ['rgba(240,91,91,0.6)', 'rgba(245,185,66,0.6)', 'rgba(108,126,248,0.6)', 'rgba(45,224,138,0.6)'],
+          data: scored.length ? Object.values(buckets) : [2,5,8,4],
+          backgroundColor: ['rgba(240,91,91,0.6)','rgba(245,185,66,0.6)','rgba(108,126,248,0.6)','rgba(45,224,138,0.6)'],
           borderRadius: 3
         }]
       },
@@ -2357,7 +2373,6 @@ function renderMetrics() {
     });
   }
 
-  // Top forms
   const topForms = allForms.map(f => ({ ...f, count: allResponses.filter(r => r.form_id === f.id).length }))
     .sort((a, b) => b.count - a.count).slice(0, 5);
   document.getElementById('metrics-top-forms').innerHTML = topForms.length
@@ -2394,7 +2409,6 @@ window.saveSupabaseConfig = function () {
 window.handleSearch = function (val) {
   if (!val.trim()) return;
   const q = val.toLowerCase();
-  // Sync both search inputs
   document.getElementById('sb-search-input').value = val;
   document.getElementById('cmd-input').value = val;
   if (allForms.some(f => f.name.toLowerCase().includes(q))) return navTo('forms');
@@ -2411,13 +2425,12 @@ document.addEventListener('keydown', e => {
 
 /* ── INIT ────────────────────────────────────────────────── */
 window.addEventListener('load', () => {
-  // Restore saved Supabase config in settings
   const savedUrl = localStorage.getItem('il_sb_url');
   const savedKey = localStorage.getItem('il_sb_key');
   if (savedUrl) document.getElementById('sb-url-input').value = savedUrl;
   if (savedKey) document.getElementById('sb-key-input').value = savedKey;
 
-  // Handle ?fill=<formId> in URL — public form filling without login
+  // Handle ?fill=<formId> — public form access without login
   const params = new URLSearchParams(location.search);
   const fillId = params.get('fill');
   if (fillId) {
