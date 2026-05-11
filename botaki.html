@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Insight Layer · Botaki ba Afrika</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #050505;
+    --fg: #ffffff;
+    --fg-dim: rgba(255,255,255,0.5);
+    --fg-muted: rgba(255,255,255,0.35);
+    --fg-faint: rgba(255,255,255,0.2);
+    --border: rgba(255,255,255,0.1);
+    --border-hover: rgba(255,255,255,0.3);
+    --surface: rgba(255,255,255,0.04);
+    --surface-hover: rgba(255,255,255,0.07);
+    --surface-active: rgba(255,255,255,0.09);
+    --serif: 'DM Serif Display', serif;
+    --sans: 'DM Sans', 'Helvetica Neue', sans-serif;
+  }
+
+  html, body {
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    overflow-x: hidden;
+  }
+
+  /* ── Animations ── */
+  @keyframes floatIn    { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeUp     { from{opacity:0;transform:translateY(16px)}  to{opacity:1;transform:translateY(0)} }
+  @keyframes slideInR   { from{opacity:0;transform:translateX(48px)}  to{opacity:1;transform:translateX(0)} }
+  @keyframes slideInL   { from{opacity:0;transform:translateX(-48px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes slideOutL  { from{opacity:1;transform:translateX(0)}     to{opacity:0;transform:translateX(-48px)} }
+  @keyframes slideOutR  { from{opacity:1;transform:translateX(0)}     to{opacity:0;transform:translateX(48px)} }
+  @keyframes pulse-ring { 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(1.08);opacity:1} }
+
+  .entering-forward  { animation: slideInR 0.32s cubic-bezier(.22,1,.36,1) both }
+  .entering-backward { animation: slideInL 0.32s cubic-bezier(.22,1,.36,1) both }
+  .exiting-forward   { animation: slideOutL 0.28s cubic-bezier(.4,0,1,1) both }
+  .exiting-backward  { animation: slideOutR 0.28s cubic-bezier(.4,0,1,1) both }
+
+  .field-group { animation: fadeUp 0.4s ease both; margin-bottom: 2rem; }
+  .field-group:nth-child(1) { animation-delay: .05s }
+  .field-group:nth-child(2) { animation-delay: .10s }
+  .field-group:nth-child(3) { animation-delay: .15s }
+  .field-group:nth-child(4) { animation-delay: .20s }
+
+  /* ── Orbs & noise ── */
+  .orb {
+    position: fixed; border-radius: 50%;
+    filter: blur(120px); pointer-events: none; z-index: 0; opacity: .06;
+  }
+  .noise-overlay {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .4;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+
+  /* ── Layout ── */
+  #app { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 3rem 2rem 6rem; }
+
+  /* ── Header ── */
+  .header { margin-bottom: 3rem; animation: floatIn .5s ease forwards; }
+  .header-row { display: flex; align-items: baseline; gap: 1rem; margin-bottom: .5rem; }
+  .header h1 {
+    font-family: var(--serif); font-size: 2.8rem; font-weight: 400;
+    letter-spacing: -.02em; line-height: 1;
+  }
+  .header-sub {
+    font-family: var(--serif); font-size: 1rem; font-style: italic;
+    color: var(--fg-muted); font-weight: 400;
+  }
+  .header-meta {
+    color: var(--fg-muted); font-size: .85rem;
+    letter-spacing: .06em; text-transform: uppercase; font-weight: 400;
+  }
+
+  /* ── Step pills ── */
+  .step-nav {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 2.5rem;
+    animation: floatIn .5s .1s ease both;
+  }
+  .step-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 100px;
+    border: 1px solid var(--border); background: transparent;
+    cursor: pointer; font-size: .78rem; font-weight: 500;
+    font-family: var(--sans); color: var(--fg); white-space: nowrap;
+    transition: all .18s;
+  }
+  .step-pill.active  { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.3); }
+  .step-pill.done    { color: var(--fg-dim); }
+  .step-pill.done:hover { color: rgba(255,255,255,.8); border-color: rgba(255,255,255,.2); }
+  .step-pill.upcoming { color: var(--fg-faint); cursor: default; pointer-events: none; }
+  .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; display: inline-block; }
+
+  /* ── Progress ── */
+  .progress-row {
+    display: flex; align-items: center; gap: 1rem; margin-bottom: 3rem;
+    animation: floatIn .5s .15s ease both;
+  }
+  .progress-track { height: 2px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; flex: 1; }
+  .progress-fill  { height: 100%; background: #fff; border-radius: 2px; transition: width .5s cubic-bezier(.22,1,.36,1); }
+  .progress-pct   { font-size: .8rem; color: rgba(255,255,255,.3); font-weight: 400; min-width: 36px; }
+
+  /* ── Step content ── */
+  #step-wrap { min-height: 400px; }
+
+  /* ── Section title ── */
+  .section-title { margin-bottom: 2.5rem; }
+  .section-step-num {
+    display: inline-block; font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: rgba(255,255,255,.3); font-weight: 500; margin-bottom: 10px;
+  }
+  .section-title h2 {
+    font-family: var(--serif); font-size: 2rem; font-weight: 400;
+    letter-spacing: -.02em; line-height: 1.2;
+  }
+
+  /* ── Labels & questions ── */
+  .field-label {
+    font-size: .82rem; color: rgba(255,255,255,.45); font-weight: 400;
+    letter-spacing: .04em; text-transform: uppercase; margin-bottom: 10px; display: block;
+  }
+  .field-question {
+    font-size: 1.05rem; color: rgba(255,255,255,.85);
+    font-weight: 300; margin-bottom: 14px; line-height: 1.5;
+  }
+
+  /* ── Inputs ── */
+  textarea, input[type="text"] {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; color: #fff;
+    font-family: var(--sans); font-size: .95rem; font-weight: 300;
+    resize: vertical; transition: border-color .2s, background .2s, box-shadow .2s; outline: none;
+  }
+  textarea:focus, input[type="text"]:focus {
+    border-color: var(--border-hover); background: var(--surface-hover);
+    box-shadow: 0 0 0 3px rgba(255,255,255,.04);
+  }
+  textarea { min-height: 100px; }
+
+  .table-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; color: #fff;
+    font-family: var(--sans); font-size: .88rem;
+    transition: border-color .2s; outline: none;
+  }
+  .table-input:focus { border-color: rgba(255,255,255,.3); }
+
+  /* ── Check / Radio items ── */
+  .check-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
+  .check-grid.cols-1 { grid-template-columns: 1fr; }
+
+  .check-item, .radio-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px; padding: 13px 16px;
+    cursor: pointer; user-select: none;
+    transition: background .18s, border-color .18s, transform .15s;
+  }
+  .check-item:hover, .radio-item:hover {
+    background: var(--surface-hover); border-color: rgba(255,255,255,.15); transform: translateY(-1px);
+  }
+  .check-item.selected, .radio-item.selected {
+    background: var(--surface-active); border-color: rgba(255,255,255,.35);
+  }
+  .check-item span, .radio-item span {
+    font-size: .9rem; font-weight: 300; color: rgba(255,255,255,.6);
+  }
+  .check-item.selected span, .radio-item.selected span { color: #fff; }
+
+  .custom-check {
+    width: 20px; height: 20px; border-radius: 6px;
+    border: 1.5px solid rgba(255,255,255,.25);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: background .18s, border-color .18s;
+  }
+  .check-item.selected .custom-check { background: #fff; border-color: #fff; }
+  .check-icon { color: #000; font-size: 12px; font-weight: 700; }
+
+  .custom-radio {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,.25);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: border-color .18s;
+  }
+  .radio-item.selected .custom-radio { border-color: #fff; }
+  .radio-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #fff;
+    transform: scale(0); transition: transform .2s cubic-bezier(.22,1,.36,1);
+  }
+  .radio-item.selected .radio-dot { transform: scale(1); }
+
+  .radio-group { display: flex; flex-direction: column; gap: 8px; }
+
+  /* ── Table ── */
+  .manager-table { border: 1px solid rgba(255,255,255,.08); border-radius: 12px; overflow: hidden; }
+  .manager-table-head {
+    display: grid; grid-template-columns: 1.2fr 1fr 1fr; padding: 10px 16px;
+    background: rgba(255,255,255,.03); border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .manager-table-head span { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.3); font-weight: 500; }
+  .manager-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 8px; padding: 10px 16px; align-items: center; }
+  .manager-row:not(:last-child) { border-bottom: 1px solid rgba(255,255,255,.06); }
+  .manager-area { font-size: .88rem; color: rgba(255,255,255,.55); font-weight: 300; }
+
+  /* ── Navigation ── */
+  .nav-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 3rem; padding-top: 2rem;
+    border-top: 1px solid rgba(255,255,255,.07);
+  }
+  .nav-left, .nav-right { display: flex; align-items: center; gap: 1rem; }
+  .step-counter { font-size: .78rem; color: rgba(255,255,255,.2); font-weight: 300; }
+
+  .btn-primary {
+    background: #fff; color: #000; border: none; border-radius: 100px;
+    padding: 14px 32px; font-family: var(--sans); font-size: .9rem; font-weight: 600;
+    cursor: pointer; transition: opacity .18s, transform .15s; letter-spacing: .02em;
+  }
+  .btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+  .btn-primary:active { transform: scale(.98); }
+
+  .btn-secondary {
+    background: transparent; color: var(--fg-dim);
+    border: 1px solid rgba(255,255,255,.12); border-radius: 100px;
+    padding: 14px 28px; font-family: var(--sans); font-size: .9rem; font-weight: 400;
+    cursor: pointer; transition: color .18s, border-color .18s, transform .15s;
+  }
+  .btn-secondary:hover { color: #fff; border-color: rgba(255,255,255,.3); transform: translateY(-1px); }
+
+  /* ── Review ── */
+  .review-box {
+    background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px; padding: 1.5rem 1.75rem; margin-bottom: 2rem;
+  }
+  .review-box p { font-size: .88rem; color: rgba(255,255,255,.4); font-weight: 300; line-height: 1.6; }
+  .review-scroll { max-height: 420px; overflow-y: auto; padding-right: .5rem; }
+  .review-item { padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.07); animation: fadeUp .3s ease both; }
+  .review-key { font-size: .75rem; color: rgba(255,255,255,.35); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .review-val { font-size: .92rem; color: rgba(255,255,255,.75); font-weight: 300; line-height: 1.5; }
+
+  /* ── Success screen ── */
+  #success-screen {
+    display: none; position: fixed; inset: 0; background: #050505;
+    align-items: center; justify-content: center; z-index: 100;
+    padding: 2rem;
+  }
+  #success-screen.visible { display: flex; }
+  .success-inner { text-align: center; animation: fadeUp .6s ease forwards; }
+  .success-ring {
+    width: 96px; height: 96px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.3);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 2rem;
+    animation: pulse-ring 2s ease infinite;
+    font-size: 40px;
+  }
+  .success-inner h1 {
+    font-family: var(--serif); font-size: 3rem; font-weight: 400; margin-bottom: 1rem;
+  }
+  .success-inner p { color: var(--fg-dim); font-size: 1.1rem; max-width: 440px; }
+
+  @media (max-width: 540px) {
+    #app { padding: 2rem 1.25rem 5rem; }
+    .header h1 { font-size: 2.1rem; }
+    .check-grid { grid-template-columns: 1fr; }
+    .manager-table-head, .manager-row { grid-template-columns: 1fr; }
+    .manager-table-head { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Orbs -->
+<div class="orb" style="width:600px;height:600px;background:#fff;top:-200px;right:-200px;"></div>
+<div class="orb" style="width:400px;height:400px;background:#8b7cf8;bottom:0;left:-100px;"></div>
+<div class="noise-overlay"></div>
+
+<!-- Success screen -->
+<div id="success-screen">
+  <div class="success-inner">
+    <div class="success-ring">✦</div>
+    <h1>Configuration Submitted</h1>
+    <p>Insight Layer will use your responses to configure the operational intelligence infrastructure for Botaki ba Afrika.</p>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-row">
+      <h1>Insight Layer</h1>
+      <span class="header-sub">a layer of intelligence.</span>
+    </div>
+    <p class="header-meta">Botaki ba Afrika · Infrastructure Configuration</p>
+  </div>
+
+  <!-- Step pills -->
+  <div class="step-nav" id="step-nav"></div>
+
+  <!-- Progress -->
+  <div class="progress-row">
+    <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:12.5%"></div></div>
+    <span class="progress-pct" id="progress-pct">13%</span>
+  </div>
+
+  <!-- Step content -->
+  <div id="step-wrap"></div>
+
+  <!-- Navigation -->
+  <div class="nav-bar">
+    <div class="nav-left">
+      <button class="btn-secondary" id="btn-back" style="display:none" onclick="prevStep()">← Back</button>
+    </div>
+    <div class="nav-right">
+      <span class="step-counter" id="step-counter">1 / 8</span>
+      <button class="btn-primary" id="btn-next" onclick="nextStep()">Continue →</button>
+      <button class="btn-primary" id="btn-submit" style="display:none" onclick="handleSubmit()">Submit Configuration ✦</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ─── Data ─── */
+const STEPS = [
+  { label:"Organisation Overview",     short:"Overview",  icon:"🏛️" },
+  { label:"Team & Access Structure",   short:"Team",      icon:"👥" },
+  { label:"Community & Public Interaction", short:"Community", icon:"🌍" },
+  { label:"Programmes & Workflows",    short:"Workflows", icon:"⚙️" },
+  { label:"Events & Venue Ops",        short:"Events",    icon:"🎪" },
+  { label:"AI Operations Layer",       short:"AI Layer",  icon:"🤖" },
+  { label:"Rollout Priorities",        short:"Rollout",   icon:"🚀" },
+  { label:"Review & Submit",           short:"Review",    icon:"✅" },
+];
+
+const OPERATIONAL_AREAS = ["Community Building","Gallery & Art Studio","Event Venue","Art Programmes","Artist Residency","Marketing"];
+const PUBLIC_INTERACTIONS = ["Programme Applications","Event Registration","Venue Bookings","Artist Submissions","Residency Applications","Volunteer Sign-Ups","Mailing List Registration","Other"];
+const EVENT_CAPABILITIES = ["QR Check-In","Attendance Tracking","Event Registration","Ticketing / Payments","Automated Reminders","Feedback Collection"];
+
+let state = {
+  step: 0,
+  direction: 1,
+  animating: false,
+  formData: {
+    organisation_mission: "",
+    rollout_areas: [],
+    operational_friction: "",
+    managers: OPERATIONAL_AREAS.map(a => ({ area: a, manager: "", role: "" })),
+    separate_permissions: null,
+    oversight_access: "",
+    public_interactions: [],
+    collected_information: "",
+    recurring_support_requests: "",
+    programme_workflows: "",
+    workflows_to_automate: "",
+    repetitive_tasks: "",
+    frequent_events: "",
+    event_capabilities: [],
+    realtime_event_visibility: "",
+    ai_interaction_scope: null,
+    ai_tone: "",
+    ai_responsibilities: "",
+    rollout_priorities: "",
+    implementation_success: "",
+    future_capabilities: "",
+  }
+};
+
+/* ─── Helpers ─── */
+function el(id){ return document.getElementById(id); }
+function html(el, s){ el.innerHTML = s; }
+
+function updateField(field, value){
+  state.formData[field] = value;
+}
+
+function toggleArray(field, item){
+  const arr = state.formData[field];
+  if(arr.includes(item)) state.formData[field] = arr.filter(i=>i!==item);
+  else state.formData[field] = [...arr, item];
+  renderStep();
+}
+
+function setRadio(field, value){
+  state.formData[field] = value;
+  renderStep();
+}
+
+function updateManager(idx, key, value){
+  state.formData.managers[idx][key] = value;
+}
+
+/* ─── Navigation ─── */
+function navigate(newStep){
+  if(state.animating) return;
+  state.direction = newStep > state.step ? 1 : -1;
+  state.animating = true;
+  const wrap = el("step-wrap");
+  wrap.classList.add(state.direction > 0 ? "exiting-forward" : "exiting-backward");
+  setTimeout(() => {
+    state.step = newStep;
+    wrap.classList.remove("exiting-forward","exiting-backward");
+    renderAll();
+    state.animating = false;
+  }, 300);
+}
+
+function nextStep(){ navigate(Math.min(state.step+1, STEPS.length-1)); }
+function prevStep(){ navigate(Math.max(state.step-1, 0)); }
+
+function handleSubmit(){
+  el("success-screen").classList.add("visible");
+}
+
+/* ─── Render Helpers ─── */
+function checkItem(field, item, multiSelect=true){
+  const selected = multiSelect
+    ? state.formData[field].includes(item)
+    : state.formData[field] === item;
+  const cls = selected ? "check-item selected" : "check-item";
+  const onclick = multiSelect
+    ? `toggleArray('${field}','${item.replace(/'/g,"\\'")}'); return false;`
+    : `setRadio('${field}','${item.replace(/'/g,"\\'")}'); return false;`;
+  return `<div class="${cls}" onclick="${onclick}">
+    <div class="custom-check">${selected?'<span class="check-icon">✓</span>':''}</div>
+    <span>${item}</span>
+  </div>`;
+}
+
+function radioItem(field, item){
+  const selected = state.formData[field] === item;
+  const cls = selected ? "radio-item selected" : "radio-item";
+  const onclick = `setRadio('${field}','${item.replace(/'/g,"\\'")}'); return false;`;
+  return `<div class="${cls}" onclick="${onclick}">
+    <div class="custom-radio"><div class="radio-dot"></div></div>
+    <span>${item}</span>
+  </div>`;
+}
+
+function fieldGroup(labelText, questionText, inputHtml){
+  return `<div class="field-group">
+    <span class="field-label">${labelText}</span>
+    <p class="field-question">${questionText}</p>
+    ${inputHtml}
+  </div>`;
+}
+
+function sectionTitle(num, title){
+  return `<div class="section-title">
+    <span class="section-step-num">Step ${num}</span>
+    <h2>${title}</h2>
+  </div>`;
+}
+
+function textarea(field, placeholder, rows=4){
+  return `<textarea rows="${rows}" placeholder="${placeholder}" oninput="updateField('${field}',this.value)">${state.formData[field]}</textarea>`;
+}
+
+function textinput(field, placeholder){
+  return `<input type="text" placeholder="${placeholder}" value="${state.formData[field].replace(/"/g,'&quot;')}" oninput="updateField('${field}',this.value)" />`;
+}
+
+/* ─── Step Renderers ─── */
+function renderStep0(){
+  const checks = [...OPERATIONAL_AREAS,"Other"].map(i=>checkItem("rollout_areas",i)).join("");
+  return `
+    ${sectionTitle("01","Organisation Overview")}
+    ${fieldGroup("Mission & Focus","Briefly describe Botaki ba Afrika's mission and operational focus.",
+      textarea("organisation_mission","Describe what drives the organisation and how it operates day-to-day…",4))}
+    ${fieldGroup("Initial Rollout Areas","Which operational areas should be included in the initial rollout?",
+      `<div class="check-grid">${checks}</div>`)}
+    ${fieldGroup("Current Pain Point","Which operational area currently experiences the most friction or inefficiency?",
+      textinput("operational_friction","e.g. Event registration, artist communications…"))}
+  `;
+}
+
+function renderStep1(){
+  const rows = state.formData.managers.map((m,idx)=>`
+    <div class="manager-row">
+      <span class="manager-area">${m.area}</span>
+      <input class="table-input" value="${m.manager.replace(/"/g,'&quot;')}" placeholder="Name" oninput="updateManager(${idx},'manager',this.value)" />
+      <input class="table-input" value="${m.role.replace(/"/g,'&quot;')}" placeholder="Title" oninput="updateManager(${idx},'role',this.value)" />
+    </div>`).join("");
+
+  const permSel = state.formData.separate_permissions;
+  const radios = [
+    {v:true,label:"Yes"},{v:false,label:"No"}
+  ].map(({v,label})=>{
+    const sel = permSel===v;
+    const cls = sel?"radio-item selected":"radio-item";
+    const js = `setRadio('separate_permissions',${v}); return false;`;
+    return `<div class="${cls}" onclick="${js}">
+      <div class="custom-radio"><div class="radio-dot"></div></div>
+      <span>${label}</span>
+    </div>`;
+  }).join("");
+
+  return `
+    ${sectionTitle("02","Team & Access Structure")}
+    ${fieldGroup("Divisional Managers","Who manages each operational area?",
+      `<div class="manager-table">
+        <div class="manager-table-head">
+          <span>Area</span><span>Primary Manager</span><span>Role</span>
+        </div>
+        ${rows}
+      </div>`)}
+    ${fieldGroup("Access Permissions","Should different divisions have separate access permissions and dashboards?",
+      `<div class="radio-group">${radios}</div>`)}
+    ${fieldGroup("Oversight Access","Who should have full organisational oversight access?",
+      textarea("oversight_access","List names or roles…",3))}
+  `;
+}
+
+function renderStep2(){
+  const checks = PUBLIC_INTERACTIONS.map(i=>checkItem("public_interactions",i)).join("");
+  return `
+    ${sectionTitle("03","Community & Public Interaction")}
+    ${fieldGroup("Supported Interaction Types","What types of public interaction should the system support?",
+      `<div class="check-grid">${checks}</div>`)}
+    ${fieldGroup("Data Collection","What information do you typically collect from participants, artists, or community members?",
+      textarea("collected_information","e.g. Name, contact info, portfolio links, dietary requirements…",4))}
+    ${fieldGroup("High-Volume Requests","Which recurring questions or support requests consume the most team time?",
+      textarea("recurring_support_requests","e.g. 'How do I apply?', availability checks, payment queries…",4))}
+  `;
+}
+
+function renderStep3(){
+  return `
+    ${sectionTitle("04","Programmes & Operational Workflows")}
+    ${fieldGroup("Programme Pipeline","Describe how programmes or initiatives move from planning to execution.",
+      textarea("programme_workflows","Walk through the stages — ideation, approvals, scheduling, delivery, follow-up…",5))}
+    ${fieldGroup("Automation Priorities","Which workflows would you like automated first?",
+      textarea("workflows_to_automate","e.g. Application intake, confirmation emails, reporting…",3))}
+    ${fieldGroup("Manual & Repetitive Tasks","Which operational tasks are currently repetitive or manual?",
+      textarea("repetitive_tasks","e.g. Data entry, attendance logging, newsletter compilation…",3))}
+  `;
+}
+
+function renderStep4(){
+  const checks = EVENT_CAPABILITIES.map(i=>checkItem("event_capabilities",i)).join("");
+  return `
+    ${sectionTitle("05","Events & Venue Operations")}
+    ${fieldGroup("Event Types","What types of events are hosted most frequently?",
+      textarea("frequent_events","e.g. Exhibitions, workshops, community markets, residency showcases…",3))}
+    ${fieldGroup("Required Capabilities","Which event capabilities should Insight Layer support?",
+      `<div class="check-grid">${checks}</div>`)}
+    ${fieldGroup("Real-Time Visibility","What operational information should leadership monitor in real time during events?",
+      textarea("realtime_event_visibility","e.g. Live attendance count, check-in rate, revenue, issues flagged…",3))}
+  `;
+}
+
+function renderStep5(){
+  const scope = ["Internal Team Only","Public Only","Both Internal Team & Public"];
+  const radios = scope.map(i=>radioItem("ai_interaction_scope",i)).join("");
+  return `
+    ${sectionTitle("06","AI Operations Layer")}
+    ${fieldGroup("Interaction Scope","Should the AI interact with:",
+      `<div class="radio-group">${radios}</div>`)}
+    ${fieldGroup("Tone & Voice","What tone should the AI maintain when communicating?",
+      textinput("ai_tone","e.g. Warm and community-centred, professional but approachable…"))}
+    ${fieldGroup("Autonomous Responsibilities","Which responsibilities should the AI handle autonomously?",
+      textarea("ai_responsibilities","e.g. Answering FAQs, routing applications, sending reminders, generating reports…",5))}
+  `;
+}
+
+function renderStep6(){
+  return `
+    ${sectionTitle("07","Rollout Priorities")}
+    ${fieldGroup("Week One Focus","Which systems should be prioritised during the first rollout week?",
+      textarea("rollout_priorities","e.g. Community intake, event registration, team dashboards…",3))}
+    ${fieldGroup("Definition of Success","What would make the implementation feel immediately successful for your organisation?",
+      textarea("implementation_success","Describe the outcomes that would signal the system is working…",4))}
+    ${fieldGroup("Future Vision","What future capabilities would you eventually want Insight Layer to support?",
+      textarea("future_capabilities","Think 6–12 months ahead — what would transform your operations?",4))}
+  `;
+}
+
+function renderStep7(){
+  const displayKeys = [
+    ["organisation_mission","Mission"],
+    ["rollout_areas","Rollout Areas"],
+    ["operational_friction","Current Pain Point"],
+    ["separate_permissions","Separate Permissions"],
+    ["oversight_access","Oversight Access"],
+    ["public_interactions","Public Interactions"],
+    ["collected_information","Data Collected"],
+    ["recurring_support_requests","High-Volume Requests"],
+    ["programme_workflows","Programme Pipeline"],
+    ["workflows_to_automate","Automation Priorities"],
+    ["repetitive_tasks","Manual Tasks"],
+    ["frequent_events","Event Types"],
+    ["event_capabilities","Event Capabilities"],
+    ["realtime_event_visibility","Real-Time Visibility"],
+    ["ai_interaction_scope","AI Scope"],
+    ["ai_tone","AI Tone"],
+    ["ai_responsibilities","AI Responsibilities"],
+    ["rollout_priorities","Week One Focus"],
+    ["implementation_success","Success Definition"],
+    ["future_capabilities","Future Vision"],
+  ];
+
+  const items = displayKeys.map(([key, label], i) => {
+    const value = state.formData[key];
+    let display = "";
+    if(Array.isArray(value)) display = value.length ? value.join(", ") : "—";
+    else if(value === null || value === "") display = "—";
+    else if(typeof value === "boolean") display = value ? "Yes" : "No";
+    else display = String(value);
+    return `<div class="review-item" style="animation-delay:${i*.03}s">
+      <div class="review-key">${label}</div>
+      <div class="review-val">${display.replace(/</g,'&lt;')}</div>
+    </div>`;
+  }).join("");
+
+  const teamStr = state.formData.managers.filter(m=>m.manager)
+    .map(m=>`${m.area}: ${m.manager} (${m.role||"—"})`).join(" · ") || "—";
+
+  return `
+    ${sectionTitle("08","Review & Submit")}
+    <div class="review-box">
+      <p>Review your configuration below. Navigate back to any step to make changes before submitting.</p>
+    </div>
+    <div class="review-scroll">
+      ${items}
+      <div class="review-item">
+        <div class="review-key">Team Structure</div>
+        <div class="review-val">${teamStr}</div>
+      </div>
+    </div>
+  `;
+}
+
+const STEP_RENDERERS = [renderStep0,renderStep1,renderStep2,renderStep3,renderStep4,renderStep5,renderStep6,renderStep7];
+
+/* ─── Render All ─── */
+function renderAll(){
+  const s = state.step;
+
+  // Step content
+  const wrap = el("step-wrap");
+  wrap.innerHTML = STEP_RENDERERS[s]();
+  wrap.classList.remove("entering-forward","entering-backward");
+  void wrap.offsetWidth; // reflow
+  wrap.classList.add(state.direction > 0 ? "entering-forward" : "entering-backward");
+
+  // Pills
+  const nav = el("step-nav");
+  nav.innerHTML = STEPS.map((st,idx)=>{
+    let cls = "step-pill ";
+    if(idx===s) cls+="active";
+    else if(idx<s) cls+="done";
+    else cls+="upcoming";
+    const icon = idx<s ? `<span style="font-size:.7rem">✓</span>` : idx===s ? `<span class="pill-dot"></span>` : "";
+    const onclick = idx<s ? `onclick="navigate(${idx})"` : "";
+    return `<button class="${cls}" ${onclick}>${icon}<span>${st.short}</span></button>`;
+  }).join("");
+
+  // Progress
+  const pct = Math.round(((s+1)/STEPS.length)*100);
+  el("progress-fill").style.width = pct+"%";
+  el("progress-pct").textContent = pct+"%";
+
+  // Step counter
+  el("step-counter").textContent = `${s+1} / ${STEPS.length}`;
+
+  // Buttons
+  el("btn-back").style.display = s>0 ? "inline-block" : "none";
+  el("btn-next").style.display = s<STEPS.length-1 ? "inline-block" : "none";
+  el("btn-submit").style.display = s===STEPS.length-1 ? "inline-block" : "none";
+}
+
+/* ─── Init ─── */
+renderAll();
+</script>
+</body>
+</html>
