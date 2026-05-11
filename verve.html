@@ -1,0 +1,2442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verve — Creative Centre Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+/* ══════════════════════════════════════════════
+   DESIGN TOKENS — warm editorial dark
+══════════════════════════════════════════════ */
+:root {
+  /* Core palette */
+  --bg:         #141210;
+  --bg-2:       #1b1815;
+  --surface:    #201d1a;
+  --surface-2:  #272320;
+  --surface-3:  #2e2a26;
+  --border:     rgba(255,240,220,0.07);
+  --border-2:   rgba(255,240,220,0.13);
+  --border-3:   rgba(255,240,220,0.22);
+
+  /* Text */
+  --text-1:     #f5ede0;
+  --text-2:     #a89880;
+  --text-3:     #5c5044;
+
+  /* Layer accent colours */
+  --community:  #e07d4a;   /* terracotta */
+  --programmes: #6aab7e;   /* sage green */
+  --residency:  #c4956a;   /* warm sand */
+  --gallery:    #b07ec8;   /* dusty violet */
+  --venue:      #5e9ec9;   /* steel blue */
+  --marketing:  #d4a843;   /* amber gold */
+  --ai-ops:     #c96b6b;   /* muted red */
+
+  /* Semantic shortcuts */
+  --accent:        var(--community);
+  --accent-soft:   rgba(224,125,74,0.12);
+  --green:         #6aab7e;
+  --green-soft:    rgba(106,171,126,0.12);
+  --red:           #c96b6b;
+  --red-soft:      rgba(201,107,107,0.12);
+  --amber:         #d4a843;
+  --amber-soft:    rgba(212,168,67,0.12);
+
+  /* Layout */
+  --nav-w:      58px;
+  --sidebar-w:  248px;
+  --radius:     10px;
+  --radius-sm:  7px;
+  --radius-lg:  16px;
+
+  /* Type */
+  --font:       'Outfit', system-ui, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-mono:  'DM Mono', monospace;
+
+  /* Effects */
+  --shadow:     0 2px 14px rgba(0,0,0,0.5);
+  --shadow-md:  0 6px 32px rgba(0,0,0,0.6);
+  --t:          0.18s cubic-bezier(0.4,0,0.2,1);
+
+  /* Grain overlay intensity */
+  --grain-opacity: 0.032;
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-size: 14px; -webkit-font-smoothing: antialiased; }
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font);
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+/* Grain texture overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 9998; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: var(--grain-opacity);
+  mix-blend-mode: overlay;
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 10px; }
+button { font-family: var(--font); cursor: pointer; }
+input, select, textarea { font-family: var(--font); }
+a { color: inherit; text-decoration: none; }
+
+/* ══════════════════════════════════════════════
+   AUTH SCREEN
+══════════════════════════════════════════════ */
+#auth-screen {
+  position: fixed; inset: 0; z-index: 999;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(224,125,74,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(196,149,106,0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, rgba(106,171,126,0.06) 0%, transparent 40%),
+    var(--bg);
+}
+
+/* Decorative lines */
+#auth-screen::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 60px, rgba(255,240,220,0.025) 60px, rgba(255,240,220,0.025) 61px),
+    repeating-linear-gradient(90deg, transparent, transparent 60px, rgba(255,240,220,0.025) 60px, rgba(255,240,220,0.025) 61px);
+}
+
+.auth-card {
+  width: 100%; max-width: 420px; position: relative; z-index: 1;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-lg);
+  padding: 40px 36px;
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(224,125,74,0.06);
+}
+
+.auth-wordmark {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 28px;
+}
+.auth-wordmark-v {
+  font-family: var(--font-serif); font-size: 32px; font-weight: 700;
+  color: var(--community); letter-spacing: -0.02em; line-height: 1;
+}
+.auth-wordmark-sub {
+  font-size: 10.5px; font-weight: 500; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--text-3); line-height: 1;
+}
+
+.auth-title { font-family: var(--font-serif); font-size: 20px; font-weight: 400; color: var(--text-1); margin-bottom: 3px; }
+.auth-desc { font-size: 12.5px; color: var(--text-2); margin-bottom: 22px; line-height: 1.55; }
+
+.auth-tabs {
+  display: flex; gap: 2px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 3px; margin-bottom: 20px;
+}
+.auth-tab {
+  flex: 1; padding: 7px; background: none; border: none;
+  border-radius: 5px; font-size: 12.5px; font-weight: 500;
+  color: var(--text-2); transition: var(--t); cursor: pointer;
+}
+.auth-tab.active { background: var(--surface-2); color: var(--text-1); box-shadow: var(--shadow); }
+
+.auth-panel { display: none; }
+.auth-panel.active { display: block; }
+
+.f-group { margin-bottom: 12px; }
+.f-label { display: block; font-size: 11.5px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; }
+.f-input {
+  width: 100%; padding: 9px 12px;
+  background: var(--bg); border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm); font-size: 13px; color: var(--text-1);
+  outline: none; transition: var(--t);
+}
+.f-input:focus { border-color: var(--community); box-shadow: 0 0 0 3px rgba(224,125,74,0.12); }
+
+.btn-auth {
+  width: 100%; padding: 11px; margin-top: 4px;
+  background: var(--community); color: white; border: none;
+  border-radius: var(--radius); font-weight: 600; font-size: 14px;
+  transition: var(--t); letter-spacing: 0.01em;
+}
+.btn-auth:hover { background: #e88d5c; transform: translateY(-1px); box-shadow: 0 5px 20px rgba(224,125,74,0.35); }
+.btn-auth:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.auth-msg { font-size: 12px; text-align: center; margin-top: 10px; padding: 7px 10px; border-radius: var(--radius-sm); display: none; }
+.auth-msg.error { background: var(--red-soft); color: var(--red); display: block; border: 1px solid rgba(201,107,107,0.2); }
+.auth-msg.success { background: var(--green-soft); color: var(--green); display: block; border: 1px solid rgba(106,171,126,0.2); }
+
+.auth-forgot {
+  display: block; text-align: right; font-size: 11.5px;
+  color: var(--community); margin-top: -6px; margin-bottom: 12px;
+  cursor: pointer; background: none; border: none; padding: 0; transition: var(--t);
+}
+.auth-forgot:hover { opacity: 0.75; }
+.auth-back {
+  display: flex; align-items: center; gap: 5px; font-size: 11.5px;
+  color: var(--text-3); background: none; border: none;
+  cursor: pointer; margin-bottom: 14px; transition: var(--t); padding: 0;
+}
+.auth-back:hover { color: var(--text-1); }
+.auth-back svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; }
+
+/* ══════════════════════════════════════════════
+   APP SHELL
+══════════════════════════════════════════════ */
+#app { display: none; min-height: 100vh; }
+
+/* ══════════════════════════════════════════════
+   ICON NAV — left rail
+══════════════════════════════════════════════ */
+.icon-nav {
+  position: fixed; left: 0; top: 0; bottom: 0; width: var(--nav-w);
+  z-index: 200; background: var(--bg-2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 14px 0 10px; gap: 2px;
+}
+.icon-nav-logo {
+  width: 34px; height: 34px; border-radius: 9px; margin-bottom: 16px;
+  background: var(--community); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(224,125,74,0.35);
+  font-family: var(--font-serif); font-size: 17px; font-weight: 700; color: white;
+  letter-spacing: -0.03em;
+}
+.nav-btn {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; position: relative; transition: var(--t);
+  color: var(--text-3); background: none; border: none;
+}
+.nav-btn:hover { background: var(--surface); color: var(--text-2); }
+.nav-btn.active { color: white; }
+.nav-btn svg { width: 16px; height: 16px; stroke-width: 1.8; flex-shrink: 0; }
+.nav-dot {
+  position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+  width: 4px; height: 4px; border-radius: 50%; opacity: 0;
+  transition: var(--t);
+}
+.nav-btn.active .nav-dot { opacity: 1; }
+.nav-spacer { flex: 1; }
+.nav-avatar {
+  width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+  background: var(--surface-3); border: 1px solid var(--border-2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 600; font-size: 12px;
+  color: var(--text-2); margin-top: 6px;
+  transition: var(--t);
+}
+.nav-avatar:hover { border-color: var(--community); color: var(--community); }
+.nav-tooltip {
+  position: absolute; left: calc(var(--nav-w) + 6px); top: 50%; transform: translateY(-50%);
+  background: var(--surface-2); border: 1px solid var(--border-2);
+  color: var(--text-1); font-size: 11.5px; font-weight: 500;
+  padding: 5px 10px; border-radius: 6px; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: var(--t); z-index: 300;
+  box-shadow: var(--shadow); display: flex; align-items: center; gap: 6px;
+}
+.nav-tooltip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.nav-btn:hover .nav-tooltip { opacity: 1; }
+
+/* ══════════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════════ */
+.sidebar {
+  position: fixed; left: var(--nav-w); top: 0; bottom: 0;
+  width: var(--sidebar-w); z-index: 190;
+  background: var(--bg-2); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.sb-header {
+  padding: 16px 14px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--bg-2); z-index: 1;
+  border-bottom: 1px solid var(--border);
+}
+.sb-wordmark {
+  display: flex; align-items: baseline; gap: 7px;
+}
+.sb-wordmark-v {
+  font-family: var(--font-serif); font-size: 20px; font-weight: 700;
+  color: var(--community); line-height: 1;
+}
+.sb-wordmark-sub {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-3);
+}
+.sb-add {
+  width: 24px; height: 24px; border-radius: 6px;
+  background: rgba(224,125,74,0.12); border: none;
+  color: var(--community); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: var(--t);
+}
+.sb-add:hover { background: rgba(224,125,74,0.2); }
+.sb-add svg { width: 12px; height: 12px; stroke-width: 2.5; stroke: currentColor; fill: none; }
+
+.sb-search {
+  margin: 10px 10px 4px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; gap: 7px; padding: 7px 10px;
+}
+.sb-search svg { width: 12px; height: 12px; color: var(--text-3); flex-shrink: 0; stroke-width: 2; stroke: currentColor; fill: none; }
+.sb-search input { background: none; border: none; outline: none; font-size: 12px; color: var(--text-1); width: 100%; }
+.sb-search input::placeholder { color: var(--text-3); }
+
+.sb-section { padding: 0 8px; margin-bottom: 2px; }
+.sb-section-label {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--text-3);
+  padding: 10px 6px 4px; display: flex; align-items: center; gap: 6px;
+}
+.sb-section-label::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+
+.sb-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: var(--t);
+  font-size: 12.5px; font-weight: 400; color: var(--text-2);
+  border: none; background: none; width: 100%; text-align: left;
+}
+.sb-item:hover { background: var(--surface); color: var(--text-1); }
+.sb-item.active { background: var(--surface-2); color: var(--text-1); font-weight: 500; }
+.sb-item-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  opacity: 0.5; transition: var(--t);
+}
+.sb-item.active .sb-item-dot { opacity: 1; }
+.sb-item-name { flex: 1; }
+.sb-count {
+  font-size: 10px; font-family: var(--font-mono);
+  color: var(--text-3); background: var(--surface-2);
+  padding: 1px 5px; border-radius: 4px;
+}
+.sb-item.active .sb-count { color: var(--text-2); }
+
+.sb-footer { margin-top: auto; padding: 12px; border-top: 1px solid var(--border); }
+.sb-org-label { font-size: 9px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); margin-bottom: 5px; }
+.sb-org-sel {
+  width: 100%; padding: 6px 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 12px; color: var(--text-1);
+  outline: none; margin-bottom: 8px;
+}
+.btn-signout {
+  width: 100%; padding: 7px; background: none;
+  border: 1px solid var(--border-2); border-radius: var(--radius-sm);
+  font-size: 12px; font-weight: 500; color: var(--text-2); transition: var(--t);
+}
+.btn-signout:hover { border-color: var(--red); color: var(--red); }
+
+/* ══════════════════════════════════════════════
+   MAIN CONTENT AREA
+══════════════════════════════════════════════ */
+.main {
+  margin-left: calc(var(--nav-w) + var(--sidebar-w));
+  min-height: 100vh; padding: 26px 28px;
+}
+
+/* ── CMD BAR ── */
+.cmd-bar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(20,18,16,0.88); backdrop-filter: blur(18px);
+  margin: -26px -28px 24px; padding: 10px 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+}
+.cmd-wrap {
+  flex: 1; max-width: 400px; background: var(--surface);
+  border: 1px solid var(--border-2); border-radius: var(--radius);
+  display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+  box-shadow: var(--shadow);
+}
+.cmd-wrap svg { width: 13px; height: 13px; color: var(--text-3); stroke-width: 2; stroke: currentColor; fill: none; flex-shrink: 0; }
+.cmd-wrap input { background: none; border: none; outline: none; font-size: 12.5px; color: var(--text-1); flex: 1; }
+.cmd-wrap input::placeholder { color: var(--text-3); }
+.cmd-kbd { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); background: var(--surface-2); padding: 2px 5px; border-radius: 4px; border: 1px solid var(--border-2); white-space: nowrap; }
+.cmd-right { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 13px; border-radius: var(--radius-sm);
+  font-size: 12.5px; font-weight: 500; transition: var(--t); border: none; cursor: pointer;
+}
+.btn svg { width: 12px; height: 12px; stroke-width: 2; stroke: currentColor; fill: none; }
+.btn-ghost { background: none; color: var(--text-2); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--text-1); }
+.btn-primary { background: var(--community); color: white; }
+.btn-primary:hover { background: #e88d5c; box-shadow: 0 3px 14px rgba(224,125,74,0.35); }
+.btn-outline { background: var(--surface); color: var(--text-1); border: 1px solid var(--border-2); }
+.btn-outline:hover { border-color: var(--community); color: var(--community); }
+.btn-icon {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border: none; transition: var(--t); flex-shrink: 0;
+}
+.btn-icon svg { width: 12px; height: 12px; stroke-width: 2; stroke: currentColor; fill: none; }
+.btn-icon-ghost { background: var(--surface-2); color: var(--text-2); }
+.btn-icon-ghost:hover { background: var(--surface-3); color: var(--text-1); }
+.btn-icon-primary { background: rgba(224,125,74,0.12); color: var(--community); }
+.btn-icon-primary:hover { background: rgba(224,125,74,0.2); }
+.btn-icon-green { background: var(--green-soft); color: var(--green); }
+.btn-icon-green:hover { background: rgba(106,171,126,0.2); }
+.btn-icon-red { background: var(--red-soft); color: var(--red); }
+.btn-icon-red:hover { background: rgba(201,107,107,0.2); }
+
+/* ══════════════════════════════════════════════
+   PAGE SYSTEM
+══════════════════════════════════════════════ */
+.page { display: none; }
+.page.active { display: block; animation: fadeUp 0.22s ease; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+.page-eyebrow {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; margin-bottom: 4px;
+}
+.page-title {
+  font-family: var(--font-serif); font-size: 26px; font-weight: 400;
+  letter-spacing: -0.01em; line-height: 1.2; margin-bottom: 3px;
+  color: var(--text-1);
+}
+.page-title em { font-style: italic; }
+.page-sub { font-size: 12.5px; color: var(--text-2); margin-bottom: 22px; }
+.page-header-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+
+/* ── GRIDS ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow);
+}
+.card-sm { padding: 14px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-label {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--text-3);
+}
+.card-action {
+  font-size: 11.5px; color: var(--community); cursor: pointer; font-weight: 500;
+  display: flex; align-items: center; gap: 3px; border: none; background: none; padding: 0;
+  transition: var(--t);
+}
+.card-action:hover { opacity: 0.7; }
+.card-action svg { width: 11px; height: 11px; stroke-width: 2.5; stroke: currentColor; fill: none; }
+
+/* ── KPI CARDS ── */
+.kpi-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px; position: relative;
+  overflow: hidden; box-shadow: var(--shadow); transition: var(--t);
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-2); }
+.kpi-stripe {
+  position: absolute; top: 0; left: 0; width: 3px; bottom: 0;
+  border-radius: 10px 0 0 10px;
+}
+.kpi-icon {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
+}
+.kpi-icon svg { width: 15px; height: 15px; stroke-width: 2; stroke: currentColor; fill: none; }
+.kpi-label {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--text-3); margin-bottom: 6px;
+}
+.kpi-value {
+  font-family: var(--font-serif); font-size: 28px; font-weight: 600;
+  letter-spacing: -0.02em; color: var(--text-1); line-height: 1;
+}
+.kpi-sub { font-size: 11px; color: var(--text-3); margin-top: 5px; }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 500;
+}
+.badge-community { background: rgba(224,125,74,0.12); color: var(--community); }
+.badge-programmes { background: rgba(106,171,126,0.12); color: var(--programmes); }
+.badge-residency { background: rgba(196,149,106,0.12); color: var(--residency); }
+.badge-gallery { background: rgba(176,126,200,0.12); color: var(--gallery); }
+.badge-venue { background: rgba(94,158,201,0.12); color: var(--venue); }
+.badge-marketing { background: rgba(212,168,67,0.12); color: var(--marketing); }
+.badge-ai { background: rgba(201,107,107,0.12); color: var(--ai-ops); }
+.badge-grey { background: var(--surface-2); color: var(--text-2); }
+.badge-green { background: var(--green-soft); color: var(--green); }
+.badge-red { background: var(--red-soft); color: var(--red); }
+.badge-amber { background: var(--amber-soft); color: var(--amber); }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--text-3);
+  padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border);
+  background: var(--surface-2); white-space: nowrap;
+}
+tbody td { padding: 10px 12px; font-size: 12.5px; border-bottom: 1px solid var(--border); }
+tbody tr:hover td { background: var(--surface-2); }
+tbody tr:last-child td { border-bottom: none; }
+
+/* ── LAYER BAND (hero stripe for each section) ── */
+.layer-band {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 18px 20px 16px;
+  margin-bottom: -1px;
+  border: 1px solid var(--border-2); border-bottom: none;
+  position: relative; overflow: hidden;
+}
+.layer-band::after {
+  content: '';
+  position: absolute; right: -20px; top: -20px;
+  width: 120px; height: 120px; border-radius: 50%;
+  opacity: 0.06;
+}
+.layer-band-number {
+  font-family: var(--font-serif); font-size: 48px; font-weight: 700;
+  position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+  opacity: 0.06; line-height: 1; pointer-events: none;
+}
+.layer-band-eyebrow {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; opacity: 0.65; margin-bottom: 3px;
+}
+.layer-band-title {
+  font-family: var(--font-serif); font-size: 18px; font-weight: 600;
+  line-height: 1.2;
+}
+.layer-band-desc { font-size: 12px; opacity: 0.65; margin-top: 3px; }
+
+/* ── INSIGHT FEED ── */
+.insight-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+}
+.insight-item:last-child { border-bottom: none; }
+.insight-icon {
+  width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.insight-icon svg { width: 12px; height: 12px; stroke-width: 2; stroke: currentColor; fill: none; }
+.insight-text { font-size: 12.5px; color: var(--text-1); line-height: 1.45; flex: 1; }
+.insight-time { font-size: 11px; color: var(--text-3); margin-top: 2px; font-family: var(--font-mono); }
+.insight-footer {
+  display: flex; align-items: center; gap: 4px; font-size: 11.5px;
+  color: var(--community); font-weight: 500; padding-top: 9px;
+  cursor: pointer; border: none; background: none;
+}
+.insight-footer svg { width: 12px; height: 12px; stroke-width: 2; stroke: currentColor; fill: none; }
+
+/* ── RECORD ROW ── */
+.record-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.record-row:last-child { border-bottom: none; }
+.record-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 600; font-size: 12px;
+  color: var(--text-1);
+}
+.record-name { font-size: 12.5px; font-weight: 500; color: var(--text-1); }
+.record-sub { font-size: 11px; color: var(--text-3); }
+
+/* ── SNAP CARD ── */
+.snap-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+}
+.snap-row:last-child { border-bottom: none; }
+.snap-label { font-size: 11.5px; color: var(--text-2); }
+.snap-value {
+  font-family: var(--font-serif); font-size: 18px; font-weight: 600;
+  color: var(--text-1); letter-spacing: -0.01em;
+}
+.snap-chart-wrap { width: 68px; height: 28px; position: relative; flex-shrink: 0; }
+.snap-chart-wrap canvas { position: absolute !important; inset: 0; width: 100% !important; height: 100% !important; }
+
+/* ── QUICK ACTIONS ── */
+.qa-item {
+  display: flex; align-items: center; gap: 9px; padding: 8px 6px;
+  border-radius: var(--radius-sm); cursor: pointer; transition: var(--t);
+  border: none; background: none; width: 100%; text-align: left;
+}
+.qa-item:hover { background: var(--surface-2); }
+.qa-icon {
+  width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.qa-icon svg { width: 13px; height: 13px; stroke-width: 2; stroke: currentColor; fill: none; }
+.qa-name { font-size: 12.5px; color: var(--text-1); flex: 1; }
+.qa-arr svg { width: 11px; height: 11px; stroke-width: 2; stroke: var(--text-3); fill: none; }
+
+/* ── PROGRAMME CARD ── */
+.prog-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow);
+  transition: var(--t); position: relative; overflow: hidden;
+}
+.prog-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-2); transform: translateY(-1px); }
+.prog-card-label {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.16em;
+  text-transform: uppercase; margin-bottom: 5px;
+}
+.prog-card-title { font-weight: 600; font-size: 13.5px; margin-bottom: 4px; color: var(--text-1); }
+.prog-card-desc { font-size: 12px; color: var(--text-2); margin-bottom: 10px; line-height: 1.5; }
+.prog-card-footer { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.prog-card-actions { display: flex; gap: 5px; margin-top: 10px; }
+
+/* ── CHART CONTAINERS ── */
+.chart-container { position: relative; width: 100%; height: 190px; }
+.chart-container canvas { position: absolute !important; inset: 0; width: 100% !important; height: 100% !important; }
+
+/* ── FOCUS CARD ── */
+.focus-card {
+  background: linear-gradient(135deg, var(--surface-2), var(--surface));
+  border: 1px solid rgba(224,125,74,0.18);
+  border-radius: var(--radius); padding: 15px; position: relative; overflow: hidden;
+}
+.focus-card::before {
+  content: ''; position: absolute; top: -20px; right: -20px;
+  width: 90px; height: 90px; border-radius: 50%;
+  background: var(--community); opacity: 0.06;
+}
+.focus-title { font-size: 9px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; }
+.focus-mode { font-family: var(--font-serif); font-size: 15px; font-weight: 600; color: var(--text-1); margin-bottom: 1px; }
+.focus-time-label { font-size: 11px; color: var(--text-3); margin-bottom: 10px; }
+.focus-ring {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 2px solid rgba(224,125,74,0.15); border-top-color: var(--community);
+  animation: spin 8s linear infinite; flex-shrink: 0; position: relative;
+}
+.focus-ring-inner {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500; color: var(--community);
+  animation: spin 8s linear infinite reverse;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn-pause {
+  padding: 5px 10px; background: rgba(255,240,220,0.06); border: 1px solid rgba(255,240,220,0.10);
+  border-radius: 6px; font-size: 11.5px; font-weight: 500; color: var(--text-2);
+  display: flex; align-items: center; gap: 4px; transition: var(--t);
+}
+.btn-pause:hover { background: rgba(255,240,220,0.10); color: var(--text-1); }
+.btn-pause svg { width: 10px; height: 10px; stroke-width: 2; stroke: currentColor; fill: none; }
+
+/* ── GLANCE ROWS ── */
+.glance-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.glance-row:last-child { border-bottom: none; }
+.glance-icon { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface-2); }
+.glance-icon svg { width: 11px; height: 11px; stroke-width: 2; stroke: currentColor; fill: none; color: var(--text-2); }
+.glance-label { font-size: 10.5px; color: var(--text-3); }
+.glance-value { font-size: 12.5px; color: var(--text-1); font-weight: 500; }
+
+/* ── INSIGHT MAP ── */
+.insight-map {
+  position: relative; height: 220px;
+  background: var(--surface-2); border-radius: var(--radius-sm);
+  overflow: hidden; border: 1px solid var(--border);
+  background-image: radial-gradient(circle at 30% 40%, rgba(224,125,74,0.04) 0%, transparent 50%),
+                    radial-gradient(circle at 70% 70%, rgba(106,171,126,0.04) 0%, transparent 40%);
+}
+
+/* ── MET ROW ── */
+.met-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.met-row:last-child { border-bottom: none; }
+.met-label { font-size: 12px; color: var(--text-2); }
+.met-val { font-family: var(--font-serif); font-size: 17px; font-weight: 600; color: var(--text-1); }
+
+/* ══════════════════════════════════════════════
+   MODALS
+══════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(8px);
+  z-index: 800; display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border-radius: var(--radius-lg);
+  border: 1px solid var(--border-2);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+  width: 100%; max-height: 90vh; overflow-y: auto;
+}
+.modal-sm { max-width: 400px; }
+.modal-md { max-width: 540px; }
+.modal-header {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; background: var(--surface); z-index: 1;
+}
+.modal-title { font-family: var(--font-serif); font-weight: 600; font-size: 15px; color: var(--text-1); }
+.modal-close {
+  background: var(--surface-2); border: none; border-radius: 6px;
+  width: 24px; height: 24px; cursor: pointer; color: var(--text-2);
+  display: flex; align-items: center; justify-content: center; transition: var(--t);
+}
+.modal-close:hover { background: var(--red-soft); color: var(--red); }
+.modal-close svg { width: 11px; height: 11px; stroke-width: 2; stroke: currentColor; fill: none; }
+.modal-body { padding: 18px; }
+.modal-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 6px; }
+
+.form-row { margin-bottom: 12px; }
+.form-label { display: block; font-size: 11.5px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; }
+.form-input, .form-select, .form-textarea {
+  width: 100%; padding: 8px 11px;
+  background: var(--bg); border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm); font-family: var(--font); font-size: 12.5px;
+  color: var(--text-1); outline: none; transition: var(--t);
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--community); box-shadow: 0 0 0 3px rgba(224,125,74,0.12);
+}
+.form-textarea { resize: vertical; min-height: 75px; }
+.form-select option { background: var(--surface-2); }
+
+/* ── FIELD BUILDER ── */
+.field-builder-list {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-bottom: 10px; max-height: 200px; overflow-y: auto;
+}
+.field-item {
+  display: flex; align-items: center; gap: 7px; padding: 7px 9px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.field-item-label { flex: 1; font-size: 12.5px; color: var(--text-1); }
+.field-item-type { font-size: 10px; color: var(--text-3); background: var(--bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); font-family: var(--font-mono); }
+.field-add-row { display: flex; gap: 5px; }
+.field-add-row .form-input { flex: 1; }
+
+/* ── SHARE MODAL ── */
+.share-tabs {
+  display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 3px; margin-bottom: 14px;
+}
+.share-tab {
+  flex: 1; padding: 6px; background: none; border: none; border-radius: 5px;
+  font-size: 12px; font-weight: 500; color: var(--text-2); cursor: pointer; transition: var(--t);
+}
+.share-tab.active { background: var(--surface-2); color: var(--text-1); box-shadow: var(--shadow); }
+.share-panel { display: none; }
+.share-panel.active { display: block; }
+.qr-wrap {
+  padding: 14px; background: white; border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center; margin-bottom: 10px;
+}
+.url-row {
+  display: flex; align-items: center; gap: 6px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 9px; margin-bottom: 8px;
+}
+.url-text { flex: 1; font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); }
+.btn-copy {
+  flex-shrink: 0; padding: 3px 8px; border-radius: 5px;
+  background: rgba(224,125,74,0.12); color: var(--community); border: none;
+  font-size: 11px; font-weight: 500; cursor: pointer; transition: var(--t);
+}
+.btn-copy:hover { background: rgba(224,125,74,0.2); }
+.share-platforms { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-bottom: 10px; }
+.platform-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px;
+  border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2);
+  cursor: pointer; transition: var(--t); font-size: 10px; color: var(--text-2); font-weight: 500;
+}
+.platform-btn:hover { border-color: var(--community); background: rgba(224,125,74,0.08); color: var(--community); }
+.platform-icon { width: 24px; height: 24px; border-radius: 5px; display: flex; align-items: center; justify-content: center; }
+.platform-icon svg { width: 14px; height: 14px; }
+
+/* ── RESP DETAIL ── */
+.resp-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.resp-answer { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; }
+.resp-answer-q { font-size: 9.5px; font-weight: 600; color: var(--text-3); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.08em; }
+.resp-answer-a { font-size: 12.5px; color: var(--text-1); }
+
+/* ── TOAST ── */
+#toast { position: fixed; bottom: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column; gap: 5px; }
+.toast-item {
+  padding: 8px 13px; border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 500;
+  box-shadow: var(--shadow-md); animation: slideUp 0.2s ease;
+  display: flex; align-items: center; gap: 7px; min-width: 180px;
+}
+.toast-item svg { width: 12px; height: 12px; stroke-width: 2; flex-shrink: 0; stroke: currentColor; fill: none; }
+.toast-success { background: #1a2e20; color: var(--green); border: 1px solid rgba(106,171,126,0.25); }
+.toast-error { background: #2e1a1a; color: var(--red); border: 1px solid rgba(201,107,107,0.25); }
+.toast-info { background: var(--surface-2); color: var(--text-1); border: 1px solid var(--border-2); }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── EMPTY STATE ── */
+.empty-state { text-align: center; padding: 36px 20px; color: var(--text-2); }
+.empty-state svg { width: 28px; height: 28px; stroke-width: 1.2; color: var(--text-3); margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto; }
+.empty-state p { font-size: 12.5px; margin-bottom: 12px; line-height: 1.5; }
+
+/* ══════════════════════════════════════════════
+   PUBLIC FILL SCREEN
+══════════════════════════════════════════════ */
+#fill-screen {
+  position: fixed; inset: 0; z-index: 1000; display: none;
+  background: var(--bg); overflow-y: auto;
+}
+.fill-wrap { max-width: 600px; margin: 0 auto; padding: 36px 22px 90px; }
+.fill-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 22px; }
+.fill-form-title { font-family: var(--font-serif); font-size: 24px; font-weight: 400; margin-bottom: 2px; color: var(--text-1); }
+.fill-form-desc { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+.fill-progress { width: 100%; height: 2px; background: var(--surface-2); border-radius: 2px; margin-bottom: 22px; overflow: hidden; }
+.fill-progress-bar { height: 100%; background: linear-gradient(90deg, var(--community), var(--marketing)); border-radius: 2px; transition: width 0.4s ease; }
+.fill-field { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.fill-field-label { font-size: 13px; font-weight: 500; color: var(--text-1); margin-bottom: 2px; }
+.fill-required { color: var(--community); font-size: 11px; margin-left: 3px; }
+.fill-field-hint { font-size: 11.5px; color: var(--text-3); margin-bottom: 7px; line-height: 1.4; }
+.fill-input { width: 100%; padding: 9px 11px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; color: var(--text-1); outline: none; transition: var(--t); }
+.fill-input:focus { border-color: var(--community); box-shadow: 0 0 0 3px rgba(224,125,74,0.12); }
+.fill-textarea { resize: vertical; min-height: 80px; }
+.fill-radio-group, .fill-checkbox-group { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.fill-radio-opt, .fill-checkbox-opt { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border-radius: var(--radius-sm); border: 1px solid var(--border); cursor: pointer; transition: var(--t); font-size: 12.5px; background: var(--surface-2); color: var(--text-1); }
+.fill-radio-opt:hover, .fill-checkbox-opt:hover { border-color: var(--community); background: rgba(224,125,74,0.07); }
+.fill-radio-opt input, .fill-checkbox-opt input { accent-color: var(--community); }
+.fill-scale { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+.fill-scale-btn { width: 37px; height: 37px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-2); font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; transition: var(--t); }
+.fill-scale-btn:hover, .fill-scale-btn.selected { background: var(--community); color: white; border-color: var(--community); }
+.fill-submit-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 10px; box-shadow: var(--shadow); }
+.fill-submit { width: 100%; padding: 12px; background: var(--community); color: white; border: none; border-radius: var(--radius); font-family: var(--font); font-weight: 600; font-size: 14px; cursor: pointer; transition: var(--t); margin-top: 12px; }
+.fill-submit:hover { background: #e88d5c; transform: translateY(-1px); box-shadow: 0 5px 20px rgba(224,125,74,0.35); }
+.fill-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.fill-success { text-align: center; padding: 60px 20px; display: none; }
+.fill-success-icon { width: 56px; height: 56px; border-radius: 50%; background: var(--green-soft); border: 2px solid var(--green); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+.fill-success-icon svg { width: 22px; height: 22px; stroke-width: 2; color: var(--green); stroke: currentColor; fill: none; }
+.fill-success-title { font-family: var(--font-serif); font-size: 23px; font-weight: 400; margin-bottom: 6px; color: var(--text-1); }
+.fill-success-sub { font-size: 13px; color: var(--text-2); }
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  .icon-nav { display: none; }
+  .sidebar { left: 0; }
+  .main { margin-left: var(--sidebar-w); }
+  .grid-4 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 700px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 12px; }
+  .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  .grid-4 { grid-template-columns: 1fr; }
+  .cmd-bar { padding: 8px 12px; }
+  .resp-detail-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ AUTH ═══════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-wordmark">
+      <span class="auth-wordmark-v">Verve</span>
+      <span class="auth-wordmark-sub">Creative Centre</span>
+    </div>
+    <div id="auth-main">
+      <div class="auth-title">Welcome back</div>
+      <div class="auth-desc">Sign in to access your creative centre intelligence platform.</div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="authTab('signin',this)">Sign In</button>
+        <button class="auth-tab" onclick="authTab('signup',this)">Register</button>
+      </div>
+      <div id="ap-signin" class="auth-panel active">
+        <div class="f-group"><label class="f-label">Email</label><input type="email" class="f-input" id="si-email" placeholder="you@verve.org"></div>
+        <div class="f-group">
+          <label class="f-label">Password</label>
+          <input type="password" class="f-input" id="si-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doSignIn()">
+        </div>
+        <button class="auth-forgot" onclick="showResetPanel()">Forgot password?</button>
+        <button class="btn-auth" onclick="doSignIn()" id="si-btn">Enter the Centre</button>
+        <div class="auth-msg" id="si-msg"></div>
+      </div>
+      <div id="ap-signup" class="auth-panel">
+        <div class="f-group"><label class="f-label">Full Name</label><input type="text" class="f-input" id="su-name" placeholder="Your name"></div>
+        <div class="f-group"><label class="f-label">Email</label><input type="email" class="f-input" id="su-email" placeholder="you@verve.org"></div>
+        <div class="f-group"><label class="f-label">Password</label><input type="password" class="f-input" id="su-pass" placeholder="Min 8 characters"></div>
+        <div class="f-group">
+          <label class="f-label">Role</label>
+          <select class="f-input" id="su-role">
+            <option value="operator">Administrator — full access</option>
+            <option value="client">Programme Lead — scoped access</option>
+          </select>
+        </div>
+        <button class="btn-auth" onclick="doSignUp()" id="su-btn">Create Account</button>
+        <div class="auth-msg" id="su-msg"></div>
+      </div>
+    </div>
+    <div id="auth-reset" style="display:none">
+      <button class="auth-back" onclick="hideResetPanel()">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Back to sign in
+      </button>
+      <div class="auth-title">Reset password</div>
+      <div class="auth-desc">We'll send a reset link to your email address.</div>
+      <div class="f-group">
+        <label class="f-label">Email</label>
+        <input type="email" class="f-input" id="reset-email" placeholder="you@verve.org" onkeydown="if(event.key==='Enter')doPasswordReset()">
+      </div>
+      <button class="btn-auth" onclick="doPasswordReset()" id="reset-btn">Send Reset Link</button>
+      <div class="auth-msg" id="reset-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ APP ═══════════ -->
+<div id="app">
+
+  <!-- ICON NAV -->
+  <nav class="icon-nav">
+    <div class="icon-nav-logo" onclick="navTo('dashboard')">V</div>
+
+    <button class="nav-btn active" data-page="dashboard" onclick="navTo('dashboard')" style="--layer-c:var(--community)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <div class="nav-dot" style="background:var(--community)"></div>
+      <span class="nav-tooltip"><span class="nav-tooltip-dot" style="background:var(--community)"></span>Dashboard</span>
+    </button>
+    <button class="nav-btn" data-page="community" onclick="navTo('community')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      <div class="nav-dot" style="background:var(--community)"></div>
+      <span class="nav-tooltip"><span class="nav-tooltip-dot" style="background:var(--community)"></span>Community</span>
+    </button>
+    <button class="nav-btn" data-page="programmes" onclick="navTo('programmes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+      <div class="nav-dot" style="background:var(--programmes)"></div>
+      <span class="nav-tooltip"><span class="nav-tooltip-dot" style="background:var(--programmes)"></span>Programmes</span>
+    </button>
+    <button class="nav-btn" data-page="residency" onclick="navTo('residency')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <div class="nav-dot" style="background:var(--residency)"></div>
+      <span class="nav-tooltip"><span class="nav-tooltip-dot" style="background:var(--residency)"></span>Residency</span>
+    </button>
+    <button class="nav-btn" data-page="gallery" onclick="navTo('gallery')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <div class="nav-dot" style="background:var(--gallery)"></div>
+      <span class="nav-tooltip"><span class="nav-tooltip-dot" style="background:var(--gallery)"></span>Gallery</span>
+    </button>
+    <button class="nav-btn" data-page="venue" onclick="navTo('venue')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+      <div class="nav-dot" style="background:var(--venue)"></div>
+      <span class="nav-tooltip"><span class="nav-tooltip-dot" style="background:var(--venue)"></span>Venue</span>
+    </button>
+    <button class="nav-btn" data-page="marketing" onclick="navTo('marketing')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <div class="nav-dot" style="background:var(--marketing)"></div>
+      <span class="nav-tooltip"><span class="nav-tooltip-dot" style="background:var(--marketing)"></span>Marketing</span>
+    </button>
+    <button class="nav-btn" data-page="ai" onclick="navTo('ai')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      <div class="nav-dot" style="background:var(--ai-ops)"></div>
+      <span class="nav-tooltip"><span class="nav-tooltip-dot" style="background:var(--ai-ops)"></span>AI Operations</span>
+    </button>
+    <button class="nav-btn operator-only" data-page="forms" onclick="navTo('forms')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <div class="nav-dot" style="background:var(--text-3)"></div>
+      <span class="nav-tooltip"><span class="nav-tooltip-dot" style="background:var(--text-3)"></span>Forms</span>
+    </button>
+    <div class="nav-spacer"></div>
+    <button class="nav-btn" data-page="metrics" onclick="navTo('metrics')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <div class="nav-dot" style="background:var(--text-3)"></div>
+      <span class="nav-tooltip">Metrics</span>
+    </button>
+    <button class="nav-btn" data-page="settings" onclick="navTo('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <div class="nav-dot" style="background:var(--text-3)"></div>
+      <span class="nav-tooltip">Settings</span>
+    </button>
+    <div class="nav-avatar" id="nav-avatar">?</div>
+  </nav>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-header">
+      <div class="sb-wordmark">
+        <span class="sb-wordmark-v">Verve</span>
+        <span class="sb-wordmark-sub">Creative Centre</span>
+      </div>
+      <button class="sb-add" onclick="openNewFormModal()" title="New Form">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+    <div class="sb-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Search…" id="sb-search-input" oninput="handleSearch(this.value)">
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Overview</div>
+      <button class="sb-item active" data-page="dashboard" onclick="navTo('dashboard')">
+        <span class="sb-item-dot" style="background:var(--community)"></span>
+        <span class="sb-item-name">Dashboard</span>
+      </button>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Layers</div>
+      <button class="sb-item" data-page="community" onclick="navTo('community')">
+        <span class="sb-item-dot" style="background:var(--community)"></span>
+        <span class="sb-item-name">Community</span>
+        <span class="sb-count" id="sb-community-count">0</span>
+      </button>
+      <button class="sb-item" data-page="programmes" onclick="navTo('programmes')">
+        <span class="sb-item-dot" style="background:var(--programmes)"></span>
+        <span class="sb-item-name">Programmes</span>
+        <span class="sb-count" id="sb-programmes-count">0</span>
+      </button>
+      <button class="sb-item" data-page="residency" onclick="navTo('residency')">
+        <span class="sb-item-dot" style="background:var(--residency)"></span>
+        <span class="sb-item-name">Residency</span>
+        <span class="sb-count" id="sb-residency-count">0</span>
+      </button>
+      <button class="sb-item" data-page="gallery" onclick="navTo('gallery')">
+        <span class="sb-item-dot" style="background:var(--gallery)"></span>
+        <span class="sb-item-name">Gallery & Exhibitions</span>
+        <span class="sb-count" id="sb-gallery-count">0</span>
+      </button>
+      <button class="sb-item" data-page="venue" onclick="navTo('venue')">
+        <span class="sb-item-dot" style="background:var(--venue)"></span>
+        <span class="sb-item-name">Event Venue</span>
+        <span class="sb-count" id="sb-venue-count">0</span>
+      </button>
+      <button class="sb-item" data-page="marketing" onclick="navTo('marketing')">
+        <span class="sb-item-dot" style="background:var(--marketing)"></span>
+        <span class="sb-item-name">Marketing</span>
+      </button>
+      <button class="sb-item" data-page="ai" onclick="navTo('ai')">
+        <span class="sb-item-dot" style="background:var(--ai-ops)"></span>
+        <span class="sb-item-name">AI Operations</span>
+      </button>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Tools</div>
+      <button class="sb-item operator-only" data-page="forms" onclick="navTo('forms')">
+        <span class="sb-item-dot" style="background:var(--text-3)"></span>
+        <span class="sb-item-name">Form Builder</span>
+        <span class="sb-count" id="sb-forms-count">0</span>
+      </button>
+      <button class="sb-item" data-page="responses" onclick="navTo('responses')">
+        <span class="sb-item-dot" style="background:var(--text-3)"></span>
+        <span class="sb-item-name">Responses</span>
+        <span class="sb-count" id="sb-resp-count">0</span>
+      </button>
+      <button class="sb-item" data-page="metrics" onclick="navTo('metrics')">
+        <span class="sb-item-dot" style="background:var(--text-3)"></span>
+        <span class="sb-item-name">Live Metrics</span>
+      </button>
+    </div>
+
+    <div class="sb-footer">
+      <div class="sb-org-label">Context Filter</div>
+      <select class="sb-org-sel" id="org-selector" onchange="onOrgChange(this.value)">
+        <option value="">All Programmes</option>
+      </select>
+      <button class="btn-signout" onclick="doSignOut()">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="cmd-bar">
+      <div class="cmd-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search members, artists, events…" id="cmd-input" oninput="handleSearch(this.value)">
+        <span class="cmd-kbd">⌘K</span>
+      </div>
+      <div class="cmd-right">
+        <button class="btn btn-outline" onclick="openNewFormModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Form
+        </button>
+        <button class="btn btn-primary" onclick="navTo('ai')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>AI Assist
+        </button>
+      </div>
+    </div>
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-eyebrow" style="color:var(--community)">Verve Creative Centre</div>
+      <div class="page-title">Good <em id="dash-greeting">morning</em>, <em id="dash-name">—</em></div>
+      <div class="page-sub">Your creative centre at a glance — community, programmes, and spaces.</div>
+
+      <!-- KPIs — one per layer -->
+      <div class="grid-4" style="margin-bottom:15px">
+        <div class="kpi-card">
+          <div class="kpi-stripe" style="background:var(--community)"></div>
+          <div class="kpi-icon" style="background:rgba(224,125,74,0.10);color:var(--community)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <div class="kpi-label">Community Members</div>
+          <div class="kpi-value" id="kpi-responses">—</div>
+          <div class="kpi-sub" id="kpi-responses-sub">Members & participants</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-stripe" style="background:var(--programmes)"></div>
+          <div class="kpi-icon" style="background:rgba(106,171,126,0.10);color:var(--programmes)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+          </div>
+          <div class="kpi-label">Active Programmes</div>
+          <div class="kpi-value" id="kpi-forms">—</div>
+          <div class="kpi-sub">Workshops, mentorships & courses</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-stripe" style="background:var(--residency)"></div>
+          <div class="kpi-icon" style="background:rgba(196,149,106,0.10);color:var(--residency)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <div class="kpi-label">Avg Engagement Score</div>
+          <div class="kpi-value" id="kpi-score">—</div>
+          <div class="kpi-sub" id="kpi-score-sub">Across all assessments</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-stripe" style="background:var(--gallery)"></div>
+          <div class="kpi-icon" style="background:rgba(176,126,200,0.10);color:var(--gallery)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <div class="kpi-label">Active Exhibitions</div>
+          <div class="kpi-value" id="kpi-orgs">—</div>
+          <div class="kpi-sub">Gallery & studio shows</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 288px;gap:14px;margin-bottom:14px">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-label">Activity Map — Layer Connections</span>
+            <button class="card-action" onclick="navTo('responses')">All activity <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button>
+          </div>
+          <div class="insight-map" id="insight-map">
+            <svg id="map-svg" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></svg>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="card card-sm">
+            <div class="card-header" style="margin-bottom:8px"><span class="card-label">At a Glance</span></div>
+            <div class="glance-row">
+              <div class="glance-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+              <div><div class="glance-label">Focus Session</div><div class="glance-value" id="gl-focus">2h 10m left</div></div>
+            </div>
+            <div class="glance-row">
+              <div class="glance-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></div>
+              <div><div class="glance-label">Programmes</div><div class="glance-value" id="gl-forms">—</div></div>
+            </div>
+            <div class="glance-row" style="border:none">
+              <div class="glance-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg></div>
+              <div><div class="glance-label">Systems</div><div class="glance-value" style="color:var(--green)">All operational</div></div>
+            </div>
+          </div>
+          <div class="focus-card">
+            <div class="focus-title">Focus Mode</div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div>
+                <div class="focus-mode">Deep Work</div>
+                <div class="focus-time-label">Session active</div>
+                <button class="btn-pause" onclick="toggleFocus()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  <span id="focus-btn-label">Pause</span>
+                </button>
+              </div>
+              <div style="position:relative;flex-shrink:0">
+                <div class="focus-ring"><div class="focus-ring-inner" id="focus-time-display">2:10</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-4">
+        <div class="card card-sm">
+          <div class="card-header"><span class="card-label">Recent Activity</span></div>
+          <div id="insight-feed"></div>
+          <button class="insight-footer" onclick="navTo('responses')">All responses <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+        </div>
+        <div class="card card-sm">
+          <div class="card-header"><span class="card-label">Active Forms</span></div>
+          <div id="top-forms-list"></div>
+          <button class="insight-footer" onclick="navTo('forms')">Manage forms <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+        </div>
+        <div class="card card-sm">
+          <div class="card-header"><span class="card-label">Data Snapshot</span></div>
+          <div class="snap-row">
+            <div><div class="snap-label">Programmes</div><div class="snap-value" id="snap-forms">—</div></div>
+            <div class="snap-chart-wrap"><canvas id="chart-forms"></canvas></div>
+          </div>
+          <div class="snap-row">
+            <div><div class="snap-label">Responses</div><div class="snap-value" id="snap-resp">—</div></div>
+            <div class="snap-chart-wrap"><canvas id="chart-resp"></canvas></div>
+          </div>
+          <div class="snap-row" style="border:none">
+            <div><div class="snap-label">Avg Score</div><div class="snap-value" id="snap-score">—</div></div>
+            <div class="snap-chart-wrap"><canvas id="chart-score"></canvas></div>
+          </div>
+          <button class="insight-footer" onclick="navTo('metrics')">Open metrics <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+        </div>
+        <div class="card card-sm">
+          <div class="card-header"><span class="card-label">Quick Actions</span></div>
+          <button class="qa-item" onclick="openNewFormModal()">
+            <div class="qa-icon" style="background:rgba(224,125,74,0.10)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--community)"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <span class="qa-name">New Form</span>
+            <span class="qa-arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></span>
+          </button>
+          <button class="qa-item" onclick="navTo('community')">
+            <div class="qa-icon" style="background:rgba(224,125,74,0.10)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--community)"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <span class="qa-name">Community Layer</span>
+            <span class="qa-arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></span>
+          </button>
+          <button class="qa-item" onclick="navTo('residency')">
+            <div class="qa-icon" style="background:rgba(196,149,106,0.10)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--residency)"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></div>
+            <span class="qa-name">Residency Layer</span>
+            <span class="qa-arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></span>
+          </button>
+          <button class="qa-item" onclick="navTo('ai')">
+            <div class="qa-icon" style="background:rgba(201,107,107,0.10)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--ai-ops)"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+            <span class="qa-name">AI Operations</span>
+            <span class="qa-arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COMMUNITY LAYER ── -->
+    <div class="page" id="page-community">
+      <div class="layer-band" style="background:linear-gradient(135deg,rgba(224,125,74,0.08),var(--surface));border-color:rgba(224,125,74,0.2)">
+        <div class="layer-band-number" style="color:var(--community)">01</div>
+        <div class="layer-band-eyebrow" style="color:var(--community)">Layer 1</div>
+        <div class="layer-band-title" style="color:var(--text-1)">Community Layer</div>
+        <div class="layer-band-desc">Members · Volunteers · Participants · Registrations · Engagement · Communication</div>
+      </div>
+      <div class="card" style="border-radius:0 0 var(--radius) var(--radius);border-top:none;margin-bottom:14px;padding:14px 18px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="openNewFormModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Registration Form</button>
+          <button class="btn btn-outline" onclick="navTo('responses')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>View Responses</button>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-bottom:14px">
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--community)"></div><div class="kpi-label">Total Members</div><div class="kpi-value" id="community-kpi-members">—</div><div class="kpi-sub">Registered members</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--community)"></div><div class="kpi-label">Volunteers</div><div class="kpi-value" id="community-kpi-volunteers">—</div><div class="kpi-sub">Active volunteers</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--community)"></div><div class="kpi-label">Programme Participants</div><div class="kpi-value" id="community-kpi-participants">—</div><div class="kpi-sub">This season</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div class="card-header"><span class="card-label">Member Registrations</span><button class="card-action" onclick="navTo('responses')">All <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></div><div id="community-members-list"></div></div>
+        <div class="card"><div class="card-header"><span class="card-label">Engagement Activity</span></div><div id="community-activity"></div></div>
+      </div>
+    </div>
+
+    <!-- ── PROGRAMMES LAYER ── -->
+    <div class="page" id="page-programmes">
+      <div class="layer-band" style="background:linear-gradient(135deg,rgba(106,171,126,0.08),var(--surface));border-color:rgba(106,171,126,0.2)">
+        <div class="layer-band-number" style="color:var(--programmes)">02</div>
+        <div class="layer-band-eyebrow" style="color:var(--programmes)">Layer 2</div>
+        <div class="layer-band-title" style="color:var(--text-1)">Creative Programmes Layer</div>
+        <div class="layer-band-desc">Applications · Workshops · Mentorships · Schedules · Progress · Outcomes · Feedback</div>
+      </div>
+      <div class="card" style="border-radius:0 0 var(--radius) var(--radius);border-top:none;margin-bottom:14px;padding:14px 18px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="background:var(--programmes)" onclick="openNewFormModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Programme Form</button>
+          <button class="btn btn-outline" onclick="navTo('responses')">View Applications</button>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-bottom:14px">
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--programmes)"></div><div class="kpi-label">Active Workshops</div><div class="kpi-value" id="programmes-kpi-workshops">—</div><div class="kpi-sub">Running this cycle</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--programmes)"></div><div class="kpi-label">Applications</div><div class="kpi-value" id="programmes-kpi-applications">—</div><div class="kpi-sub">Total received</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--programmes)"></div><div class="kpi-label">Mentorship Pairs</div><div class="kpi-value" id="programmes-kpi-mentors">—</div><div class="kpi-sub">Active relationships</div></div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-label" style="color:var(--programmes)">Programme Forms</span><button class="card-action" style="color:var(--programmes)" onclick="navTo('forms')">Manage all <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></div><div id="programmes-forms-grid" class="grid-2" style="margin-top:4px"></div></div>
+    </div>
+
+    <!-- ── RESIDENCY LAYER ── -->
+    <div class="page" id="page-residency">
+      <div class="layer-band" style="background:linear-gradient(135deg,rgba(196,149,106,0.08),var(--surface));border-color:rgba(196,149,106,0.2)">
+        <div class="layer-band-number" style="color:var(--residency)">03</div>
+        <div class="layer-band-eyebrow" style="color:var(--residency)">Layer 3</div>
+        <div class="layer-band-title" style="color:var(--text-1)">Artist Residency Layer</div>
+        <div class="layer-band-desc">Applications · Selection · Resident Profiles · Schedules · Deliverables · Exhibitions · Archives</div>
+      </div>
+      <div class="card" style="border-radius:0 0 var(--radius) var(--radius);border-top:none;margin-bottom:14px;padding:14px 18px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="background:var(--residency)" onclick="openNewFormModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Residency Application</button>
+          <button class="btn btn-outline" onclick="navTo('responses')">View Applications</button>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-bottom:14px">
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--residency)"></div><div class="kpi-label">Current Residents</div><div class="kpi-value">—</div><div class="kpi-sub">In programme</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--residency)"></div><div class="kpi-label">Applications Open</div><div class="kpi-value">—</div><div class="kpi-sub">Pending review</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--residency)"></div><div class="kpi-label">Exhibitions Produced</div><div class="kpi-value">—</div><div class="kpi-sub">All-time</div></div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-label" style="color:var(--residency)">Residency Forms & Applications</span></div><div id="residency-forms-grid" class="grid-2" style="margin-top:4px"></div></div>
+    </div>
+
+    <!-- ── GALLERY LAYER ── -->
+    <div class="page" id="page-gallery">
+      <div class="layer-band" style="background:linear-gradient(135deg,rgba(176,126,200,0.08),var(--surface));border-color:rgba(176,126,200,0.2)">
+        <div class="layer-band-number" style="color:var(--gallery)">04</div>
+        <div class="layer-band-eyebrow" style="color:var(--gallery)">Layer 4</div>
+        <div class="layer-band-title" style="color:var(--text-1)">Gallery & Exhibition Layer</div>
+        <div class="layer-band-desc">Exhibitions · Artists · Installations · Inventory · Schedules · Public Engagement · Analytics</div>
+      </div>
+      <div class="card" style="border-radius:0 0 var(--radius) var(--radius);border-top:none;margin-bottom:14px;padding:14px 18px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="background:var(--gallery)" onclick="openNewFormModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Exhibition Form</button>
+          <button class="btn btn-outline" onclick="navTo('responses')">Artist Submissions</button>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-bottom:14px">
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--gallery)"></div><div class="kpi-label">Open Exhibitions</div><div class="kpi-value">—</div><div class="kpi-sub">Currently showing</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--gallery)"></div><div class="kpi-label">Artists in Inventory</div><div class="kpi-value">—</div><div class="kpi-sub">Active roster</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--gallery)"></div><div class="kpi-label">Public Engagements</div><div class="kpi-value">—</div><div class="kpi-sub">Visitors this month</div></div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-label" style="color:var(--gallery)">Gallery Forms</span></div><div id="gallery-forms-grid" class="grid-2" style="margin-top:4px"></div></div>
+    </div>
+
+    <!-- ── VENUE LAYER ── -->
+    <div class="page" id="page-venue">
+      <div class="layer-band" style="background:linear-gradient(135deg,rgba(94,158,201,0.08),var(--surface));border-color:rgba(94,158,201,0.2)">
+        <div class="layer-band-number" style="color:var(--venue)">05</div>
+        <div class="layer-band-eyebrow" style="color:var(--venue)">Layer 5</div>
+        <div class="layer-band-title" style="color:var(--text-1)">Event Venue Layer</div>
+        <div class="layer-band-desc">Bookings · Planning · Attendee Registration · QR Check-ins · Payments · Logistics</div>
+      </div>
+      <div class="card" style="border-radius:0 0 var(--radius) var(--radius);border-top:none;margin-bottom:14px;padding:14px 18px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="background:var(--venue)" onclick="openNewFormModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Booking Form</button>
+          <button class="btn btn-outline" onclick="navTo('responses')">View Bookings</button>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-bottom:14px">
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--venue)"></div><div class="kpi-label">Upcoming Bookings</div><div class="kpi-value">—</div><div class="kpi-sub">Next 30 days</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--venue)"></div><div class="kpi-label">Attendee Registrations</div><div class="kpi-value">—</div><div class="kpi-sub">This month</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--venue)"></div><div class="kpi-label">Support Requests</div><div class="kpi-value">—</div><div class="kpi-sub">Open tickets</div></div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-label" style="color:var(--venue)">Venue Forms</span></div><div id="venue-forms-grid" class="grid-2" style="margin-top:4px"></div></div>
+    </div>
+
+    <!-- ── MARKETING LAYER ── -->
+    <div class="page" id="page-marketing">
+      <div class="layer-band" style="background:linear-gradient(135deg,rgba(212,168,67,0.08),var(--surface));border-color:rgba(212,168,67,0.2)">
+        <div class="layer-band-number" style="color:var(--marketing)">06</div>
+        <div class="layer-band-eyebrow" style="color:var(--marketing)">Layer 6</div>
+        <div class="layer-band-title" style="color:var(--text-1)">Marketing & Public Interaction Layer</div>
+        <div class="layer-band-desc">Campaigns · QR Engagement · Mailing Systems · Audience Behaviour · Conversion Analytics</div>
+      </div>
+      <div class="card" style="border-radius:0 0 var(--radius) var(--radius);border-top:none;margin-bottom:14px;padding:14px 18px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="background:var(--marketing)" onclick="openNewFormModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Campaign Form</button>
+          <button class="btn btn-outline" onclick="navTo('forms')">All Forms</button>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-bottom:14px">
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--marketing)"></div><div class="kpi-label">Active Campaigns</div><div class="kpi-value">—</div><div class="kpi-sub">Running now</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--marketing)"></div><div class="kpi-label">QR Scans</div><div class="kpi-value">—</div><div class="kpi-sub">This month</div></div>
+        <div class="kpi-card"><div class="kpi-stripe" style="background:var(--marketing)"></div><div class="kpi-label">Mailing List</div><div class="kpi-value">—</div><div class="kpi-sub">Subscribers</div></div>
+      </div>
+      <div class="card"><div class="card-header"><span class="card-label" style="color:var(--marketing)">Marketing Forms</span></div><div id="marketing-forms-grid" class="grid-2" style="margin-top:4px"></div></div>
+    </div>
+
+    <!-- ── AI OPERATIONS LAYER ── -->
+    <div class="page" id="page-ai">
+      <div class="layer-band" style="background:linear-gradient(135deg,rgba(201,107,107,0.08),var(--surface));border-color:rgba(201,107,107,0.2)">
+        <div class="layer-band-number" style="color:var(--ai-ops)">07</div>
+        <div class="layer-band-eyebrow" style="color:var(--ai-ops)">Layer 7</div>
+        <div class="layer-band-title" style="color:var(--text-1)">AI Operations Layer</div>
+        <div class="layer-band-desc">Automated Support · Onboarding · FAQs · Scheduling · Workflow Guidance · Internal Operations</div>
+      </div>
+      <div style="height:14px"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-label" style="color:var(--ai-ops)">AI Analysis Configuration</span></div>
+          <div class="form-row"><label class="form-label">Anthropic API Key</label><input type="password" class="form-input" id="ai-api-key" placeholder="sk-ant-…"></div>
+          <div class="form-row"><label class="form-label">Layer / Form to Analyse</label><select class="form-select" id="ai-form-select"><option value="">All responses</option></select></div>
+          <div class="form-row"><label class="form-label">Analysis Prompt</label><textarea class="form-textarea" rows="4" id="ai-prompt" placeholder="Analyse community responses and surface patterns, engagement insights, and recommendations for the centre…"></textarea></div>
+          <button class="btn btn-primary" style="background:var(--ai-ops);width:100%;padding:10px;justify-content:center" onclick="runAI()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Run Analysis
+          </button>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-label">Analysis Output</span><button class="btn btn-outline" id="ai-copy-btn" onclick="copyAIOutput()" style="display:none;padding:4px 9px;font-size:11.5px">Copy</button></div>
+          <div id="ai-output" style="font-size:13px;color:var(--text-2);line-height:1.75;min-height:200px">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <p>Configure your API key and run an analysis on any layer's data.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FORMS PAGE ── -->
+    <div class="page" id="page-forms">
+      <div class="page-header-row">
+        <div>
+          <div class="page-eyebrow" style="color:var(--text-3)">Tools</div>
+          <div class="page-title">Form <em>Builder</em></div>
+          <div class="page-sub">Create intake forms, applications, surveys, and registrations for any layer.</div>
+        </div>
+        <button class="btn btn-primary" onclick="openNewFormModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Form
+        </button>
+      </div>
+      <div id="forms-grid" class="grid-2"></div>
+    </div>
+
+    <!-- ── RESPONSES PAGE ── -->
+    <div class="page" id="page-responses">
+      <div class="page-header-row">
+        <div>
+          <div class="page-eyebrow" style="color:var(--text-3)">Tools</div>
+          <div class="page-title">Form <em>Responses</em></div>
+          <div class="page-sub">All submissions across community, programme, residency, and venue forms.</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select class="form-select" id="resp-form-filter" style="width:200px;padding:6px 9px;font-size:12px" onchange="filterResponses()">
+            <option value="">All Forms</option>
+          </select>
+          <button class="btn btn-outline" onclick="exportCSV()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export CSV
+          </button>
+        </div>
+      </div>
+      <div class="card"><div class="table-wrap" id="responses-container"></div></div>
+    </div>
+
+    <!-- ── METRICS PAGE ── -->
+    <div class="page" id="page-metrics">
+      <div class="page-eyebrow" style="color:var(--text-3)">Analytics</div>
+      <div class="page-title">Live <em>Metrics</em></div>
+      <div class="page-sub">Centre-wide operational intelligence across all seven layers.</div>
+      <div class="grid-2" style="margin-bottom:14px">
+        <div class="card"><div class="card-header"><span class="card-label">Response Volume (30 days)</span></div><div class="chart-container"><canvas id="metrics-chart-volume"></canvas></div></div>
+        <div class="card"><div class="card-header"><span class="card-label">Score Distribution</span></div><div class="chart-container"><canvas id="metrics-chart-score"></canvas></div></div>
+      </div>
+      <div class="grid-3">
+        <div class="card card-sm"><div class="card-header"><span class="card-label">Top Forms</span></div><div id="metrics-top-forms"></div></div>
+        <div class="card card-sm"><div class="card-header"><span class="card-label">Programmes</span></div><div id="metrics-top-orgs"></div></div>
+        <div class="card card-sm"><div class="card-header"><span class="card-label">Summary</span></div><div id="metrics-summary"></div></div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS PAGE ── -->
+    <div class="page" id="page-settings">
+      <div class="page-title">Settings</div>
+      <div class="page-sub" style="margin-bottom:20px">Configure your Verve Creative Centre intelligence platform.</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-label">Supabase Connection</span></div>
+          <div class="form-row"><label class="form-label">Project URL</label><input type="text" class="form-input" id="sb-url-input" placeholder="https://xxxx.supabase.co"></div>
+          <div class="form-row"><label class="form-label">Anon Key</label><input type="password" class="form-input" id="sb-key-input" placeholder="eyJ…"></div>
+          <button class="btn btn-primary" onclick="saveSupabaseConfig()" style="padding:8px 16px">Save &amp; Reconnect</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-label">Account</span></div>
+          <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">Signed in as <strong id="settings-email">—</strong></div>
+          <div class="form-row"><label class="form-label">Role</label><input type="text" class="form-input" id="settings-role" disabled></div>
+          <button class="btn btn-outline" onclick="doSignOut()">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════ MODALS ═══════════ -->
+
+<!-- Form Builder Modal -->
+<div class="modal-overlay" id="modal-new-form">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-form-title">Create New Form</div>
+      <button class="modal-close" onclick="closeModal('modal-new-form')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="nf-edit-id">
+      <div class="form-row"><label class="form-label">Form Name *</label><input type="text" class="form-input" id="nf-name" placeholder="e.g. Artist Residency Application 2025"></div>
+      <div class="form-row"><label class="form-label">Description</label><input type="text" class="form-input" id="nf-desc" placeholder="What this form collects…"></div>
+      <div class="form-row"><label class="form-label">Layer / Programme</label><select class="form-select" id="nf-org"><option value="">General</option></select></div>
+      <div class="form-row">
+        <label class="form-label">Fields</label>
+        <div class="field-builder-list" id="field-builder-list"></div>
+        <div class="field-add-row">
+          <input type="text" class="form-input" id="field-label-input" placeholder="Field label…" style="flex:1">
+          <select class="form-select" id="field-type-input" style="width:140px">
+            <option value="text">Short text</option>
+            <option value="textarea">Long text</option>
+            <option value="number">Number</option>
+            <option value="email">Email</option>
+            <option value="select">Dropdown</option>
+            <option value="radio">Multiple choice</option>
+            <option value="checkbox">Checkboxes</option>
+            <option value="scale">Scale 1–10</option>
+            <option value="date">Date</option>
+          </select>
+          <button class="btn btn-outline" type="button" id="add-field-btn">+ Add</button>
+        </div>
+        <div id="field-options-input-wrap" style="display:none;margin-top:7px">
+          <label class="form-label">Options (comma-separated)</label>
+          <input type="text" class="form-input" id="field-options-input" placeholder="Workshop, Mentorship, Residency">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new-form')">Cancel</button>
+      <button class="btn btn-primary" id="nf-submit-btn" type="button">Create Form</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Org/Programme Modal -->
+<div class="modal-overlay" id="modal-new-org">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">New Programme / Layer Context</div>
+      <button class="modal-close" onclick="closeModal('modal-new-org')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row"><label class="form-label">Programme Name *</label><input type="text" class="form-input" id="no-name" placeholder="e.g. Summer Residency 2025"></div>
+      <div class="form-row"><label class="form-label">Layer</label>
+        <select class="form-select" id="no-industry">
+          <option value="Community">Community</option>
+          <option value="Programmes">Creative Programmes</option>
+          <option value="Residency">Artist Residency</option>
+          <option value="Gallery">Gallery & Exhibitions</option>
+          <option value="Venue">Event Venue</option>
+          <option value="Marketing">Marketing</option>
+        </select>
+      </div>
+      <div class="form-row"><label class="form-label">Contact Email</label><input type="email" class="form-input" id="no-email" placeholder="lead@verve.org"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new-org')">Cancel</button>
+      <button class="btn btn-primary" onclick="createOrg()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="modal-share">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <div class="modal-title">Share Form</div>
+      <button class="modal-close" onclick="closeModal('modal-share')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-family:var(--font-serif);font-weight:600;font-size:15px;text-align:center;margin-bottom:2px" id="share-form-name">Form</div>
+      <div style="font-size:11.5px;color:var(--text-3);text-align:center;margin-bottom:14px" id="share-form-org">—</div>
+      <div class="share-tabs">
+        <button class="share-tab active" onclick="shareTab('link',this)">Link</button>
+        <button class="share-tab" onclick="shareTab('qr',this)">QR Code</button>
+        <button class="share-tab" onclick="shareTab('platforms',this)">Share</button>
+      </div>
+      <div class="share-panel active" id="sp-link">
+        <div class="url-row"><span class="url-text" id="share-url-text">—</span><button class="btn-copy" onclick="copyShareLink()">Copy</button></div>
+        <p style="font-size:11px;color:var(--text-3);text-align:center">Anyone with this link can fill the form.</p>
+      </div>
+      <div class="share-panel" id="sp-qr">
+        <div class="qr-wrap"><canvas id="qr-canvas"></canvas></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline" style="flex:1;justify-content:center" onclick="downloadQR()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
+          <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="previewForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+        </div>
+      </div>
+      <div class="share-panel" id="sp-platforms">
+        <div class="share-platforms">
+          <button class="platform-btn" onclick="shareTo('whatsapp')"><div class="platform-icon" style="background:#25d366;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></div>WhatsApp</button>
+          <button class="platform-btn" onclick="shareTo('email')"><div class="platform-icon" style="background:#ea4335;color:white"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>Email</button>
+          <button class="platform-btn" onclick="shareTo('sms')"><div class="platform-icon" style="background:var(--community);color:white"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>SMS</button>
+          <button class="platform-btn" onclick="copyShareLink()"><div class="platform-icon" style="background:var(--surface-2);color:var(--text-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>Copy</button>
+          <button class="platform-btn" onclick="shareTo('twitter')"><div class="platform-icon" style="background:#1da1f2;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/></svg></div>Twitter</button>
+          <button class="platform-btn" onclick="shareTo('linkedin')"><div class="platform-icon" style="background:#0077b5;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></svg></div>LinkedIn</button>
+          <button class="platform-btn" onclick="shareTo('telegram')"><div class="platform-icon" style="background:#229ed9;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg></div>Telegram</button>
+          <button class="platform-btn" onclick="shareTo('facebook')"><div class="platform-icon" style="background:#1877f2;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>Facebook</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Response Detail Modal -->
+<div class="modal-overlay" id="modal-resp-detail">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <div class="modal-title">Response Detail</div>
+      <button class="modal-close" onclick="closeModal('modal-resp-detail')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="resp-detail-body"></div>
+  </div>
+</div>
+
+<!-- ═══════════ PUBLIC FILL SCREEN ═══════════ -->
+<div id="fill-screen">
+  <div class="fill-wrap">
+    <!-- Verve branding on fill screen -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid var(--border)">
+      <div style="width:28px;height:28px;border-radius:7px;background:var(--community);display:flex;align-items:center;justify-content:center;font-family:var(--font-serif);font-size:14px;font-weight:700;color:white">V</div>
+      <span style="font-family:var(--font-serif);font-size:16px;font-weight:600;color:var(--text-1)">Verve</span>
+      <span style="font-size:9px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-3);margin-top:2px">Creative Centre</span>
+      <button onclick="closeFillScreen()" style="margin-left:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);flex-shrink:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="fill-header">
+      <div style="flex:1">
+        <div class="fill-form-title" id="fill-title">Loading…</div>
+        <div class="fill-form-desc" id="fill-desc"></div>
+      </div>
+    </div>
+    <div class="fill-progress"><div class="fill-progress-bar" id="fill-progress-bar" style="width:5%"></div></div>
+    <div id="fill-fields"></div>
+    <div id="fill-form-area">
+      <div class="fill-submit-section">
+        <label class="form-label" style="margin-bottom:5px">Your Name <span style="color:var(--text-3);font-size:11px">(optional)</span></label>
+        <input type="text" class="fill-input" id="fill-respondent" placeholder="Your name or organisation…">
+        <button class="fill-submit" id="fill-submit-btn" type="button">Submit</button>
+      </div>
+    </div>
+    <div class="fill-success" id="fill-success">
+      <div class="fill-success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="fill-success-title">Thank you</div>
+      <div class="fill-success-sub">Your response has been submitted to the Verve Creative Centre.</div>
+      <button class="btn btn-outline" onclick="closeFillScreen()" style="margin-top:18px;padding:8px 22px">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ═══════════ SCRIPT ═══════════ -->
+<script>
+(function () {
+'use strict';
+
+/* ── SUPABASE ── */
+let SUPABASE_URL = localStorage.getItem('il_sb_url') || 'https://pzioskykakwhwdlcmwyv.supabase.co';
+let SUPABASE_KEY = localStorage.getItem('il_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
+const { createClient } = supabase;
+let sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ── STATE ── */
+let currentUser = null, currentRole = 'operator', currentOrgId = '';
+let allOrgs = [], allForms = [], allResponses = [], formFields = [];
+let currentShareFormId = null, sparkCharts = {}, metricsCharts = {};
+let focusRunning = true, focusSecs = 130 * 60, focusInterval = null;
+
+/* ── LAYER COLOUR MAP ── */
+const layerColors = {
+  community: 'var(--community)', programmes: 'var(--programmes)',
+  residency: 'var(--residency)', gallery: 'var(--gallery)',
+  venue: 'var(--venue)', marketing: 'var(--marketing)', ai: 'var(--ai-ops)'
+};
+
+/* ── HELPERS ── */
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function timeAgo(d) {
+  const diff = Date.now() - new Date(d).getTime();
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+  return Math.floor(diff/86400000) + 'd ago';
+}
+function toast(msg, type = 'info') {
+  const icons = { success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>', error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>', info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' };
+  const el = document.createElement('div');
+  el.className = 'toast-item toast-' + type;
+  el.innerHTML = (icons[type] || '') + esc(msg);
+  document.getElementById('toast').appendChild(el);
+  setTimeout(() => el.remove(), 3800);
+}
+
+/* ── AUTH ── */
+window.authTab = function(tab, btn) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('ap-' + tab).classList.add('active');
+};
+function showAuthMsg(elId, type, text) {
+  const el = document.getElementById(elId); if (!el) return;
+  el.className = 'auth-msg ' + type; el.textContent = text;
+}
+window.showResetPanel = function() {
+  document.getElementById('auth-main').style.display = 'none';
+  document.getElementById('auth-reset').style.display = 'block';
+  document.getElementById('reset-email').value = document.getElementById('si-email')?.value || '';
+  document.getElementById('reset-msg').className = 'auth-msg';
+  document.getElementById('reset-btn').disabled = false;
+  document.getElementById('reset-btn').textContent = 'Send Reset Link';
+};
+window.hideResetPanel = function() {
+  document.getElementById('auth-reset').style.display = 'none';
+  document.getElementById('auth-main').style.display = 'block';
+};
+window.doPasswordReset = async function() {
+  const email = document.getElementById('reset-email').value.trim();
+  if (!email) return showAuthMsg('reset-msg', 'error', 'Please enter your email address.');
+  const btn = document.getElementById('reset-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${location.protocol}//${location.host}${location.pathname}` });
+  if (error) { showAuthMsg('reset-msg', 'error', error.message); btn.disabled = false; btn.textContent = 'Send Reset Link'; }
+  else { showAuthMsg('reset-msg', 'success', 'Reset link sent! Check your inbox.'); btn.textContent = 'Sent ✓'; setTimeout(() => { hideResetPanel(); }, 4000); }
+};
+window.doSignIn = async function() {
+  const email = document.getElementById('si-email').value.trim();
+  const pass = document.getElementById('si-pass').value;
+  if (!email || !pass) return showAuthMsg('si-msg', 'error', 'Enter email and password');
+  const btn = document.getElementById('si-btn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Enter the Centre';
+  if (error) return showAuthMsg('si-msg', 'error', error.message);
+  await bootApp(data.user);
+};
+window.doSignUp = async function() {
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pass = document.getElementById('su-pass').value;
+  const role = document.getElementById('su-role').value;
+  if (!name || !email || !pass) return showAuthMsg('su-msg', 'error', 'Fill in all fields');
+  if (pass.length < 8) return showAuthMsg('su-msg', 'error', 'Password must be at least 8 characters');
+  const btn = document.getElementById('su-btn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name, role } } });
+  btn.disabled = false; btn.textContent = 'Create Account';
+  if (error) return showAuthMsg('su-msg', 'error', error.message);
+  showAuthMsg('su-msg', 'success', 'Account created! Check your email to confirm, then sign in.');
+};
+window.doSignOut = async function() {
+  await sb.auth.signOut(); currentUser = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  hideResetPanel();
+};
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    const newPass = prompt('Enter your new password (min 8 characters):');
+    if (!newPass || newPass.length < 8) { toast('Password too short. Try again.', 'error'); return; }
+    const { error } = await sb.auth.updateUser({ password: newPass });
+    if (error) toast('Could not update password: ' + error.message, 'error');
+    else { toast('Password updated! You are now signed in.', 'success'); if (session?.user) await bootApp(session.user); }
+    return;
+  }
+  if (event === 'SIGNED_IN' && session?.user && !currentUser) await bootApp(session.user);
+});
+
+/* ── BOOT ── */
+async function bootApp(user) {
+  currentUser = user;
+  const meta = user.user_metadata || {};
+  currentRole = meta.role || 'operator';
+  const name = meta.full_name || user.email.split('@')[0];
+  const first = name.split(' ')[0];
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  const h = new Date().getHours();
+  document.getElementById('dash-greeting').textContent = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+  document.getElementById('dash-name').textContent = first;
+  document.getElementById('nav-avatar').textContent = name[0].toUpperCase();
+  document.getElementById('settings-email').textContent = user.email;
+  document.getElementById('settings-role').value = currentRole;
+  if (currentRole !== 'operator') document.querySelectorAll('.operator-only').forEach(el => el.style.display = 'none');
+  wireFormModal();
+  startFocusTimer();
+  drawInsightMap();
+  await loadOrgs();
+  await loadForms();
+  await loadAllResponses();
+  renderDashboard();
+}
+
+/* ── FOCUS TIMER ── */
+function startFocusTimer() {
+  clearInterval(focusInterval);
+  if (!focusRunning) return;
+  focusInterval = setInterval(() => {
+    if (focusSecs <= 0) { clearInterval(focusInterval); return; }
+    focusSecs--;
+    const h = Math.floor(focusSecs / 3600), m = Math.floor((focusSecs % 3600) / 60), s = focusSecs % 60;
+    const disp = h > 0 ? `${h}:${String(m).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+    const el = document.getElementById('focus-time-display'); if (el) el.textContent = disp;
+    const gl = document.getElementById('gl-focus'); if (gl) gl.textContent = h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+  }, 1000);
+}
+window.toggleFocus = function() {
+  focusRunning = !focusRunning;
+  document.getElementById('focus-btn-label').textContent = focusRunning ? 'Pause' : 'Resume';
+  const ring = document.querySelector('.focus-ring'); if (ring) ring.style.animationPlayState = focusRunning ? 'running' : 'paused';
+  if (focusRunning) startFocusTimer(); else clearInterval(focusInterval);
+};
+
+/* ── NAVIGATION ── */
+window.navTo = function(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('page-' + page); if (target) target.classList.add('active');
+  document.querySelectorAll('.sb-item[data-page], .nav-btn[data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === page));
+  // Layer nav btn color
+  document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
+    if (btn.dataset.page === page) btn.style.background = `rgba(var(--${page === 'dashboard' ? 'community' : page}--rgb, 224,125,74),0.12)`;
+    else btn.style.background = '';
+  });
+  const handlers = { dashboard: renderDashboard, forms: renderFormsPage, responses: renderResponses, metrics: renderMetrics, ai: populateAIFormSelect, community: renderCommunityLayer, programmes: renderProgrammesLayer, residency: renderResidencyLayer, gallery: renderGalleryLayer, venue: renderVenueLayer, marketing: renderMarketingLayer };
+  if (handlers[page]) handlers[page]();
+};
+
+/* ── MODALS ── */
+window.openModal = id => document.getElementById(id)?.classList.add('open');
+window.closeModal = id => document.getElementById(id)?.classList.remove('open');
+document.querySelectorAll('.modal-overlay').forEach(o => { o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }); });
+
+/* ── DATA LOADING ── */
+async function loadOrgs() {
+  try {
+    const { data, error } = await sb.from('il_organisations').select('*').order('name');
+    if (error) throw error;
+    allOrgs = data || [];
+    const sel = document.getElementById('org-selector');
+    sel.innerHTML = '<option value="">All Programmes</option>' + allOrgs.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+    document.getElementById('sb-community-count').textContent = allOrgs.length;
+  } catch(e) { console.warn('loadOrgs:', e.message); }
+}
+async function loadForms() {
+  try {
+    let q = sb.from('il_forms').select('*').order('created_at', { ascending: false });
+    if (currentOrgId) q = q.eq('org_id', currentOrgId);
+    const { data, error } = await q; if (error) throw error;
+    allForms = data || [];
+    document.getElementById('sb-forms-count').textContent = allForms.length;
+  } catch(e) { allForms = []; console.warn('loadForms:', e.message); }
+}
+async function loadAllResponses() {
+  try {
+    const { data, error } = await sb.from('il_responses').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    allResponses = data || [];
+    document.getElementById('sb-resp-count').textContent = allResponses.length;
+  } catch(e) { allResponses = []; console.warn('loadResponses:', e.message); }
+}
+window.onOrgChange = async function(id) {
+  currentOrgId = id; await loadForms(); await loadAllResponses(); renderDashboard();
+};
+
+/* ── DASHBOARD ── */
+function renderDashboard() {
+  const totalResp = allResponses.length;
+  const activeForms = allForms.filter(f => f.active).length || allForms.length;
+  const scored = allResponses.filter(r => r.readiness_score != null);
+  const avgScore = scored.length ? Math.round(scored.reduce((a,r) => a + r.readiness_score, 0) / scored.length) : null;
+  document.getElementById('kpi-responses').textContent = totalResp;
+  document.getElementById('kpi-forms').textContent = activeForms;
+  document.getElementById('kpi-orgs').textContent = allOrgs.length;
+  document.getElementById('kpi-score').textContent = avgScore ?? '—';
+  document.getElementById('kpi-score-sub').textContent = scored.length ? `${scored.length} scored response${scored.length !== 1 ? 's' : ''}` : 'No scored responses yet';
+  document.getElementById('kpi-responses-sub').textContent = totalResp ? `From ${allForms.length} form${allForms.length !== 1 ? 's' : ''}` : 'No submissions yet';
+  document.getElementById('gl-forms').textContent = `${allForms.length} form${allForms.length !== 1 ? 's' : ''} (${activeForms} active)`;
+  document.getElementById('snap-forms').textContent = allForms.length || '0';
+  document.getElementById('snap-resp').textContent = totalResp || '0';
+  document.getElementById('snap-score').textContent = avgScore ?? '—';
+  renderInsightFeed();
+  renderTopForms();
+  drawSparklines();
+}
+
+function renderInsightFeed() {
+  const el = document.getElementById('insight-feed');
+  if (!allResponses.length) {
+    el.innerHTML = `<div class="insight-item"><div class="insight-icon" style="background:rgba(224,125,74,0.10)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--community)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div><div class="insight-text">No submissions yet — share a form to start collecting.</div><div class="insight-time">now</div></div></div>`;
+    return;
+  }
+  el.innerHTML = allResponses.slice(0,4).map(r => {
+    const form = allForms.find(f => f.id === r.form_id);
+    const s = r.readiness_score;
+    const col = s >= 70 ? 'var(--green)' : s >= 40 ? 'var(--amber)' : s != null ? 'var(--red)' : 'var(--community)';
+    return `<div class="insight-item">
+      <div class="insight-icon" style="background:rgba(224,125,74,0.10)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div style="flex:1">
+        <div class="insight-text"><strong>${esc(r.respondent_name || 'Anonymous')}</strong> submitted <em>${esc(form?.name || 'a form')}</em>${s != null ? ' · '+s : ''}</div>
+        <div class="insight-time">${timeAgo(r.created_at)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTopForms() {
+  const el = document.getElementById('top-forms-list');
+  if (!allForms.length) { el.innerHTML = '<div style="font-size:12.5px;color:var(--text-3);padding:8px 0">No forms yet.</div>'; return; }
+  el.innerHTML = allForms.slice(0,4).map(f => {
+    const count = allResponses.filter(r => r.form_id === f.id).length;
+    return `<div class="record-row">
+      <div class="record-avatar" style="background:rgba(224,125,74,0.10);color:var(--community)">${(f.name||'F')[0].toUpperCase()}</div>
+      <div style="flex:1"><div class="record-name">${esc(f.name)}</div><div class="record-sub">${count} submission${count !== 1 ? 's' : ''}</div></div>
+      <button class="btn-icon btn-icon-primary" onclick="openShareModal('${f.id}')" title="Share">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+/* ── INSIGHT MAP ── */
+function drawInsightMap() {
+  const container = document.getElementById('insight-map'); if (!container) return;
+  container.querySelectorAll('.map-node').forEach(n => n.remove());
+  const svg = document.getElementById('map-svg'); if (svg) svg.innerHTML = '';
+  const nodes = [
+    { label: 'Community', x: 18, y: 32, size: 44, color: 'var(--community)' },
+    { label: 'Programmes', x: 38, y: 18, size: 38, color: 'var(--programmes)' },
+    { label: 'Residency', x: 58, y: 30, size: 34, color: 'var(--residency)' },
+    { label: 'Gallery', x: 72, y: 18, size: 30, color: 'var(--gallery)' },
+    { label: 'Venue', x: 30, y: 60, size: 32, color: 'var(--venue)' },
+    { label: 'Marketing', x: 55, y: 68, size: 28, color: 'var(--marketing)' },
+    { label: 'AI Ops', x: 78, y: 60, size: 26, color: 'var(--ai-ops)' },
+  ];
+  const edges = [[0,1],[1,2],[2,3],[0,4],[4,5],[5,6],[2,6],[1,4],[3,6]];
+  if (svg) edges.forEach(([a,b]) => {
+    const na = nodes[a], nb = nodes[b];
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',na.x+'%'); line.setAttribute('y1',na.y+'%');
+    line.setAttribute('x2',nb.x+'%'); line.setAttribute('y2',nb.y+'%');
+    line.setAttribute('stroke','rgba(245,237,224,0.06)'); line.setAttribute('stroke-width','1.5');
+    line.setAttribute('stroke-dasharray','3 4'); svg.appendChild(line);
+  });
+  nodes.forEach(n => {
+    const wrap = document.createElement('div');
+    wrap.className = 'map-node';
+    wrap.style.cssText = `position:absolute;left:${n.x}%;top:${n.y}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;z-index:1`;
+    const circle = document.createElement('div');
+    circle.style.cssText = `width:${n.size}px;height:${n.size}px;border-radius:50%;background:var(--surface-3);border:1.5px solid ${n.color};display:flex;align-items:center;justify-content:center;opacity:0.85`;
+    const dot = document.createElement('div');
+    dot.style.cssText = `width:${Math.round(n.size*0.28)}px;height:${Math.round(n.size*0.28)}px;border-radius:50%;background:${n.color};opacity:0.8`;
+    circle.appendChild(dot);
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:9px;color:var(--text-3);text-align:center;font-weight:600;white-space:nowrap;letter-spacing:0.06em;text-transform:uppercase;font-family:var(--font)';
+    label.textContent = n.label;
+    wrap.appendChild(circle); wrap.appendChild(label);
+    container.appendChild(wrap);
+  });
+}
+
+/* ── SPARKLINES ── */
+function drawSparklines() {
+  function makeSparkline(id, data, color, bg) {
+    const wrap = document.querySelector(`#${id}`)?.closest('.snap-chart-wrap');
+    const canvas = document.getElementById(id); if (!canvas || !wrap) return;
+    if (sparkCharts[id]) { try { sparkCharts[id].destroy(); } catch(e){} delete sparkCharts[id]; }
+    canvas.width = wrap.offsetWidth || 68; canvas.height = wrap.offsetHeight || 28;
+    sparkCharts[id] = new Chart(canvas, { type:'line', data:{ labels:data.map((_,i)=>i), datasets:[{data,borderColor:color,borderWidth:1.5,fill:true,backgroundColor:bg,pointRadius:0,tension:0.4}] }, options:{ responsive:false,animation:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}},layout:{padding:0} } });
+  }
+  const fb = (max) => [1,1,2,2,3,4,4,max||0];
+  makeSparkline('chart-forms', buildCumulative(allForms,8).some(v=>v>0) ? buildCumulative(allForms,8) : fb(allForms.length), '#6aab7e', 'rgba(106,171,126,0.10)');
+  makeSparkline('chart-resp', buildCumulative(allResponses,8).some(v=>v>0) ? buildCumulative(allResponses,8) : fb(allResponses.length), '#e07d4a', 'rgba(224,125,74,0.10)');
+  makeSparkline('chart-score', [58,62,65,68,70,72,74,76], '#d4a843', 'rgba(212,168,67,0.10)');
+}
+function buildCumulative(items, days) {
+  const out = [], now = Date.now(); let total = 0;
+  for (let i = days-1; i >= 0; i--) {
+    const s = now-(i+1)*86400000, e = now-i*86400000;
+    total += items.filter(x => { const t = new Date(x.created_at).getTime(); return t>=s && t<e; }).length;
+    out.push(total);
+  }
+  return out;
+}
+
+/* ── LAYER PAGE RENDERERS ── */
+function renderLayerFormGrid(containerId, color) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!allForms.length) { el.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No forms yet for this layer.</p><button class="btn btn-primary" style="background:${color}" onclick="openNewFormModal()">+ New Form</button></div>`; return; }
+  el.innerHTML = allForms.slice(0,4).map(f => {
+    const count = allResponses.filter(r => r.form_id === f.id).length;
+    return `<div class="prog-card">
+      <div class="prog-card-title">${esc(f.name)}</div>
+      <div class="prog-card-desc">${esc(f.description || 'No description')}</div>
+      <div class="prog-card-footer">
+        <span class="badge badge-grey">${(f.fields||[]).length} field${(f.fields||[]).length!==1?'s':''}</span>
+        <span style="font-size:11px;color:var(--text-3)">${count} submission${count!==1?'s':''}</span>
+      </div>
+      <div class="prog-card-actions">
+        <button class="btn-icon btn-icon-primary" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
+        <button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function populateLayerKPIs(prefix, total, v1, v2) {
+  const el1 = document.getElementById(prefix+'-kpi-1'), el2 = document.getElementById(prefix+'-kpi-2'), el3 = document.getElementById(prefix+'-kpi-3');
+}
+
+function renderCommunityLayer() {
+  document.getElementById('community-kpi-members').textContent = allResponses.length || '—';
+  document.getElementById('community-kpi-volunteers').textContent = '—';
+  document.getElementById('community-kpi-participants').textContent = allForms.length || '—';
+  const membersEl = document.getElementById('community-members-list');
+  if (membersEl) {
+    membersEl.innerHTML = allResponses.slice(0,5).map(r => `<div class="record-row"><div class="record-avatar" style="background:rgba(224,125,74,0.10);color:var(--community)">${(r.respondent_name||'A')[0].toUpperCase()}</div><div style="flex:1"><div class="record-name">${esc(r.respondent_name||'Anonymous')}</div><div class="record-sub">${timeAgo(r.created_at)}</div></div><span class="badge badge-community">Member</span></div>`).join('') || '<div style="color:var(--text-3);font-size:12.5px;padding:10px 0">No members yet.</div>';
+  }
+  const actEl = document.getElementById('community-activity');
+  if (actEl) { actEl.innerHTML = '<div style="color:var(--text-3);font-size:12.5px;padding:10px 0">Activity tracking will populate as members engage with forms and programmes.</div>'; }
+}
+function renderProgrammesLayer() {
+  document.getElementById('programmes-kpi-workshops').textContent = allForms.length || '—';
+  document.getElementById('programmes-kpi-applications').textContent = allResponses.length || '—';
+  document.getElementById('programmes-kpi-mentors').textContent = '—';
+  renderLayerFormGrid('programmes-forms-grid', 'var(--programmes)');
+}
+function renderResidencyLayer() { renderLayerFormGrid('residency-forms-grid', 'var(--residency)'); }
+function renderGalleryLayer() { renderLayerFormGrid('gallery-forms-grid', 'var(--gallery)'); }
+function renderVenueLayer() { renderLayerFormGrid('venue-forms-grid', 'var(--venue)'); }
+function renderMarketingLayer() { renderLayerFormGrid('marketing-forms-grid', 'var(--marketing)'); }
+
+/* ── FORMS PAGE ── */
+async function renderFormsPage() {
+  await loadForms();
+  const grid = document.getElementById('forms-grid');
+  if (!allForms.length) { grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No forms yet. Create your first form for any layer.</p><button class="btn btn-primary" onclick="openNewFormModal()">+ New Form</button></div>`; return; }
+  grid.innerHTML = allForms.map(f => {
+    const count = allResponses.filter(r => r.form_id === f.id).length;
+    const org = allOrgs.find(o => o.id === f.org_id);
+    return `<div class="prog-card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px">
+        <div class="prog-card-title">${esc(f.name)}</div>
+        <span class="badge ${f.active ? 'badge-green' : 'badge-grey'}">${f.active ? '● Active' : 'Draft'}</span>
+      </div>
+      <div class="prog-card-desc">${esc(f.description||'No description')}</div>
+      <div class="prog-card-footer">
+        <span class="badge badge-grey">${(f.fields||[]).length} field${(f.fields||[]).length!==1?'s':''}</span>
+        ${org ? `<span class="badge badge-community">${esc(org.name)}</span>` : ''}
+        <span style="font-size:11px;color:var(--text-3)">${count} response${count!==1?'s':''}</span>
+      </div>
+      <div class="prog-card-actions">
+        <button class="btn-icon btn-icon-primary" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
+        <button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ── FORM MODAL ── */
+function wireFormModal() {
+  const typeSelect = document.getElementById('field-type-input');
+  const optWrap = document.getElementById('field-options-input-wrap');
+  if (typeSelect && optWrap) typeSelect.addEventListener('change', function() { optWrap.style.display = ['select','radio','checkbox'].includes(this.value) ? 'block' : 'none'; });
+  const addBtn = document.getElementById('add-field-btn');
+  if (addBtn) addBtn.addEventListener('click', e => { e.preventDefault(); addField(); });
+  const labelInput = document.getElementById('field-label-input');
+  if (labelInput) labelInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addField(); } });
+  const submitBtn = document.getElementById('nf-submit-btn');
+  if (submitBtn) submitBtn.addEventListener('click', e => { e.preventDefault(); submitFormModal(); });
+  const fillSubmit = document.getElementById('fill-submit-btn');
+  if (fillSubmit) fillSubmit.addEventListener('click', e => { e.preventDefault(); submitFill(); });
+}
+
+window.openNewFormModal = function() {
+  formFields = [];
+  document.getElementById('nf-edit-id').value = '';
+  document.getElementById('nf-name').value = '';
+  document.getElementById('nf-desc').value = '';
+  document.getElementById('modal-form-title').textContent = 'Create New Form';
+  const btn = document.getElementById('nf-submit-btn');
+  btn.textContent = 'Create Form'; btn.disabled = false;
+  const orgSel = document.getElementById('nf-org');
+  orgSel.innerHTML = '<option value="">General</option>' + allOrgs.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+  document.getElementById('field-label-input').value = '';
+  document.getElementById('field-type-input').value = 'text';
+  document.getElementById('field-options-input').value = '';
+  document.getElementById('field-options-input-wrap').style.display = 'none';
+  renderFieldBuilder();
+  openModal('modal-new-form');
+};
+
+function addField() {
+  const labelEl = document.getElementById('field-label-input');
+  const typeEl = document.getElementById('field-type-input');
+  const optionsEl = document.getElementById('field-options-input');
+  const optWrap = document.getElementById('field-options-input-wrap');
+  if (!labelEl || !typeEl) return;
+  const label = labelEl.value.trim(); if (!label) { toast('Enter a field label', 'error'); return; }
+  const type = typeEl.value;
+  const field = { id: String(Date.now()), label, type, required: false, options: [] };
+  if (['select','radio','checkbox'].includes(type)) { const raw = optionsEl ? optionsEl.value.trim() : ''; field.options = raw ? raw.split(',').map(s=>s.trim()).filter(Boolean) : ['Option 1','Option 2','Option 3']; }
+  formFields.push(field);
+  labelEl.value = ''; if (optionsEl) optionsEl.value = ''; if (optWrap) optWrap.style.display = 'none'; typeEl.value = 'text';
+  renderFieldBuilder(); labelEl.focus();
+}
+function renderFieldBuilder() {
+  const list = document.getElementById('field-builder-list'); if (!list) return;
+  if (!formFields.length) { list.innerHTML = '<div style="font-size:12px;color:var(--text-3);padding:6px 0">No fields added yet.</div>'; return; }
+  list.innerHTML = formFields.map((f,i) => `<div class="field-item"><span class="field-item-label">${esc(f.label)}</span><span class="field-item-type">${esc(f.type)}</span>${f.options&&f.options.length?`<span style="font-size:10px;color:var(--text-3)">(${f.options.length})</span>`:''}<button class="btn-icon btn-icon-red" style="width:22px;height:22px;margin-left:auto" onclick="removeField(${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`).join('');
+}
+window.removeField = function(i) { formFields.splice(i,1); renderFieldBuilder(); };
+async function submitFormModal() {
+  const editId = document.getElementById('nf-edit-id').value;
+  if (editId) await saveFormEdit(editId); else await createNewForm();
+}
+async function createNewForm() {
+  const name = document.getElementById('nf-name').value.trim();
+  const desc = document.getElementById('nf-desc').value.trim();
+  const orgId = document.getElementById('nf-org').value;
+  if (!name) { toast('Form name is required', 'error'); return; }
+  const btn = document.getElementById('nf-submit-btn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    const { data, error } = await sb.from('il_forms').insert([{ name, description: desc||null, org_id: orgId||null, fields: formFields, active: true, created_by: currentUser.id }]).select();
+    if (error) throw error;
+    closeModal('modal-new-form'); toast('Form created!', 'success');
+    allForms.unshift(data[0]);
+    document.getElementById('sb-forms-count').textContent = allForms.length;
+    renderDashboard();
+    if (document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Create Form'; }
+}
+window.editForm = function(id) {
+  const form = allForms.find(f => f.id === id); if (!form) return;
+  formFields = JSON.parse(JSON.stringify(form.fields||[]));
+  document.getElementById('nf-edit-id').value = id;
+  document.getElementById('nf-name').value = form.name;
+  document.getElementById('nf-desc').value = form.description||'';
+  document.getElementById('modal-form-title').textContent = 'Edit Form';
+  const btn = document.getElementById('nf-submit-btn');
+  btn.textContent = 'Save Changes'; btn.disabled = false;
+  const orgSel = document.getElementById('nf-org');
+  orgSel.innerHTML = '<option value="">General</option>' + allOrgs.map(o => `<option value="${o.id}" ${o.id===form.org_id?'selected':''}>${esc(o.name)}</option>`).join('');
+  document.getElementById('field-label-input').value = '';
+  document.getElementById('field-type-input').value = 'text';
+  document.getElementById('field-options-input').value = '';
+  document.getElementById('field-options-input-wrap').style.display = 'none';
+  renderFieldBuilder(); openModal('modal-new-form');
+};
+async function saveFormEdit(id) {
+  const name = document.getElementById('nf-name').value.trim();
+  const desc = document.getElementById('nf-desc').value.trim();
+  const orgId = document.getElementById('nf-org').value;
+  if (!name) { toast('Form name required', 'error'); return; }
+  const btn = document.getElementById('nf-submit-btn'); btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const { data, error } = await sb.from('il_forms').update({ name, description: desc||null, org_id: orgId||null, fields: formFields }).eq('id',id).select();
+    if (error) throw error;
+    const idx = allForms.findIndex(f => f.id === id); if (idx !== -1) allForms[idx] = data[0];
+    closeModal('modal-new-form'); toast('Form updated!', 'success');
+    renderDashboard();
+    if (document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Save Changes'; }
+}
+window.deleteForm = async function(id) {
+  if (!confirm('Delete this form and all its responses? This cannot be undone.')) return;
+  const { error } = await sb.from('il_forms').delete().eq('id',id); if (error) return toast(error.message,'error');
+  allForms = allForms.filter(f => f.id !== id); allResponses = allResponses.filter(r => r.form_id !== id);
+  toast('Form deleted','info'); renderFormsPage(); renderDashboard();
+};
+
+/* ── SHARE ── */
+window.shareTab = function(tab, btn) {
+  document.querySelectorAll('.share-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.share-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sp-'+tab).classList.add('active');
+  if (tab === 'qr') generateQR();
+};
+window.openShareModal = function(formId) {
+  const form = allForms.find(f => f.id === formId); if (!form) return;
+  currentShareFormId = formId;
+  const org = allOrgs.find(o => o.id === form.org_id);
+  document.getElementById('share-form-name').textContent = form.name;
+  document.getElementById('share-form-org').textContent = org ? org.name : 'Verve Creative Centre';
+  document.getElementById('share-url-text').textContent = getFormURL(formId);
+  document.querySelectorAll('.share-tab').forEach((t,i) => t.classList.toggle('active',i===0));
+  document.querySelectorAll('.share-panel').forEach((p,i) => p.classList.toggle('active',i===0));
+  openModal('modal-share');
+};
+function getFormURL(formId) { return `${location.protocol}//${location.host}${location.pathname}?fill=${formId}`; }
+function generateQR() {
+  const canvas = document.getElementById('qr-canvas'); if (!canvas || !currentShareFormId) return;
+  canvas.width = 180; canvas.height = 180;
+  QRCode.toCanvas(canvas, getFormURL(currentShareFormId), { width:180, margin:1 }, err => { if(err) console.error('QR:',err); });
+}
+window.copyShareLink = function() {
+  navigator.clipboard.writeText(getFormURL(currentShareFormId)).then(() => toast('Link copied!','success')).catch(() => toast('Copy manually: ' + getFormURL(currentShareFormId),'info'));
+};
+window.downloadQR = function() {
+  const canvas = document.getElementById('qr-canvas'); if (!canvas) return;
+  const a = document.createElement('a'); a.download = `form-${currentShareFormId}.png`; a.href = canvas.toDataURL('image/png'); a.click();
+  toast('QR downloaded!','success');
+};
+window.previewForm = function() { closeModal('modal-share'); openFillScreen(currentShareFormId); };
+window.shareTo = function(platform) {
+  const url = encodeURIComponent(getFormURL(currentShareFormId));
+  const form = allForms.find(f => f.id === currentShareFormId);
+  const text = encodeURIComponent(`Please fill out this form: ${form?.name||'Verve Creative Centre'}`);
+  const links = { whatsapp:`https://wa.me/?text=${text}%20${url}`, email:`mailto:?subject=${encodeURIComponent(form?.name||'Form')}&body=${text}%20${decodeURIComponent(url)}`, sms:`sms:?body=${text}%20${decodeURIComponent(url)}`, twitter:`https://twitter.com/intent/tweet?text=${text}&url=${url}`, linkedin:`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, telegram:`https://t.me/share/url?url=${url}&text=${text}`, facebook:`https://www.facebook.com/sharer/sharer.php?u=${url}` };
+  if (platform==='email'||platform==='sms') location.href = links[platform];
+  else window.open(links[platform],'_blank','width=600,height=400');
+};
+
+/* ── FILL SCREEN ── */
+window.openFillScreen = function(formId) {
+  const form = allForms.find(f => f.id === formId);
+  if (!form) { sb.from('il_forms').select('*').eq('id',formId).single().then(({data,error}) => { if(error||!data){toast('Form not found','error');return;} if(!allForms.find(f=>f.id===data.id)) allForms.push(data); _openFillWith(data); }); return; }
+  _openFillWith(form);
+};
+function _openFillWith(form) {
+  document.getElementById('fill-title').textContent = form.name;
+  document.getElementById('fill-desc').textContent = form.description||'';
+  document.getElementById('fill-screen').dataset.formId = form.id;
+  document.getElementById('fill-form-area').style.display = 'block';
+  document.getElementById('fill-success').style.display = 'none';
+  document.getElementById('fill-submit-btn').disabled = false;
+  document.getElementById('fill-submit-btn').textContent = 'Submit';
+  document.getElementById('fill-respondent').value = '';
+  document.getElementById('fill-progress-bar').style.width = '5%';
+  const fieldsEl = document.getElementById('fill-fields');
+  const fields = form.fields||[];
+  fieldsEl.innerHTML = fields.map((f,i) => renderFillField(f,i)).join('');
+  fieldsEl.querySelectorAll('.fill-scale-btn').forEach(btn => {
+    btn.addEventListener('click', () => { btn.closest('.fill-scale').querySelectorAll('.fill-scale-btn').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); updateFillProgress(fields); });
+  });
+  fieldsEl.querySelectorAll('input,select,textarea').forEach(inp => { inp.addEventListener('change',()=>updateFillProgress(fields)); inp.addEventListener('input',()=>updateFillProgress(fields)); });
+  document.getElementById('fill-screen').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function updateFillProgress(fields) {
+  const fieldsEl = document.getElementById('fill-fields');
+  let filled = 0;
+  fields.forEach((f,i) => {
+    const id = `fill-f-${i}`;
+    if (f.type==='scale') { if(fieldsEl.querySelector(`#${id} .fill-scale-btn.selected`)) filled++; }
+    else if (f.type==='radio') { if(fieldsEl.querySelector(`#${id} input:checked`)) filled++; }
+    else if (f.type==='checkbox') { if(fieldsEl.querySelector(`#${id} input:checked`)) filled++; }
+    else { const el=document.getElementById(id); if(el&&el.value) filled++; }
+  });
+  const pct = fields.length ? Math.max(5, Math.round((filled/fields.length)*90)+5) : 50;
+  document.getElementById('fill-progress-bar').style.width = pct + '%';
+}
+function renderFillField(f,i) {
+  const id = `fill-f-${i}`;
+  const opts = (f.options&&f.options.length) ? f.options : ['Option 1','Option 2','Option 3'];
+  let input = '';
+  switch(f.type) {
+    case 'textarea': input=`<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your response…"></textarea>`; break;
+    case 'number': input=`<input type="number" class="fill-input" id="${id}" placeholder="0">`; break;
+    case 'email': input=`<input type="email" class="fill-input" id="${id}" placeholder="you@email.com">`; break;
+    case 'date': input=`<input type="date" class="fill-input" id="${id}">`; break;
+    case 'scale': input=`<div class="fill-scale" id="${id}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`; break;
+    case 'radio': input=`<div class="fill-radio-group" id="${id}">${opts.map(o=>`<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
+    case 'checkbox': input=`<div class="fill-checkbox-group" id="${id}">${opts.map(o=>`<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
+    case 'select': input=`<select class="fill-input" id="${id}"><option value="">Select…</option>${opts.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`; break;
+    default: input=`<input type="text" class="fill-input" id="${id}" placeholder="Your response…">`;
+  }
+  return `<div class="fill-field"><div class="fill-field-label">${esc(f.label)}${f.required?'<span class="fill-required">*</span>':''}</div>${f.description?`<div class="fill-field-hint">${esc(f.description)}</div>`:''} ${input}</div>`;
+}
+async function submitFill() {
+  const formId = document.getElementById('fill-screen').dataset.formId;
+  const form = allForms.find(f => f.id === formId);
+  const respondentName = document.getElementById('fill-respondent').value.trim();
+  const btn = document.getElementById('fill-submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  document.getElementById('fill-progress-bar').style.width = '95%';
+  const answers = {};
+  if (form?.fields) {
+    form.fields.forEach((f,i) => {
+      const id = `fill-f-${i}`;
+      if (f.type==='scale') { const sel=document.querySelector(`#${id} .fill-scale-btn.selected`); answers[f.label]=sel?parseInt(sel.dataset.val):null; }
+      else if (f.type==='radio') { const sel=document.querySelector(`input[name="${id}"]:checked`); answers[f.label]=sel?sel.value:null; }
+      else if (f.type==='checkbox') { answers[f.label]=[...document.querySelectorAll(`#${id} input:checked`)].map(s=>s.value); }
+      else { const el=document.getElementById(id); answers[f.label]=el?(el.value||null):null; }
+    });
+  }
+  const scaleVals = Object.values(answers).filter(v => typeof v==='number'&&!isNaN(v));
+  const readiness_score = scaleVals.length ? Math.round((scaleVals.reduce((a,v)=>a+v,0)/scaleVals.length)*10) : null;
+  try {
+    const { error } = await sb.from('il_responses').insert([{ form_id:formId, respondent_name:respondentName||null, org_name:respondentName||null, answers, readiness_score, created_by:currentUser?.id||null }]);
+    if (error) throw error;
+    document.getElementById('fill-progress-bar').style.width = '100%';
+    document.getElementById('fill-form-area').style.display = 'none';
+    document.getElementById('fill-success').style.display = 'block';
+    await loadAllResponses(); renderDashboard();
+  } catch(e) { btn.disabled = false; btn.textContent = 'Submit'; toast(e.message,'error'); }
+}
+window.closeFillScreen = function() { document.getElementById('fill-screen').style.display = 'none'; document.body.style.overflow = ''; };
+document.addEventListener('keydown', e => { if (e.key==='Escape' && document.getElementById('fill-screen').style.display==='block') closeFillScreen(); });
+
+/* ── RESPONSES PAGE ── */
+async function renderResponses() {
+  await loadAllResponses();
+  const filter = document.getElementById('resp-form-filter');
+  filter.innerHTML = '<option value="">All Forms</option>' + allForms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  displayResponses(allResponses);
+}
+window.filterResponses = function() {
+  const id = document.getElementById('resp-form-filter').value;
+  displayResponses(id ? allResponses.filter(r => r.form_id === id) : allResponses);
+};
+function displayResponses(responses) {
+  const el = document.getElementById('responses-container');
+  if (!responses.length) { el.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><p>No responses yet. Share a form to start collecting.</p></div>`; return; }
+  el.innerHTML = `<table><thead><tr><th>Respondent</th><th>Form</th><th>Score</th><th>Submitted</th><th>Status</th><th></th></tr></thead><tbody>${responses.map(r => {
+    const form = allForms.find(f => f.id === r.form_id);
+    const s = r.readiness_score;
+    const cls = s>=70?'badge-green':s>=40?'badge-amber':s!=null?'badge-red':'badge-grey';
+    return `<tr style="cursor:pointer" onclick="viewResponse('${r.id}')"><td><strong>${esc(r.respondent_name||'Anonymous')}</strong></td><td style="color:var(--text-2)">${esc(form?.name||'Unknown')}</td><td>${s!=null?`<span class="badge ${cls}">${s}</span>`:'<span style="color:var(--text-3)">—</span>'}</td><td style="color:var(--text-3);font-family:var(--font-mono);font-size:11px">${new Date(r.created_at).toLocaleString()}</td><td><span class="badge badge-green">Complete</span></td><td><button class="btn-icon btn-icon-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+window.viewResponse = function(id) {
+  const r = allResponses.find(x => x.id === id); if (!r) return;
+  const form = allForms.find(f => f.id === r.form_id);
+  const answers = r.answers||{};
+  const s = r.readiness_score;
+  const cls = s>=70?'badge-green':s>=40?'badge-amber':'badge-red';
+  document.getElementById('resp-detail-body').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div><div style="font-size:14px;font-weight:600;color:var(--text-1)">${esc(r.respondent_name||'Anonymous')}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(form?.name||'Unknown')} · ${new Date(r.created_at).toLocaleString()}</div></div>
+      ${s!=null?`<span class="badge ${cls}" style="margin-left:auto;font-size:12px;padding:4px 11px">Score: ${s}</span>`:''}
+    </div>
+    <div class="resp-detail-grid">${Object.entries(answers).map(([q,a]) => `<div class="resp-answer"><div class="resp-answer-q">${esc(q)}</div><div class="resp-answer-a">${Array.isArray(a)?esc(a.join(', ')):(a!=null?esc(String(a)):'—')}</div></div>`).join('')}</div>
+    ${!Object.keys(answers).length?'<div style="font-size:13px;color:var(--text-3);text-align:center;padding:20px">No detailed answers recorded.</div>':''}`;
+  openModal('modal-resp-detail');
+};
+window.exportCSV = function() {
+  const id = document.getElementById('resp-form-filter').value;
+  const data = id ? allResponses.filter(r => r.form_id === id) : allResponses;
+  if (!data.length) return toast('No data to export','error');
+  const headers = ['ID','Respondent','Form','Score','Submitted','Answers'];
+  const rows = data.map(r => { const form=allForms.find(f=>f.id===r.form_id); const a=JSON.stringify(r.answers||{}).replace(/"/g,'""'); return [r.id,r.respondent_name||'Anonymous',form?.name||'Unknown',r.readiness_score||'',new Date(r.created_at).toISOString(),`"${a}"`].join(','); });
+  const blob = new Blob([[headers.join(','),...rows].join('\n')],{type:'text/csv'});
+  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `verve-responses-${Date.now()}.csv`; link.click();
+  toast('CSV exported!','success');
+};
+
+/* ── ORGANISATIONS (Programme Contexts) ── */
+window.createOrg = async function() {
+  const name = document.getElementById('no-name').value.trim();
+  const industry = document.getElementById('no-industry').value;
+  const email = document.getElementById('no-email').value.trim();
+  if (!name) return toast('Programme name required','error');
+  const { data, error } = await sb.from('il_organisations').insert([{ name, industry:industry||null, contact_email:email||null, created_by:currentUser.id }]).select();
+  if (error) return toast(error.message,'error');
+  toast('Programme created!','success');
+  closeModal('modal-new-org');
+  allOrgs.push(data[0]);
+  allOrgs.sort((a,b) => a.name.localeCompare(b.name));
+  await loadOrgs();
+  document.getElementById('no-name').value = '';
+  document.getElementById('no-email').value = '';
+};
+
+/* ── AI ANALYSIS ── */
+function populateAIFormSelect() {
+  document.getElementById('ai-form-select').innerHTML = '<option value="">All responses</option>' + allForms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+}
+window.runAI = async function() {
+  const key = document.getElementById('ai-api-key').value.trim();
+  const formId = document.getElementById('ai-form-select').value;
+  const prompt = document.getElementById('ai-prompt').value.trim();
+  const output = document.getElementById('ai-output');
+  if (!key) return toast('Enter your Anthropic API key','error');
+  const toAnalyse = formId ? allResponses.filter(r => r.form_id === formId) : allResponses;
+  if (!toAnalyse.length) return toast('No responses to analyse','error');
+  output.innerHTML = '<div style="color:var(--text-3);font-size:13px;padding:20px;text-align:center">Analysing with Claude…</div>';
+  document.getElementById('ai-copy-btn').style.display = 'none';
+  const form = formId ? allForms.find(f => f.id === formId) : null;
+  const summary = toAnalyse.slice(0,30).map((r,i) => `Response ${i+1} [${r.respondent_name||'Anonymous'}] Score=${r.readiness_score??'N/A'}\n` + Object.entries(r.answers||{}).map(([q,a]) => `  ${q}: ${Array.isArray(a)?a.join(', '):a}`).join('\n')).join('\n\n');
+  const userPrompt = (prompt || `You are an AI assistant for Verve Creative Centre, a non-profit arts organisation. Analyse the following${form?` "${form.name}"`:''} responses from our community. Identify key themes, engagement patterns, participant needs, and provide actionable recommendations to improve our programmes and community impact.\n\n`) + summary;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'}, body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1500, messages:[{role:'user',content:userPrompt}] }) });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.content?.[0]?.text || 'No response received';
+    output.innerHTML = `<div style="font-size:13px;line-height:1.85;color:var(--text-1);white-space:pre-wrap">${esc(text)}</div>`;
+    document.getElementById('ai-copy-btn').style.display = 'flex';
+  } catch(e) { output.innerHTML = `<div style="color:var(--red);font-size:13px;padding:10px;background:var(--red-soft);border-radius:var(--radius-sm)">${esc(e.message)}</div>`; toast('Analysis failed: '+e.message,'error'); }
+};
+window.copyAIOutput = function() { navigator.clipboard.writeText(document.getElementById('ai-output').innerText).then(() => toast('Copied!','success')); };
+
+/* ── METRICS ── */
+function renderMetrics() {
+  Object.values(metricsCharts).forEach(c => { try { c.destroy(); } catch(e){} }); metricsCharts = {};
+  const labels30 = Array.from({length:30},(_,i) => { const d = new Date(); d.setDate(d.getDate()-29+i); return d.toLocaleDateString('en',{month:'short',day:'numeric'}); });
+  const volData = labels30.map((_,i) => { const d = new Date(); d.setDate(d.getDate()-29+i); const s = new Date(d).setHours(0,0,0,0), e = s+86400000; return allResponses.filter(r => { const t = new Date(r.created_at).getTime(); return t>=s&&t<e; }).length; });
+  const volCanvas = document.getElementById('metrics-chart-volume');
+  if (volCanvas) { metricsCharts.volume = new Chart(volCanvas, { type:'bar', data:{ labels:labels30, datasets:[{label:'Responses', data:volData.some(v=>v>0)?volData:labels30.map((_,i)=>Math.floor(Math.sin(i/3)*3+4)), backgroundColor:'rgba(224,125,74,0.35)', borderColor:'var(--community)', borderWidth:1, borderRadius:3}] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false},ticks:{font:{size:9},color:'#5c5044',maxTicksLimit:6}}, y:{grid:{color:'rgba(245,237,224,0.04)'},ticks:{font:{size:9},color:'#5c5044'}} } } }); }
+  const scored = allResponses.filter(r => r.readiness_score!=null);
+  const buckets = {'0–39':0,'40–59':0,'60–79':0,'80–100':0};
+  scored.forEach(r => { const s=r.readiness_score; if(s<40)buckets['0–39']++; else if(s<60)buckets['40–59']++; else if(s<80)buckets['60–79']++; else buckets['80–100']++; });
+  const scoreCanvas = document.getElementById('metrics-chart-score');
+  if (scoreCanvas) { metricsCharts.score = new Chart(scoreCanvas, { type:'bar', data:{ labels:Object.keys(buckets), datasets:[{ data:scored.length?Object.values(buckets):[2,5,8,4], backgroundColor:['rgba(201,107,107,0.6)','rgba(212,168,67,0.6)','rgba(106,171,126,0.6)','rgba(224,125,74,0.6)'], borderRadius:3 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{display:false},ticks:{font:{size:9},color:'#5c5044'}}, y:{grid:{color:'rgba(245,237,224,0.04)'},ticks:{font:{size:9},color:'#5c5044'}} } } }); }
+  const topForms = allForms.map(f => ({...f, count:allResponses.filter(r=>r.form_id===f.id).length})).sort((a,b)=>b.count-a.count).slice(0,5);
+  document.getElementById('metrics-top-forms').innerHTML = topForms.length ? topForms.map(f => `<div class="met-row"><div class="met-label">${esc(f.name)}</div><div class="met-val">${f.count}</div></div>`).join('') : '<div style="font-size:12.5px;color:var(--text-3)">No data yet.</div>';
+  document.getElementById('metrics-top-orgs').innerHTML = allOrgs.slice(0,5).length ? allOrgs.slice(0,5).map(o => `<div class="record-row"><div class="record-avatar" style="border-radius:6px;background:rgba(224,125,74,0.10);color:var(--community)">${o.name[0].toUpperCase()}</div><div><div class="record-name">${esc(o.name)}</div><div class="record-sub">${esc(o.industry||'General')}</div></div></div>`).join('') : '<div style="font-size:12.5px;color:var(--text-3)">No programmes yet.</div>';
+  const avgScore = scored.length ? Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length) : null;
+  document.getElementById('metrics-summary').innerHTML = `<div class="met-row"><div class="met-label">Total Forms</div><div class="met-val">${allForms.length}</div></div><div class="met-row"><div class="met-label">Total Responses</div><div class="met-val">${allResponses.length}</div></div><div class="met-row"><div class="met-label">Avg Score</div><div class="met-val">${avgScore??'—'}</div></div><div class="met-row" style="border:none"><div class="met-label">Programmes</div><div class="met-val">${allOrgs.length}</div></div>`;
+}
+
+/* ── SETTINGS ── */
+window.saveSupabaseConfig = function() {
+  const url = document.getElementById('sb-url-input').value.trim();
+  const key = document.getElementById('sb-key-input').value.trim();
+  if (!url||!key) return toast('Enter both URL and key','error');
+  localStorage.setItem('il_sb_url',url); localStorage.setItem('il_sb_key',key);
+  toast('Saved. Reloading…','success');
+  setTimeout(() => location.reload(), 1200);
+};
+
+/* ── SEARCH ── */
+window.handleSearch = function(val) {
+  if (!val.trim()) return;
+  const q = val.toLowerCase();
+  document.getElementById('sb-search-input').value = val;
+  document.getElementById('cmd-input').value = val;
+  if (allForms.some(f => f.name.toLowerCase().includes(q))) return navTo('forms');
+  if (allResponses.some(r => (r.respondent_name||'').toLowerCase().includes(q))) navTo('responses');
+};
+
+/* ── KEYBOARD ── */
+document.addEventListener('keydown', e => {
+  if ((e.metaKey||e.ctrlKey) && e.key==='k') { e.preventDefault(); document.getElementById('cmd-input')?.focus(); }
+});
+
+/* ── INIT ── */
+window.addEventListener('load', () => {
+  const savedUrl = localStorage.getItem('il_sb_url');
+  const savedKey = localStorage.getItem('il_sb_key');
+  if (savedUrl) document.getElementById('sb-url-input').value = savedUrl;
+  if (savedKey) document.getElementById('sb-key-input').value = savedKey;
+  const params = new URLSearchParams(location.search);
+  const fillId = params.get('fill');
+  if (fillId) {
+    (async () => {
+      try {
+        const { data, error } = await sb.from('il_forms').select('*').eq('id',fillId).single();
+        if (error||!data) return toast('Form not found','error');
+        allForms = [data]; _openFillWith(data);
+      } catch(e) { toast('Could not load form','error'); }
+    })();
+  }
+});
+
+})();
+</script>
+</body>
+</html>
