@@ -8,30 +8,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- QRCode.js — use the correct UMD build that exposes window.QRCode -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 /*
   ═══════════════════════════════════════════════════════════
-  INTEGRATION CHANGES FROM ORIGINAL
+  FIXES IN THIS VERSION
   ═══════════════════════════════════════════════════════════
-  1. KPI dashboard now queries il_dashboard_kpis view (DB aggregate)
-  2. Metrics volume chart queries il_response_volume() RPC
-  3. Metrics score chart queries il_score_distribution() RPC
-  4. Top forms per org queries get_org_response_counts() RPC
-  5. Search bar calls il_search() RPC (DB-side fuzzy search)
-  6. Readiness score insert aligned: client passes null and lets
-     the DB trigger (compute_readiness_score) handle it.
-     Client still computes a preview score for local display only.
-  7. image_urls always included in response inserts (column exists
-     in schema, no longer guarded by a conditional).
-  8. Share URLs use form.share_slug when present, falling back to UUID.
-  9. After saving a form whose field types changed, calls
-     recalculate_form_scores() RPC so DB scores stay consistent.
- 10. Fill screen works for anonymous (unauthenticated) visitors:
-     il_forms is readable by anon role per schema grants.
-     Responses insert with created_by = null when not logged in.
- 11. Org selector now also filters via DB query (not just
-     local array filtering) to respect RLS for client-role users.
+  1. FILL SCREEN SEPARATION — ?fill= param now shows ONLY the
+     fill page with no dashboard behind it. A dedicated
+     fill.html-style render mode hides the entire #app and
+     #auth-screen, showing only #fill-screen. After submit the
+     user stays on the thank-you state (no redirect to dashboard).
+  2. QR CODES — switched to qrcode.js toCanvas() API with proper
+     canvas element reference and error logging.
+  3. DUPLICATE FORMS — fixed renderFormsPage() and renderDashboard()
+     race conditions. submitFormModal now awaits loadForms() before
+     re-rendering so the server-returned list is canonical. Local
+     array push removed; replaced by full reload from DB.
+  4. FILE UPLOADS — added CSV, PDF, and video (mp4/mov/webm/avi)
+     upload support alongside image uploads. New field type "file"
+     lets form builders add generic file fields. The fill screen
+     renders the correct upload UI per type. Storage bucket path
+     uses type-prefixed subfolder.
   ═══════════════════════════════════════════════════════════
 */
 :root {
@@ -76,6 +75,11 @@ body { background: var(--bg); color: var(--text-1); font-family: var(--font); li
 button { font-family: var(--font); cursor: pointer; }
 input, select, textarea { font-family: var(--font); }
 a { color: inherit; text-decoration: none; }
+
+/* ── FILL-ONLY MODE (when ?fill= is in URL) ── */
+body.fill-only-mode #auth-screen,
+body.fill-only-mode #app { display: none !important; }
+body.fill-only-mode #fill-screen { display: block !important; }
 
 /* ── AUTH ── */
 #auth-screen {
@@ -296,7 +300,9 @@ tbody tr:last-child td { border-bottom: none; }
 .share-tab.active { background: var(--surface); color: var(--text-1); box-shadow: var(--shadow); }
 .share-panel { display: none; }
 .share-panel.active { display: block; }
-.qr-wrap { padding: 14px; background: white; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; border: 1px solid var(--border); }
+/* QR wrap — white background required for QR readability */
+.qr-wrap { padding: 14px; background: white; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; border: 1px solid var(--border); min-height: 208px; }
+#qr-canvas { display: block; }
 .url-row { display: flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 9px; margin-bottom: 8px; }
 .url-text { flex: 1; font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: monospace; }
 .btn-copy { flex-shrink: 0; padding: 3px 8px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); border: none; font-size: 11px; font-weight: 500; cursor: pointer; transition: var(--t); }
@@ -321,7 +327,17 @@ tbody tr:last-child td { border-bottom: none; }
 .empty-state { text-align: center; padding: 32px 20px; color: var(--text-2); }
 .empty-state svg { width: 30px; height: 30px; stroke-width: 1.2; color: var(--text-3); margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto; }
 .empty-state p { font-size: 12.5px; margin-bottom: 10px; }
-#fill-screen { position: fixed; inset: 0; z-index: 1000; display: none; background: var(--bg); overflow-y: auto; }
+
+/* ── FILL SCREEN ── */
+#fill-screen {
+  position: fixed; inset: 0; z-index: 1000;
+  /* Default hidden; shown either via ?fill= param (fill-only-mode) or openFillScreen() */
+  display: none;
+  background: var(--bg); overflow-y: auto;
+}
+/* In fill-only-mode the screen is shown via body class, not inline style */
+body.fill-only-mode #fill-screen { position: static; min-height: 100vh; }
+
 .fill-wrap { max-width: 600px; margin: 0 auto; padding: 32px 20px 80px; }
 .fill-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
 .fill-form-title { font-family: var(--font-serif); font-size: 22px; font-weight: 400; margin-bottom: 2px; color: var(--text-1); }
@@ -342,17 +358,27 @@ tbody tr:last-child td { border-bottom: none; }
 .fill-scale { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
 .fill-scale-btn { width: 36px; height: 36px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg); font-size: 12.5px; font-weight: 500; color: var(--text-2); cursor: pointer; transition: var(--t); }
 .fill-scale-btn:hover, .fill-scale-btn.selected { background: var(--accent); color: white; border-color: var(--accent); }
-.image-upload-zone { border: 2px dashed var(--border-2); border-radius: var(--radius-sm); padding: 20px; text-align: center; cursor: pointer; transition: var(--t); background: var(--bg); margin-top: 6px; }
-.image-upload-zone:hover, .image-upload-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
-.image-upload-zone svg { width: 24px; height: 24px; color: var(--text-3); stroke-width: 1.5; stroke: currentColor; fill: none; margin-bottom: 6px; }
-.image-upload-zone p { font-size: 12px; color: var(--text-3); margin: 0; }
-.image-upload-zone .upload-hint { font-size: 10.5px; color: var(--text-3); margin-top: 3px; }
-.image-preview-wrap { position: relative; margin-top: 8px; display: inline-block; }
+/* Generic file / image / pdf / video / csv upload zone */
+.file-upload-zone { border: 2px dashed var(--border-2); border-radius: var(--radius-sm); padding: 20px; text-align: center; cursor: pointer; transition: var(--t); background: var(--bg); margin-top: 6px; }
+.file-upload-zone:hover, .file-upload-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+.file-upload-zone svg { width: 24px; height: 24px; color: var(--text-3); stroke-width: 1.5; stroke: currentColor; fill: none; margin-bottom: 6px; }
+.file-upload-zone p { font-size: 12px; color: var(--text-3); margin: 0; }
+.file-upload-zone .upload-hint { font-size: 10.5px; color: var(--text-3); margin-top: 3px; }
+.file-preview-wrap { margin-top: 8px; }
+.image-preview-wrap { position: relative; display: inline-block; }
 .image-preview { max-width: 100%; max-height: 220px; border-radius: var(--radius-sm); border: 1px solid var(--border); object-fit: contain; display: block; }
+.video-preview { max-width: 100%; max-height: 240px; border-radius: var(--radius-sm); border: 1px solid var(--border); display: block; }
+.file-preview-doc { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+.file-preview-doc-icon { width: 32px; height: 32px; border-radius: 7px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.file-preview-doc-icon svg { width: 16px; height: 16px; stroke: var(--accent); stroke-width: 2; fill: none; }
+.file-preview-doc-name { font-size: 12.5px; color: var(--text-1); font-weight: 500; flex: 1; word-break: break-all; }
+.file-preview-doc-size { font-size: 10.5px; color: var(--text-3); }
+.file-preview-remove { background: rgba(220,38,38,0.85); border: none; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; flex-shrink: 0; }
+.file-preview-remove svg { width: 10px; height: 10px; stroke: white; stroke-width: 2.5; fill: none; }
 .image-preview-remove { position: absolute; top: 4px; right: 4px; background: rgba(220,38,38,0.85); border: none; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white; }
 .image-preview-remove svg { width: 10px; height: 10px; stroke: white; stroke-width: 2.5; fill: none; }
-.image-upload-loading { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); padding: 10px; }
-.image-upload-loading .spinner { width: 16px; height: 16px; border: 2px solid var(--border-2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+.upload-loading { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); padding: 10px; }
+.upload-loading .spinner { width: 16px; height: 16px; border: 2px solid var(--border-2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 .fill-submit-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px; margin-top: 8px; box-shadow: var(--shadow); }
 .fill-submit { width: 100%; padding: 11px; background: var(--accent); color: white; border: none; border-radius: var(--radius); font-family: var(--font); font-weight: 600; font-size: 13.5px; cursor: pointer; transition: var(--t); margin-top: 11px; letter-spacing: 0.01em; }
 .fill-submit:hover { background: var(--accent-2); transform: translateY(-1px); box-shadow: 0 5px 20px rgba(79,99,232,0.25); }
@@ -382,7 +408,6 @@ tbody tr:last-child td { border-bottom: none; }
 .toggle-switch.on { background: var(--accent); }
 .toggle-switch::after { content: ''; position: absolute; width: 14px; height: 14px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 .toggle-switch.on::after { transform: translateX(16px); }
-/* Search results dropdown */
 .search-results { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--border-2); border-radius: var(--radius); box-shadow: var(--shadow-md); z-index: 500; max-height: 280px; overflow-y: auto; }
 .search-result-item { display: flex; align-items: center; gap: 9px; padding: 9px 12px; cursor: pointer; transition: var(--t); border-bottom: 1px solid var(--border); }
 .search-result-item:last-child { border-bottom: none; }
@@ -644,33 +669,18 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="card-header"><span class="card-label">Database Integration Notes</span></div>
         <div class="sql-hint">
           <div class="sql-hint-label">DB Functions this app calls</div>
-          <pre>-- Dashboard KPIs (replaces client-side counting)
+          <pre>-- Dashboard KPIs
 select * from il_dashboard_kpis;
-
--- Response volume timeseries for Metrics chart
+-- Response volume timeseries
 select * from il_response_volume(30);
-
--- Score distribution buckets for Metrics chart
+-- Score distribution
 select * from il_score_distribution();
-
--- Per-org form stats (used in Metrics top-forms card)
+-- Per-org form stats
 select * from get_org_response_counts(:org_id);
-
--- Full-text search across forms, responses, orgs (⌘K bar)
+-- Full-text search
 select * from il_search(:query);
-
--- Recalculate scores after editing form field types
+-- Recalculate scores after field type change
 select recalculate_form_scores(:form_id);</pre>
-        </div>
-        <div class="sql-hint" style="margin-top:8px">
-          <div class="sql-hint-label">Score alignment — DB trigger vs client</div>
-          <pre>-- The DB trigger compute_readiness_score() normalises
--- scale answers (1-10) to 0-100 using:
---   ((value - 1) / 9.0) * 100
--- The frontend no longer overrides this; it passes
--- readiness_score: null so the trigger handles it.
--- Client still shows a local preview score which uses
--- the same formula for display consistency.</pre>
         </div>
       </div>
     </div>
@@ -693,8 +703,21 @@ select recalculate_form_scores(:form_id);</pre>
         <div class="field-builder-list" id="field-builder-list"></div>
         <div class="field-add-row">
           <input type="text" class="form-input" id="field-label-input" placeholder="Field label…" style="flex:1">
-          <select class="form-select" id="field-type-input" style="width:150px">
-            <option value="text">Short text</option><option value="textarea">Long text</option><option value="number">Number</option><option value="email">Email</option><option value="select">Dropdown</option><option value="radio">Multiple choice</option><option value="checkbox">Checkboxes</option><option value="scale">Scale 1–10</option><option value="date">Date</option><option value="image">Image upload</option>
+          <select class="form-select" id="field-type-input" style="width:160px">
+            <option value="text">Short text</option>
+            <option value="textarea">Long text</option>
+            <option value="number">Number</option>
+            <option value="email">Email</option>
+            <option value="select">Dropdown</option>
+            <option value="radio">Multiple choice</option>
+            <option value="checkbox">Checkboxes</option>
+            <option value="scale">Scale 1–10</option>
+            <option value="date">Date</option>
+            <option value="image">Image upload</option>
+            <option value="pdf">PDF upload</option>
+            <option value="csv">CSV upload</option>
+            <option value="video">Video upload</option>
+            <option value="file">Any file</option>
           </select>
           <button class="btn btn-outline" type="button" id="add-field-btn">+ Add</button>
         </div>
@@ -723,7 +746,11 @@ select recalculate_form_scores(:form_id);</pre>
     <div class="modal-body">
       <div style="font-family:var(--font-alt);font-weight:600;font-size:14px;text-align:center;margin-bottom:2px" id="share-form-name">Form</div>
       <div style="font-size:11.5px;color:var(--text-3);text-align:center;margin-bottom:13px" id="share-form-org">—</div>
-      <div class="share-tabs"><button class="share-tab active" onclick="shareTab('link',this)">Link</button><button class="share-tab" onclick="shareTab('qr',this)">QR Code</button><button class="share-tab" onclick="shareTab('platforms',this)">Share</button></div>
+      <div class="share-tabs">
+        <button class="share-tab active" onclick="shareTab('link',this)">Link</button>
+        <button class="share-tab" onclick="shareTab('qr',this)">QR Code</button>
+        <button class="share-tab" onclick="shareTab('platforms',this)">Share</button>
+      </div>
       <div class="share-panel active" id="sp-link">
         <div class="url-row"><span class="url-text" id="share-url-text">—</span><button class="btn-copy" onclick="copyShareLink()">Copy</button></div>
         <div id="share-slug-row" style="font-size:10.5px;color:var(--text-3);margin-bottom:8px;display:none">Slug: <span id="share-slug-display" style="font-family:monospace;color:var(--accent)"></span></div>
@@ -733,7 +760,15 @@ select recalculate_form_scores(:form_id);</pre>
         </div>
         <p style="font-size:11px;color:var(--text-3);text-align:center;margin-top:8px">Anyone with this link can fill the form (no login required).</p>
       </div>
-      <div class="share-panel" id="sp-qr"><div class="qr-wrap" id="qr-wrap"><canvas id="qr-canvas" width="180" height="180"></canvas></div><div style="display:flex;gap:6px"><button class="btn btn-outline" style="flex:1;justify-content:center" onclick="downloadQR()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button><button class="btn btn-accent" style="flex:1;justify-content:center" onclick="previewForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button></div></div>
+      <div class="share-panel" id="sp-qr">
+        <div class="qr-wrap" id="qr-wrap">
+          <!-- canvas created dynamically to avoid stale references -->
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-outline" style="flex:1;justify-content:center" onclick="downloadQR()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
+          <button class="btn btn-accent" style="flex:1;justify-content:center" onclick="previewForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+        </div>
+      </div>
       <div class="share-panel" id="sp-platforms">
         <div class="share-platforms">
           <button class="platform-btn" onclick="shareTo('whatsapp')"><div class="platform-icon" style="background:#25d366;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></div>WhatsApp</button>
@@ -761,12 +796,19 @@ select recalculate_form_scores(:form_id);</pre>
   <img id="img-lightbox-img" src="" style="max-width:100%;max-height:90vh;border-radius:8px;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
 </div>
 
-<!-- PUBLIC FILL SCREEN — accessible without auth (anon role reads il_forms) -->
+<!-- ═══════════ FILL SCREEN
+     In fill-only mode (?fill= in URL) this is the ONLY visible element.
+     The close button is hidden in fill-only mode so the user can't "escape"
+     back to a blank dashboard. ═══════════ -->
 <div id="fill-screen">
   <div class="fill-wrap">
     <div class="fill-header">
-      <div style="flex:1"><div class="fill-form-title" id="fill-title">Loading…</div><div class="fill-form-desc" id="fill-desc"></div></div>
-      <button onclick="closeFillScreen()" style="background:var(--surface);border:1px solid var(--border);border-radius:7px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="13" height="13" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div style="flex:1">
+        <div class="fill-form-title" id="fill-title">Loading…</div>
+        <div class="fill-form-desc" id="fill-desc"></div>
+      </div>
+      <!-- hide close button in fill-only mode -->
+      <button id="fill-close-btn" onclick="closeFillScreen()" style="background:var(--surface);border:1px solid var(--border);border-radius:7px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="13" height="13" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="fill-progress"><div class="fill-progress-bar" id="fill-progress-bar" style="width:5%"></div></div>
     <div id="fill-fields"></div>
@@ -781,7 +823,8 @@ select recalculate_form_scores(:form_id);</pre>
       <div class="fill-success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></div>
       <div class="fill-success-title">Response submitted!</div>
       <div class="fill-success-sub">Thank you for completing this form.</div>
-      <button class="btn btn-outline" onclick="closeFillScreen()" style="margin-top:16px;padding:8px 20px">Close</button>
+      <!-- In fill-only mode there is no dashboard to go back to — show nothing -->
+      <button id="fill-success-close" class="btn btn-outline" onclick="closeFillScreen()" style="margin-top:16px;padding:8px 20px;display:none">Close</button>
     </div>
   </div>
 </div>
@@ -791,6 +834,22 @@ select recalculate_form_scores(:form_id);</pre>
 <script>
 (function(){
 'use strict';
+
+/* ─── FILL-ONLY DETECTION ───
+   If ?fill= is in the URL we enter fill-only mode immediately,
+   before any auth check, so the visitor sees only the form. */
+const FILL_PARAM = (function(){
+  const p = new URLSearchParams(location.search).get('fill');
+  return p ? p.trim() : null;
+})();
+
+if(FILL_PARAM){
+  document.body.classList.add('fill-only-mode');
+  // Hide close button — there's no dashboard behind it
+  const cb = document.getElementById('fill-close-btn');
+  if(cb) cb.style.display = 'none';
+  // Show success close only if not fill-only (so user can dismiss overlay)
+}
 
 /* ─── SUPABASE INIT ─── */
 let SUPABASE_URL = localStorage.getItem('il_sb_url') || 'https://pzioskykakwhwdlcmwyv.supabase.co';
@@ -813,22 +872,20 @@ let focusRunning = true;
 let focusSecs = 130 * 60;
 let focusInterval = null;
 let currentAIProvider = 'claude';
-let imageUploads = {};
+let fileUploads = {};     // keyed by field index
 let searchDebounce = null;
 
 /* ─── HELPERS ─── */
 function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function timeAgo(d){ const diff=Date.now()-new Date(d).getTime(); if(diff<60000) return 'Just now'; if(diff<3600000) return Math.floor(diff/60000)+'m ago'; if(diff<86400000) return Math.floor(diff/3600000)+'h ago'; return Math.floor(diff/86400000)+'d ago'; }
+function fmtBytes(b){ if(b<1024) return b+'B'; if(b<1048576) return (b/1024).toFixed(1)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
 function toast(msg, type='info'){
   const icons={success:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',error:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'};
   const el=document.createElement('div'); el.className='toast-item toast-'+type; el.innerHTML=(icons[type]||'')+esc(msg);
   document.getElementById('toast').appendChild(el); setTimeout(()=>el.remove(),3800);
 }
 
-/* ─── SCORE FORMULA (matches DB trigger) ───
-   DB trigger: ((val - 1) / 9.0) * 100, averaged across scale fields
-   We replicate this on the client for display-only preview.
-   The insert passes readiness_score = null; the DB trigger computes it. */
+/* ─── SCORE FORMULA ─── */
 function computeReadinessScore(answers, fields) {
   let sum = 0, count = 0;
   (fields||[]).forEach(f => {
@@ -932,6 +989,8 @@ sb.auth.onAuthStateChange(async(event,session)=>{
   if(event==='PASSWORD_RECOVERY'){showNewPasswordPanel();return;}
   if(event==='SIGNED_IN'&&session?.user&&!currentUser){
     if(document.getElementById('auth-new-password').style.display==='block') return;
+    // Don't boot the dashboard when in fill-only mode
+    if(FILL_PARAM) return;
     await bootApp(session.user);
   }
 });
@@ -1021,10 +1080,9 @@ window.onOrgChange=async function(id){
   currentOrgId=id; await loadForms(); await loadAllResponses(); renderDashboard();
 };
 
-/* ─── DASHBOARD — uses il_dashboard_kpis view ─── */
+/* ─── DASHBOARD ─── */
 async function renderDashboard(){
   try{
-    // INTEGRATION: Query the il_dashboard_kpis view instead of computing locally
     const{data,error}=await sb.from('il_dashboard_kpis').select('*').single();
     if(!error&&data){
       document.getElementById('kpi-responses').textContent=data.total_responses??0;
@@ -1032,14 +1090,10 @@ async function renderDashboard(){
       document.getElementById('kpi-orgs').textContent=data.total_orgs??0;
       const score=data.avg_readiness_score;
       document.getElementById('kpi-score').textContent=score??'—';
-      document.getElementById('kpi-score-sub').textContent=score?`Based on all scored responses`:'No scored responses yet';
+      document.getElementById('kpi-score-sub').textContent=score?'Based on all scored responses':'No scored responses yet';
       document.getElementById('kpi-responses-sub').textContent=data.responses_last_24h!=null?`${data.responses_last_24h} in last 24h`:'Loading…';
-    } else {
-      // Fallback to local data if view unavailable
-      _renderDashboardLocal();
-    }
+    } else { _renderDashboardLocal(); }
   } catch(e){_renderDashboardLocal();}
-  // Always render these from local state (fast, non-critical)
   document.getElementById('snap-forms').textContent=allForms.length||'0';
   document.getElementById('snap-resp').textContent=allResponses.length||'0';
   const scored=allResponses.filter(r=>r.readiness_score!=null);
@@ -1114,10 +1168,9 @@ async function renderFormsPage(){
   if(!allForms.length){grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No forms yet. Create your first intelligence form.</p><button class="btn btn-accent" onclick="openNewFormModal()">+ New Form</button></div>`;return;}
   grid.innerHTML=allForms.map(f=>{
     const count=allResponses.filter(r=>r.form_id===f.id).length; const org=allOrgs.find(o=>o.id===f.org_id);
-    const hasImage=(f.fields||[]).some(ff=>ff.type==='image');
-    // Show slug if present
+    const hasMedia=(f.fields||[]).some(ff=>['image','video','pdf','csv','file'].includes(ff.type));
     const slugBadge=f.share_slug?`<span class="badge badge-grey" title="share slug">/${esc(f.share_slug)}</span>`:'';
-    return `<div class="form-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px"><div class="form-card-title">${esc(f.name)}</div><span class="badge ${f.active?'badge-green':'badge-grey'}">${f.active?'● Active':'Draft'}</span></div><div class="form-card-desc">${esc(f.description||'No description')}</div><div class="form-card-footer"><span class="badge badge-blue">${(f.fields||[]).length} field${(f.fields||[]).length!==1?'s':''}</span>${org?`<span class="badge badge-grey">${esc(org.name)}</span>`:''} ${hasImage?'<span class="badge badge-amber">📷 Images</span>':''} ${slugBadge}<span style="font-size:11px;color:var(--text-3)">${count} response${count!==1?'s':''}</span></div><div class="form-card-actions"><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`;
+    return `<div class="form-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px"><div class="form-card-title">${esc(f.name)}</div><span class="badge ${f.active?'badge-green':'badge-grey'}">${f.active?'● Active':'Draft'}</span></div><div class="form-card-desc">${esc(f.description||'No description')}</div><div class="form-card-footer"><span class="badge badge-blue">${(f.fields||[]).length} field${(f.fields||[]).length!==1?'s':''}</span>${org?`<span class="badge badge-grey">${esc(org.name)}</span>`:''} ${hasMedia?'<span class="badge badge-amber">📎 Files</span>':''} ${slugBadge}<span style="font-size:11px;color:var(--text-3)">${count} response${count!==1?'s':''}</span></div><div class="form-card-actions"><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`;
   }).join('');
 }
 
@@ -1155,7 +1208,20 @@ function renderFieldBuilder(){
   list.innerHTML=formFields.map((f,i)=>`<div class="field-item"><span class="field-item-label">${esc(f.label)}</span><span class="field-item-type">${esc(f.type)}</span>${f.options&&f.options.length?`<span style="font-size:10px;color:var(--text-3)">(${f.options.length} opts)</span>`:''}<button class="btn-icon btn-icon-red" style="width:22px;height:22px;margin-left:auto" onclick="removeField(${i})" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`).join('');
 }
 window.removeField=function(i){formFields.splice(i,1);renderFieldBuilder();};
-async function submitFormModal(){ const editId=document.getElementById('nf-edit-id').value; if(editId) await saveFormEdit(editId); else await createNewForm(); }
+
+/* FIX: submitFormModal guards against double-submit with a flag */
+let _formSubmitting = false;
+async function submitFormModal(){
+  if(_formSubmitting) return;
+  _formSubmitting = true;
+  try {
+    const editId=document.getElementById('nf-edit-id').value;
+    if(editId) await saveFormEdit(editId); else await createNewForm();
+  } finally {
+    _formSubmitting = false;
+  }
+}
+
 async function createNewForm(){
   const name=document.getElementById('nf-name').value.trim(); const desc=document.getElementById('nf-desc').value.trim();
   const orgId=document.getElementById('nf-org').value; const slug=document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi,'').toLowerCase()||null;
@@ -1167,16 +1233,18 @@ async function createNewForm(){
     const{data,error}=await sb.from('il_forms').insert([payload]).select();
     if(error) throw error;
     closeModal('modal-new-form'); toast('Form created!','success');
-    allForms.unshift(data[0]); document.getElementById('sb-forms-count').textContent=allForms.length;
+    // FIX: reload from DB instead of pushing locally (avoids duplicates)
+    await loadForms();
+    document.getElementById('sb-forms-count').textContent=allForms.length;
     renderDashboard(); if(document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
   } catch(e){toast('Error: '+e.message,'error');}
   finally{btn.disabled=false;btn.textContent='Create Form';}
 }
+
 window.editForm=function(id){
   const form=allForms.find(f=>f.id===id); if(!form) return;
   formFields=JSON.parse(JSON.stringify(form.fields||[]));
   document.getElementById('nf-edit-id').value=id;
-  // Store original fields JSON so we can detect scale-type changes after save
   document.getElementById('nf-old-fields-json').value=JSON.stringify(form.fields||[]);
   document.getElementById('nf-name').value=form.name; document.getElementById('nf-desc').value=form.description||'';
   document.getElementById('nf-slug').value=form.share_slug||'';
@@ -1187,6 +1255,7 @@ window.editForm=function(id){
   document.getElementById('field-options-input').value=''; document.getElementById('field-options-input-wrap').style.display='none';
   renderFieldBuilder(); openModal('modal-new-form');
 };
+
 async function saveFormEdit(id){
   const name=document.getElementById('nf-name').value.trim(); const desc=document.getElementById('nf-desc').value.trim();
   const orgId=document.getElementById('nf-org').value; const slug=document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi,'').toLowerCase()||null;
@@ -1197,8 +1266,6 @@ async function saveFormEdit(id){
     const payload={name,description:desc||null,org_id:orgId||null,fields:formFields,share_slug:slug};
     const{data,error}=await sb.from('il_forms').update(payload).eq('id',id).select();
     if(error) throw error;
-    const idx=allForms.findIndex(f=>f.id===id); if(idx!==-1) allForms[idx]=data[0];
-    // INTEGRATION: If scale field types changed, trigger DB score recalculation
     const oldFields=JSON.parse(oldFieldsJson||'[]');
     const oldScaleLabels=oldFields.filter(f=>f.type==='scale').map(f=>f.label).sort().join(',');
     const newScaleLabels=formFields.filter(f=>f.type==='scale').map(f=>f.label).sort().join(',');
@@ -1207,10 +1274,13 @@ async function saveFormEdit(id){
       toast('Scores recalculated','info');
     }
     closeModal('modal-new-form'); toast('Form updated!','success');
+    // FIX: reload from DB
+    await loadForms();
     renderDashboard(); if(document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
   } catch(e){toast('Error: '+e.message,'error');}
   finally{btn.disabled=false;btn.textContent='Save Changes';}
 }
+
 window.deleteForm=async function(id){
   if(!confirm('Delete this form and all its responses? This cannot be undone.')) return;
   const{error}=await sb.from('il_forms').delete().eq('id',id);
@@ -1219,45 +1289,74 @@ window.deleteForm=async function(id){
   toast('Form deleted','info'); renderFormsPage(); renderDashboard();
 };
 
-/* ─── SHARE MODAL — uses share_slug when present ─── */
+/* ─── SHARE MODAL + QR ─── */
 window.shareTab=function(tab,btn){
   document.querySelectorAll('.share-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.share-panel').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active'); document.getElementById('sp-'+tab).classList.add('active');
-  if(tab==='qr') setTimeout(generateQR,50);
+  if(tab==='qr') setTimeout(generateQR, 80);
 };
+
 window.openShareModal=function(formId){
   const form=allForms.find(f=>f.id===formId); if(!form) return;
   currentShareFormId=formId; const org=allOrgs.find(o=>o.id===form.org_id);
   document.getElementById('share-form-name').textContent=form.name;
   document.getElementById('share-form-org').textContent=org?org.name:'LumenOS';
   document.getElementById('share-url-text').textContent=getFormURL(formId);
-  // Show slug hint if set
   const slugRow=document.getElementById('share-slug-row'); const slugDisplay=document.getElementById('share-slug-display');
   if(form.share_slug){slugDisplay.textContent=form.share_slug;slugRow.style.display='block';}else{slugRow.style.display='none';}
+  // Reset to link tab
   document.querySelectorAll('.share-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
   document.querySelectorAll('.share-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
   openModal('modal-share');
 };
-// INTEGRATION: URL uses share_slug if present, falls back to UUID (?fill=)
+
 function getFormURL(formId){
   const form=allForms.find(f=>f.id===formId);
   const base=location.href.split('?')[0];
-  // Use slug if available: ?fill=slug, otherwise ?fill=uuid
   const param=form?.share_slug||formId;
   return `${base}?fill=${encodeURIComponent(param)}`;
 }
+
+/* FIX: QR generation — create fresh canvas each time, use QRCode.toCanvas */
 function generateQR(){
-  const canvas=document.getElementById('qr-canvas'); if(!canvas||!currentShareFormId) return;
-  const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
-  QRCode.toCanvas(canvas,getFormURL(currentShareFormId),{width:180,margin:2,color:{dark:'#1a1d2e',light:'#ffffff'},errorCorrectionLevel:'H'},err=>{if(err){console.error('QR:',err);toast('QR generation failed','error');}});
+  if(!currentShareFormId) return;
+  const wrap=document.getElementById('qr-wrap'); if(!wrap) return;
+
+  // Clear previous and create a fresh canvas
+  wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:8px">Generating QR…</div>';
+
+  const url=getFormURL(currentShareFormId);
+  const canvas=document.createElement('canvas');
+  canvas.id='qr-canvas';
+  canvas.width=180; canvas.height=180;
+
+  // QRCode is the global from qrcode.js UMD build
+  QRCode.toCanvas(canvas, url, {
+    width: 180,
+    margin: 2,
+    color: { dark: '#1a1d2e', light: '#ffffff' },
+    errorCorrectionLevel: 'H'
+  }, function(err){
+    if(err){
+      console.error('QR generation error:', err);
+      wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px">QR generation failed: '+esc(err.message)+'</div>';
+      return;
+    }
+    wrap.innerHTML='';
+    wrap.appendChild(canvas);
+  });
 }
+
 window.copyShareLink=function(){
   const url=getFormURL(currentShareFormId);
   navigator.clipboard.writeText(url).then(()=>toast('Link copied!','success')).catch(()=>{const ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Link copied!','success');});
 };
-window.openFormDirectly=function(){window.open(getFormURL(currentShareFormId),'_blank');};
-window.downloadQR=function(){const canvas=document.getElementById('qr-canvas');if(!canvas)return;const a=document.createElement('a');a.download=`form-${currentShareFormId}.png`;a.href=canvas.toDataURL('image/png');a.click();toast('QR downloaded!','success');};
+window.openFormDirectly=function(){ window.open(getFormURL(currentShareFormId),'_blank'); };
+window.downloadQR=function(){
+  const canvas=document.getElementById('qr-canvas'); if(!canvas){toast('Generate QR first','error');return;}
+  const a=document.createElement('a'); a.download=`form-${currentShareFormId}.png`; a.href=canvas.toDataURL('image/png'); a.click(); toast('QR downloaded!','success');
+};
 window.previewForm=function(){closeModal('modal-share');openFillScreen(currentShareFormId);};
 window.shareTo=function(platform){
   const url=encodeURIComponent(getFormURL(currentShareFormId)); const form=allForms.find(f=>f.id===currentShareFormId);
@@ -1266,13 +1365,45 @@ window.shareTo=function(platform){
   if(platform==='email'||platform==='sms') location.href=links[platform]; else window.open(links[platform],'_blank','width=600,height=400');
 };
 
-/* ─── FILL SCREEN
-   INTEGRATION: Accessible without auth (anon can read il_forms per schema grants).
-   created_by is set to currentUser.id if logged in, null for anonymous visitors.  ─── */
+/* ═══════════════════════════════════════════════════════════
+   FILL SCREEN
+   ═══════════════════════════════════════════════════════════
+   - In fill-only mode (?fill= in URL), this is the whole page.
+   - When opened from dashboard preview, it overlays the app.
+   - File types supported: image, pdf, csv, video, file (any).
+*/
+
+/* Helper: what accept string to use per field type */
+function acceptForType(type){
+  if(type==='image') return 'image/*';
+  if(type==='pdf')   return 'application/pdf';
+  if(type==='csv')   return '.csv,text/csv,application/csv';
+  if(type==='video') return 'video/mp4,video/quicktime,video/webm,video/x-msvideo,video/*';
+  return '*/*'; // 'file' = any
+}
+function maxSizeForType(type){
+  if(type==='video') return 500*1024*1024; // 500 MB
+  if(type==='pdf')   return 100*1024*1024; // 100 MB
+  return 50*1024*1024; // 50 MB default
+}
+function labelForType(type){
+  if(type==='image') return 'PNG, JPG, WEBP, HEIC — up to 50MB';
+  if(type==='pdf')   return 'PDF documents — up to 100MB';
+  if(type==='csv')   return 'CSV files — up to 50MB';
+  if(type==='video') return 'MP4, MOV, WEBM, AVI — up to 500MB';
+  return 'Any file type — up to 50MB';
+}
+function bucketFolder(type){
+  if(type==='image') return 'images';
+  if(type==='pdf')   return 'pdfs';
+  if(type==='csv')   return 'csvs';
+  if(type==='video') return 'videos';
+  return 'files';
+}
+
 window.openFillScreen=function(formId){
   const form=allForms.find(f=>f.id===formId);
   if(!form){
-    // Fetch form even if user is anonymous (anon role has SELECT on il_forms)
     sb.from('il_forms').select('*').eq('id',formId).single().then(({data,error})=>{
       if(error||!data){toast('Form not found','error');return;}
       if(!allForms.find(f=>f.id===data.id)) allForms.push(data);
@@ -1282,126 +1413,218 @@ window.openFillScreen=function(formId){
   }
   _openFillWith(form);
 };
+
 function _openFillWith(form){
-  imageUploads={};
-  document.getElementById('fill-title').textContent=form.name; document.getElementById('fill-desc').textContent=form.description||'';
+  fileUploads={};
+  document.getElementById('fill-title').textContent=form.name;
+  document.getElementById('fill-desc').textContent=form.description||'';
   document.getElementById('fill-screen').dataset.formId=form.id;
-  document.getElementById('fill-form-area').style.display='block'; document.getElementById('fill-success').style.display='none';
-  document.getElementById('fill-submit-btn').disabled=false; document.getElementById('fill-submit-btn').textContent='Submit Response';
-  document.getElementById('fill-respondent').value=''; document.getElementById('fill-progress-bar').style.width='5%';
-  const fieldsEl=document.getElementById('fill-fields'); const fields=form.fields||[];
+  document.getElementById('fill-form-area').style.display='block';
+  document.getElementById('fill-success').style.display='none';
+  document.getElementById('fill-submit-btn').disabled=false;
+  document.getElementById('fill-submit-btn').textContent='Submit Response';
+  document.getElementById('fill-respondent').value='';
+  document.getElementById('fill-progress-bar').style.width='5%';
+
+  const fieldsEl=document.getElementById('fill-fields');
+  const fields=form.fields||[];
   fieldsEl.innerHTML=fields.map((f,i)=>renderFillField(f,i)).join('');
+
+  // Wire scale buttons
   fieldsEl.querySelectorAll('.fill-scale-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{btn.closest('.fill-scale').querySelectorAll('.fill-scale-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');updateFillProgress(fields);});
+    btn.addEventListener('click',()=>{
+      btn.closest('.fill-scale').querySelectorAll('.fill-scale-btn').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      updateFillProgress(fields);
+    });
   });
+
+  // Wire file / image / pdf / csv / video zones
   fields.forEach((f,i)=>{
-    if(f.type!=='image') return;
-    const zone=document.getElementById(`img-zone-${i}`); const fileInput=document.getElementById(`img-input-${i}`);
+    const isFileType=['image','pdf','csv','video','file'].includes(f.type);
+    if(!isFileType) return;
+    const zone=document.getElementById(`upload-zone-${i}`);
+    const fileInput=document.getElementById(`upload-input-${i}`);
     if(!zone||!fileInput) return;
     zone.addEventListener('click',()=>fileInput.click());
     zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover');});
     zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));
-    zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragover');const file=e.dataTransfer.files[0];if(file) handleImageFile(file,i,fields);});
-    fileInput.addEventListener('change',()=>{const file=fileInput.files[0];if(file) handleImageFile(file,i,fields);});
+    zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragover');const file=e.dataTransfer.files[0];if(file)handleFileUpload(file,i,f.type,fields);});
+    fileInput.addEventListener('change',()=>{const file=fileInput.files[0];if(file)handleFileUpload(file,i,f.type,fields);});
   });
-  fieldsEl.querySelectorAll('input:not([type=file]),select,textarea').forEach(inp=>{inp.addEventListener('change',()=>updateFillProgress(fields));inp.addEventListener('input',()=>updateFillProgress(fields));});
-  document.getElementById('fill-screen').style.display='block'; document.body.style.overflow='hidden';
+
+  // Wire text inputs for progress
+  fieldsEl.querySelectorAll('input:not([type=file]),select,textarea').forEach(inp=>{
+    inp.addEventListener('change',()=>updateFillProgress(fields));
+    inp.addEventListener('input',()=>updateFillProgress(fields));
+  });
+
+  if(!FILL_PARAM){
+    // Dashboard preview mode — show as overlay
+    document.getElementById('fill-screen').style.display='block';
+    document.body.style.overflow='hidden';
+  }
+  // In fill-only mode the screen is already shown via CSS class
 }
-async function handleImageFile(file,idx,fields){
-  if(!file.type.startsWith('image/')){toast('Please select an image file','error');return;}
-  if(file.size>52428800){toast('Image must be under 50MB','error');return;}
-  const previewWrap=document.getElementById(`img-preview-wrap-${idx}`); const zone=document.getElementById(`img-zone-${idx}`);
-  if(previewWrap) previewWrap.innerHTML='<div class="image-upload-loading"><div class="spinner"></div>Processing…</div>';
-  const reader=new FileReader();
-  reader.onload=async(e)=>{
-    const dataUrl=e.target.result; let publicUrl=null;
-    try{
-      const ext=file.name.split('.').pop()||'jpg'; const path=`responses/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const{data:upData,error:upErr}=await sb.storage.from('il-form-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
-      if(!upErr&&upData){const{data:urlData}=sb.storage.from('il-form-images').getPublicUrl(path);publicUrl=urlData?.publicUrl||null;}
-    } catch(_){}
-    imageUploads[idx]={file,dataUrl,publicUrl};
-    if(previewWrap) previewWrap.innerHTML=`<div class="image-preview-wrap"><img src="${dataUrl}" class="image-preview" onclick="openLightbox('${dataUrl}')"><button class="image-preview-remove" onclick="removeImage(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+
+async function handleFileUpload(file, idx, fieldType, fields){
+  const maxSize=maxSizeForType(fieldType);
+  if(file.size>maxSize){toast(`File too large. Max: ${fmtBytes(maxSize)}`,'error');return;}
+
+  const previewWrap=document.getElementById(`upload-preview-${idx}`);
+  const zone=document.getElementById(`upload-zone-${idx}`);
+  if(previewWrap) previewWrap.innerHTML='<div class="upload-loading"><div class="spinner"></div>Uploading…</div>';
+
+  let publicUrl=null;
+  let dataUrl=null;
+
+  // For images and small files, read as data URL for local preview
+  if(fieldType==='image' || file.size < 5*1024*1024){
+    dataUrl = await new Promise(res=>{
+      const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file);
+    });
+  }
+
+  // Upload to Supabase storage
+  try{
+    const ext=file.name.split('.').pop()||'bin';
+    const folder=bucketFolder(fieldType);
+    const path=`${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const{data:upData,error:upErr}=await sb.storage.from('il-form-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+    if(!upErr&&upData){
+      const{data:urlData}=sb.storage.from('il-form-images').getPublicUrl(path);
+      publicUrl=urlData?.publicUrl||null;
+    }
+  } catch(_){}
+
+  fileUploads[idx]={file,dataUrl,publicUrl,fieldType};
+
+  // Render preview
+  if(previewWrap){
+    if(fieldType==='image'&&dataUrl){
+      previewWrap.innerHTML=`<div class="image-preview-wrap"><img src="${dataUrl}" class="image-preview" onclick="openLightbox('${dataUrl}')"><button class="image-preview-remove" onclick="removeUpload(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+    } else if(fieldType==='video'&&(publicUrl||dataUrl)){
+      const src=publicUrl||dataUrl;
+      previewWrap.innerHTML=`<div style="position:relative;display:inline-block"><video src="${esc(src)}" class="video-preview" controls></video><button class="file-preview-remove" onclick="removeUpload(${idx})" style="position:absolute;top:4px;right:4px"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+    } else {
+      // PDF, CSV, generic file — show a doc-style chip
+      const icon=fieldType==='pdf'?'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>'
+        :fieldType==='csv'?'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/>'
+        :'<path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/>';
+      previewWrap.innerHTML=`<div class="file-preview-doc"><div class="file-preview-doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${icon}</svg></div><div><div class="file-preview-doc-name">${esc(file.name)}</div><div class="file-preview-doc-size">${fmtBytes(file.size)}</div></div><button class="file-preview-remove" onclick="removeUpload(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+    }
     if(zone) zone.style.display='none';
-    updateFillProgress(fields);
-  };
-  reader.readAsDataURL(file);
+  }
+  updateFillProgress(fields);
 }
-window.removeImage=function(idx){delete imageUploads[idx];const zone=document.getElementById(`img-zone-${idx}`);const previewWrap=document.getElementById(`img-preview-wrap-${idx}`);if(zone) zone.style.display='block';if(previewWrap) previewWrap.innerHTML='';};
+
+window.removeUpload=function(idx){
+  delete fileUploads[idx];
+  const zone=document.getElementById(`upload-zone-${idx}`);
+  const previewWrap=document.getElementById(`upload-preview-${idx}`);
+  if(zone) zone.style.display='block';
+  if(previewWrap) previewWrap.innerHTML='';
+};
 window.openLightbox=function(src){document.getElementById('img-lightbox-img').src=src;document.getElementById('img-lightbox').style.display='flex';};
+
 function updateFillProgress(fields){
   const fieldsEl=document.getElementById('fill-fields'); let filled=0;
   fields.forEach((f,i)=>{
     const id=`fill-f-${i}`;
     if(f.type==='scale'){if(fieldsEl.querySelector(`#${id} .fill-scale-btn.selected`)) filled++;}
-    else if(f.type==='radio'){if(fieldsEl.querySelector(`#${id} input:checked`)) filled++;}
+    else if(f.type==='radio'){if(fieldsEl.querySelector(`input[name="${id}"]:checked`)) filled++;}
     else if(f.type==='checkbox'){if(fieldsEl.querySelector(`#${id} input:checked`)) filled++;}
-    else if(f.type==='image'){if(imageUploads[i]) filled++;}
+    else if(['image','pdf','csv','video','file'].includes(f.type)){if(fileUploads[i]) filled++;}
     else{const el=document.getElementById(id);if(el&&el.value) filled++;}
   });
   const pct=fields.length?Math.max(5,Math.round((filled/fields.length)*90)+5):50;
   document.getElementById('fill-progress-bar').style.width=pct+'%';
 }
-function renderFillField(f,i){
+
+function renderFillField(f, i){
   const id=`fill-f-${i}`; const opts=(f.options&&f.options.length)?f.options:['Option 1','Option 2','Option 3'];
   let input='';
-  switch(f.type){
-    case 'textarea':input=`<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your answer…"></textarea>`;break;
-    case 'number':input=`<input type="number" class="fill-input" id="${id}" placeholder="0">`;break;
-    case 'email':input=`<input type="email" class="fill-input" id="${id}" placeholder="you@email.com">`;break;
-    case 'date':input=`<input type="date" class="fill-input" id="${id}">`;break;
-    case 'scale':input=`<div class="fill-scale" id="${id}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`;break;
-    case 'radio':input=`<div class="fill-radio-group" id="${id}">${opts.map(o=>`<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;
-    case 'checkbox':input=`<div class="fill-checkbox-group" id="${id}">${opts.map(o=>`<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;
-    case 'select':input=`<select class="fill-input" id="${id}"><option value="">Select…</option>${opts.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;break;
-    case 'image':input=`<div class="image-upload-zone" id="img-zone-${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><p>Click to upload or drag &amp; drop</p><div class="upload-hint">PNG, JPG, WEBP, HEIC — up to 50MB</div><input type="file" id="img-input-${i}" accept="image/*" style="display:none" capture></div><div id="img-preview-wrap-${i}"></div>`;break;
-    default:input=`<input type="text" class="fill-input" id="${id}" placeholder="Your answer…">`;
+  const isFileType=['image','pdf','csv','video','file'].includes(f.type);
+  if(isFileType){
+    const accept=acceptForType(f.type);
+    const hint=labelForType(f.type);
+    const captureAttr=f.type==='image'?' capture':' ';
+    let uploadIcon='';
+    if(f.type==='image') uploadIcon='<path d="M21 15V19a2 2 0 01-2 2H5a2 2 0 01-2-2V15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>';
+    else if(f.type==='video') uploadIcon='<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>';
+    else if(f.type==='pdf') uploadIcon='<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>';
+    else if(f.type==='csv') uploadIcon='<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/>';
+    else uploadIcon='<path d="M21 15V19a2 2 0 01-2 2H5a2 2 0 01-2-2V15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>';
+    input=`<div class="file-upload-zone" id="upload-zone-${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${uploadIcon}</svg><p>Click to upload or drag &amp; drop</p><div class="upload-hint">${hint}</div><input type="file" id="upload-input-${i}" accept="${accept}"${captureAttr}style="display:none"></div><div class="file-preview-wrap" id="upload-preview-${i}"></div>`;
+  } else {
+    switch(f.type){
+      case 'textarea':input=`<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your answer…"></textarea>`;break;
+      case 'number':input=`<input type="number" class="fill-input" id="${id}" placeholder="0">`;break;
+      case 'email':input=`<input type="email" class="fill-input" id="${id}" placeholder="you@email.com">`;break;
+      case 'date':input=`<input type="date" class="fill-input" id="${id}">`;break;
+      case 'scale':input=`<div class="fill-scale" id="${id}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`;break;
+      case 'radio':input=`<div class="fill-radio-group" id="${id}">${opts.map(o=>`<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;
+      case 'checkbox':input=`<div class="fill-checkbox-group" id="${id}">${opts.map(o=>`<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;
+      case 'select':input=`<select class="fill-input" id="${id}"><option value="">Select…</option>${opts.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;break;
+      default:input=`<input type="text" class="fill-input" id="${id}" placeholder="Your answer…">`;
+    }
   }
   return `<div class="fill-field"><div class="fill-field-label">${esc(f.label)}${f.required?'<span class="fill-required">*</span>':''}</div>${f.description?`<div class="fill-field-hint">${esc(f.description)}</div>`:''} ${input}</div>`;
 }
 
-/* INTEGRATION: Submit fill
-   - Always includes image_urls (column exists in schema)
-   - Passes readiness_score = null so DB trigger computes it
-   - created_by is null for unauthenticated visitors (anon insert allowed by RLS) */
 async function submitFill(){
   const formId=document.getElementById('fill-screen').dataset.formId;
   const form=allForms.find(f=>f.id===formId);
   const respondentName=document.getElementById('fill-respondent').value.trim();
   const btn=document.getElementById('fill-submit-btn'); btn.disabled=true; btn.textContent='Submitting…';
   document.getElementById('fill-progress-bar').style.width='95%';
-  const answers={}; const imageUrls={};
+  const answers={}; const fileUrlMap={};
   if(form?.fields){
     form.fields.forEach((f,i)=>{
       const id=`fill-f-${i}`;
       if(f.type==='scale'){const sel=document.querySelector(`#${id} .fill-scale-btn.selected`);answers[f.label]=sel?parseInt(sel.dataset.val):null;}
       else if(f.type==='radio'){const sel=document.querySelector(`input[name="${id}"]:checked`);answers[f.label]=sel?sel.value:null;}
       else if(f.type==='checkbox'){answers[f.label]=[...document.querySelectorAll(`#${id} input:checked`)].map(s=>s.value);}
-      else if(f.type==='image'){const up=imageUploads[i];if(up){answers[f.label]=up.publicUrl||'[image uploaded]';imageUrls[f.label]=up.publicUrl||up.dataUrl;}else answers[f.label]=null;}
+      else if(['image','pdf','csv','video','file'].includes(f.type)){
+        const up=fileUploads[i];
+        if(up){answers[f.label]=up.publicUrl||up.file?.name||'[file uploaded]';fileUrlMap[f.label]=up.publicUrl||null;}
+        else answers[f.label]=null;
+      }
       else{const el=document.getElementById(id);answers[f.label]=el?(el.value||null):null;}
     });
   }
   try{
-    // INTEGRATION: readiness_score = null — DB trigger (compute_readiness_score) calculates it
-    // INTEGRATION: image_urls always included — column exists in il_responses schema
     const insertPayload={
       form_id:formId,
       respondent_name:respondentName||null,
       org_name:respondentName||null,
       answers,
-      image_urls:imageUrls,   // always present; {} is valid per schema constraint
-      readiness_score:null,   // DB trigger will compute this from scale field answers
-      created_by:currentUser?.id||null  // null for unauthenticated visitors
+      image_urls:fileUrlMap,
+      readiness_score:null,
+      created_by:currentUser?.id||null
     };
     const{error}=await sb.from('il_responses').insert([insertPayload]);
     if(error) throw error;
     document.getElementById('fill-progress-bar').style.width='100%';
-    document.getElementById('fill-form-area').style.display='none'; document.getElementById('fill-success').style.display='block';
-    if(currentUser){await loadAllResponses();renderDashboard();}
-  } catch(e){btn.disabled=false;btn.textContent='Submit Response';toast(e.message,'error');}
+    document.getElementById('fill-form-area').style.display='none';
+    document.getElementById('fill-success').style.display='block';
+    // In fill-only mode, don't show a Close button (no dashboard to return to)
+    const closeBtn=document.getElementById('fill-success-close');
+    if(closeBtn) closeBtn.style.display=FILL_PARAM?'none':'inline-flex';
+    if(currentUser){ await loadAllResponses(); renderDashboard(); }
+  } catch(e){
+    btn.disabled=false; btn.textContent='Submit Response';
+    toast(e.message,'error');
+  }
 }
-window.closeFillScreen=function(){document.getElementById('fill-screen').style.display='none';document.body.style.overflow='';};
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('fill-screen').style.display==='block') closeFillScreen();});
+
+window.closeFillScreen=function(){
+  document.getElementById('fill-screen').style.display='none';
+  document.body.style.overflow='';
+};
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&!FILL_PARAM&&document.getElementById('fill-screen').style.display==='block') closeFillScreen();
+});
 
 /* ─── RESPONSES PAGE ─── */
 async function renderResponses(){
@@ -1416,13 +1639,13 @@ function displayResponses(responses){
   el.innerHTML=`<table><thead><tr><th>Respondent</th><th>Form</th><th>Score</th><th>Submitted</th><th>Status</th><th></th></tr></thead><tbody>${responses.map(r=>{
     const form=allForms.find(f=>f.id===r.form_id); const s=r.readiness_score;
     const cls=s>=70?'badge-green':s>=40?'badge-amber':s!=null?'badge-red':'badge-grey';
-    const hasImages=r.image_urls&&Object.keys(r.image_urls).length>0;
-    return `<tr style="cursor:pointer" onclick="viewResponse('${r.id}')"><td><strong>${esc(r.respondent_name||'Anonymous')}</strong>${hasImages?'&nbsp;<span style="font-size:10px">📷</span>':''}</td><td style="color:var(--text-2)">${esc(form?.name||'Unknown')}</td><td>${s!=null?`<span class="badge ${cls}">${s}</span>`:'<span style="color:var(--text-3)">—</span>'}</td><td style="color:var(--text-3)">${new Date(r.created_at).toLocaleString()}</td><td><span class="badge badge-green">Complete</span></td><td><button class="btn-icon btn-icon-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></td></tr>`;
+    const hasFiles=r.image_urls&&Object.keys(r.image_urls).length>0;
+    return `<tr style="cursor:pointer" onclick="viewResponse('${r.id}')"><td><strong>${esc(r.respondent_name||'Anonymous')}</strong>${hasFiles?'&nbsp;<span style="font-size:10px">📎</span>':''}</td><td style="color:var(--text-2)">${esc(form?.name||'Unknown')}</td><td>${s!=null?`<span class="badge ${cls}">${s}</span>`:'<span style="color:var(--text-3)">—</span>'}</td><td style="color:var(--text-3)">${new Date(r.created_at).toLocaleString()}</td><td><span class="badge badge-green">Complete</span></td><td><button class="btn-icon btn-icon-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></td></tr>`;
   }).join('')}</tbody></table>`;
 }
 window.viewResponse=function(id){
   const r=allResponses.find(x=>x.id===id); if(!r) return;
-  const form=allForms.find(f=>f.id===r.form_id); const answers=r.answers||{}; const imageUrls=r.image_urls||{}; const s=r.readiness_score;
+  const form=allForms.find(f=>f.id===r.form_id); const answers=r.answers||{}; const fileUrls=r.image_urls||{}; const s=r.readiness_score;
   const cls=s>=70?'badge-green':s>=40?'badge-amber':'badge-red';
   document.getElementById('resp-detail-body').innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -1430,7 +1653,20 @@ window.viewResponse=function(id){
       ${s!=null?`<span class="badge ${cls}" style="margin-left:auto;font-size:12px;padding:4px 11px">Score: ${s}</span>`:''}
     </div>
     <div class="resp-detail-grid">
-      ${Object.entries(answers).map(([q,a])=>{const imgUrl=imageUrls[q];const val=imgUrl?`<img src="${esc(imgUrl)}" class="resp-answer-img" onclick="openLightbox('${esc(imgUrl)}')" title="Click to enlarge">`:Array.isArray(a)?esc(a.join(', ')):(a!=null?esc(String(a)):'—');return `<div class="resp-answer"><div class="resp-answer-q">${esc(q)}</div><div class="resp-answer-a">${val}</div></div>`;}).join('')}
+      ${Object.entries(answers).map(([q,a])=>{
+        const fileUrl=fileUrls[q];
+        let val;
+        if(fileUrl){
+          // Detect type from URL for inline preview
+          const isImg=/\.(png|jpg|jpeg|gif|webp|heic)(\?|$)/i.test(fileUrl);
+          const isVid=/\.(mp4|mov|webm|avi)(\?|$)/i.test(fileUrl);
+          if(isImg) val=`<img src="${esc(fileUrl)}" class="resp-answer-img" onclick="openLightbox('${esc(fileUrl)}')" title="Click to enlarge">`;
+          else if(isVid) val=`<video src="${esc(fileUrl)}" controls class="video-preview" style="max-width:100%;max-height:160px;margin-top:5px"></video>`;
+          else val=`<a href="${esc(fileUrl)}" target="_blank" style="color:var(--accent);font-size:12px">📎 Download file</a>`;
+        } else if(Array.isArray(a)) val=esc(a.join(', '));
+        else val=a!=null?esc(String(a)):'—';
+        return `<div class="resp-answer"><div class="resp-answer-q">${esc(q)}</div><div class="resp-answer-a">${val}</div></div>`;
+      }).join('')}
     </div>
     ${!Object.keys(answers).length?'<div style="font-size:13px;color:var(--text-3);text-align:center;padding:20px">No detailed answers recorded.</div>':''}`;
   openModal('modal-resp-detail');
@@ -1445,7 +1681,7 @@ window.exportCSV=function(){
   toast('CSV exported!','success');
 };
 
-/* ─── ORGS PAGE ─── */
+/* ─── ORGS ─── */
 function renderOrgsPage(){
   const grid=document.getElementById('orgs-grid');
   if(!allOrgs.length){grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No organisations yet.</p><button class="btn btn-accent" onclick="openModal('modal-new-org')">+ New Organisation</button></div>`;return;}
@@ -1465,7 +1701,7 @@ window.createOrg=async function(){
   document.getElementById('no-name').value=''; document.getElementById('no-industry').value=''; document.getElementById('no-email').value='';
 };
 
-/* ─── AI ANALYSIS ─── */
+/* ─── AI ─── */
 window.selectProvider=function(provider){
   currentAIProvider=provider;
   document.getElementById('prov-btn-claude').classList.toggle('active',provider==='claude');
@@ -1504,57 +1740,29 @@ window.runAI=async function(){
 };
 window.copyAIOutput=function(){navigator.clipboard.writeText(document.getElementById('ai-output').innerText).then(()=>toast('Copied!','success'));};
 
-/* ─── METRICS — uses DB RPCs ─── */
+/* ─── METRICS ─── */
 async function renderMetrics(){
   Object.values(metricsCharts).forEach(c=>{try{c.destroy();}catch(e){}});
   metricsCharts={};
-
-  // INTEGRATION: il_response_volume(30) RPC — replaces client-side day loop
   let volLabels=[],volData=[];
   try{
     const{data,error}=await sb.rpc('il_response_volume',{p_days:30});
-    if(!error&&data&&data.length){
-      volLabels=data.map(r=>new Date(r.day).toLocaleDateString('en',{month:'short',day:'numeric'}));
-      volData=data.map(r=>Number(r.response_count));
-    }
+    if(!error&&data&&data.length){volLabels=data.map(r=>new Date(r.day).toLocaleDateString('en',{month:'short',day:'numeric'}));volData=data.map(r=>Number(r.response_count));}
   } catch(_){}
-  if(!volLabels.length){
-    // Fallback to local computation
-    volLabels=[]; volData=[];
-    for(let i=29;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);volLabels.push(d.toLocaleDateString('en',{month:'short',day:'numeric'}));const s=new Date(d).setHours(0,0,0,0);volData.push(allResponses.filter(r=>{const t=new Date(r.created_at).getTime();return t>=s&&t<s+86400000;}).length);}
-  }
+  if(!volLabels.length){for(let i=29;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);volLabels.push(d.toLocaleDateString('en',{month:'short',day:'numeric'}));const s=new Date(d).setHours(0,0,0,0);volData.push(allResponses.filter(r=>{const t=new Date(r.created_at).getTime();return t>=s&&t<s+86400000;}).length);}}
   const volCanvas=document.getElementById('metrics-chart-volume');
   if(volCanvas){metricsCharts.volume=new Chart(volCanvas,{type:'bar',data:{labels:volLabels,datasets:[{label:'Responses',data:volData,backgroundColor:'rgba(79,99,232,0.3)',borderColor:'#4f63e8',borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#9099b8',maxTicksLimit:6}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:9},color:'#9099b8'}}}}});}
-
-  // INTEGRATION: il_score_distribution() RPC — replaces client-side bucket counting
   let scoreLabels=[],scoreData=[],scoreColors=[];
   try{
     const{data,error}=await sb.rpc('il_score_distribution');
-    if(!error&&data&&data.length){
-      scoreLabels=data.map(r=>r.bucket); scoreData=data.map(r=>Number(r.response_count));
-      scoreColors=scoreLabels.map(b=>b==='0–39'?'rgba(220,38,38,0.5)':b==='40–59'?'rgba(217,119,6,0.5)':b==='60–79'?'rgba(79,99,232,0.5)':'rgba(22,163,74,0.5)');
-    }
+    if(!error&&data&&data.length){scoreLabels=data.map(r=>r.bucket);scoreData=data.map(r=>Number(r.response_count));scoreColors=scoreLabels.map(b=>b==='0–39'?'rgba(220,38,38,0.5)':b==='40–59'?'rgba(217,119,6,0.5)':b==='60–79'?'rgba(79,99,232,0.5)':'rgba(22,163,74,0.5)');}
   } catch(_){}
-  if(!scoreLabels.length){
-    const buckets={'0–39':0,'40–59':0,'60–79':0,'80–100':0};
-    allResponses.filter(r=>r.readiness_score!=null).forEach(r=>{const s=r.readiness_score;if(s<40)buckets['0–39']++;else if(s<60)buckets['40–59']++;else if(s<80)buckets['60–79']++;else buckets['80–100']++;});
-    scoreLabels=Object.keys(buckets); scoreData=Object.values(buckets); scoreColors=['rgba(220,38,38,0.5)','rgba(217,119,6,0.5)','rgba(79,99,232,0.5)','rgba(22,163,74,0.5)'];
-  }
+  if(!scoreLabels.length){const buckets={'0–39':0,'40–59':0,'60–79':0,'80–100':0};allResponses.filter(r=>r.readiness_score!=null).forEach(r=>{const s=r.readiness_score;if(s<40)buckets['0–39']++;else if(s<60)buckets['40–59']++;else if(s<80)buckets['60–79']++;else buckets['80–100']++;});scoreLabels=Object.keys(buckets);scoreData=Object.values(buckets);scoreColors=['rgba(220,38,38,0.5)','rgba(217,119,6,0.5)','rgba(79,99,232,0.5)','rgba(22,163,74,0.5)'];}
   const scoreCanvas=document.getElementById('metrics-chart-score');
   if(scoreCanvas){metricsCharts.score=new Chart(scoreCanvas,{type:'bar',data:{labels:scoreLabels,datasets:[{data:scoreData,backgroundColor:scoreColors,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#9099b8'}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:9},color:'#9099b8'}}}}});}
-
-  // INTEGRATION: get_org_response_counts() — top forms with DB-accurate counts
-  // If an org is selected, use the RPC for per-form stats; otherwise fall back to local
   let topFormRows=[];
-  if(currentOrgId){
-    try{
-      const{data,error}=await sb.rpc('get_org_response_counts',{p_org_id:currentOrgId});
-      if(!error&&data) topFormRows=data.map(r=>`<div class="met-row"><div class="met-label">${esc(r.form_name)}</div><div style="text-align:right"><div class="met-val">${r.response_count}</div><div style="font-size:10px;color:var(--text-3)">avg ${r.avg_score??'—'}</div></div></div>`);
-    } catch(_){}
-  }
-  if(!topFormRows.length){
-    topFormRows=allForms.map(f=>({...f,count:allResponses.filter(r=>r.form_id===f.id).length})).sort((a,b)=>b.count-a.count).slice(0,5).map(f=>`<div class="met-row"><div class="met-label">${esc(f.name)}</div><div class="met-val">${f.count}</div></div>`);
-  }
+  if(currentOrgId){try{const{data,error}=await sb.rpc('get_org_response_counts',{p_org_id:currentOrgId});if(!error&&data) topFormRows=data.map(r=>`<div class="met-row"><div class="met-label">${esc(r.form_name)}</div><div style="text-align:right"><div class="met-val">${r.response_count}</div><div style="font-size:10px;color:var(--text-3)">avg ${r.avg_score??'—'}</div></div></div>`);}catch(_){}}
+  if(!topFormRows.length){topFormRows=allForms.map(f=>({...f,count:allResponses.filter(r=>r.form_id===f.id).length})).sort((a,b)=>b.count-a.count).slice(0,5).map(f=>`<div class="met-row"><div class="met-label">${esc(f.name)}</div><div class="met-val">${f.count}</div></div>`);}
   document.getElementById('metrics-top-forms').innerHTML=topFormRows.length?topFormRows.join(''):'<div style="font-size:12.5px;color:var(--text-3)">No data yet.</div>';
   document.getElementById('metrics-top-orgs').innerHTML=allOrgs.slice(0,5).length?allOrgs.slice(0,5).map(o=>`<div class="person-row"><div class="person-avatar" style="border-radius:6px">${o.name[0].toUpperCase()}</div><div><div class="person-name">${esc(o.name)}</div><div class="person-status">${esc(o.industry||'General')}</div></div></div>`).join(''):'<div style="font-size:12.5px;color:var(--text-3)">No organisations yet.</div>';
   const avgScore=allResponses.filter(r=>r.readiness_score!=null).length?Math.round(allResponses.filter(r=>r.readiness_score!=null).reduce((a,r)=>a+r.readiness_score,0)/allResponses.filter(r=>r.readiness_score!=null).length):null;
@@ -1569,28 +1777,24 @@ window.saveSupabaseConfig=function(){
   toast('Saved. Reloading…','success'); setTimeout(()=>location.reload(),1200);
 };
 
-/* ─── SEARCH — uses il_search() RPC for DB-side fuzzy search ─── */
+/* ─── SEARCH ─── */
 window.handleSearch=function(val){
   document.getElementById('sb-search-input').value=val; document.getElementById('cmd-input').value=val;
   clearTimeout(searchDebounce);
   if(!val.trim()){hideSearchResults();return;}
   searchDebounce=setTimeout(()=>runSearch(val.trim()),300);
 };
-
 async function runSearch(q){
-  // INTEGRATION: il_search() RPC — fuzzy search across forms, responses, orgs in DB
   try{
     const{data,error}=await sb.rpc('il_search',{p_query:q});
     if(!error&&data&&data.length){showSearchResults(data);return;}
   } catch(_){}
-  // Fallback: local filter
   const results=[];
   allForms.filter(f=>f.name.toLowerCase().includes(q.toLowerCase())).slice(0,5).forEach(f=>results.push({result_type:'form',id:f.id,title:f.name,subtitle:f.description||'Form'}));
   allResponses.filter(r=>(r.respondent_name||'').toLowerCase().includes(q.toLowerCase())).slice(0,5).forEach(r=>{const form=allForms.find(f=>f.id===r.form_id);results.push({result_type:'response',id:r.id,title:r.respondent_name||'Anonymous',subtitle:form?.name||'Unknown form'});});
   allOrgs.filter(o=>o.name.toLowerCase().includes(q.toLowerCase())).slice(0,3).forEach(o=>results.push({result_type:'org',id:o.id,title:o.name,subtitle:o.industry||'Organisation'}));
   showSearchResults(results);
 }
-
 function showSearchResults(results){
   const typeMap={form:{cls:'srt-form',label:'Form'},response:{cls:'srt-response',label:'Response'},org:{cls:'srt-org',label:'Org'}};
   const html=results.slice(0,10).map(r=>{const t=typeMap[r.result_type]||{cls:'',label:r.result_type};return `<div class="search-result-item" onclick="handleSearchResultClick('${r.result_type}','${r.id}')"><span class="search-result-type ${t.cls}">${t.label}</span><div><div class="search-result-title">${esc(r.title)}</div><div class="search-result-sub">${esc(r.subtitle)}</div></div></div>`;}).join('');
@@ -1609,35 +1813,51 @@ document.addEventListener('click',e=>{if(!e.target.closest('.sb-search')&&!e.tar
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('cmd-input')?.focus();}});
 
 /* ─── INIT ─── */
-window.addEventListener('load',()=>{
+window.addEventListener('load', async ()=>{
   const savedUrl=localStorage.getItem('il_sb_url'); const savedKey=localStorage.getItem('il_sb_key');
   if(savedUrl) document.getElementById('sb-url-input').value=savedUrl;
   if(savedKey) document.getElementById('sb-key-input').value=savedKey;
 
-  // Handle ?fill= param — supports both UUID and share_slug
-  const params=new URLSearchParams(location.search);
-  const fillParam=params.get('fill');
-  if(fillParam){
-    (async()=>{
-      try{
-        // Try by UUID first, then by share_slug (INTEGRATION: uses share_slug column)
-        let formData=null;
-        const uuidRegex=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if(uuidRegex.test(fillParam)){
-          const{data}=await sb.from('il_forms').select('*').eq('id',fillParam).single();
-          formData=data;
-        }
-        if(!formData){
-          // Try slug lookup (anon can read il_forms)
-          const{data}=await sb.from('il_forms').select('*').eq('share_slug',fillParam).maybeSingle();
-          formData=data;
-        }
-        if(!formData){toast('Form not found','error');return;}
-        if(!allForms.find(f=>f.id===formData.id)) allForms.push(formData);
-        _openFillWith(formData);
-      } catch(e){toast('Could not load form','error');}
-    })();
+  // ── FILL-ONLY MODE ──
+  // If ?fill= is in URL, load and display the form immediately.
+  // Don't wait for auth — anon users can fill forms.
+  if(FILL_PARAM){
+    document.getElementById('fill-title').textContent='Loading form…';
+    try{
+      let formData=null;
+      const uuidRegex=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if(uuidRegex.test(FILL_PARAM)){
+        const{data}=await sb.from('il_forms').select('*').eq('id',FILL_PARAM).single();
+        formData=data;
+      }
+      if(!formData){
+        const{data}=await sb.from('il_forms').select('*').eq('share_slug',FILL_PARAM).maybeSingle();
+        formData=data;
+      }
+      if(!formData){
+        document.getElementById('fill-title').textContent='Form not found';
+        document.getElementById('fill-desc').textContent='This form does not exist or has been removed.';
+        document.getElementById('fill-form-area').style.display='none';
+        return;
+      }
+      allForms=[formData]; // minimal state for submitFill
+      // Wire the submit button (wireFormModal won't run without auth)
+      const fillSubmit=document.getElementById('fill-submit-btn');
+      if(fillSubmit) fillSubmit.addEventListener('click',e=>{e.preventDefault();submitFill();});
+      _openFillWith(formData);
+    } catch(e){
+      document.getElementById('fill-title').textContent='Error loading form';
+      document.getElementById('fill-desc').textContent=e.message;
+    }
+    // Still check session in background so currentUser is set for created_by
+    const {data:{session}} = await sb.auth.getSession();
+    if(session?.user) currentUser=session.user;
+    return; // don't boot dashboard
   }
+
+  // ── NORMAL DASHBOARD BOOT ──
+  const{data:{session}}=await sb.auth.getSession();
+  if(session?.user) await bootApp(session.user);
 });
 
 })();
