@@ -8,31 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<!-- QRCode.js — use the correct UMD build that exposes window.QRCode -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
-/*
-  ═══════════════════════════════════════════════════════════
-  FIXES IN THIS VERSION
-  ═══════════════════════════════════════════════════════════
-  1. FILL SCREEN SEPARATION — ?fill= param now shows ONLY the
-     fill page with no dashboard behind it. A dedicated
-     fill.html-style render mode hides the entire #app and
-     #auth-screen, showing only #fill-screen. After submit the
-     user stays on the thank-you state (no redirect to dashboard).
-  2. QR CODES — switched to qrcode.js toCanvas() API with proper
-     canvas element reference and error logging.
-  3. DUPLICATE FORMS — fixed renderFormsPage() and renderDashboard()
-     race conditions. submitFormModal now awaits loadForms() before
-     re-rendering so the server-returned list is canonical. Local
-     array push removed; replaced by full reload from DB.
-  4. FILE UPLOADS — added CSV, PDF, and video (mp4/mov/webm/avi)
-     upload support alongside image uploads. New field type "file"
-     lets form builders add generic file fields. The fill screen
-     renders the correct upload UI per type. Storage bucket path
-     uses type-prefixed subfolder.
-  ═══════════════════════════════════════════════════════════
-*/
 :root {
   --bg: #f4f5f9;
   --surface: #ffffff;
@@ -76,12 +53,10 @@ button { font-family: var(--font); cursor: pointer; }
 input, select, textarea { font-family: var(--font); }
 a { color: inherit; text-decoration: none; }
 
-/* ── FILL-ONLY MODE (when ?fill= is in URL) ── */
 body.fill-only-mode #auth-screen,
 body.fill-only-mode #app { display: none !important; }
 body.fill-only-mode #fill-screen { display: block !important; }
 
-/* ── AUTH ── */
 #auth-screen {
   position: fixed; inset: 0; z-index: 999;
   display: flex; align-items: center; justify-content: center;
@@ -115,7 +90,6 @@ body.fill-only-mode #fill-screen { display: block !important; }
 .pw-strength-bar { height: 3px; border-radius: 2px; margin-top: 5px; background: var(--surface-3); overflow: hidden; }
 .pw-strength-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease, background 0.3s ease; width: 0%; }
 
-/* ── APP SHELL ── */
 #app { display: none; min-height: 100vh; }
 .icon-nav { position: fixed; left: 0; top: 0; bottom: 0; width: var(--nav-w); z-index: 200; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 2px; }
 .icon-nav-logo { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; cursor: pointer; overflow: hidden; box-shadow: 0 2px 8px rgba(79,99,232,0.2); }
@@ -300,7 +274,6 @@ tbody tr:last-child td { border-bottom: none; }
 .share-tab.active { background: var(--surface); color: var(--text-1); box-shadow: var(--shadow); }
 .share-panel { display: none; }
 .share-panel.active { display: block; }
-/* QR wrap — white background required for QR readability */
 .qr-wrap { padding: 14px; background: white; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; border: 1px solid var(--border); min-height: 208px; }
 #qr-canvas { display: block; }
 .url-row { display: flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 7px 9px; margin-bottom: 8px; }
@@ -328,16 +301,13 @@ tbody tr:last-child td { border-bottom: none; }
 .empty-state svg { width: 30px; height: 30px; stroke-width: 1.2; color: var(--text-3); margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto; }
 .empty-state p { font-size: 12.5px; margin-bottom: 10px; }
 
-/* ── FILL SCREEN ── */
+/* FILL SCREEN */
 #fill-screen {
   position: fixed; inset: 0; z-index: 1000;
-  /* Default hidden; shown either via ?fill= param (fill-only-mode) or openFillScreen() */
   display: none;
   background: var(--bg); overflow-y: auto;
 }
-/* In fill-only-mode the screen is shown via body class, not inline style */
 body.fill-only-mode #fill-screen { position: static; min-height: 100vh; }
-
 .fill-wrap { max-width: 600px; margin: 0 auto; padding: 32px 20px 80px; }
 .fill-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
 .fill-form-title { font-family: var(--font-serif); font-size: 22px; font-weight: 400; margin-bottom: 2px; color: var(--text-1); }
@@ -358,7 +328,6 @@ body.fill-only-mode #fill-screen { position: static; min-height: 100vh; }
 .fill-scale { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
 .fill-scale-btn { width: 36px; height: 36px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg); font-size: 12.5px; font-weight: 500; color: var(--text-2); cursor: pointer; transition: var(--t); }
 .fill-scale-btn:hover, .fill-scale-btn.selected { background: var(--accent); color: white; border-color: var(--accent); }
-/* Generic file / image / pdf / video / csv upload zone */
 .file-upload-zone { border: 2px dashed var(--border-2); border-radius: var(--radius-sm); padding: 20px; text-align: center; cursor: pointer; transition: var(--t); background: var(--bg); margin-top: 6px; }
 .file-upload-zone:hover, .file-upload-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
 .file-upload-zone svg { width: 24px; height: 24px; color: var(--text-3); stroke-width: 1.5; stroke: currentColor; fill: none; margin-bottom: 6px; }
@@ -418,13 +387,51 @@ body.fill-only-mode #fill-screen { position: static; min-height: 100vh; }
 .srt-org { background: var(--amber-soft); color: var(--amber); }
 .search-result-title { font-size: 12.5px; color: var(--text-1); font-weight: 500; }
 .search-result-sub { font-size: 11px; color: var(--text-3); }
+
+/* ── NOTIFICATION SETTINGS ── */
+.notif-channel-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; box-shadow: var(--shadow); margin-bottom: 12px;
+}
+.notif-channel-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.notif-channel-icon {
+  width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.notif-channel-icon svg { width: 17px; height: 17px; stroke-width: 1.8; stroke: currentColor; fill: none; }
+.notif-channel-title { font-weight: 600; font-size: 13px; color: var(--text-1); }
+.notif-channel-sub { font-size: 11.5px; color: var(--text-3); }
+.notif-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-left: auto; }
+.notif-status-dot.active { background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+.notif-status-dot.inactive { background: var(--text-3); }
+.notif-config-body { border-top: 1px solid var(--border); padding-top: 12px; }
+.notif-hint { font-size: 11px; color: var(--text-3); margin-top: 4px; line-height: 1.5; }
+.notif-hint a { color: var(--accent); text-decoration: underline; }
+.notif-test-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.btn-test { padding: 6px 12px; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; color: var(--text-2); cursor: pointer; transition: var(--t); display: flex; align-items: center; gap: 5px; }
+.btn-test:hover { border-color: var(--accent); color: var(--accent); }
+.btn-test svg { width: 12px; height: 12px; stroke-width: 2; stroke: currentColor; fill: none; }
+.notif-form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.notif-form-row select { flex: 1; padding: 7px 9px; background: var(--bg); border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-1); outline: none; }
+.notif-form-row select:focus { border-color: var(--accent); }
+.notif-log { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); max-height: 180px; overflow-y: auto; }
+.notif-log-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.notif-log-item:last-child { border-bottom: none; }
+.notif-log-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.notif-log-dot.ok { background: var(--green); }
+.notif-log-dot.fail { background: var(--red); }
+.notif-log-dot.pending { background: var(--amber); }
+.notif-log-msg { flex: 1; color: var(--text-2); }
+.notif-log-time { font-size: 10.5px; color: var(--text-3); white-space: nowrap; }
+
 @media (max-width: 1024px) { .icon-nav { display: none; } .sidebar { left: 0; } .main { margin-left: var(--sidebar-w); } .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 700px) { .sidebar { display: none; } .main { margin-left: 0; padding: 12px; } .grid-3, .grid-2 { grid-template-columns: 1fr; } .grid-4 { grid-template-columns: 1fr; } .cmd-bar { padding: 8px 12px; } .resp-detail-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 
-<!-- ═══════════ AUTH ═══════════ -->
+<!-- AUTH -->
 <div id="auth-screen">
   <div class="auth-card">
     <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" class="auth-logo" onerror="this.style.display='none'">
@@ -470,7 +477,7 @@ body.fill-only-mode #fill-screen { position: static; min-height: 100vh; }
   </div>
 </div>
 
-<!-- ═══════════ APP ═══════════ -->
+<!-- APP -->
 <div id="app">
   <nav class="icon-nav">
     <div class="icon-nav-logo" onclick="navTo('dashboard')">
@@ -611,7 +618,7 @@ body.fill-only-mode #fill-screen { position: static; min-height: 100vh; }
           <div class="card-header"><span class="card-label">Configuration</span></div>
           <div class="form-row"><label class="form-label">AI Provider</label><div class="ai-provider-toggle"><button class="ai-prov-btn active" id="prov-btn-claude" onclick="selectProvider('claude')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Claude (Anthropic)</button><button class="ai-prov-btn" id="prov-btn-gemini" onclick="selectProvider('gemini')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Gemini (Google)</button></div></div>
           <div class="ai-key-section" id="claude-key-section"><div class="form-row"><label class="form-label">Anthropic API Key</label><input type="password" class="form-input" id="ai-api-key" placeholder="sk-ant-…"></div></div>
-          <div class="ai-key-section" id="gemini-key-section" style="display:none"><div class="form-row"><label class="form-label">Google Gemini API Key</label><input type="password" class="form-input" id="ai-gemini-key" placeholder="AIza…"></div><div style="font-size:11px;color:var(--text-3);margin-top:-6px;margin-bottom:10px">Get your key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com</a></div></div>
+          <div class="ai-key-section" id="gemini-key-section" style="display:none"><div class="form-row"><label class="form-label">Google Gemini API Key</label><input type="password" class="form-input" id="ai-gemini-key" placeholder="AIza…"></div></div>
           <div class="form-row"><label class="form-label">Form to Analyse</label><select class="form-select" id="ai-form-select"><option value="">All responses</option></select></div>
           <div class="form-row"><label class="form-label">Analysis Prompt</label><textarea class="form-textarea" rows="4" id="ai-prompt" placeholder="Analyse the following responses and provide key insights, patterns, and recommendations…"></textarea></div>
           <button class="btn btn-accent" onclick="runAI()" style="width:100%;padding:10px;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Run Analysis</button>
@@ -629,7 +636,7 @@ body.fill-only-mode #fill-screen { position: static; min-height: 100vh; }
     <!-- METRICS -->
     <div class="page" id="page-metrics">
       <div class="page-title">Live <em>Metrics</em></div>
-      <div class="page-sub">Real-time operational intelligence — queried directly from your database.</div>
+      <div class="page-sub">Real-time operational intelligence.</div>
       <div class="grid-2" style="margin-bottom:14px">
         <div class="card"><div class="card-header"><span class="card-label">Response Volume (30 days)</span></div><div class="chart-container"><canvas id="metrics-chart-volume"></canvas></div></div>
         <div class="card"><div class="card-header"><span class="card-label">Score Distribution</span></div><div class="chart-container"><canvas id="metrics-chart-score"></canvas></div></div>
@@ -641,35 +648,190 @@ body.fill-only-mode #fill-screen { position: static; min-height: 100vh; }
       </div>
     </div>
 
-    <!-- SETTINGS -->
+    <!-- SETTINGS — now includes Notifications tab -->
     <div class="page" id="page-settings">
       <div class="page-title">Settings</div>
       <div class="page-sub" style="margin-bottom:20px">Configure your LumenOS instance.</div>
-      <div class="grid-2" style="margin-bottom:14px">
-        <div class="card">
-          <div class="card-header"><span class="card-label">Supabase Connection</span></div>
-          <div class="form-row"><label class="form-label">Project URL</label><input type="text" class="form-input" id="sb-url-input" placeholder="https://xxxx.supabase.co"></div>
-          <div class="form-row"><label class="form-label">Anon Key</label><input type="password" class="form-input" id="sb-key-input" placeholder="eyJ…"></div>
-          <button class="btn btn-accent" onclick="saveSupabaseConfig()" style="padding:8px 16px">Save &amp; Reconnect</button>
-        </div>
-        <div class="card">
-          <div class="card-header"><span class="card-label">Account</span></div>
-          <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">Signed in as <strong id="settings-email">—</strong></div>
-          <div class="form-row"><label class="form-label">Role</label><input type="text" class="form-input" id="settings-role" disabled></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn btn-outline" onclick="doSignOut()">Sign Out</button><button class="btn btn-outline" onclick="showChangePassword()">Change Password</button></div>
-          <div id="change-pw-section" style="display:none;margin-top:8px;padding-top:10px;border-top:1px solid var(--border)">
-            <div class="form-row"><label class="form-label">New Password</label><input type="password" class="form-input" id="change-pw-input" placeholder="Min 8 characters" oninput="checkPasswordStrength(this.value,'pw-strength-fill-3')"><div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-strength-fill-3"></div></div></div>
-            <div class="form-row"><label class="form-label">Confirm</label><input type="password" class="form-input" id="change-pw-confirm" placeholder="Repeat password"></div>
-            <button class="btn btn-accent" onclick="doChangePassword()" style="padding:8px 16px">Update Password</button>
-            <div class="auth-msg" id="change-pw-msg" style="display:block"></div>
+
+      <!-- Settings tabs -->
+      <div style="display:flex;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;margin-bottom:18px;width:fit-content">
+        <button class="auth-tab active" onclick="settingsTab('general',this)">General</button>
+        <button class="auth-tab" onclick="settingsTab('notifications',this)" id="notif-tab-btn">
+          🔔 Notifications
+          <span id="notif-active-badge" style="display:none;margin-left:5px;background:var(--green);color:white;font-size:9px;padding:1px 5px;border-radius:10px">ON</span>
+        </button>
+        <button class="auth-tab" onclick="settingsTab('database',this)">Database</button>
+      </div>
+
+      <!-- General tab -->
+      <div id="settings-general" class="auth-panel active">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><span class="card-label">Supabase Connection</span></div>
+            <div class="form-row"><label class="form-label">Project URL</label><input type="text" class="form-input" id="sb-url-input" placeholder="https://xxxx.supabase.co"></div>
+            <div class="form-row"><label class="form-label">Anon Key</label><input type="password" class="form-input" id="sb-key-input" placeholder="eyJ…"></div>
+            <button class="btn btn-accent" onclick="saveSupabaseConfig()" style="padding:8px 16px">Save &amp; Reconnect</button>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-label">Account</span></div>
+            <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">Signed in as <strong id="settings-email">—</strong></div>
+            <div class="form-row"><label class="form-label">Role</label><input type="text" class="form-input" id="settings-role" disabled></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn btn-outline" onclick="doSignOut()">Sign Out</button><button class="btn btn-outline" onclick="showChangePassword()">Change Password</button></div>
+            <div id="change-pw-section" style="display:none;margin-top:8px;padding-top:10px;border-top:1px solid var(--border)">
+              <div class="form-row"><label class="form-label">New Password</label><input type="password" class="form-input" id="change-pw-input" placeholder="Min 8 characters" oninput="checkPasswordStrength(this.value,'pw-strength-fill-3')"><div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-strength-fill-3"></div></div></div>
+              <div class="form-row"><label class="form-label">Confirm</label><input type="password" class="form-input" id="change-pw-confirm" placeholder="Repeat password"></div>
+              <button class="btn btn-accent" onclick="doChangePassword()" style="padding:8px 16px">Update Password</button>
+              <div class="auth-msg" id="change-pw-msg" style="display:block"></div>
+            </div>
           </div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header"><span class="card-label">Database Integration Notes</span></div>
-        <div class="sql-hint">
-          <div class="sql-hint-label">DB Functions this app calls</div>
-          <pre>-- Dashboard KPIs
+
+      <!-- Notifications tab -->
+      <div id="settings-notifications" class="auth-panel">
+        <div style="max-width:700px">
+
+          <!-- Per-form filter -->
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-header"><span class="card-label">Notification Scope</span></div>
+            <div class="notif-form-row">
+              <label class="form-label" style="margin:0;white-space:nowrap">Notify for</label>
+              <select id="notif-form-scope" onchange="saveNotifConfig()">
+                <option value="">All forms</option>
+              </select>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-3)">Choose a specific form to only receive alerts for that form, or leave as "All forms".</div>
+          </div>
+
+          <!-- Email channel -->
+          <div class="notif-channel-card">
+            <div class="notif-channel-header">
+              <div class="notif-channel-icon" style="background:var(--accent-soft);color:var(--accent)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <div>
+                <div class="notif-channel-title">Email notifications</div>
+                <div class="notif-channel-sub">Get an email every time a response is submitted</div>
+              </div>
+              <button class="toggle-switch" id="email-toggle" onclick="toggleChannel('email')" title="Toggle email notifications"></button>
+              <div class="notif-status-dot inactive" id="email-status-dot"></div>
+            </div>
+            <div class="notif-config-body">
+              <div class="form-row">
+                <label class="form-label">Recipient email address</label>
+                <input type="email" class="form-input" id="email-notif-address" placeholder="you@yourorg.com" oninput="saveNotifConfig()">
+              </div>
+              <div class="notif-hint">
+                Emails are sent via your Supabase Edge Function. Deploy the function once and notifications fire automatically on every submission.<br>
+                <a href="https://supabase.com/docs/guides/functions" target="_blank">→ Supabase Edge Functions docs</a>
+              </div>
+              <div class="notif-test-row">
+                <button class="btn-test" onclick="testNotification('email')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  Send test email
+                </button>
+                <span id="email-test-result" style="font-size:11.5px;color:var(--text-3)"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Slack channel -->
+          <div class="notif-channel-card">
+            <div class="notif-channel-header">
+              <div class="notif-channel-icon" style="background:var(--purple-soft);color:var(--purple)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"/><path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/><path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z"/><path d="M3.5 14H5v1.5c0 .83-.67 1.5-1.5 1.5S2 16.33 2 15.5 2.67 14 3.5 14z"/><path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z"/><path d="M15.5 19H14v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/><path d="M10 9.5C10 8.67 9.33 8 8.5 8h-5C2.67 8 2 8.67 2 9.5S2.67 11 3.5 11h5c.83 0 1.5-.67 1.5-1.5z"/><path d="M8.5 5H10V3.5C10 2.67 9.33 2 8.5 2S7 2.67 7 3.5 7.67 5 8.5 5z"/></svg>
+              </div>
+              <div>
+                <div class="notif-channel-title">Slack notifications</div>
+                <div class="notif-channel-sub">Post a message to a Slack channel on every response</div>
+              </div>
+              <button class="toggle-switch" id="slack-toggle" onclick="toggleChannel('slack')" title="Toggle Slack notifications"></button>
+              <div class="notif-status-dot inactive" id="slack-status-dot"></div>
+            </div>
+            <div class="notif-config-body">
+              <div class="form-row">
+                <label class="form-label">Slack Incoming Webhook URL</label>
+                <input type="url" class="form-input" id="slack-webhook-url" placeholder="https://hooks.slack.com/services/T…/B…/…" oninput="saveNotifConfig()">
+              </div>
+              <div class="notif-hint">
+                Create an Incoming Webhook in your Slack workspace:<br>
+                1. Go to <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a> → Create New App → From scratch<br>
+                2. Enable "Incoming Webhooks" → Add New Webhook to Workspace<br>
+                3. Pick a channel (e.g. #lumenos-alerts) and paste the URL above.
+              </div>
+              <div class="notif-test-row">
+                <button class="btn-test" onclick="testNotification('slack')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  Send test message
+                </button>
+                <span id="slack-test-result" style="font-size:11.5px;color:var(--text-3)"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notification log -->
+          <div class="card" style="margin-top:14px">
+            <div class="card-header">
+              <span class="card-label">Notification Log</span>
+              <button class="card-action" onclick="clearNotifLog()">Clear</button>
+            </div>
+            <div class="notif-log" id="notif-log">
+              <div style="padding:14px;font-size:12px;color:var(--text-3);text-align:center">No notifications sent yet.</div>
+            </div>
+          </div>
+
+          <!-- Edge Function deployment instructions -->
+          <div class="card" style="margin-top:14px">
+            <div class="card-header"><span class="card-label">Edge Function Setup (one-time)</span></div>
+            <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">Deploy this Supabase Edge Function to enable email sending. Slack webhooks fire directly from the browser — no function needed for Slack.</div>
+            <div class="sql-hint">
+              <div class="sql-hint-label">supabase/functions/lumenos-notify/index.ts</div>
+              <pre>import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+serve(async (req) => {
+  const { to, subject, html } = await req.json()
+  
+  // Use Resend, SendGrid, or any SMTP provider
+  // Example with Resend (https://resend.com):
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${Deno.env.get("RESEND_API_KEY")}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: "LumenOS &lt;notifications@yourdomain.com&gt;",
+      to, subject, html
+    })
+  })
+  
+  const data = await res.json()
+  return new Response(JSON.stringify(data), {
+    headers: { "Content-Type": "application/json" }
+  })
+})
+
+// Deploy: supabase functions deploy lumenos-notify
+// Set secret: supabase secrets set RESEND_API_KEY=re_xxx</pre>
+            </div>
+            <div style="margin-top:10px">
+              <div class="form-row">
+                <label class="form-label">Edge Function URL (after deploy)</label>
+                <input type="url" class="form-input" id="edge-fn-url" placeholder="https://xxxx.supabase.co/functions/v1/lumenos-notify" oninput="saveNotifConfig()">
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Database tab -->
+      <div id="settings-database" class="auth-panel">
+        <div class="card">
+          <div class="card-header"><span class="card-label">Database Integration Notes</span></div>
+          <div class="sql-hint">
+            <div class="sql-hint-label">DB Functions this app calls</div>
+            <pre>-- Dashboard KPIs
 select * from il_dashboard_kpis;
 -- Response volume timeseries
 select * from il_response_volume(30);
@@ -680,14 +842,27 @@ select * from get_org_response_counts(:org_id);
 -- Full-text search
 select * from il_search(:query);
 -- Recalculate scores after field type change
-select recalculate_form_scores(:form_id);</pre>
+select recalculate_form_scores(:form_id);
+
+-- Notification log table (optional, for persistence)
+create table if not exists il_notification_log (
+  id uuid primary key default gen_random_uuid(),
+  channel text not null,
+  form_id uuid references il_forms(id),
+  respondent text,
+  status text default 'ok',
+  message text,
+  created_at timestamptz default now()
+);</pre>
+          </div>
         </div>
       </div>
+
     </div>
   </main>
 </div>
 
-<!-- MODALS -->
+<!-- MODALS (same as original) -->
 <div class="modal-overlay" id="modal-new-form">
   <div class="modal modal-md">
     <div class="modal-header"><div class="modal-title" id="modal-form-title">Create New Form</div><button class="modal-close" onclick="closeModal('modal-new-form')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
@@ -696,7 +871,7 @@ select recalculate_form_scores(:form_id);</pre>
       <input type="hidden" id="nf-old-fields-json">
       <div class="form-row"><label class="form-label">Form Name *</label><input type="text" class="form-input" id="nf-name" placeholder="e.g. Operational Readiness Assessment"></div>
       <div class="form-row"><label class="form-label">Description</label><input type="text" class="form-input" id="nf-desc" placeholder="What this form assesses…"></div>
-      <div class="form-row"><label class="form-label">Share Slug <span style="font-size:10.5px;color:var(--text-3)">(optional — used in share URL)</span></label><input type="text" class="form-input" id="nf-slug" placeholder="e.g. ops-readiness-2025"></div>
+      <div class="form-row"><label class="form-label">Share Slug</label><input type="text" class="form-input" id="nf-slug" placeholder="e.g. ops-readiness-2025"></div>
       <div class="form-row"><label class="form-label">Organisation</label><select class="form-select" id="nf-org"><option value="">None</option></select></div>
       <div class="form-row">
         <label class="form-label">Fields</label>
@@ -761,24 +936,18 @@ select recalculate_form_scores(:form_id);</pre>
         <p style="font-size:11px;color:var(--text-3);text-align:center;margin-top:8px">Anyone with this link can fill the form (no login required).</p>
       </div>
       <div class="share-panel" id="sp-qr">
-        <div class="qr-wrap" id="qr-wrap">
-          <!-- canvas created dynamically to avoid stale references -->
-        </div>
+        <div class="qr-wrap" id="qr-wrap"></div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-outline" style="flex:1;justify-content:center" onclick="downloadQR()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
-          <button class="btn btn-accent" style="flex:1;justify-content:center" onclick="previewForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+          <button class="btn btn-accent" style="flex:1;justify-content:center" onclick="previewForm()">Preview</button>
         </div>
       </div>
       <div class="share-panel" id="sp-platforms">
         <div class="share-platforms">
           <button class="platform-btn" onclick="shareTo('whatsapp')"><div class="platform-icon" style="background:#25d366;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></div>WhatsApp</button>
           <button class="platform-btn" onclick="shareTo('email')"><div class="platform-icon" style="background:#ea4335;color:white"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>Email</button>
-          <button class="platform-btn" onclick="shareTo('sms')"><div class="platform-icon" style="background:var(--accent);color:white"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>SMS</button>
-          <button class="platform-btn" onclick="copyShareLink()"><div class="platform-icon" style="background:var(--surface-2);color:var(--text-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>Copy</button>
           <button class="platform-btn" onclick="shareTo('twitter')"><div class="platform-icon" style="background:#1da1f2;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/></svg></div>Twitter</button>
-          <button class="platform-btn" onclick="shareTo('linkedin')"><div class="platform-icon" style="background:#0077b5;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/><circle cx="4" cy="4" r="2"/></svg></div>LinkedIn</button>
-          <button class="platform-btn" onclick="shareTo('telegram')"><div class="platform-icon" style="background:#229ed9;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg></div>Telegram</button>
-          <button class="platform-btn" onclick="shareTo('facebook')"><div class="platform-icon" style="background:#1877f2;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>Facebook</button>
+          <button class="platform-btn" onclick="copyShareLink()"><div class="platform-icon" style="background:var(--surface-2);color:var(--text-2)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>Copy</button>
         </div>
       </div>
     </div>
@@ -796,10 +965,7 @@ select recalculate_form_scores(:form_id);</pre>
   <img id="img-lightbox-img" src="" style="max-width:100%;max-height:90vh;border-radius:8px;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
 </div>
 
-<!-- ═══════════ FILL SCREEN
-     In fill-only mode (?fill= in URL) this is the ONLY visible element.
-     The close button is hidden in fill-only mode so the user can't "escape"
-     back to a blank dashboard. ═══════════ -->
+<!-- FILL SCREEN -->
 <div id="fill-screen">
   <div class="fill-wrap">
     <div class="fill-header">
@@ -807,7 +973,6 @@ select recalculate_form_scores(:form_id);</pre>
         <div class="fill-form-title" id="fill-title">Loading…</div>
         <div class="fill-form-desc" id="fill-desc"></div>
       </div>
-      <!-- hide close button in fill-only mode -->
       <button id="fill-close-btn" onclick="closeFillScreen()" style="background:var(--surface);border:1px solid var(--border);border-radius:7px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="13" height="13" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="fill-progress"><div class="fill-progress-bar" id="fill-progress-bar" style="width:5%"></div></div>
@@ -823,7 +988,6 @@ select recalculate_form_scores(:form_id);</pre>
       <div class="fill-success-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></div>
       <div class="fill-success-title">Response submitted!</div>
       <div class="fill-success-sub">Thank you for completing this form.</div>
-      <!-- In fill-only mode there is no dashboard to go back to — show nothing -->
       <button id="fill-success-close" class="btn btn-outline" onclick="closeFillScreen()" style="margin-top:16px;padding:8px 20px;display:none">Close</button>
     </div>
   </div>
@@ -835,9 +999,6 @@ select recalculate_form_scores(:form_id);</pre>
 (function(){
 'use strict';
 
-/* ─── FILL-ONLY DETECTION ───
-   If ?fill= is in the URL we enter fill-only mode immediately,
-   before any auth check, so the visitor sees only the form. */
 const FILL_PARAM = (function(){
   const p = new URLSearchParams(location.search).get('fill');
   return p ? p.trim() : null;
@@ -845,38 +1006,254 @@ const FILL_PARAM = (function(){
 
 if(FILL_PARAM){
   document.body.classList.add('fill-only-mode');
-  // Hide close button — there's no dashboard behind it
   const cb = document.getElementById('fill-close-btn');
   if(cb) cb.style.display = 'none';
-  // Show success close only if not fill-only (so user can dismiss overlay)
 }
 
-/* ─── SUPABASE INIT ─── */
+/* ─── SUPABASE ─── */
 let SUPABASE_URL = localStorage.getItem('il_sb_url') || 'https://pzioskykakwhwdlcmwyv.supabase.co';
 let SUPABASE_KEY = localStorage.getItem('il_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
 const { createClient } = supabase;
 let sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ─── STATE ─── */
-let currentUser = null;
-let currentRole = 'operator';
-let currentOrgId = '';
-let allOrgs = [];
-let allForms = [];
-let allResponses = [];
-let formFields = [];
-let currentShareFormId = null;
-let sparkCharts = {};
-let metricsCharts = {};
-let focusRunning = true;
-let focusSecs = 130 * 60;
-let focusInterval = null;
+let currentUser = null, currentRole = 'operator', currentOrgId = '';
+let allOrgs = [], allForms = [], allResponses = [];
+let formFields = [], currentShareFormId = null;
+let sparkCharts = {}, metricsCharts = {};
+let focusRunning = true, focusSecs = 130 * 60, focusInterval = null;
 let currentAIProvider = 'claude';
-let fileUploads = {};     // keyed by field index
+let fileUploads = {};
 let searchDebounce = null;
 
+/* ─── NOTIFICATION CONFIG ─── */
+// Stored in localStorage under 'lumenos_notif_config'
+let notifConfig = {
+  email: { enabled: false, address: '', edgeFnUrl: '' },
+  slack: { enabled: false, webhookUrl: '' },
+  formScope: '' // empty = all forms
+};
+let notifLog = []; // in-memory log (also persisted to localStorage)
+
+function loadNotifConfig(){
+  try {
+    const saved = localStorage.getItem('lumenos_notif_config');
+    if(saved) notifConfig = JSON.parse(saved);
+    const log = localStorage.getItem('lumenos_notif_log');
+    if(log) notifLog = JSON.parse(log);
+  } catch(_){}
+}
+function saveNotifConfig(){
+  notifConfig.email.address = document.getElementById('email-notif-address')?.value.trim() || notifConfig.email.address;
+  notifConfig.slack.webhookUrl = document.getElementById('slack-webhook-url')?.value.trim() || notifConfig.slack.webhookUrl;
+  notifConfig.email.edgeFnUrl = document.getElementById('edge-fn-url')?.value.trim() || notifConfig.email.edgeFnUrl;
+  notifConfig.formScope = document.getElementById('notif-form-scope')?.value || '';
+  localStorage.setItem('lumenos_notif_config', JSON.stringify(notifConfig));
+  updateNotifUI();
+}
+window.saveNotifConfig = saveNotifConfig;
+
+function updateNotifUI(){
+  const emailToggle = document.getElementById('email-toggle');
+  const slackToggle = document.getElementById('slack-toggle');
+  const emailDot = document.getElementById('email-status-dot');
+  const slackDot = document.getElementById('slack-status-dot');
+  const badge = document.getElementById('notif-active-badge');
+
+  if(emailToggle) emailToggle.classList.toggle('on', notifConfig.email.enabled);
+  if(slackToggle) slackToggle.classList.toggle('on', notifConfig.slack.enabled);
+  if(emailDot){ emailDot.classList.toggle('active', notifConfig.email.enabled); emailDot.classList.toggle('inactive', !notifConfig.email.enabled); }
+  if(slackDot){ slackDot.classList.toggle('active', notifConfig.slack.enabled); slackDot.classList.toggle('inactive', !notifConfig.slack.enabled); }
+
+  const anyActive = notifConfig.email.enabled || notifConfig.slack.enabled;
+  if(badge) badge.style.display = anyActive ? 'inline' : 'none';
+
+  // Fill in fields
+  const emailAddr = document.getElementById('email-notif-address');
+  const slackUrl = document.getElementById('slack-webhook-url');
+  const edgeUrl = document.getElementById('edge-fn-url');
+  if(emailAddr && !emailAddr.value) emailAddr.value = notifConfig.email.address;
+  if(slackUrl && !slackUrl.value) slackUrl.value = notifConfig.slack.webhookUrl;
+  if(edgeUrl && !edgeUrl.value) edgeUrl.value = notifConfig.email.edgeFnUrl;
+}
+
+window.toggleChannel = function(channel){
+  if(channel === 'email') notifConfig.email.enabled = !notifConfig.email.enabled;
+  if(channel === 'slack') notifConfig.slack.enabled = !notifConfig.slack.enabled;
+  saveNotifConfig();
+  toast(channel === 'email'
+    ? (notifConfig.email.enabled ? 'Email notifications enabled' : 'Email notifications disabled')
+    : (notifConfig.slack.enabled ? 'Slack notifications enabled' : 'Slack notifications disabled'),
+    notifConfig[channel]?.enabled ? 'success' : 'info');
+};
+
+function addNotifLog(channel, status, message){
+  const entry = { channel, status, message, time: new Date().toISOString() };
+  notifLog.unshift(entry);
+  if(notifLog.length > 50) notifLog = notifLog.slice(0,50);
+  localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+  renderNotifLog();
+}
+
+function renderNotifLog(){
+  const el = document.getElementById('notif-log');
+  if(!el) return;
+  if(!notifLog.length){ el.innerHTML='<div style="padding:14px;font-size:12px;color:var(--text-3);text-align:center">No notifications sent yet.</div>'; return; }
+  el.innerHTML = notifLog.map(e => {
+    const icon = e.status === 'ok' ? 'ok' : e.status === 'pending' ? 'pending' : 'fail';
+    const ch = e.channel === 'email' ? '📧' : '💬';
+    return `<div class="notif-log-item"><div class="notif-log-dot ${icon}"></div><span class="notif-log-msg">${ch} ${esc(e.message)}</span><span class="notif-log-time">${timeAgo(e.time)}</span></div>`;
+  }).join('');
+}
+
+window.clearNotifLog = function(){
+  notifLog = [];
+  localStorage.removeItem('lumenos_notif_log');
+  renderNotifLog();
+};
+
+/* ─── FIRE NOTIFICATIONS (called after a form submission) ─── */
+async function fireNotifications(form, respondentName, answers, score){
+  const cfg = notifConfig;
+  // Check scope — skip if scoped to a different form
+  if(cfg.formScope && cfg.formScope !== form.id) return;
+
+  const formName = form.name || 'Unknown Form';
+  const respName = respondentName || 'Anonymous';
+  const scoreText = score != null ? `Score: ${score}` : 'No score';
+  const now = new Date().toLocaleString();
+
+  // Build answer summary (top 5 fields)
+  const answerLines = Object.entries(answers).slice(0,5).map(([q,a]) =>
+    `<tr><td style="padding:4px 8px;color:#666;font-size:13px">${esc(q)}</td><td style="padding:4px 8px;font-size:13px">${esc(Array.isArray(a)?a.join(', '):String(a??'—'))}</td></tr>`
+  ).join('');
+
+  /* ── EMAIL ── */
+  if(cfg.email.enabled && cfg.email.address){
+    if(!cfg.email.edgeFnUrl){
+      addNotifLog('email', 'fail', `Not sent — Edge Function URL not configured`);
+    } else {
+      addNotifLog('email', 'pending', `Sending to ${cfg.email.address}…`);
+      try {
+        const html = `
+<div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+  <div style="background:#4f63e8;padding:20px 24px;border-radius:10px 10px 0 0">
+    <h2 style="color:white;margin:0;font-size:18px">📋 New Response — ${esc(formName)}</h2>
+  </div>
+  <div style="background:#f8f9ff;padding:20px 24px;border:1px solid #e0e3f4;border-top:none">
+    <p style="margin:0 0 12px;color:#1a1d2e"><strong>Respondent:</strong> ${esc(respName)}</p>
+    <p style="margin:0 0 12px;color:#1a1d2e"><strong>${scoreText}</strong></p>
+    <p style="margin:0 0 8px;color:#4a5270;font-size:13px">Submitted at ${now}</p>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;background:white;border-radius:8px;overflow:hidden;border:1px solid #e0e3f4">
+      <thead><tr style="background:#4f63e8"><th style="padding:8px;color:white;text-align:left;font-size:12px">Question</th><th style="padding:8px;color:white;text-align:left;font-size:12px">Answer</th></tr></thead>
+      <tbody>${answerLines}</tbody>
+    </table>
+    <div style="margin-top:16px;text-align:center">
+      <a href="${location.href.split('?')[0]}" style="background:#4f63e8;color:white;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600">View in LumenOS →</a>
+    </div>
+  </div>
+</div>`;
+        const res = await fetch(cfg.email.edgeFnUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+          body: JSON.stringify({ to: cfg.email.address, subject: `[LumenOS] New response: ${formName}`, html })
+        });
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        // Update log entry to 'ok'
+        if(notifLog[0]?.status === 'pending'){ notifLog[0].status = 'ok'; notifLog[0].message = `Email sent to ${cfg.email.address} — ${formName}`; }
+        localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+        renderNotifLog();
+        toast('Email notification sent!', 'success');
+      } catch(e){
+        if(notifLog[0]?.status === 'pending'){ notifLog[0].status = 'fail'; notifLog[0].message = `Email failed: ${e.message}`; }
+        localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+        renderNotifLog();
+        console.warn('Email notif failed:', e);
+      }
+    }
+  }
+
+  /* ── SLACK ── */
+  if(cfg.slack.enabled && cfg.slack.webhookUrl){
+    addNotifLog('slack', 'pending', `Posting to Slack…`);
+    const answerText = Object.entries(answers).slice(0,5).map(([q,a])=>`*${q}:* ${Array.isArray(a)?a.join(', '):String(a??'—')}`).join('\n');
+    const payload = {
+      blocks: [
+        { type: 'header', text: { type: 'plain_text', text: `📋 New Response: ${formName}`, emoji: true } },
+        { type: 'section', fields: [
+          { type: 'mrkdwn', text: `*Respondent:*\n${respName}` },
+          { type: 'mrkdwn', text: `*${scoreText}*\n${now}` }
+        ]},
+        answerText ? { type: 'section', text: { type: 'mrkdwn', text: answerText } } : null,
+        { type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: 'View in LumenOS →' }, url: location.href.split('?')[0], style: 'primary' }] }
+      ].filter(Boolean)
+    };
+    try {
+      // Slack webhooks block CORS in browser. We use a no-cors request and assume success.
+      // For production: proxy through the same Supabase edge function.
+      await fetch(cfg.slack.webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        mode: 'no-cors'
+      });
+      if(notifLog[0]?.status === 'pending'){ notifLog[0].status = 'ok'; notifLog[0].message = `Slack message sent — ${formName} / ${respName}`; }
+      localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+      renderNotifLog();
+      toast('Slack notification sent!', 'success');
+    } catch(e){
+      if(notifLog[0]?.status === 'pending'){ notifLog[0].status = 'fail'; notifLog[0].message = `Slack failed: ${e.message}`; }
+      localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+      renderNotifLog();
+    }
+  }
+}
+
+/* ─── TEST NOTIFICATION ─── */
+window.testNotification = async function(channel){
+  const resultEl = document.getElementById(`${channel}-test-result`);
+  if(resultEl) resultEl.textContent = 'Sending…';
+
+  const dummyForm = { id: 'test', name: 'Test Form' };
+  const dummyAnswers = { 'Question 1': 'Sample answer', 'Question 2': 'Another answer' };
+
+  if(channel === 'email'){
+    const addr = document.getElementById('email-notif-address')?.value.trim();
+    const edgeUrl = document.getElementById('edge-fn-url')?.value.trim();
+    if(!addr){ if(resultEl) resultEl.textContent = '⚠ Enter an email address first.'; return; }
+    if(!edgeUrl){ if(resultEl) resultEl.textContent = '⚠ Enter Edge Function URL first.'; return; }
+    notifConfig.email.address = addr; notifConfig.email.edgeFnUrl = edgeUrl; notifConfig.email.enabled = true;
+  }
+  if(channel === 'slack'){
+    const url = document.getElementById('slack-webhook-url')?.value.trim();
+    if(!url){ if(resultEl) resultEl.textContent = '⚠ Enter a webhook URL first.'; return; }
+    notifConfig.slack.webhookUrl = url; notifConfig.slack.enabled = true;
+  }
+
+  await fireNotifications(dummyForm, 'Test User', dummyAnswers, 85);
+  if(resultEl) resultEl.textContent = channel === 'slack' ? '✓ Sent (check your channel)' : '✓ Check your inbox';
+  setTimeout(()=>{ if(resultEl) resultEl.textContent = ''; }, 5000);
+};
+
+/* ─── SETTINGS TABS ─── */
+window.settingsTab = function(tab, btn){
+  document.querySelectorAll('#page-settings .auth-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#page-settings .auth-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('settings-'+tab).classList.add('active');
+  if(tab === 'notifications'){
+    // Populate form scope dropdown
+    const sel = document.getElementById('notif-form-scope');
+    if(sel){
+      sel.innerHTML = '<option value="">All forms</option>' + allForms.map(f=>`<option value="${f.id}" ${f.id===notifConfig.formScope?'selected':''}>${esc(f.name)}</option>`).join('');
+    }
+    updateNotifUI();
+    renderNotifLog();
+  }
+};
+
 /* ─── HELPERS ─── */
-function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function timeAgo(d){ const diff=Date.now()-new Date(d).getTime(); if(diff<60000) return 'Just now'; if(diff<3600000) return Math.floor(diff/60000)+'m ago'; if(diff<86400000) return Math.floor(diff/3600000)+'h ago'; return Math.floor(diff/86400000)+'d ago'; }
 function fmtBytes(b){ if(b<1024) return b+'B'; if(b<1048576) return (b/1024).toFixed(1)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
 function toast(msg, type='info'){
@@ -884,25 +1261,14 @@ function toast(msg, type='info'){
   const el=document.createElement('div'); el.className='toast-item toast-'+type; el.innerHTML=(icons[type]||'')+esc(msg);
   document.getElementById('toast').appendChild(el); setTimeout(()=>el.remove(),3800);
 }
-
-/* ─── SCORE FORMULA ─── */
-function computeReadinessScore(answers, fields) {
-  let sum = 0, count = 0;
-  (fields||[]).forEach(f => {
-    if (f.type === 'scale') {
-      const v = parseFloat(answers[f.label]);
-      if (!isNaN(v)) { sum += ((v - 1) / 9.0) * 100; count++; }
-    }
-  });
-  return count > 0 ? Math.round(sum / count) : null;
+function computeReadinessScore(answers, fields){
+  let sum=0, count=0;
+  (fields||[]).forEach(f=>{if(f.type==='scale'){const v=parseFloat(answers[f.label]);if(!isNaN(v)){sum+=((v-1)/9.0)*100;count++;}}});
+  return count>0?Math.round(sum/count):null;
 }
-
-/* ─── PASSWORD STRENGTH ─── */
 window.checkPasswordStrength = function(pw, fillId='pw-strength-fill'){
   const el=document.getElementById(fillId); if(!el) return;
-  let score=0;
-  if(pw.length>=8) score++; if(pw.length>=12) score++;
-  if(/[A-Z]/.test(pw)) score++; if(/[0-9]/.test(pw)) score++; if(/[^A-Za-z0-9]/.test(pw)) score++;
+  let score=0; if(pw.length>=8) score++; if(pw.length>=12) score++; if(/[A-Z]/.test(pw)) score++; if(/[0-9]/.test(pw)) score++; if(/[^A-Za-z0-9]/.test(pw)) score++;
   const pct=(score/5)*100; const colors=['#ef4444','#f97316','#eab308','#22c55e','#16a34a'];
   el.style.width=pct+'%'; el.style.background=colors[Math.min(score-1,4)]||'#ef4444';
 };
@@ -914,24 +1280,16 @@ window.authTab = function(tab, btn){
   btn.classList.add('active'); document.getElementById('ap-'+tab).classList.add('active');
 };
 function showAuthMsg(id, type, text){ const el=document.getElementById(id); if(!el) return; el.className='auth-msg '+type; el.textContent=text; }
-
 window.showResetPanel = function(){
-  document.getElementById('auth-main').style.display='none';
-  document.getElementById('auth-reset').style.display='block';
-  document.getElementById('auth-new-password').style.display='none';
+  document.getElementById('auth-main').style.display='none'; document.getElementById('auth-reset').style.display='block';
   const siEmail=document.getElementById('si-email'); if(siEmail) document.getElementById('reset-email').value=siEmail.value;
-  document.getElementById('reset-msg').className='auth-msg'; document.getElementById('reset-msg').textContent='';
-  document.getElementById('reset-btn').disabled=false; document.getElementById('reset-btn').textContent='Send Reset Link';
 };
-window.hideResetPanel = function(){
-  document.getElementById('auth-reset').style.display='none'; document.getElementById('auth-new-password').style.display='none';
-  document.getElementById('auth-main').style.display='block';
-};
+window.hideResetPanel = function(){ document.getElementById('auth-reset').style.display='none'; document.getElementById('auth-new-password').style.display='none'; document.getElementById('auth-main').style.display='block'; };
 window.doPasswordReset = async function(){
   const email=document.getElementById('reset-email').value.trim();
   if(!email) return showAuthMsg('reset-msg','error','Please enter your email address.');
   const btn=document.getElementById('reset-btn'); btn.disabled=true; btn.textContent='Sending…';
-  const { error }=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('?')[0]});
+  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('?')[0]});
   if(error){showAuthMsg('reset-msg','error',error.message);btn.disabled=false;btn.textContent='Send Reset Link';}
   else{showAuthMsg('reset-msg','success','Reset link sent! Check your inbox.');btn.textContent='Sent ✓';}
 };
@@ -939,17 +1297,15 @@ function showNewPasswordPanel(){
   document.getElementById('auth-screen').style.display='flex'; document.getElementById('app').style.display='none';
   document.getElementById('auth-main').style.display='none'; document.getElementById('auth-reset').style.display='none';
   document.getElementById('auth-new-password').style.display='block';
-  document.getElementById('new-pass-msg').className='auth-msg'; document.getElementById('new-pass-msg').textContent='';
-  document.getElementById('new-pass-btn').disabled=false; document.getElementById('new-pass-btn').textContent='Update Password';
 }
 window.doSetNewPassword = async function(){
   const pw=document.getElementById('new-pass-input').value; const conf=document.getElementById('new-pass-confirm').value;
   if(pw.length<8) return showAuthMsg('new-pass-msg','error','Password must be at least 8 characters.');
   if(pw!==conf) return showAuthMsg('new-pass-msg','error','Passwords do not match.');
   const btn=document.getElementById('new-pass-btn'); btn.disabled=true; btn.textContent='Updating…';
-  const {error}=await sb.auth.updateUser({password:pw});
+  const{error}=await sb.auth.updateUser({password:pw});
   if(error){showAuthMsg('new-pass-msg','error',error.message);btn.disabled=false;btn.textContent='Update Password';}
-  else{showAuthMsg('new-pass-msg','success','Password updated! Signing you in…');setTimeout(async()=>{const{data:{session}}=await sb.auth.getSession();if(session?.user) await bootApp(session.user);else hideResetPanel();},1500);}
+  else{showAuthMsg('new-pass-msg','success','Password updated!');setTimeout(async()=>{const{data:{session}}=await sb.auth.getSession();if(session?.user) await bootApp(session.user);else hideResetPanel();},1500);}
 };
 window.showChangePassword = function(){ const sec=document.getElementById('change-pw-section'); sec.style.display=sec.style.display==='none'?'block':'none'; };
 window.doChangePassword = async function(){
@@ -958,7 +1314,7 @@ window.doChangePassword = async function(){
   if(pw!==conf) return showAuthMsg('change-pw-msg','error','Passwords do not match.');
   const{error}=await sb.auth.updateUser({password:pw});
   if(error) showAuthMsg('change-pw-msg','error',error.message);
-  else{showAuthMsg('change-pw-msg','success','Password updated successfully!');document.getElementById('change-pw-input').value='';document.getElementById('change-pw-confirm').value='';}
+  else showAuthMsg('change-pw-msg','success','Password updated successfully!');
 };
 window.doSignIn = async function(){
   const email=document.getElementById('si-email').value.trim(); const pass=document.getElementById('si-pass').value;
@@ -982,14 +1338,13 @@ window.doSignUp = async function(){
 };
 window.doSignOut = async function(){
   await sb.auth.signOut(); currentUser=null;
-  document.getElementById('app').style.display='none'; document.getElementById('auth-screen').style.display='flex'; hideResetPanel();
+  document.getElementById('app').style.display='none'; document.getElementById('auth-screen').style.display='flex';
 };
 
 sb.auth.onAuthStateChange(async(event,session)=>{
   if(event==='PASSWORD_RECOVERY'){showNewPasswordPanel();return;}
   if(event==='SIGNED_IN'&&session?.user&&!currentUser){
     if(document.getElementById('auth-new-password').style.display==='block') return;
-    // Don't boot the dashboard when in fill-only mode
     if(FILL_PARAM) return;
     await bootApp(session.user);
   }
@@ -1008,6 +1363,7 @@ async function bootApp(user){
   document.getElementById('settings-email').textContent=user.email;
   document.getElementById('settings-role').value=currentRole;
   if(currentRole!=='operator') document.querySelectorAll('.operator-only').forEach(el=>el.style.display='none');
+  loadNotifConfig(); updateNotifUI();
   wireFormModal(); startFocusTimer(); drawInsightMap();
   await loadOrgs(); await loadForms(); await loadAllResponses();
   await renderDashboard();
@@ -1044,7 +1400,7 @@ window.openModal=id=>document.getElementById(id)?.classList.add('open');
 window.closeModal=id=>document.getElementById(id)?.classList.remove('open');
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 
-/* ─── DATA LOADING ─── */
+/* ─── DATA ─── */
 async function loadOrgs(){
   try{
     const{data,error}=await sb.from('il_organisations').select('*').order('name');
@@ -1076,9 +1432,7 @@ async function loadAllResponses(){
     document.getElementById('nav-badge-resp').style.display=allResponses.length?'block':'none';
   } catch(e){allResponses=[];console.warn('loadResponses:',e.message);}
 }
-window.onOrgChange=async function(id){
-  currentOrgId=id; await loadForms(); await loadAllResponses(); renderDashboard();
-};
+window.onOrgChange=async function(id){ currentOrgId=id; await loadForms(); await loadAllResponses(); renderDashboard(); };
 
 /* ─── DASHBOARD ─── */
 async function renderDashboard(){
@@ -1130,19 +1484,15 @@ function renderTopForms(){
     return `<div class="person-row"><div class="person-avatar" style="border-radius:7px;font-size:10px">${(f.name||'F')[0].toUpperCase()}</div><div style="flex:1"><div class="person-name">${esc(f.name)}</div><div class="person-status">${count} response${count!==1?'s':''}</div></div><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button></div>`;
   }).join('');
 }
-
-/* ─── INSIGHT MAP ─── */
 function drawInsightMap(){
   const container=document.getElementById('insight-map'); if(!container) return;
   container.querySelectorAll('.map-node').forEach(n=>n.remove());
   const svg=document.getElementById('map-svg'); if(svg) svg.innerHTML='';
-  const nodes=[{label:'Form Builder',x:42,y:28,size:52,color:'var(--accent)',active:true},{label:'AI Analysis',x:70,y:18,size:36,color:'var(--purple)'},{label:'Responses',x:28,y:58,size:40,color:'var(--green)'},{label:'Metrics',x:54,y:62,size:32,color:'var(--amber)'},{label:'Organisations',x:20,y:82,size:28,color:'var(--text-3)'},{label:'Share & QR',x:68,y:78,size:30,color:'var(--red)'}];
+  const nodes=[{label:'Form Builder',x:42,y:28,size:52,color:'var(--accent)',active:true},{label:'AI Analysis',x:70,y:18,size:36,color:'var(--purple)'},{label:'Responses',x:28,y:58,size:40,color:'var(--green)'},{label:'Metrics',x:54,y:62,size:32,color:'var(--amber)'},{label:'Organisations',x:20,y:82,size:28,color:'var(--text-3)'},{label:'Notifications',x:68,y:78,size:32,color:'var(--red)'}];
   const edges=[[0,1],[0,2],[0,3],[2,4],[3,5],[1,3]];
   if(svg){edges.forEach(([a,b])=>{const na=nodes[a],nb=nodes[b];const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.setAttribute('x1',na.x+'%');line.setAttribute('y1',na.y+'%');line.setAttribute('x2',nb.x+'%');line.setAttribute('y2',nb.y+'%');line.setAttribute('stroke','rgba(0,0,0,0.08)');line.setAttribute('stroke-width','1.5');line.setAttribute('stroke-dasharray','4 3');svg.appendChild(line);});}
   nodes.forEach(n=>{const wrap=document.createElement('div');wrap.className='map-node';wrap.style.cssText=`position:absolute;left:${n.x}%;top:${n.y}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;z-index:1`;const circle=document.createElement('div');circle.style.cssText=`width:${n.size}px;height:${n.size}px;border-radius:50%;background:white;border:2px solid ${n.active?n.color:'var(--border-2)'};display:flex;align-items:center;justify-content:center;box-shadow:${n.active?'0 0 0 4px rgba(79,99,232,0.10)':'var(--shadow)'}`;const dot=document.createElement('div');dot.style.cssText=`width:${Math.round(n.size*0.32)}px;height:${Math.round(n.size*0.32)}px;border-radius:50%;background:${n.color};opacity:0.75`;circle.appendChild(dot);const label=document.createElement('div');label.style.cssText='font-size:9.5px;color:var(--text-2);text-align:center;font-weight:500;white-space:nowrap;font-family:var(--font-alt)';label.textContent=n.label;wrap.appendChild(circle);wrap.appendChild(label);container.appendChild(wrap);});
 }
-
-/* ─── SPARKLINES ─── */
 function drawSparklines(){
   function makeSparkline(id,data,color,bg){
     const wrap=document.querySelector(`#${id}`)?.closest('.snap-chart-wrap'); const canvas=document.getElementById(id); if(!canvas||!wrap) return;
@@ -1169,8 +1519,9 @@ async function renderFormsPage(){
   grid.innerHTML=allForms.map(f=>{
     const count=allResponses.filter(r=>r.form_id===f.id).length; const org=allOrgs.find(o=>o.id===f.org_id);
     const hasMedia=(f.fields||[]).some(ff=>['image','video','pdf','csv','file'].includes(ff.type));
-    const slugBadge=f.share_slug?`<span class="badge badge-grey" title="share slug">/${esc(f.share_slug)}</span>`:'';
-    return `<div class="form-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px"><div class="form-card-title">${esc(f.name)}</div><span class="badge ${f.active?'badge-green':'badge-grey'}">${f.active?'● Active':'Draft'}</span></div><div class="form-card-desc">${esc(f.description||'No description')}</div><div class="form-card-footer"><span class="badge badge-blue">${(f.fields||[]).length} field${(f.fields||[]).length!==1?'s':''}</span>${org?`<span class="badge badge-grey">${esc(org.name)}</span>`:''} ${hasMedia?'<span class="badge badge-amber">📎 Files</span>':''} ${slugBadge}<span style="font-size:11px;color:var(--text-3)">${count} response${count!==1?'s':''}</span></div><div class="form-card-actions"><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`;
+    const notifOn = (notifConfig.email.enabled || notifConfig.slack.enabled) && (!notifConfig.formScope || notifConfig.formScope === f.id);
+    const notifBadge = notifOn ? `<span class="badge" style="background:var(--green-soft);color:var(--green)">🔔 Alerts on</span>` : '';
+    return `<div class="form-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px"><div class="form-card-title">${esc(f.name)}</div><span class="badge ${f.active?'badge-green':'badge-grey'}">${f.active?'● Active':'Draft'}</span></div><div class="form-card-desc">${esc(f.description||'No description')}</div><div class="form-card-footer"><span class="badge badge-blue">${(f.fields||[]).length} field${(f.fields||[]).length!==1?'s':''}</span>${org?`<span class="badge badge-grey">${esc(org.name)}</span>`:''} ${hasMedia?'<span class="badge badge-amber">📎 Files</span>':''} ${notifBadge}<span style="font-size:11px;color:var(--text-3)">${count} response${count!==1?'s':''}</span></div><div class="form-card-actions"><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`;
   }).join('');
 }
 
@@ -1209,19 +1560,12 @@ function renderFieldBuilder(){
 }
 window.removeField=function(i){formFields.splice(i,1);renderFieldBuilder();};
 
-/* FIX: submitFormModal guards against double-submit with a flag */
 let _formSubmitting = false;
 async function submitFormModal(){
-  if(_formSubmitting) return;
-  _formSubmitting = true;
-  try {
-    const editId=document.getElementById('nf-edit-id').value;
-    if(editId) await saveFormEdit(editId); else await createNewForm();
-  } finally {
-    _formSubmitting = false;
-  }
+  if(_formSubmitting) return; _formSubmitting = true;
+  try { const editId=document.getElementById('nf-edit-id').value; if(editId) await saveFormEdit(editId); else await createNewForm(); }
+  finally { _formSubmitting = false; }
 }
-
 async function createNewForm(){
   const name=document.getElementById('nf-name').value.trim(); const desc=document.getElementById('nf-desc').value.trim();
   const orgId=document.getElementById('nf-org').value; const slug=document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi,'').toLowerCase()||null;
@@ -1233,29 +1577,24 @@ async function createNewForm(){
     const{data,error}=await sb.from('il_forms').insert([payload]).select();
     if(error) throw error;
     closeModal('modal-new-form'); toast('Form created!','success');
-    // FIX: reload from DB instead of pushing locally (avoids duplicates)
     await loadForms();
     document.getElementById('sb-forms-count').textContent=allForms.length;
     renderDashboard(); if(document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
   } catch(e){toast('Error: '+e.message,'error');}
   finally{btn.disabled=false;btn.textContent='Create Form';}
 }
-
 window.editForm=function(id){
   const form=allForms.find(f=>f.id===id); if(!form) return;
   formFields=JSON.parse(JSON.stringify(form.fields||[]));
-  document.getElementById('nf-edit-id').value=id;
-  document.getElementById('nf-old-fields-json').value=JSON.stringify(form.fields||[]);
+  document.getElementById('nf-edit-id').value=id; document.getElementById('nf-old-fields-json').value=JSON.stringify(form.fields||[]);
   document.getElementById('nf-name').value=form.name; document.getElementById('nf-desc').value=form.description||'';
   document.getElementById('nf-slug').value=form.share_slug||'';
   document.getElementById('modal-form-title').textContent='Edit Form';
   const btn=document.getElementById('nf-submit-btn'); btn.textContent='Save Changes'; btn.disabled=false;
   const orgSel=document.getElementById('nf-org'); orgSel.innerHTML='<option value="">None</option>'+allOrgs.map(o=>`<option value="${o.id}" ${o.id===form.org_id?'selected':''}>${esc(o.name)}</option>`).join('');
   document.getElementById('field-label-input').value=''; document.getElementById('field-type-input').value='text';
-  document.getElementById('field-options-input').value=''; document.getElementById('field-options-input-wrap').style.display='none';
   renderFieldBuilder(); openModal('modal-new-form');
 };
-
 async function saveFormEdit(id){
   const name=document.getElementById('nf-name').value.trim(); const desc=document.getElementById('nf-desc').value.trim();
   const orgId=document.getElementById('nf-org').value; const slug=document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi,'').toLowerCase()||null;
@@ -1263,40 +1602,33 @@ async function saveFormEdit(id){
   if(!name){toast('Form name required','error');return;}
   const btn=document.getElementById('nf-submit-btn'); btn.disabled=true; btn.textContent='Saving…';
   try{
-    const payload={name,description:desc||null,org_id:orgId||null,fields:formFields,share_slug:slug};
-    const{data,error}=await sb.from('il_forms').update(payload).eq('id',id).select();
+    const{error}=await sb.from('il_forms').update({name,description:desc||null,org_id:orgId||null,fields:formFields,share_slug:slug}).eq('id',id).select();
     if(error) throw error;
     const oldFields=JSON.parse(oldFieldsJson||'[]');
     const oldScaleLabels=oldFields.filter(f=>f.type==='scale').map(f=>f.label).sort().join(',');
     const newScaleLabels=formFields.filter(f=>f.type==='scale').map(f=>f.label).sort().join(',');
-    if(oldScaleLabels!==newScaleLabels){
-      await sb.rpc('recalculate_form_scores',{p_form_id:id}).catch(()=>{});
-      toast('Scores recalculated','info');
-    }
+    if(oldScaleLabels!==newScaleLabels) await sb.rpc('recalculate_form_scores',{p_form_id:id}).catch(()=>{});
     closeModal('modal-new-form'); toast('Form updated!','success');
-    // FIX: reload from DB
     await loadForms();
     renderDashboard(); if(document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
   } catch(e){toast('Error: '+e.message,'error');}
   finally{btn.disabled=false;btn.textContent='Save Changes';}
 }
-
 window.deleteForm=async function(id){
-  if(!confirm('Delete this form and all its responses? This cannot be undone.')) return;
+  if(!confirm('Delete this form and all its responses?')) return;
   const{error}=await sb.from('il_forms').delete().eq('id',id);
   if(error) return toast(error.message,'error');
   allForms=allForms.filter(f=>f.id!==id); allResponses=allResponses.filter(r=>r.form_id!==id);
   toast('Form deleted','info'); renderFormsPage(); renderDashboard();
 };
 
-/* ─── SHARE MODAL + QR ─── */
+/* ─── SHARE / QR ─── */
 window.shareTab=function(tab,btn){
   document.querySelectorAll('.share-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.share-panel').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active'); document.getElementById('sp-'+tab).classList.add('active');
   if(tab==='qr') setTimeout(generateQR, 80);
 };
-
 window.openShareModal=function(formId){
   const form=allForms.find(f=>f.id===formId); if(!form) return;
   currentShareFormId=formId; const org=allOrgs.find(o=>o.id===form.org_id);
@@ -1305,49 +1637,27 @@ window.openShareModal=function(formId){
   document.getElementById('share-url-text').textContent=getFormURL(formId);
   const slugRow=document.getElementById('share-slug-row'); const slugDisplay=document.getElementById('share-slug-display');
   if(form.share_slug){slugDisplay.textContent=form.share_slug;slugRow.style.display='block';}else{slugRow.style.display='none';}
-  // Reset to link tab
   document.querySelectorAll('.share-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
   document.querySelectorAll('.share-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
   openModal('modal-share');
 };
-
 function getFormURL(formId){
   const form=allForms.find(f=>f.id===formId);
   const base=location.href.split('?')[0];
   const param=form?.share_slug||formId;
   return `${base}?fill=${encodeURIComponent(param)}`;
 }
-
-/* FIX: QR generation — create fresh canvas each time, use QRCode.toCanvas */
 function generateQR(){
   if(!currentShareFormId) return;
   const wrap=document.getElementById('qr-wrap'); if(!wrap) return;
-
-  // Clear previous and create a fresh canvas
   wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:8px">Generating QR…</div>';
-
   const url=getFormURL(currentShareFormId);
   const canvas=document.createElement('canvas');
-  canvas.id='qr-canvas';
-  canvas.width=180; canvas.height=180;
-
-  // QRCode is the global from qrcode.js UMD build
-  QRCode.toCanvas(canvas, url, {
-    width: 180,
-    margin: 2,
-    color: { dark: '#1a1d2e', light: '#ffffff' },
-    errorCorrectionLevel: 'H'
-  }, function(err){
-    if(err){
-      console.error('QR generation error:', err);
-      wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px">QR generation failed: '+esc(err.message)+'</div>';
-      return;
-    }
-    wrap.innerHTML='';
-    wrap.appendChild(canvas);
+  QRCode.toCanvas(canvas, url, {width:180,margin:2,color:{dark:'#1a1d2e',light:'#ffffff'},errorCorrectionLevel:'H'}, function(err){
+    if(err){wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px">QR failed</div>';return;}
+    wrap.innerHTML=''; wrap.appendChild(canvas);
   });
 }
-
 window.copyShareLink=function(){
   const url=getFormURL(currentShareFormId);
   navigator.clipboard.writeText(url).then(()=>toast('Link copied!','success')).catch(()=>{const ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Link copied!','success');});
@@ -1355,51 +1665,21 @@ window.copyShareLink=function(){
 window.openFormDirectly=function(){ window.open(getFormURL(currentShareFormId),'_blank'); };
 window.downloadQR=function(){
   const canvas=document.getElementById('qr-canvas'); if(!canvas){toast('Generate QR first','error');return;}
-  const a=document.createElement('a'); a.download=`form-${currentShareFormId}.png`; a.href=canvas.toDataURL('image/png'); a.click(); toast('QR downloaded!','success');
+  const a=document.createElement('a'); a.download=`form-${currentShareFormId}.png`; a.href=canvas.toDataURL('image/png'); a.click();
 };
 window.previewForm=function(){closeModal('modal-share');openFillScreen(currentShareFormId);};
 window.shareTo=function(platform){
   const url=encodeURIComponent(getFormURL(currentShareFormId)); const form=allForms.find(f=>f.id===currentShareFormId);
   const text=encodeURIComponent(`Please fill out this form: ${form?.name||'LumenOS Form'}`);
-  const links={whatsapp:`https://wa.me/?text=${text}%20${url}`,email:`mailto:?subject=${encodeURIComponent(form?.name||'Form')}&body=${text}%20${decodeURIComponent(url)}`,sms:`sms:?body=${text}%20${decodeURIComponent(url)}`,twitter:`https://twitter.com/intent/tweet?text=${text}&url=${url}`,linkedin:`https://www.linkedin.com/sharing/share-offsite/?url=${url}`,telegram:`https://t.me/share/url?url=${url}&text=${text}`,facebook:`https://www.facebook.com/sharer/sharer.php?u=${url}`};
-  if(platform==='email'||platform==='sms') location.href=links[platform]; else window.open(links[platform],'_blank','width=600,height=400');
+  const links={whatsapp:`https://wa.me/?text=${text}%20${url}`,email:`mailto:?subject=${encodeURIComponent(form?.name||'Form')}&body=${text}%20${decodeURIComponent(url)}`,twitter:`https://twitter.com/intent/tweet?text=${text}&url=${url}`};
+  if(platform==='email') location.href=links[platform]; else window.open(links[platform],'_blank','width=600,height=400');
 };
 
-/* ═══════════════════════════════════════════════════════════
-   FILL SCREEN
-   ═══════════════════════════════════════════════════════════
-   - In fill-only mode (?fill= in URL), this is the whole page.
-   - When opened from dashboard preview, it overlays the app.
-   - File types supported: image, pdf, csv, video, file (any).
-*/
-
-/* Helper: what accept string to use per field type */
-function acceptForType(type){
-  if(type==='image') return 'image/*';
-  if(type==='pdf')   return 'application/pdf';
-  if(type==='csv')   return '.csv,text/csv,application/csv';
-  if(type==='video') return 'video/mp4,video/quicktime,video/webm,video/x-msvideo,video/*';
-  return '*/*'; // 'file' = any
-}
-function maxSizeForType(type){
-  if(type==='video') return 500*1024*1024; // 500 MB
-  if(type==='pdf')   return 100*1024*1024; // 100 MB
-  return 50*1024*1024; // 50 MB default
-}
-function labelForType(type){
-  if(type==='image') return 'PNG, JPG, WEBP, HEIC — up to 50MB';
-  if(type==='pdf')   return 'PDF documents — up to 100MB';
-  if(type==='csv')   return 'CSV files — up to 50MB';
-  if(type==='video') return 'MP4, MOV, WEBM, AVI — up to 500MB';
-  return 'Any file type — up to 50MB';
-}
-function bucketFolder(type){
-  if(type==='image') return 'images';
-  if(type==='pdf')   return 'pdfs';
-  if(type==='csv')   return 'csvs';
-  if(type==='video') return 'videos';
-  return 'files';
-}
+/* ─── FILL SCREEN ─── */
+function acceptForType(type){ if(type==='image') return 'image/*'; if(type==='pdf') return 'application/pdf'; if(type==='csv') return '.csv,text/csv'; if(type==='video') return 'video/*'; return '*/*'; }
+function maxSizeForType(type){ if(type==='video') return 500*1024*1024; if(type==='pdf') return 100*1024*1024; return 50*1024*1024; }
+function labelForType(type){ if(type==='image') return 'PNG, JPG, WEBP — up to 50MB'; if(type==='pdf') return 'PDF — up to 100MB'; if(type==='csv') return 'CSV — up to 50MB'; if(type==='video') return 'MP4, MOV — up to 500MB'; return 'Any file — up to 50MB'; }
+function bucketFolder(type){ if(type==='image') return 'images'; if(type==='pdf') return 'pdfs'; if(type==='csv') return 'csvs'; if(type==='video') return 'videos'; return 'files'; }
 
 window.openFillScreen=function(formId){
   const form=allForms.find(f=>f.id===formId);
@@ -1408,12 +1688,10 @@ window.openFillScreen=function(formId){
       if(error||!data){toast('Form not found','error');return;}
       if(!allForms.find(f=>f.id===data.id)) allForms.push(data);
       _openFillWith(data);
-    });
-    return;
+    }); return;
   }
   _openFillWith(form);
 };
-
 function _openFillWith(form){
   fileUploads={};
   document.getElementById('fill-title').textContent=form.name;
@@ -1425,26 +1703,19 @@ function _openFillWith(form){
   document.getElementById('fill-submit-btn').textContent='Submit Response';
   document.getElementById('fill-respondent').value='';
   document.getElementById('fill-progress-bar').style.width='5%';
-
   const fieldsEl=document.getElementById('fill-fields');
   const fields=form.fields||[];
   fieldsEl.innerHTML=fields.map((f,i)=>renderFillField(f,i)).join('');
-
-  // Wire scale buttons
   fieldsEl.querySelectorAll('.fill-scale-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       btn.closest('.fill-scale').querySelectorAll('.fill-scale-btn').forEach(b=>b.classList.remove('selected'));
-      btn.classList.add('selected');
-      updateFillProgress(fields);
+      btn.classList.add('selected'); updateFillProgress(fields);
     });
   });
-
-  // Wire file / image / pdf / csv / video zones
   fields.forEach((f,i)=>{
     const isFileType=['image','pdf','csv','video','file'].includes(f.type);
     if(!isFileType) return;
-    const zone=document.getElementById(`upload-zone-${i}`);
-    const fileInput=document.getElementById(`upload-input-${i}`);
+    const zone=document.getElementById(`upload-zone-${i}`); const fileInput=document.getElementById(`upload-input-${i}`);
     if(!zone||!fileInput) return;
     zone.addEventListener('click',()=>fileInput.click());
     zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover');});
@@ -1452,81 +1723,45 @@ function _openFillWith(form){
     zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragover');const file=e.dataTransfer.files[0];if(file)handleFileUpload(file,i,f.type,fields);});
     fileInput.addEventListener('change',()=>{const file=fileInput.files[0];if(file)handleFileUpload(file,i,f.type,fields);});
   });
-
-  // Wire text inputs for progress
   fieldsEl.querySelectorAll('input:not([type=file]),select,textarea').forEach(inp=>{
-    inp.addEventListener('change',()=>updateFillProgress(fields));
-    inp.addEventListener('input',()=>updateFillProgress(fields));
+    inp.addEventListener('change',()=>updateFillProgress(fields)); inp.addEventListener('input',()=>updateFillProgress(fields));
   });
-
-  if(!FILL_PARAM){
-    // Dashboard preview mode — show as overlay
-    document.getElementById('fill-screen').style.display='block';
-    document.body.style.overflow='hidden';
-  }
-  // In fill-only mode the screen is already shown via CSS class
+  if(!FILL_PARAM){ document.getElementById('fill-screen').style.display='block'; document.body.style.overflow='hidden'; }
 }
-
 async function handleFileUpload(file, idx, fieldType, fields){
   const maxSize=maxSizeForType(fieldType);
   if(file.size>maxSize){toast(`File too large. Max: ${fmtBytes(maxSize)}`,'error');return;}
-
-  const previewWrap=document.getElementById(`upload-preview-${idx}`);
-  const zone=document.getElementById(`upload-zone-${idx}`);
+  const previewWrap=document.getElementById(`upload-preview-${idx}`); const zone=document.getElementById(`upload-zone-${idx}`);
   if(previewWrap) previewWrap.innerHTML='<div class="upload-loading"><div class="spinner"></div>Uploading…</div>';
-
-  let publicUrl=null;
-  let dataUrl=null;
-
-  // For images and small files, read as data URL for local preview
-  if(fieldType==='image' || file.size < 5*1024*1024){
-    dataUrl = await new Promise(res=>{
-      const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file);
-    });
+  let publicUrl=null, dataUrl=null;
+  if(fieldType==='image'||file.size<5*1024*1024){
+    dataUrl=await new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(file);});
   }
-
-  // Upload to Supabase storage
   try{
     const ext=file.name.split('.').pop()||'bin';
-    const folder=bucketFolder(fieldType);
-    const path=`${folder}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const path=`${bucketFolder(fieldType)}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
     const{data:upData,error:upErr}=await sb.storage.from('il-form-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
-    if(!upErr&&upData){
-      const{data:urlData}=sb.storage.from('il-form-images').getPublicUrl(path);
-      publicUrl=urlData?.publicUrl||null;
-    }
+    if(!upErr&&upData){const{data:urlData}=sb.storage.from('il-form-images').getPublicUrl(path);publicUrl=urlData?.publicUrl||null;}
   } catch(_){}
-
   fileUploads[idx]={file,dataUrl,publicUrl,fieldType};
-
-  // Render preview
   if(previewWrap){
     if(fieldType==='image'&&dataUrl){
       previewWrap.innerHTML=`<div class="image-preview-wrap"><img src="${dataUrl}" class="image-preview" onclick="openLightbox('${dataUrl}')"><button class="image-preview-remove" onclick="removeUpload(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
     } else if(fieldType==='video'&&(publicUrl||dataUrl)){
-      const src=publicUrl||dataUrl;
-      previewWrap.innerHTML=`<div style="position:relative;display:inline-block"><video src="${esc(src)}" class="video-preview" controls></video><button class="file-preview-remove" onclick="removeUpload(${idx})" style="position:absolute;top:4px;right:4px"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+      previewWrap.innerHTML=`<div style="position:relative;display:inline-block"><video src="${esc(publicUrl||dataUrl)}" class="video-preview" controls></video><button class="file-preview-remove" onclick="removeUpload(${idx})" style="position:absolute;top:4px;right:4px"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
     } else {
-      // PDF, CSV, generic file — show a doc-style chip
-      const icon=fieldType==='pdf'?'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>'
-        :fieldType==='csv'?'<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/>'
-        :'<path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/>';
-      previewWrap.innerHTML=`<div class="file-preview-doc"><div class="file-preview-doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${icon}</svg></div><div><div class="file-preview-doc-name">${esc(file.name)}</div><div class="file-preview-doc-size">${fmtBytes(file.size)}</div></div><button class="file-preview-remove" onclick="removeUpload(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+      previewWrap.innerHTML=`<div class="file-preview-doc"><div class="file-preview-doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/></svg></div><div><div class="file-preview-doc-name">${esc(file.name)}</div><div class="file-preview-doc-size">${fmtBytes(file.size)}</div></div><button class="file-preview-remove" onclick="removeUpload(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
     }
     if(zone) zone.style.display='none';
   }
   updateFillProgress(fields);
 }
-
 window.removeUpload=function(idx){
   delete fileUploads[idx];
-  const zone=document.getElementById(`upload-zone-${idx}`);
-  const previewWrap=document.getElementById(`upload-preview-${idx}`);
-  if(zone) zone.style.display='block';
-  if(previewWrap) previewWrap.innerHTML='';
+  const zone=document.getElementById(`upload-zone-${idx}`); const previewWrap=document.getElementById(`upload-preview-${idx}`);
+  if(zone) zone.style.display='block'; if(previewWrap) previewWrap.innerHTML='';
 };
 window.openLightbox=function(src){document.getElementById('img-lightbox-img').src=src;document.getElementById('img-lightbox').style.display='flex';};
-
 function updateFillProgress(fields){
   const fieldsEl=document.getElementById('fill-fields'); let filled=0;
   fields.forEach((f,i)=>{
@@ -1540,22 +1775,13 @@ function updateFillProgress(fields){
   const pct=fields.length?Math.max(5,Math.round((filled/fields.length)*90)+5):50;
   document.getElementById('fill-progress-bar').style.width=pct+'%';
 }
-
 function renderFillField(f, i){
   const id=`fill-f-${i}`; const opts=(f.options&&f.options.length)?f.options:['Option 1','Option 2','Option 3'];
   let input='';
   const isFileType=['image','pdf','csv','video','file'].includes(f.type);
   if(isFileType){
-    const accept=acceptForType(f.type);
-    const hint=labelForType(f.type);
-    const captureAttr=f.type==='image'?' capture':' ';
-    let uploadIcon='';
-    if(f.type==='image') uploadIcon='<path d="M21 15V19a2 2 0 01-2 2H5a2 2 0 01-2-2V15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>';
-    else if(f.type==='video') uploadIcon='<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>';
-    else if(f.type==='pdf') uploadIcon='<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>';
-    else if(f.type==='csv') uploadIcon='<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/>';
-    else uploadIcon='<path d="M21 15V19a2 2 0 01-2 2H5a2 2 0 01-2-2V15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>';
-    input=`<div class="file-upload-zone" id="upload-zone-${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${uploadIcon}</svg><p>Click to upload or drag &amp; drop</p><div class="upload-hint">${hint}</div><input type="file" id="upload-input-${i}" accept="${accept}"${captureAttr}style="display:none"></div><div class="file-preview-wrap" id="upload-preview-${i}"></div>`;
+    const accept=acceptForType(f.type); const hint=labelForType(f.type);
+    input=`<div class="file-upload-zone" id="upload-zone-${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15V19a2 2 0 01-2 2H5a2 2 0 01-2-2V15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><p>Click to upload or drag &amp; drop</p><div class="upload-hint">${hint}</div><input type="file" id="upload-input-${i}" accept="${accept}" style="display:none"></div><div class="file-preview-wrap" id="upload-preview-${i}"></div>`;
   } else {
     switch(f.type){
       case 'textarea':input=`<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your answer…"></textarea>`;break;
@@ -1572,55 +1798,46 @@ function renderFillField(f, i){
   return `<div class="fill-field"><div class="fill-field-label">${esc(f.label)}${f.required?'<span class="fill-required">*</span>':''}</div>${f.description?`<div class="fill-field-hint">${esc(f.description)}</div>`:''} ${input}</div>`;
 }
 
+/* ─── SUBMIT FILL (with notifications) ─── */
 async function submitFill(){
   const formId=document.getElementById('fill-screen').dataset.formId;
   const form=allForms.find(f=>f.id===formId);
   const respondentName=document.getElementById('fill-respondent').value.trim();
   const btn=document.getElementById('fill-submit-btn'); btn.disabled=true; btn.textContent='Submitting…';
   document.getElementById('fill-progress-bar').style.width='95%';
-  const answers={}; const fileUrlMap={};
+  const answers={}, fileUrlMap={};
   if(form?.fields){
     form.fields.forEach((f,i)=>{
       const id=`fill-f-${i}`;
       if(f.type==='scale'){const sel=document.querySelector(`#${id} .fill-scale-btn.selected`);answers[f.label]=sel?parseInt(sel.dataset.val):null;}
       else if(f.type==='radio'){const sel=document.querySelector(`input[name="${id}"]:checked`);answers[f.label]=sel?sel.value:null;}
       else if(f.type==='checkbox'){answers[f.label]=[...document.querySelectorAll(`#${id} input:checked`)].map(s=>s.value);}
-      else if(['image','pdf','csv','video','file'].includes(f.type)){
-        const up=fileUploads[i];
-        if(up){answers[f.label]=up.publicUrl||up.file?.name||'[file uploaded]';fileUrlMap[f.label]=up.publicUrl||null;}
-        else answers[f.label]=null;
-      }
+      else if(['image','pdf','csv','video','file'].includes(f.type)){const up=fileUploads[i];if(up){answers[f.label]=up.publicUrl||up.file?.name||'[file]';fileUrlMap[f.label]=up.publicUrl||null;}else answers[f.label]=null;}
       else{const el=document.getElementById(id);answers[f.label]=el?(el.value||null):null;}
     });
   }
+  const score = form?.fields ? computeReadinessScore(answers, form.fields) : null;
   try{
-    const insertPayload={
-      form_id:formId,
-      respondent_name:respondentName||null,
-      org_name:respondentName||null,
-      answers,
-      image_urls:fileUrlMap,
-      readiness_score:null,
-      created_by:currentUser?.id||null
-    };
-    const{error}=await sb.from('il_responses').insert([insertPayload]);
+    const{error}=await sb.from('il_responses').insert([{
+      form_id:formId, respondent_name:respondentName||null, org_name:respondentName||null,
+      answers, image_urls:fileUrlMap, readiness_score:score, created_by:currentUser?.id||null
+    }]);
     if(error) throw error;
     document.getElementById('fill-progress-bar').style.width='100%';
     document.getElementById('fill-form-area').style.display='none';
     document.getElementById('fill-success').style.display='block';
-    // In fill-only mode, don't show a Close button (no dashboard to return to)
     const closeBtn=document.getElementById('fill-success-close');
     if(closeBtn) closeBtn.style.display=FILL_PARAM?'none':'inline-flex';
+    // ── FIRE NOTIFICATIONS ──
+    if(form) fireNotifications(form, respondentName, answers, score);
     if(currentUser){ await loadAllResponses(); renderDashboard(); }
   } catch(e){
-    btn.disabled=false; btn.textContent='Submit Response';
-    toast(e.message,'error');
+    btn.disabled=false; btn.textContent='Submit Response'; toast(e.message,'error');
   }
 }
 
 window.closeFillScreen=function(){
-  document.getElementById('fill-screen').style.display='none';
-  document.body.style.overflow='';
+  document.getElementById('fill-screen').style.display='none'; document.body.style.overflow='';
 };
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&!FILL_PARAM&&document.getElementById('fill-screen').style.display==='block') closeFillScreen();
@@ -1657,12 +1874,11 @@ window.viewResponse=function(id){
         const fileUrl=fileUrls[q];
         let val;
         if(fileUrl){
-          // Detect type from URL for inline preview
           const isImg=/\.(png|jpg|jpeg|gif|webp|heic)(\?|$)/i.test(fileUrl);
           const isVid=/\.(mp4|mov|webm|avi)(\?|$)/i.test(fileUrl);
-          if(isImg) val=`<img src="${esc(fileUrl)}" class="resp-answer-img" onclick="openLightbox('${esc(fileUrl)}')" title="Click to enlarge">`;
+          if(isImg) val=`<img src="${esc(fileUrl)}" class="resp-answer-img" onclick="openLightbox('${esc(fileUrl)}')">`;
           else if(isVid) val=`<video src="${esc(fileUrl)}" controls class="video-preview" style="max-width:100%;max-height:160px;margin-top:5px"></video>`;
-          else val=`<a href="${esc(fileUrl)}" target="_blank" style="color:var(--accent);font-size:12px">📎 Download file</a>`;
+          else val=`<a href="${esc(fileUrl)}" target="_blank" style="color:var(--accent);font-size:12px">📎 Download</a>`;
         } else if(Array.isArray(a)) val=esc(a.join(', '));
         else val=a!=null?esc(String(a)):'—';
         return `<div class="resp-answer"><div class="resp-answer-q">${esc(q)}</div><div class="resp-answer-a">${val}</div></div>`;
@@ -1674,9 +1890,8 @@ window.viewResponse=function(id){
 window.exportCSV=function(){
   const id=document.getElementById('resp-form-filter').value; const data=id?allResponses.filter(r=>r.form_id===id):allResponses;
   if(!data.length) return toast('No data to export','error');
-  const headers=['ID','Respondent','Form','Score','Submitted','Answers'];
   const rows=data.map(r=>{const form=allForms.find(f=>f.id===r.form_id);const a=JSON.stringify(r.answers||{}).replace(/"/g,'""');return [r.id,r.respondent_name||'Anonymous',form?.name||'Unknown',r.readiness_score||'',new Date(r.created_at).toISOString(),`"${a}"`].join(',');});
-  const blob=new Blob([[headers.join(','),...rows].join('\n')],{type:'text/csv'});
+  const blob=new Blob([['ID,Respondent,Form,Score,Submitted,Answers',...rows].join('\n')],{type:'text/csv'});
   const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`lumenos-responses-${Date.now()}.csv`;link.click();
   toast('CSV exported!','success');
 };
@@ -1687,7 +1902,7 @@ function renderOrgsPage(){
   if(!allOrgs.length){grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No organisations yet.</p><button class="btn btn-accent" onclick="openModal('modal-new-org')">+ New Organisation</button></div>`;return;}
   grid.innerHTML=allOrgs.map(o=>{
     const fc=allForms.filter(f=>f.org_id===o.id).length; const rc=allResponses.filter(r=>allForms.find(f=>f.id===r.form_id&&f.org_id===o.id)).length;
-    return `<div class="form-card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><div style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-family:var(--font-alt);font-weight:700;font-size:13px;color:var(--accent)">${o.name[0].toUpperCase()}</div><div><div class="form-card-title">${esc(o.name)}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(o.industry||'General')}</div></div></div><div class="form-card-footer"><span class="badge badge-blue">${fc} form${fc!==1?'s':''}</span><span class="badge badge-grey">${rc} response${rc!==1?'s':''}</span>${o.contact_email?`<span class="badge badge-grey">${esc(o.contact_email)}</span>`:''}</div></div>`;
+    return `<div class="form-card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><div style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-family:var(--font-alt);font-weight:700;font-size:13px;color:var(--accent)">${o.name[0].toUpperCase()}</div><div><div class="form-card-title">${esc(o.name)}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(o.industry||'General')}</div></div></div><div class="form-card-footer"><span class="badge badge-blue">${fc} form${fc!==1?'s':''}</span><span class="badge badge-grey">${rc} response${rc!==1?'s':''}</span></div></div>`;
   }).join('');
 }
 window.createOrg=async function(){
@@ -1725,47 +1940,37 @@ window.runAI=async function(){
       if(!key) return toast('Enter your Anthropic API key','error');
       const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,messages:[{role:'user',content:userPrompt}]})});
       const data=await res.json(); if(data.error) throw new Error(data.error.message);
-      const text=data.content?.[0]?.text||'No response received';
-      output.innerHTML=`<div style="font-size:13px;line-height:1.8;color:var(--text-1);white-space:pre-wrap">${esc(text)}</div>`;
+      output.innerHTML=`<div style="font-size:13px;line-height:1.8;color:var(--text-1);white-space:pre-wrap">${esc(data.content?.[0]?.text||'No response')}</div>`;
     } else {
       const key=document.getElementById('ai-gemini-key').value.trim();
-      if(!key) return toast('Enter your Google Gemini API key','error');
+      if(!key) return toast('Enter your Gemini API key','error');
       const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:userPrompt}]}],generationConfig:{maxOutputTokens:1500,temperature:0.7}})});
       const data=await res.json(); if(data.error) throw new Error(data.error.message);
-      const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'No response received';
-      output.innerHTML=`<div style="font-size:13px;line-height:1.8;color:var(--text-1);white-space:pre-wrap">${esc(text)}</div>`;
+      output.innerHTML=`<div style="font-size:13px;line-height:1.8;color:var(--text-1);white-space:pre-wrap">${esc(data.candidates?.[0]?.content?.parts?.[0]?.text||'No response')}</div>`;
     }
     document.getElementById('ai-copy-btn').style.display='flex';
-  } catch(e){output.innerHTML=`<div style="color:var(--red);font-size:13px;padding:10px;background:var(--red-soft);border-radius:var(--radius-sm);border:1px solid rgba(220,38,38,0.2)">${esc(e.message)}</div>`;toast('Analysis failed: '+e.message,'error');}
+  } catch(e){output.innerHTML=`<div style="color:var(--red);font-size:13px;padding:10px;background:var(--red-soft);border-radius:var(--radius-sm)">${esc(e.message)}</div>`; toast('Analysis failed','error');}
 };
 window.copyAIOutput=function(){navigator.clipboard.writeText(document.getElementById('ai-output').innerText).then(()=>toast('Copied!','success'));};
 
 /* ─── METRICS ─── */
 async function renderMetrics(){
-  Object.values(metricsCharts).forEach(c=>{try{c.destroy();}catch(e){}});
-  metricsCharts={};
+  Object.values(metricsCharts).forEach(c=>{try{c.destroy();}catch(e){}});metricsCharts={};
   let volLabels=[],volData=[];
-  try{
-    const{data,error}=await sb.rpc('il_response_volume',{p_days:30});
-    if(!error&&data&&data.length){volLabels=data.map(r=>new Date(r.day).toLocaleDateString('en',{month:'short',day:'numeric'}));volData=data.map(r=>Number(r.response_count));}
-  } catch(_){}
+  try{const{data,error}=await sb.rpc('il_response_volume',{p_days:30});if(!error&&data&&data.length){volLabels=data.map(r=>new Date(r.day).toLocaleDateString('en',{month:'short',day:'numeric'}));volData=data.map(r=>Number(r.response_count));}}catch(_){}
   if(!volLabels.length){for(let i=29;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);volLabels.push(d.toLocaleDateString('en',{month:'short',day:'numeric'}));const s=new Date(d).setHours(0,0,0,0);volData.push(allResponses.filter(r=>{const t=new Date(r.created_at).getTime();return t>=s&&t<s+86400000;}).length);}}
   const volCanvas=document.getElementById('metrics-chart-volume');
   if(volCanvas){metricsCharts.volume=new Chart(volCanvas,{type:'bar',data:{labels:volLabels,datasets:[{label:'Responses',data:volData,backgroundColor:'rgba(79,99,232,0.3)',borderColor:'#4f63e8',borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#9099b8',maxTicksLimit:6}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:9},color:'#9099b8'}}}}});}
   let scoreLabels=[],scoreData=[],scoreColors=[];
-  try{
-    const{data,error}=await sb.rpc('il_score_distribution');
-    if(!error&&data&&data.length){scoreLabels=data.map(r=>r.bucket);scoreData=data.map(r=>Number(r.response_count));scoreColors=scoreLabels.map(b=>b==='0–39'?'rgba(220,38,38,0.5)':b==='40–59'?'rgba(217,119,6,0.5)':b==='60–79'?'rgba(79,99,232,0.5)':'rgba(22,163,74,0.5)');}
-  } catch(_){}
+  try{const{data,error}=await sb.rpc('il_score_distribution');if(!error&&data&&data.length){scoreLabels=data.map(r=>r.bucket);scoreData=data.map(r=>Number(r.response_count));scoreColors=scoreLabels.map(b=>b==='0–39'?'rgba(220,38,38,0.5)':b==='40–59'?'rgba(217,119,6,0.5)':b==='60–79'?'rgba(79,99,232,0.5)':'rgba(22,163,74,0.5)');}}catch(_){}
   if(!scoreLabels.length){const buckets={'0–39':0,'40–59':0,'60–79':0,'80–100':0};allResponses.filter(r=>r.readiness_score!=null).forEach(r=>{const s=r.readiness_score;if(s<40)buckets['0–39']++;else if(s<60)buckets['40–59']++;else if(s<80)buckets['60–79']++;else buckets['80–100']++;});scoreLabels=Object.keys(buckets);scoreData=Object.values(buckets);scoreColors=['rgba(220,38,38,0.5)','rgba(217,119,6,0.5)','rgba(79,99,232,0.5)','rgba(22,163,74,0.5)'];}
   const scoreCanvas=document.getElementById('metrics-chart-score');
   if(scoreCanvas){metricsCharts.score=new Chart(scoreCanvas,{type:'bar',data:{labels:scoreLabels,datasets:[{data:scoreData,backgroundColor:scoreColors,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9},color:'#9099b8'}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:9},color:'#9099b8'}}}}});}
-  let topFormRows=[];
-  if(currentOrgId){try{const{data,error}=await sb.rpc('get_org_response_counts',{p_org_id:currentOrgId});if(!error&&data) topFormRows=data.map(r=>`<div class="met-row"><div class="met-label">${esc(r.form_name)}</div><div style="text-align:right"><div class="met-val">${r.response_count}</div><div style="font-size:10px;color:var(--text-3)">avg ${r.avg_score??'—'}</div></div></div>`);}catch(_){}}
-  if(!topFormRows.length){topFormRows=allForms.map(f=>({...f,count:allResponses.filter(r=>r.form_id===f.id).length})).sort((a,b)=>b.count-a.count).slice(0,5).map(f=>`<div class="met-row"><div class="met-label">${esc(f.name)}</div><div class="met-val">${f.count}</div></div>`);}
+  const topFormRows=allForms.map(f=>({...f,count:allResponses.filter(r=>r.form_id===f.id).length})).sort((a,b)=>b.count-a.count).slice(0,5).map(f=>`<div class="met-row"><div class="met-label">${esc(f.name)}</div><div class="met-val">${f.count}</div></div>`);
   document.getElementById('metrics-top-forms').innerHTML=topFormRows.length?topFormRows.join(''):'<div style="font-size:12.5px;color:var(--text-3)">No data yet.</div>';
   document.getElementById('metrics-top-orgs').innerHTML=allOrgs.slice(0,5).length?allOrgs.slice(0,5).map(o=>`<div class="person-row"><div class="person-avatar" style="border-radius:6px">${o.name[0].toUpperCase()}</div><div><div class="person-name">${esc(o.name)}</div><div class="person-status">${esc(o.industry||'General')}</div></div></div>`).join(''):'<div style="font-size:12.5px;color:var(--text-3)">No organisations yet.</div>';
-  const avgScore=allResponses.filter(r=>r.readiness_score!=null).length?Math.round(allResponses.filter(r=>r.readiness_score!=null).reduce((a,r)=>a+r.readiness_score,0)/allResponses.filter(r=>r.readiness_score!=null).length):null;
+  const scored=allResponses.filter(r=>r.readiness_score!=null);
+  const avgScore=scored.length?Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length):null;
   document.getElementById('metrics-summary').innerHTML=`<div class="met-row"><div class="met-label">Total Forms</div><div class="met-val">${allForms.length}</div></div><div class="met-row"><div class="met-label">Total Responses</div><div class="met-val">${allResponses.length}</div></div><div class="met-row"><div class="met-label">Avg Score</div><div class="met-val">${avgScore??'—'}</div></div><div class="met-row" style="border:none"><div class="met-label">Organisations</div><div class="met-val">${allOrgs.length}</div></div>`;
 }
 
@@ -1780,15 +1985,11 @@ window.saveSupabaseConfig=function(){
 /* ─── SEARCH ─── */
 window.handleSearch=function(val){
   document.getElementById('sb-search-input').value=val; document.getElementById('cmd-input').value=val;
-  clearTimeout(searchDebounce);
-  if(!val.trim()){hideSearchResults();return;}
+  clearTimeout(searchDebounce); if(!val.trim()){hideSearchResults();return;}
   searchDebounce=setTimeout(()=>runSearch(val.trim()),300);
 };
 async function runSearch(q){
-  try{
-    const{data,error}=await sb.rpc('il_search',{p_query:q});
-    if(!error&&data&&data.length){showSearchResults(data);return;}
-  } catch(_){}
+  try{const{data,error}=await sb.rpc('il_search',{p_query:q});if(!error&&data&&data.length){showSearchResults(data);return;}}catch(_){}
   const results=[];
   allForms.filter(f=>f.name.toLowerCase().includes(q.toLowerCase())).slice(0,5).forEach(f=>results.push({result_type:'form',id:f.id,title:f.name,subtitle:f.description||'Form'}));
   allResponses.filter(r=>(r.respondent_name||'').toLowerCase().includes(q.toLowerCase())).slice(0,5).forEach(r=>{const form=allForms.find(f=>f.id===r.form_id);results.push({result_type:'response',id:r.id,title:r.respondent_name||'Anonymous',subtitle:form?.name||'Unknown form'});});
@@ -1800,9 +2001,7 @@ function showSearchResults(results){
   const html=results.slice(0,10).map(r=>{const t=typeMap[r.result_type]||{cls:'',label:r.result_type};return `<div class="search-result-item" onclick="handleSearchResultClick('${r.result_type}','${r.id}')"><span class="search-result-type ${t.cls}">${t.label}</span><div><div class="search-result-title">${esc(r.title)}</div><div class="search-result-sub">${esc(r.subtitle)}</div></div></div>`;}).join('');
   ['sb-search-results','cmd-search-results'].forEach(id=>{const el=document.getElementById(id);if(el){el.innerHTML=html||'<div style="padding:10px 12px;font-size:12px;color:var(--text-3)">No results found</div>';el.style.display='block';}});
 }
-function hideSearchResults(){
-  ['sb-search-results','cmd-search-results'].forEach(id=>{const el=document.getElementById(id);if(el) el.style.display='none';});
-}
+function hideSearchResults(){ ['sb-search-results','cmd-search-results'].forEach(id=>{const el=document.getElementById(id);if(el) el.style.display='none';}); }
 window.handleSearchResultClick=function(type,id){
   hideSearchResults();
   if(type==='form') navTo('forms');
@@ -1817,45 +2016,26 @@ window.addEventListener('load', async ()=>{
   const savedUrl=localStorage.getItem('il_sb_url'); const savedKey=localStorage.getItem('il_sb_key');
   if(savedUrl) document.getElementById('sb-url-input').value=savedUrl;
   if(savedKey) document.getElementById('sb-key-input').value=savedKey;
+  loadNotifConfig();
 
-  // ── FILL-ONLY MODE ──
-  // If ?fill= is in URL, load and display the form immediately.
-  // Don't wait for auth — anon users can fill forms.
   if(FILL_PARAM){
     document.getElementById('fill-title').textContent='Loading form…';
     try{
       let formData=null;
       const uuidRegex=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if(uuidRegex.test(FILL_PARAM)){
-        const{data}=await sb.from('il_forms').select('*').eq('id',FILL_PARAM).single();
-        formData=data;
-      }
-      if(!formData){
-        const{data}=await sb.from('il_forms').select('*').eq('share_slug',FILL_PARAM).maybeSingle();
-        formData=data;
-      }
-      if(!formData){
-        document.getElementById('fill-title').textContent='Form not found';
-        document.getElementById('fill-desc').textContent='This form does not exist or has been removed.';
-        document.getElementById('fill-form-area').style.display='none';
-        return;
-      }
-      allForms=[formData]; // minimal state for submitFill
-      // Wire the submit button (wireFormModal won't run without auth)
+      if(uuidRegex.test(FILL_PARAM)){const{data}=await sb.from('il_forms').select('*').eq('id',FILL_PARAM).single();formData=data;}
+      if(!formData){const{data}=await sb.from('il_forms').select('*').eq('share_slug',FILL_PARAM).maybeSingle();formData=data;}
+      if(!formData){document.getElementById('fill-title').textContent='Form not found';document.getElementById('fill-desc').textContent='This form does not exist or has been removed.';document.getElementById('fill-form-area').style.display='none';return;}
+      allForms=[formData];
       const fillSubmit=document.getElementById('fill-submit-btn');
       if(fillSubmit) fillSubmit.addEventListener('click',e=>{e.preventDefault();submitFill();});
       _openFillWith(formData);
-    } catch(e){
-      document.getElementById('fill-title').textContent='Error loading form';
-      document.getElementById('fill-desc').textContent=e.message;
-    }
-    // Still check session in background so currentUser is set for created_by
+    } catch(e){document.getElementById('fill-title').textContent='Error loading form';document.getElementById('fill-desc').textContent=e.message;}
     const {data:{session}} = await sb.auth.getSession();
     if(session?.user) currentUser=session.user;
-    return; // don't boot dashboard
+    return;
   }
 
-  // ── NORMAL DASHBOARD BOOT ──
   const{data:{session}}=await sb.auth.getSession();
   if(session?.user) await bootApp(session.user);
 });
