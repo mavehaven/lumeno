@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LumenOS — Insight Layer</title>
+<title>LumenOS — Conversational AI Layer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -300,6 +300,16 @@ tbody tr:last-child td { border-bottom: none; }
 .empty-state { text-align: center; padding: 32px 20px; color: var(--text-2); }
 .empty-state svg { width: 30px; height: 30px; stroke-width: 1.2; color: var(--text-3); margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto; }
 .empty-state p { font-size: 12.5px; margin-bottom: 10px; }
+
+/* CHAT STYLES */
+.chat-message { padding: 8px 12px; margin: 6px 0; border-radius: var(--radius-sm); max-width: 85%; clear: both; }
+.chat-message.user { background: var(--accent-soft); color: var(--text-1); margin-left: auto; text-align: right; border-bottom-right-radius: 2px; }
+.chat-message.assistant { background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 2px; }
+.chat-message pre { background: #1e1e2e; padding: 8px; border-radius: 6px; overflow-x: auto; font-size: 12px; color: #e0e0e0; }
+.chat-message code { font-family: monospace; }
+.typing-indicator { display: flex; gap: 4px; align-items: center; padding: 6px 12px; background: var(--surface-2); border-radius: 16px; width: fit-content; margin: 6px 0; }
+.typing-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: typingPulse 1.4s infinite; }
+@keyframes typingPulse { 0%,60%,100%{ transform: translateY(0); opacity:0.4; } 30%{ transform: translateY(-4px); opacity:1; } }
 
 /* FILL SCREEN */
 #fill-screen {
@@ -617,6 +627,25 @@ body.fill-only-mode #fill-screen { position: static; min-height: 100vh; }
           <button class="btn btn-accent" onclick="runAI()" style="width:100%;padding:10px;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Run Analysis</button>
         </div>
         <div class="card"><div class="card-header"><span class="card-label">Analysis Output</span><button class="btn btn-outline" id="ai-copy-btn" onclick="copyAIOutput()" style="display:none;padding:4px 9px;font-size:11.5px">Copy</button></div><div id="ai-output" style="font-size:13px;color:var(--text-2);line-height:1.75;min-height:200px"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><p>Configure your API key and run an analysis.</p></div></div></div>
+      </div>
+
+      <!-- CHAT INTERFACE (NEW) -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header">
+          <span class="card-label">💬 AI Assistant – Conversational Analysis</span>
+          <button class="btn btn-outline" onclick="clearChat()">New chat</button>
+        </div>
+        <div id="chat-messages" style="height: 350px; overflow-y: auto; background: var(--bg); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 12px;">
+          <div class="chat-message assistant">
+            <strong>LumenOS AI</strong><br>
+            I can answer questions about your forms, responses, metrics, generate SQL queries, and even create charts.<br>
+            <em>Example: “Show me responses from last week with low scores” or “Draw a bar chart of readiness scores per organisation”</em>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <textarea id="chat-input" rows="2" placeholder="Ask a follow‑up…" style="flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; font-family: var(--font); resize: vertical;"></textarea>
+          <button class="btn btn-accent" onclick="sendChatMessage()">Send</button>
+        </div>
       </div>
     </div>
 
@@ -977,6 +1006,9 @@ let currentAIProvider = 'claude';
 let fileUploads = {};
 let searchDebounce = null;
 
+/* ─── CHAT STATE ─── */
+let chatHistory = []; // { role: 'user'|'assistant', content: string }
+
 /* ─── NOTIFICATION CONFIG ─── */
 let notifConfig = {
   email: { enabled: false, address: '', edgeFnUrl: '' },
@@ -1065,9 +1097,7 @@ async function fireNotifications(form, respondentName, answers, score){
   const respName = respondentName || 'Anonymous';
   const scoreText = score != null ? `Score: ${score}` : 'No score';
   const now = new Date().toLocaleString();
-  const answerLines = Object.entries(answers).slice(0,5).map(([q,a]) =>
-    `<tr><td style="padding:4px 8px;color:#666;font-size:13px">${esc(q)}</td><td style="padding:4px 8px;font-size:13px">${esc(Array.isArray(a)?a.join(', '):String(a??'—'))}</td></tr>`
-  ).join('');
+  const answerLines = Object.entries(answers).slice(0,5).map(([q,a])=>`<tr><td style="padding:4px 8px;color:#666;font-size:13px">${esc(q)}</td><td style="padding:4px 8px;font-size:13px">${esc(Array.isArray(a)?a.join(', '):String(a??'—'))}</td></tr>`).join('');
 
   if(cfg.email.enabled && cfg.email.address){
     if(!cfg.email.edgeFnUrl){
@@ -1826,7 +1856,7 @@ window.createOrg=async function(){
   document.getElementById('no-name').value=''; document.getElementById('no-industry').value=''; document.getElementById('no-email').value='';
 };
 
-/* ─── AI — updated to @google/genai flow with gemini-3-flash-preview ─── */
+/* ─── AI — updated to @google/genai flow with gemini-3-flash-preview + CHAT ─── */
 window.selectProvider=function(provider){
   currentAIProvider=provider;
   document.getElementById('prov-btn-claude').classList.toggle('active',provider==='claude');
@@ -1835,53 +1865,201 @@ window.selectProvider=function(provider){
   document.getElementById('gemini-key-section').style.display=provider==='gemini'?'block':'none';
 };
 function populateAIFormSelect(){document.getElementById('ai-form-select').innerHTML='<option value="">All responses</option>'+allForms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');}
-window.runAI=async function(){
-  const formId=document.getElementById('ai-form-select').value; const prompt=document.getElementById('ai-prompt').value.trim();
-  const output=document.getElementById('ai-output'); const toAnalyse=formId?allResponses.filter(r=>r.form_id===formId):allResponses;
-  if(!toAnalyse.length) return toast('No responses to analyse','error');
-  output.innerHTML='<div style="color:var(--text-3);font-size:13px;padding:20px;text-align:center">Analysing…</div>';
-  document.getElementById('ai-copy-btn').style.display='none';
-  const form=formId?allForms.find(f=>f.id===formId):null;
-  const summary=toAnalyse.slice(0,30).map((r,i)=>`Response ${i+1} [${r.respondent_name||'Anonymous'}] Score=${r.readiness_score??'N/A'}\n`+Object.entries(r.answers||{}).map(([q,a])=>`  ${q}: ${Array.isArray(a)?a.join(', '):a}`).join('\n')).join('\n\n');
-  const userPrompt=(prompt||`Analyse the following${form?` "${form.name}"`:''} responses. Identify key themes, patterns, and provide actionable recommendations.\n\n`)+summary;
-  try{
-    if(currentAIProvider==='claude'){
-      const key=document.getElementById('ai-api-key').value.trim();
-      if(!key) return toast('Enter your Anthropic API key','error');
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,messages:[{role:'user',content:userPrompt}]})});
-      const data=await res.json(); if(data.error) throw new Error(data.error.message);
-      output.innerHTML=`<div style="font-size:13px;line-height:1.8;color:var(--text-1);white-space:pre-wrap">${esc(data.content?.[0]?.text||'No response')}</div>`;
+window.runAI = async function() {
+  const formId = document.getElementById('ai-form-select').value;
+  const prompt = document.getElementById('ai-prompt').value.trim();
+  const output = document.getElementById('ai-output');
+  const toAnalyse = formId ? allResponses.filter(r => r.form_id === formId) : allResponses;
+  if (!toAnalyse.length) return toast('No responses to analyse', 'error');
+  output.innerHTML = '<div style="color:var(--text-3);text-align:center">Analysing…</div>';
+  const form = formId ? allForms.find(f => f.id === formId) : null;
+  const summary = toAnalyse.slice(0,30).map((r,i)=>`Response ${i+1} [${r.respondent_name||'Anonymous'}] Score=${r.readiness_score??'N/A'}\n`+Object.entries(r.answers||{}).map(([q,a])=>`  ${q}: ${Array.isArray(a)?a.join(', '):a}`).join('\n')).join('\n\n');
+  const userPrompt = (prompt||`Analyse the following${form?` "${form.name}"`:''} responses. Identify key themes, patterns, and recommendations.\n\n`)+summary;
+
+  try {
+    let analysisText = '';
+    if (currentAIProvider === 'claude') {
+      const key = document.getElementById('ai-api-key').value.trim();
+      if (!key) throw new Error('Claude API key missing');
+      const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,messages:[{role:'user',content:userPrompt}]})});
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      analysisText = data.content[0].text;
     } else {
-      // ── Gemini: @google/genai flow ──
-      // Mirrors: const ai = new GoogleGenAI({ apiKey: key });
-      //          const response = await ai.models.generateContent({
-      //            model: "gemini-3-flash-preview",
-      //            contents: userPrompt
-      //          });
-      //          response.text
-      const key=document.getElementById('ai-gemini-key').value.trim();
-      if(!key) return toast('Enter your Gemini API key','error');
-      const genRes=await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${encodeURIComponent(key)}`,
-        {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            contents:[{parts:[{text:userPrompt}]}],
-            generationConfig:{maxOutputTokens:1500,temperature:0.7}
-          })
-        }
-      );
-      const genData=await genRes.json();
-      if(genData.error) throw new Error(genData.error.message);
-      // response.text equivalent: candidates[0].content.parts[0].text
-      const genText=genData.candidates?.[0]?.content?.parts?.[0]?.text||'No response';
-      output.innerHTML=`<div style="font-size:13px;line-height:1.8;color:var(--text-1);white-space:pre-wrap">${esc(genText)}</div>`;
+      const key = document.getElementById('ai-gemini-key').value.trim();
+      if (!key) throw new Error('Gemini API key missing');
+      const genRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:userPrompt}]}]})});
+      const genData = await genRes.json();
+      if (genData.error) throw new Error(genData.error.message);
+      analysisText = genData.candidates[0].content.parts[0].text;
     }
-    document.getElementById('ai-copy-btn').style.display='flex';
-  } catch(e){output.innerHTML=`<div style="color:var(--red);font-size:13px;padding:10px;background:var(--red-soft);border-radius:var(--radius-sm)">${esc(e.message)}</div>`; toast('Analysis failed','error');}
+    output.innerHTML = `<div style="font-size:13px;line-height:1.8;white-space:pre-wrap">${esc(analysisText)}</div>`;
+    document.getElementById('ai-copy-btn').style.display = 'flex';
+
+    // Also push to chat
+    addChatMessage('assistant', `**Batch analysis result for ${form?.name || 'all responses'}:**\n\n${analysisText}`);
+  } catch(e) {
+    output.innerHTML = `<div style="color:var(--red);background:var(--red-soft);padding:12px;border-radius:var(--radius-sm)">${esc(e.message)}</div>`;
+    toast('Analysis failed','error');
+  }
 };
 window.copyAIOutput=function(){navigator.clipboard.writeText(document.getElementById('ai-output').innerText).then(()=>toast('Copied!','success'));};
+
+/* ─── CHAT FUNCTIONS ─── */
+function clearChat() {
+  chatHistory = [];
+  const container = document.getElementById('chat-messages');
+  container.innerHTML = `
+    <div class="chat-message assistant">
+      <strong>LumenOS AI</strong><br>
+      I can answer questions about your forms, responses, metrics, generate SQL queries, and even create charts.<br>
+      <em>Example: “Show me responses from last week with low scores” or “Draw a bar chart of readiness scores per organisation”</em>
+    </div>
+  `;
+  toast("Chat cleared", "info");
+}
+
+function addChatMessage(role, content, isMarkdown = true) {
+  const container = document.getElementById('chat-messages');
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `chat-message ${role}`;
+  let formatted = content;
+  if (isMarkdown) {
+    formatted = formatted.replace(/```(\w*)\n([\s\S]*?)\n```/g, '<pre><code class="language-$1">$2</code></pre>');
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  }
+  msgDiv.innerHTML = `<strong>${role === 'user' ? 'You' : 'LumenOS AI'}</strong><br>${formatted}`;
+  container.appendChild(msgDiv);
+  container.scrollTop = container.scrollHeight;
+  chatHistory.push({ role, content });
+}
+
+function showTypingIndicator() {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.id = 'typing-indicator';
+  div.className = 'typing-indicator';
+  div.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function hideTypingIndicator() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+async function callAIWithHistory(systemPrompt, history) {
+  const provider = currentAIProvider;
+  if (provider === 'claude') {
+    const apiKey = document.getElementById('ai-api-key').value.trim();
+    if (!apiKey) throw new Error('Claude API key missing');
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: history.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content }))
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.content[0].text;
+  } else if (provider === 'gemini') {
+    const apiKey = document.getElementById('ai-gemini-key').value.trim();
+    if (!apiKey) throw new Error('Gemini API key missing');
+    const prompt = `${systemPrompt}\n\nConversation:\n${history.map(m => `${m.role}: ${m.content}`).join('\n')}\n\nAssistant:`;
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 2000, temperature: 0.7 } })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.candidates[0].content.parts[0].text;
+  }
+  throw new Error('Unknown AI provider');
+}
+
+// Safe SQL execution via RPC (requires function execute_safe_select in Supabase)
+async function runCustomSQL(sqlQuery) {
+  const { data, error } = await sb.rpc('execute_safe_select', { sql_query: sqlQuery });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+async function generateChartFromDescription(description, chartType) {
+  const chartPrompt = `Based on the conversation, extract numeric data for a ${chartType} chart. Description: "${description}". Return ONLY a JSON object like: { "labels": ["A","B"], "datasets": [10,20] }`;
+  const aiData = await callAIWithHistory(chartPrompt, []);
+  let chartData;
+  try { chartData = JSON.parse(aiData); } catch(e) { throw new Error('AI did not return valid chart data'); }
+  const canvasId = `temp-chart-${Date.now()}`;
+  const modalHtml = `<div id="${canvasId}" style="width:100%; height:300px; margin-top:12px"></div>`;
+  addChatMessage('assistant', `<div id="chart-container-${canvasId}">${modalHtml}</div>`);
+  setTimeout(() => {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    new Chart(ctx, {
+      type: chartType,
+      data: { labels: chartData.labels, datasets: [{ label: description, data: chartData.datasets, backgroundColor: 'rgba(79,99,232,0.5)' }] }
+    });
+  }, 50);
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  const userMsg = input.value.trim();
+  if (!userMsg) return;
+  input.value = '';
+  addChatMessage('user', userMsg, false);
+  showTypingIndicator();
+
+  const systemPrompt = `You are LumenOS AI, an expert data analyst.
+You have access to the following tables: il_forms, il_responses, il_organisations.
+You can generate **PostgreSQL SELECT queries** to answer questions. If you do, write the SQL inside a \`\`\`sql ... \`\`\` code block.
+You can also request to **render a chart** by ending your message with "CHART: [type] [data description]". Supported types: bar, line, pie.
+Be concise, insightful, and use markdown.`;
+
+  try {
+    const aiResponse = await callAIWithHistory(systemPrompt, chatHistory);
+    hideTypingIndicator();
+    addChatMessage('assistant', aiResponse);
+
+    // Detect and execute SQL
+    const sqlMatch = aiResponse.match(/```sql\n([\s\S]*?)\n```/);
+    if (sqlMatch) {
+      const sql = sqlMatch[1];
+      if (confirm(`The AI generated this SQL query. Run it?\n\n${sql}`)) {
+        addChatMessage('assistant', `⏳ Executing query…`);
+        try {
+          const result = await runCustomSQL(sql);
+          const resultStr = JSON.stringify(result, null, 2).slice(0, 1500);
+          addChatMessage('assistant', `**Query result:**\n\`\`\`json\n${resultStr}\n\`\`\``);
+        } catch (err) {
+          addChatMessage('assistant', `❌ SQL execution failed: ${err.message}`);
+        }
+      }
+    }
+
+    // Detect chart request
+    const chartMatch = aiResponse.match(/CHART:\s*(\w+)\s+(.+)/i);
+    if (chartMatch) {
+      const chartType = chartMatch[1].toLowerCase();
+      const description = chartMatch[2];
+      addChatMessage('assistant', `🎨 Attempting to generate a ${chartType} chart for: ${description}`);
+      try {
+        await generateChartFromDescription(description, chartType);
+      } catch (err) {
+        addChatMessage('assistant', `Chart generation failed: ${err.message}`);
+      }
+    }
+  } catch (err) {
+    hideTypingIndicator();
+    addChatMessage('assistant', `❌ Error: ${err.message}`);
+  }
+}
 
 /* ─── METRICS ─── */
 async function renderMetrics(){
