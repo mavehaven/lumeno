@@ -276,22 +276,6 @@ tbody tr:last-child td{border-bottom:none}
 .empty-state svg{width:30px;height:30px;stroke-width:1.2;color:var(--text-3);margin-bottom:8px;display:block;margin-left:auto;margin-right:auto}
 .empty-state p{font-size:12.5px;margin-bottom:10px}
 
-/* ── AI MODEL STATUS ── */
-.model-status-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:14px;font-size:12px}
-.model-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s}
-.model-status-dot.idle{background:var(--text-3)}
-.model-status-dot.loading{background:var(--amber);animation:pulse 1s infinite}
-.model-status-dot.ready{background:var(--green);box-shadow:0 0 0 3px var(--green-soft)}
-.model-status-dot.error{background:var(--red)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.model-status-label{color:var(--text-2);flex:1}
-.model-status-label strong{color:var(--text-1)}
-.model-load-btn{padding:5px 12px;background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);font-size:11.5px;font-weight:600;cursor:pointer;transition:var(--t)}
-.model-load-btn:hover{background:var(--accent-2)}
-.model-load-btn:disabled{opacity:.5;cursor:not-allowed}
-.model-progress{height:3px;background:var(--surface-3);border-radius:2px;overflow:hidden;margin-top:6px}
-.model-progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:2px;transition:width .3s ease;width:0%}
-
 /* ── CHAT ── */
 #chat-messages{height:380px;overflow-y:auto;background:var(--bg);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
 .chat-msg{max-width:82%;padding:10px 13px;border-radius:12px;font-size:13px;line-height:1.6;word-break:break-word}
@@ -374,6 +358,14 @@ body.fill-only-mode #fill-screen{position:static;min-height:100vh}
 .met-row:last-child{border-bottom:none}
 .met-label{font-size:12px;color:var(--text-2)}
 .met-val{font-family:var(--font-alt);font-size:16px;font-weight:700;color:var(--text-1);letter-spacing:-.02em}
+.ai-provider-toggle{display:flex;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;margin-bottom:12px}
+.ai-prov-btn{flex:1;padding:7px 10px;background:none;border:none;border-radius:6px;font-size:12px;font-weight:500;color:var(--text-2);cursor:pointer;transition:var(--t);display:flex;align-items:center;justify-content:center;gap:5px}
+.ai-prov-btn.active{background:var(--surface);color:var(--text-1);box-shadow:var(--shadow)}
+.ai-prov-btn svg{width:14px;height:14px}
+.ai-key-section{transition:var(--t)}
+.sql-hint{background:#1e1e2e;border-radius:var(--radius-sm);padding:12px;margin-top:8px}
+.sql-hint pre{font-family:monospace;font-size:11px;color:#cdd6f4;line-height:1.6;white-space:pre-wrap;word-break:break-all}
+.sql-hint-label{font-size:10px;color:#6c7086;font-family:var(--font-alt);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
 .notif-section{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px}
 .notif-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0}
 .notif-label{font-size:12.5px;color:var(--text-1)}
@@ -604,14 +596,25 @@ body.fill-only-mode #fill-screen{position:static;min-height:100vh}
     <!-- AI -->
     <div class="page" id="page-ai">
       <div class="page-title">AI <em>Analysis</em></div>
-      <div class="page-sub">Powered by <strong>LumenOS24/gemma-4-E4B-it</strong> — running locally in your browser via Transformers.js.</div>
+      <div class="page-sub">Intelligent analysis powered by your choice of AI provider.</div>
 
-      <!-- Model Status Bar -->
-      <div class="model-status-bar">
-        <div class="model-status-dot idle" id="model-status-dot"></div>
-        <span class="model-status-label" id="model-status-label"><strong>Gemma 4 E4B</strong> — not loaded yet</span>
-        <div class="model-progress" id="model-progress-wrap" style="display:none;width:140px"><div class="model-progress-bar" id="model-progress-bar"></div></div>
-        <button class="model-load-btn" id="model-load-btn" onclick="loadModel()">Load Model</button>
+      <!-- Provider + Keys (shared config at top) -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header"><span class="card-label">AI Provider Configuration</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
+          <div>
+            <div class="form-row"><label class="form-label">Provider</label>
+              <div class="ai-provider-toggle">
+                <button class="ai-prov-btn active" id="prov-btn-claude" onclick="selectProvider('claude')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Claude</button>
+                <button class="ai-prov-btn" id="prov-btn-gemini" onclick="selectProvider('gemini')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Gemini Flash</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div id="claude-key-section"><div class="form-row"><label class="form-label">Anthropic API Key</label><input type="password" class="form-input" id="ai-api-key" placeholder="sk-ant-…" oninput="persistKey('claude',this.value)"></div></div>
+            <div id="gemini-key-section" style="display:none"><div class="form-row"><label class="form-label">Google Gemini API Key</label><input type="password" class="form-input" id="ai-gemini-key" placeholder="AIza…" oninput="persistKey('gemini',this.value)"></div></div>
+          </div>
+        </div>
       </div>
 
       <!-- Batch analysis -->
@@ -622,7 +625,7 @@ body.fill-only-mode #fill-screen{position:static;min-height:100vh}
           <div class="form-row"><label class="form-label">Prompt</label><textarea class="form-textarea" rows="4" id="ai-prompt" placeholder="Analyse the following responses and provide key insights, patterns, and recommendations…"></textarea></div>
           <button class="btn btn-accent" onclick="runAI()" id="run-ai-btn" style="width:100%;padding:10px;justify-content:center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Run Analysis</button>
         </div>
-        <div class="card"><div class="card-header"><span class="card-label">Analysis Output</span><button class="btn btn-outline" id="ai-copy-btn" onclick="copyAIOutput()" style="display:none;padding:4px 9px;font-size:11.5px">Copy</button></div><div id="ai-output" style="font-size:13px;color:var(--text-2);line-height:1.75;min-height:200px"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><p>Load the model then run an analysis.</p></div></div></div>
+        <div class="card"><div class="card-header"><span class="card-label">Analysis Output</span><button class="btn btn-outline" id="ai-copy-btn" onclick="copyAIOutput()" style="display:none;padding:4px 9px;font-size:11.5px">Copy</button></div><div id="ai-output" style="font-size:13px;color:var(--text-2);line-height:1.75;min-height:200px"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><p>Configure your API key and run an analysis.</p></div></div></div>
       </div>
 
       <!-- CHAT -->
@@ -671,16 +674,15 @@ body.fill-only-mode #fill-screen{position:static;min-height:100vh}
       </div>
     </div>
 
-    <!-- SETTINGS — General + Notifications only -->
+    <!-- SETTINGS -->
     <div class="page" id="page-settings">
       <div class="page-title">Settings</div>
       <div class="page-sub" style="margin-bottom:20px">Configure your LumenOS instance.</div>
       <div style="display:flex;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;margin-bottom:18px;width:fit-content">
         <button class="auth-tab active" onclick="settingsTab('general',this)">General</button>
         <button class="auth-tab" onclick="settingsTab('notifications',this)" id="notif-tab-btn">🔔 Notifications<span id="notif-active-badge" style="display:none;margin-left:5px;background:var(--green);color:white;font-size:9px;padding:1px 5px;border-radius:10px">ON</span></button>
+        <button class="auth-tab" onclick="settingsTab('database',this)">Database</button>
       </div>
-
-      <!-- GENERAL -->
       <div id="settings-general" class="auth-panel active">
         <div class="grid-2">
           <div class="card"><div class="card-header"><span class="card-label">Supabase Connection</span></div>
@@ -701,8 +703,6 @@ body.fill-only-mode #fill-screen{position:static;min-height:100vh}
           </div>
         </div>
       </div>
-
-      <!-- NOTIFICATIONS -->
       <div id="settings-notifications" class="auth-panel">
         <div style="max-width:700px">
           <div class="card" style="margin-bottom:14px"><div class="card-header"><span class="card-label">Notification Scope</span></div>
@@ -718,7 +718,7 @@ body.fill-only-mode #fill-screen{position:static;min-height:100vh}
             </div>
             <div class="notif-config-body">
               <div class="form-row"><label class="form-label">Recipient email address</label><input type="email" class="form-input" id="email-notif-address" placeholder="you@yourorg.com" oninput="saveNotifConfig()"></div>
-              <div class="form-row"><label class="form-label">Edge Function URL</label><input type="url" class="form-input" id="edge-fn-url" placeholder="https://xxxx.supabase.co/functions/v1/lumenos-notify" oninput="saveNotifConfig()"></div>
+              <div class="notif-hint">Emails are sent via your Supabase Edge Function. Deploy the function once and notifications fire automatically on every submission.<br><a href="https://supabase.com/docs/guides/functions" target="_blank">→ Supabase Edge Functions docs</a></div>
               <div class="notif-test-row"><button class="btn-test" onclick="testNotification('email')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send test email</button><span id="email-test-result" style="font-size:11.5px;color:var(--text-3)"></span></div>
             </div>
           </div>
@@ -731,10 +731,65 @@ body.fill-only-mode #fill-screen{position:static;min-height:100vh}
             </div>
             <div class="notif-config-body">
               <div class="form-row"><label class="form-label">Slack Incoming Webhook URL</label><input type="url" class="form-input" id="slack-webhook-url" placeholder="https://hooks.slack.com/services/T…/B…/…" oninput="saveNotifConfig()"></div>
+              <div class="notif-hint">Create an Incoming Webhook in your Slack workspace:<br>1. Go to <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a> → Create New App<br>2. Enable "Incoming Webhooks" → Add New Webhook to Workspace<br>3. Pick a channel and paste the URL above.</div>
               <div class="notif-test-row"><button class="btn-test" onclick="testNotification('slack')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send test message</button><span id="slack-test-result" style="font-size:11.5px;color:var(--text-3)"></span></div>
             </div>
           </div>
           <div class="card" style="margin-top:14px"><div class="card-header"><span class="card-label">Notification Log</span><button class="card-action" onclick="clearNotifLog()">Clear</button></div><div class="notif-log" id="notif-log"><div style="padding:14px;font-size:12px;color:var(--text-3);text-align:center">No notifications sent yet.</div></div></div>
+          <div class="card" style="margin-top:14px">
+            <div class="card-header"><span class="card-label">Edge Function Setup (one-time)</span></div>
+            <div style="font-size:12.5px;color:var(--text-2);margin-bottom:10px">Deploy this Supabase Edge Function to enable email sending. Slack webhooks fire directly from the browser.</div>
+            <div class="sql-hint"><div class="sql-hint-label">supabase/functions/lumenos-notify/index.ts</div><pre>import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+serve(async (req) => {
+  const { to, subject, html } = await req.json()
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${Deno.env.get("RESEND_API_KEY")}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: "LumenOS &lt;notifications@yourdomain.com&gt;",
+      to, subject, html
+    })
+  })
+  const data = await res.json()
+  return new Response(JSON.stringify(data), {
+    headers: { "Content-Type": "application/json" }
+  })
+})
+// Deploy: supabase functions deploy lumenos-notify
+// Set secret: supabase secrets set RESEND_API_KEY=re_xxx</pre></div>
+            <div style="margin-top:10px"><div class="form-row"><label class="form-label">Edge Function URL (after deploy)</label><input type="url" class="form-input" id="edge-fn-url" placeholder="https://xxxx.supabase.co/functions/v1/lumenos-notify" oninput="saveNotifConfig()"></div></div>
+          </div>
+        </div>
+      </div>
+      <div id="settings-database" class="auth-panel">
+        <div class="card"><div class="card-header"><span class="card-label">Database Integration Notes</span></div>
+          <div class="sql-hint"><div class="sql-hint-label">DB Functions this app calls</div><pre>-- Dashboard KPIs
+select * from il_dashboard_kpis;
+-- Response volume timeseries
+select * from il_response_volume(30);
+-- Score distribution
+select * from il_score_distribution();
+-- Per-org form stats
+select * from get_org_response_counts(:org_id);
+-- Full-text search
+select * from il_search(:query);
+-- Recalculate scores after field type change
+select recalculate_form_scores(:form_id);
+
+-- Notification log table (optional)
+create table if not exists il_notification_log (
+  id uuid primary key default gen_random_uuid(),
+  channel text not null,
+  form_id uuid references il_forms(id),
+  respondent text,
+  status text default 'ok',
+  message text,
+  created_at timestamptz default now()
+);</pre></div>
         </div>
       </div>
     </div>
@@ -858,120 +913,6 @@ body.fill-only-mode #fill-screen{position:static;min-height:100vh}
 
 <div id="toast"></div>
 
-<script type="module">
-// ── TRANSFORMERS.JS — LumenOS24/gemma-4-E4B-it ──
-// Loaded lazily on user request. Token is injected server-side / via your backend proxy.
-// Never hardcode hf_xxx in client-side code.
-
-let hfPipeline = null;   // holds the text-generation pipeline once loaded
-let modelReady  = false;
-let modelLoading = false;
-
-const MODEL_ID = 'LumenOS24/gemma-4-E4B-it';
-
-function setModelStatus(state, label) {
-  const dot  = document.getElementById('model-status-dot');
-  const lbl  = document.getElementById('model-status-label');
-  const btn  = document.getElementById('model-load-btn');
-  const prog = document.getElementById('model-progress-wrap');
-  if (!dot) return;
-  dot.className = `model-status-dot ${state}`;
-  if (lbl) lbl.innerHTML = label;
-  if (state === 'ready')  { btn.style.display = 'none'; prog.style.display = 'none'; }
-  if (state === 'loading'){ btn.disabled = true; btn.textContent = 'Loading…'; prog.style.display = 'block'; }
-  if (state === 'error')  { btn.disabled = false; btn.textContent = 'Retry'; prog.style.display = 'none'; }
-  if (state === 'idle')   { btn.disabled = false; btn.textContent = 'Load Model'; prog.style.display = 'none'; }
-}
-
-function setModelProgress(pct) {
-  const bar = document.getElementById('model-progress-bar');
-  if (bar) bar.style.width = pct + '%';
-}
-
-window.loadModel = async function() {
-  if (modelLoading || modelReady) return;
-  modelLoading = true;
-  setModelStatus('loading', `<strong>Gemma 4 E4B</strong> — downloading weights…`);
-  setModelProgress(5);
-
-  try {
-    // Dynamically import Transformers.js from CDN (ESM build)
-    const { pipeline, env } = await import(
-      'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js'
-    );
-
-    // Allow loading from HuggingFace Hub; token is passed via backend proxy in production.
-    // In a fully client-side deploy you can set env.allowLocalModels = false and rely on
-    // the Hub — the token should come from your server, not hardcoded here.
-    env.allowLocalModels = false;
-
-    setModelProgress(20);
-    setModelStatus('loading', `<strong>Gemma 4 E4B</strong> — initialising pipeline…`);
-
-    hfPipeline = await pipeline(
-      'text-generation',
-      MODEL_ID,
-      {
-        // Token injected at deploy time via your backend / build step — never hardcode.
-        // If serving through a proxy that handles auth, omit the token field entirely.
-        progress_callback: (info) => {
-          if (info && info.progress != null) {
-            setModelProgress(Math.min(20 + Math.round(info.progress * 75), 95));
-          }
-        }
-      }
-    );
-
-    setModelProgress(100);
-    modelReady  = true;
-    modelLoading = false;
-    setModelStatus('ready', `<strong>Gemma 4 E4B</strong> — ready ✓`);
-    window._toast && window._toast('Model loaded and ready!', 'success');
-
-    // Re-initialise chat greeting now model is available
-    if (typeof initChat === 'function') initChat();
-
-  } catch (err) {
-    modelLoading = false;
-    console.error('Model load error:', err);
-    setModelStatus('error', `<strong>Gemma 4 E4B</strong> — failed to load: ${err.message}`);
-    window._toast && window._toast('Model failed to load: ' + err.message, 'error');
-  }
-};
-
-// ── callAI — used by batch analysis + chat ──
-window.callAI = async function(systemPrompt, messages) {
-  if (!modelReady || !hfPipeline) {
-    throw new Error('Model not loaded. Click "Load Model" on the AI Analysis page first.');
-  }
-
-  // Build a single prompt string in Gemma instruction format
-  const conversationText = messages
-    .map(m => `${m.role === 'user' ? '<start_of_turn>user' : '<start_of_turn>model'}\n${m.content}<end_of_turn>`)
-    .join('\n');
-
-  const fullPrompt =
-    `<start_of_turn>user\n${systemPrompt}\n\n${conversationText}\n<start_of_turn>model\n`;
-
-  const output = await hfPipeline(fullPrompt, {
-    max_new_tokens: 512,
-    temperature: 0.7,
-    do_sample: true,
-    repetition_penalty: 1.1,
-  });
-
-  const raw = output[0]?.generated_text ?? '';
-  // Strip the prompt echo — return only newly generated text
-  const newText = raw.startsWith(fullPrompt)
-    ? raw.slice(fullPrompt.length).trim()
-    : raw.trim();
-  return newText || 'No response generated.';
-};
-
-// expose toast to module scope
-window._toast = window.toast;
-</script>
-
 <script>
 (function(){
 'use strict';
@@ -991,6 +932,7 @@ let allOrgs=[],allForms=[],allResponses=[];
 let formFields=[],currentShareFormId=null;
 let sparkCharts={},metricsCharts={};
 let focusRunning=true,focusSecs=130*60,focusInterval=null;
+let currentAIProvider='claude';
 let fileUploads={};
 let searchDebounce=null;
 let _formSubmitting=false;
@@ -1003,6 +945,18 @@ let chatFormScope='';
 /* ── NOTIFICATION CONFIG ── */
 let notifConfig={email:{enabled:false,address:'',edgeFnUrl:''},slack:{enabled:false,webhookUrl:''},formScope:''};
 let notifLog=[];
+
+/* ── AI KEY PERSISTENCE ── */
+window.persistKey=function(provider,val){
+  if(provider==='claude') localStorage.setItem('lumenos_claude_key',val);
+  else localStorage.setItem('lumenos_gemini_key',val);
+};
+function loadPersistedKeys(){
+  const ck=localStorage.getItem('lumenos_claude_key');
+  const gk=localStorage.getItem('lumenos_gemini_key');
+  if(ck){const el=document.getElementById('ai-api-key');if(el)el.value=ck;}
+  if(gk){const el=document.getElementById('ai-gemini-key');if(el)el.value=gk;}
+}
 
 /* ── NOTIFICATION HELPERS ── */
 function loadNotifConfig(){
@@ -1056,8 +1010,8 @@ async function fireNotifications(form,respondentName,answers,score){
   const scoreText=score!=null?`Score: ${score}`:'No score';const now=new Date().toLocaleString();
   const answerLines=Object.entries(answers).slice(0,5).map(([q,a])=>`<tr><td style="padding:4px 8px;color:#666;font-size:13px">${esc(q)}</td><td style="padding:4px 8px;font-size:13px">${esc(Array.isArray(a)?a.join(', '):String(a??'—'))}</td></tr>`).join('');
   if(cfg.email.enabled&&cfg.email.address){
-    if(!cfg.email.edgeFnUrl){addNotifLog('email','fail','Not sent — Edge Function URL not configured');}
-    else{addNotifLog('email','pending',`Sending to ${cfg.email.address}…`);
+    if(!cfg.email.edgeFnUrl){addNotifLog('email','fail','Not sent — Edge Function URL not configured');
+    }else{addNotifLog('email','pending',`Sending to ${cfg.email.address}…`);
       try{const html=`<div style="font-family:sans-serif;max-width:520px;margin:0 auto"><div style="background:#4f63e8;padding:20px 24px;border-radius:10px 10px 0 0"><h2 style="color:white;margin:0;font-size:18px">📋 New Response — ${esc(formName)}</h2></div><div style="background:#f8f9ff;padding:20px 24px;border:1px solid #e0e3f4;border-top:none"><p style="margin:0 0 12px;color:#1a1d2e"><strong>Respondent:</strong> ${esc(respName)}</p><p style="margin:0 0 12px;color:#1a1d2e"><strong>${scoreText}</strong></p><p style="margin:0 0 8px;color:#4a5270;font-size:13px">Submitted at ${now}</p><table style="width:100%;border-collapse:collapse;margin-top:12px;background:white;border-radius:8px;overflow:hidden;border:1px solid #e0e3f4"><thead><tr style="background:#4f63e8"><th style="padding:8px;color:white;text-align:left;font-size:12px">Question</th><th style="padding:8px;color:white;text-align:left;font-size:12px">Answer</th></tr></thead><tbody>${answerLines}</tbody></table></div></div>`;
         const res=await fetch(cfg.email.edgeFnUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},body:JSON.stringify({to:cfg.email.address,subject:`[LumenOS] New response: ${formName}`,html})});
         if(!res.ok)throw new Error(`HTTP ${res.status}`);
@@ -1106,7 +1060,6 @@ function toast(msg,type='info'){
   const el=document.createElement('div');el.className='toast-item toast-'+type;el.innerHTML=(icons[type]||'')+esc(msg);
   document.getElementById('toast').appendChild(el);setTimeout(()=>el.remove(),3800);
 }
-window.toast=toast;
 function computeReadinessScore(answers,fields){
   let sum=0,count=0;
   (fields||[]).forEach(f=>{if(f.type==='scale'){const v=parseFloat(answers[f.label]);if(!isNaN(v)){sum+=((v-1)/9.0)*100;count++;}}});
@@ -1192,7 +1145,7 @@ async function bootApp(user){
   document.getElementById('settings-email').textContent=user.email;
   document.getElementById('settings-role').value=currentRole;
   if(currentRole!=='operator')document.querySelectorAll('.operator-only').forEach(el=>el.style.display='none');
-  loadNotifConfig();updateNotifUI();
+  loadNotifConfig();updateNotifUI();loadPersistedKeys();
   wireFormModal();startFocusTimer();drawInsightMap();
   initChat();
   await loadOrgs();await loadForms();await loadAllResponses();
@@ -1534,10 +1487,38 @@ window.createOrg=async function(){
   document.getElementById('no-name').value='';document.getElementById('no-industry').value='';document.getElementById('no-email').value='';
 };
 
-/* ── AI PAGE ── */
+/* ── AI — PROVIDER ── */
+window.selectProvider=function(provider){
+  currentAIProvider=provider;
+  document.getElementById('prov-btn-claude').classList.toggle('active',provider==='claude');
+  document.getElementById('prov-btn-gemini').classList.toggle('active',provider==='gemini');
+  document.getElementById('claude-key-section').style.display=provider==='claude'?'block':'none';
+  document.getElementById('gemini-key-section').style.display=provider==='gemini'?'block':'none';
+};
 function populateAIFormSelect(){
   const sel=document.getElementById('ai-form-select');if(!sel)return;sel.innerHTML='<option value="">All responses</option>'+allForms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
   const chatSel=document.getElementById('chat-form-scope');if(chatSel)chatSel.innerHTML='<option value="">All forms &amp; responses</option>'+allForms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+}
+
+function getAPIKey(){
+  if(currentAIProvider==='claude')return(document.getElementById('ai-api-key')?.value||'').trim();
+  return(document.getElementById('ai-gemini-key')?.value||'').trim();
+}
+
+async function callAI(systemPrompt,messages){
+  const provider=currentAIProvider;
+  if(provider==='claude'){
+    const key=getAPIKey();if(!key)throw new Error('Anthropic API key not set. Add it in the AI Provider Configuration section above.');
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,system:systemPrompt,messages})});
+    const data=await res.json();if(data.error)throw new Error(data.error.message);
+    return data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+  }else{
+    const key=getAPIKey();if(!key)throw new Error('Gemini API key not set. Add it in the AI Provider Configuration section above.');
+    const combined=systemPrompt+'\n\n'+messages.map(m=>`${m.role==='user'?'User':'Assistant'}: ${typeof m.content==='string'?m.content:JSON.stringify(m.content)}`).join('\n\n');
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:combined}]}],generationConfig:{maxOutputTokens:2000,temperature:0.7}})});
+    const data=await res.json();if(data.error)throw new Error(data.error.message);
+    return data.candidates?.[0]?.content?.parts?.[0]?.text||'No response received.';
+  }
 }
 
 /* ── BATCH ANALYSIS ── */
@@ -1546,14 +1527,12 @@ window.runAI=async function(){
   const formId=document.getElementById('ai-form-select').value;const prompt=document.getElementById('ai-prompt').value.trim();const output=document.getElementById('ai-output');
   const toAnalyse=formId?allResponses.filter(r=>r.form_id===formId):allResponses;
   if(!toAnalyse.length){toast('No responses to analyse','error');btn.disabled=false;return;}
-  output.innerHTML='<div style="color:var(--text-3);text-align:center;padding:20px">Analysing with Gemma… this may take a moment.</div>';
+  output.innerHTML='<div style="color:var(--text-3);text-align:center;padding:20px">Analysing… this may take a moment.</div>';
   const form=formId?allForms.find(f=>f.id===formId):null;
   const summary=toAnalyse.slice(0,30).map((r,i)=>`Response ${i+1} [${r.respondent_name||'Anonymous'}] Score=${r.readiness_score??'N/A'}\n`+Object.entries(r.answers||{}).map(([q,a])=>`  ${q}: ${Array.isArray(a)?a.join(', '):a}`).join('\n')).join('\n\n');
   const userPrompt=(prompt||`Analyse the following${form?` "${form.name}"`:''} form responses. Identify key themes, patterns, and actionable recommendations.`)+'\n\n'+summary;
   try{
-    const callAIFn=window.callAI;
-    if(typeof callAIFn!=='function')throw new Error('AI not ready. Click "Load Model" first.');
-    const result=await callAIFn('You are LumenOS AI, an expert data analyst. Provide clear, structured analysis with headings, bullet points, and actionable insights.',[{role:'user',content:userPrompt}]);
+    const result=await callAI('You are LumenOS AI, an expert data analyst. Provide clear, structured analysis with headings, bullet points, and actionable insights. Use markdown formatting.',[{role:'user',content:userPrompt}]);
     output.innerHTML=`<div style="font-size:13px;line-height:1.8;white-space:pre-wrap">${esc(result)}</div>`;
     document.getElementById('ai-copy-btn').style.display='flex';
     appendChatMessage('assistant',`**Batch analysis for ${form?.name||'all responses'}:**\n\n${result}`);
@@ -1566,7 +1545,7 @@ window.copyAIOutput=function(){navigator.clipboard.writeText(document.getElement
 function initChat(){
   chatHistory=[];const container=document.getElementById('chat-messages');if(!container)return;
   container.innerHTML='';
-  appendChatMessage('assistant',`Hello! I'm your LumenOS AI assistant powered by **Gemma 4 E4B-it**.\n\nI have context of your **${allForms.length} form${allForms.length!==1?'s':''}** and **${allResponses.length} response${allResponses.length!==1?'s':''}**.\n\nClick **Load Model** on this page to initialise the AI, then ask me anything about your data.`);
+  appendChatMessage('assistant',`Hello! I'm your LumenOS AI assistant. I have full context of your **${allForms.length} form${allForms.length!==1?'s':''}** and **${allResponses.length} response${allResponses.length!==1?'s':''}**.\n\nAsk me anything — I can summarise response data, identify patterns, flag low scores, compare forms, and more.\n\n*Tip: Use the dropdown above to focus on a specific form, or ask about everything at once.*`);
 }
 window.updateChatContext=function(){
   chatFormScope=document.getElementById('chat-form-scope')?.value||'';
@@ -1581,10 +1560,13 @@ function buildChatSystemPrompt(){
   const formsSummary=scopedForms.map(f=>{const fResps=scopedResponses.filter(r=>r.form_id===f.id);const scored=fResps.filter(r=>r.readiness_score!=null);const avg=scored.length?Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length):null;return `- "${f.name}" (id:${f.id}): ${fResps.length} responses, avg score: ${avg??'N/A'}, fields: ${(f.fields||[]).map(ff=>ff.label+'('+ff.type+')').join(', ')}`;}).join('\n');
   const recentResponses=scopedResponses.slice(0,20).map((r,i)=>{const formName=allForms.find(f=>f.id===r.form_id)?.name||'Unknown';const answers=Object.entries(r.answers||{}).slice(0,4).map(([q,a])=>`${q}: ${Array.isArray(a)?a.join(', '):a}`).join(' | ');return `[${i+1}] ${r.respondent_name||'Anonymous'} → ${formName} | Score: ${r.readiness_score??'N/A'} | ${answers}`;}).join('\n');
   const scored=scopedResponses.filter(r=>r.readiness_score!=null);const avgAll=scored.length?Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length):null;
-  return `You are LumenOS AI, an intelligent assistant built on Gemma 4. Answer questions using the live data provided. Be concise and insightful.
+  return `You are LumenOS AI, an intelligent assistant for the LumenOS data platform. Answer questions using the live data provided below. Be concise and insightful.
 
-## Platform Data
-- Forms: ${scopedForms.length} | Responses: ${scopedResponses.length} | Avg score: ${avgAll??'N/A'} | Orgs: ${allOrgs.length}
+## Platform Data Summary
+- Total forms: ${scopedForms.length}
+- Total responses: ${scopedResponses.length}  
+- Average readiness score: ${avgAll??'N/A'}
+- Organisations: ${allOrgs.length} (${allOrgs.map(o=>o.name).join(', ')||'none'})
 
 ## Forms
 ${formsSummary||'No forms yet.'}
@@ -1592,7 +1574,12 @@ ${formsSummary||'No forms yet.'}
 ## Recent Responses (up to 20)
 ${recentResponses||'No responses yet.'}
 
-Rules: Answer directly from the data. Be analytical, specific, reference real numbers. Under 400 words unless asked for more.`;
+Instructions:
+- Use the data above to answer questions directly. Do not say you cannot access data.
+- Format responses with markdown (bold, lists, etc).
+- Be analytical and specific — reference real numbers from the data.
+- If asked about something not in the data, say so clearly.
+- Keep responses focused and concise (under 400 words unless asked for more detail).`;
 }
 
 function appendChatMessage(role,content){
@@ -1632,11 +1619,9 @@ window.sendChatMessage=async function(){
   chatSending=true;const sendBtn=document.getElementById('chat-send-btn');if(sendBtn)sendBtn.disabled=true;
   appendChatMessage('user',msg);showTyping();
   try{
-    const callAIFn=window.callAI;
-    if(typeof callAIFn!=='function')throw new Error('Model not loaded. Click "Load Model" on the AI Analysis page first.');
     const systemPrompt=buildChatSystemPrompt();
-    const messages=chatHistory.filter(m=>m.role!=='system').slice(-16).map(m=>({role:m.role,content:m.content}));
-    const response=await callAIFn(systemPrompt,messages);
+    const messages=chatHistory.filter(m=>m.role!=='system').slice(-20).map(m=>({role:m.role,content:m.content}));
+    const response=await callAI(systemPrompt,messages);
     hideTyping();appendChatMessage('assistant',response);
   }catch(e){hideTyping();appendChatMessage('assistant',`❌ **Error:** ${e.message}`);}
   finally{chatSending=false;if(sendBtn)sendBtn.disabled=false;input.focus();}
