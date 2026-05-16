@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOBP Plant Layout 3D — Sizoletha Trading CC</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+  :root {
+    --bg: #07090e;
+    --accent: #f0a500;
+    --accent2: #00c2ff;
+    --accent3: #39ff6e;
+    --danger: #ff4545;
+    --text: #c8d8e8;
+    --dim: #4a6078;
+    --panel: rgba(10,14,20,0.85);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); font-family: 'Barlow Condensed', sans-serif; color: var(--text); overflow: hidden; width: 100vw; height: 100vh; }
+
+  #canvas-wrap { width: 100%; height: 100%; position: absolute; inset: 0; }
+  canvas { display: block; }
+
+  /* HUD */
+  #hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    pointer-events: none;
+    z-index: 10;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 20px;
+    background: linear-gradient(to bottom, rgba(7,9,14,0.95), transparent);
+  }
+  .title-block h1 {
+    font-weight: 900;
+    font-size: 1.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #fff;
+    line-height: 1;
+  }
+  .title-block h1 span { color: var(--accent); }
+  .title-block p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--dim);
+    margin-top: 4px;
+    letter-spacing: 0.1em;
+  }
+  .meta {
+    text-align: right;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--dim);
+    line-height: 1.8;
+  }
+  .meta .badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #000;
+    padding: 1px 7px;
+    font-weight: 700;
+    font-size: 0.58rem;
+    letter-spacing: 0.12em;
+  }
+
+  /* Controls bar */
+  #controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 8px 14px;
+    border-radius: 2px;
+    backdrop-filter: blur(8px);
+    pointer-events: all;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .ctrl-btn {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    padding: 5px 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    border-radius: 1px;
+  }
+  .ctrl-btn:hover, .ctrl-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(240,165,0,0.07);
+  }
+  .ctrl-btn.blue:hover, .ctrl-btn.blue.active { border-color: var(--accent2); color: var(--accent2); background: rgba(0,194,255,0.07); }
+  .ctrl-btn.green:hover, .ctrl-btn.green.active { border-color: var(--accent3); color: var(--accent3); background: rgba(57,255,110,0.07); }
+
+  /* Tooltip */
+  #tooltip {
+    position: absolute;
+    pointer-events: none;
+    z-index: 20;
+    background: rgba(7,9,14,0.95);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text);
+    line-height: 1.7;
+    max-width: 220px;
+    display: none;
+    transition: border-left-color 0.2s;
+  }
+  #tooltip .tt-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 4px; }
+  #tooltip.blue { border-left-color: var(--accent2); }
+  #tooltip.blue .tt-title { color: var(--accent2); }
+  #tooltip.green { border-left-color: var(--accent3); }
+  #tooltip.green .tt-title { color: var(--accent3); }
+  #tooltip.gray { border-left-color: var(--dim); }
+  #tooltip.gray .tt-title { color: var(--dim); }
+
+  /* Legend */
+  #legend {
+    position: absolute;
+    bottom: 80px;
+    right: 20px;
+    z-index: 10;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 12px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--dim);
+    line-height: 2;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+  }
+  #legend .lg { display: flex; align-items: center; gap: 8px; }
+  #legend .dot { width: 10px; height: 10px; border-radius: 1px; flex-shrink: 0; }
+
+  /* Help hint */
+  #hint {
+    position: absolute;
+    bottom: 80px;
+    left: 20px;
+    z-index: 10;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--dim);
+    line-height: 1.9;
+    pointer-events: none;
+  }
+
+  /* Loading overlay */
+  #loading {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 100;
+  }
+  #loading h2 { font-weight: 900; font-size: 2rem; letter-spacing: 0.1em; color: #fff; }
+  #loading h2 span { color: var(--accent); }
+  #loading p { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--dim); letter-spacing: 0.12em; animation: blink 1.2s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <h2>LOBP <span>3D LAYOUT</span></h2>
+  <p>INITIALISING PLANT MODEL...</p>
+</div>
+
+<div id="canvas-wrap"></div>
+
+<div id="hud">
+  <header>
+    <div class="title-block">
+      <h1>LOBP <span>3D Plant</span></h1>
+      <p>SIZOLETHA TRADING CC · LUBE OIL BLENDING PLANT · CONCEPTUAL 3D MODEL</p>
+    </div>
+    <div class="meta">
+      <div class="badge">INTERACTIVE 3D</div><br>
+      REV: A · MAY 2026<br>
+      DRAG TO ORBIT · SCROLL TO ZOOM
+    </div>
+  </header>
+</div>
+
+<div id="tooltip">
+  <div class="tt-title" id="tt-title">Zone A</div>
+  <div id="tt-body"></div>
+</div>
+
+<div id="controls">
+  <button class="ctrl-btn active" id="btn-all" onclick="setView('all')">ALL ZONES</button>
+  <button class="ctrl-btn" id="btn-a" onclick="setView('A')">ZONE A — BASE OIL</button>
+  <button class="ctrl-btn blue" id="btn-b" onclick="setView('B')">ZONE B — ADDITIVES</button>
+  <button class="ctrl-btn" id="btn-c" onclick="setView('C')">ZONE C — BLENDING</button>
+  <button class="ctrl-btn green" id="btn-f" onclick="setView('F')">ZONE F — FP STORAGE</button>
+  <button class="ctrl-btn" id="btn-g" onclick="setView('G')">ZONE G — DISPATCH</button>
+  <button class="ctrl-btn" onclick="resetCamera()">↺ RESET VIEW</button>
+  <button class="ctrl-btn" id="btn-flow" onclick="toggleFlow()">● FLOW: ON</button>
+</div>
+
+<div id="legend">
+  <div class="lg"><div class="dot" style="background:#f0a500"></div> 15W-40 ENGINE OIL</div>
+  <div class="lg"><div class="dot" style="background:#00c2ff"></div> 10W ENGINE OIL</div>
+  <div class="lg"><div class="dot" style="background:#39ff6e"></div> DEGREASER</div>
+  <div class="lg"><div class="dot" style="background:#ff4545"></div> BUNDED ZONE</div>
+  <div class="lg"><div class="dot" style="background:#4a6078"></div> UTILITIES</div>
+</div>
+
+<div id="hint">
+  DRAG: Orbit &nbsp;|&nbsp; SCROLL: Zoom<br>
+  RIGHT DRAG: Pan &nbsp;|&nbsp; HOVER: Inspect<br>
+  CLICK ZONE BUTTONS: Focus view
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════
+// Scene setup
+// ═══════════════════════════════
+const W = window.innerWidth, H = window.innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.9;
+document.getElementById('canvas-wrap').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x07090e);
+scene.fog = new THREE.Fog(0x07090e, 60, 140);
+
+const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 300);
+const DEFAULT_CAM = { x: 28, y: 32, z: 38 };
+camera.position.set(DEFAULT_CAM.x, DEFAULT_CAM.y, DEFAULT_CAM.z);
+camera.lookAt(0, 0, 0);
+
+// Lights
+const ambient = new THREE.AmbientLight(0x0a1020, 2.5);
+scene.add(ambient);
+
+const sun = new THREE.DirectionalLight(0xffeedd, 1.8);
+sun.position.set(30, 50, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far = 200;
+sun.shadow.camera.left = -40;
+sun.shadow.camera.right = 40;
+sun.shadow.camera.top = 40;
+sun.shadow.camera.bottom = -40;
+scene.add(sun);
+
+const fill = new THREE.DirectionalLight(0x102040, 1.2);
+fill.position.set(-20, 10, -20);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xf0a500, 0.3);
+rim.position.set(10, 30, -30);
+scene.add(rim);
+
+// ═══════════════════════════════
+// Colors
+// ═══════════════════════════════
+const C = {
+  amber:  0xf0a500,
+  blue:   0x00c2ff,
+  green:  0x39ff6e,
+  red:    0xff4545,
+  gray:   0x4a6078,
+  dark:   0x0f1520,
+  floor:  0x0b0f1a,
+  wall:   0x131c2a,
+  wallA:  0x1a2535,
+};
+
+// ═══════════════════════════════
+// Ground
+// ═══════════════════════════════
+const floorGeo = new THREE.PlaneGeometry(80, 60);
+const floorMat = new THREE.MeshStandardMaterial({
+  color: 0x0b0f1a,
+  roughness: 0.9,
+  metalness: 0.1,
+});
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Grid lines on floor
+const grid = new THREE.GridHelper(80, 40, 0x1e2d42, 0x111824);
+grid.position.y = 0.01;
+scene.add(grid);
+
+// Site boundary
+const boundGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(78, 0.05, 58));
+const boundMat = new THREE.LineBasicMaterial({ color: 0x1e2d42 });
+const bound = new THREE.LineSegments(boundGeo, boundMat);
+bound.position.y = 0.02;
+scene.add(bound);
+
+// ═══════════════════════════════
+// Helper: create box
+// ═══════════════════════════════
+const objectMap = {};
+
+function box(id, x, z, w, h, d, color, emissive = 0x000000, emissiveIntensity = 0) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.55,
+    metalness: 0.3,
+    emissive,
+    emissiveIntensity,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, h / 2, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.userData.id = id;
+  scene.add(mesh);
+  if (!objectMap[id]) objectMap[id] = [];
+  objectMap[id].push(mesh);
+  return mesh;
+}
+
+// Cylinder (tanks)
+function cyl(id, x, z, r, h, color, emissive = 0x000000, emissiveIntensity = 0) {
+  const geo = new THREE.CylinderGeometry(r, r, h, 24);
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.4,
+    metalness: 0.6,
+    emissive,
+    emissiveIntensity,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, h / 2, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  mesh.userData.id = id;
+  scene.add(mesh);
+  if (!objectMap[id]) objectMap[id] = [];
+  objectMap[id].push(mesh);
+
+  // Tank top ring
+  const ringGeo = new THREE.TorusGeometry(r, 0.08, 8, 24);
+  const ringMat = new THREE.MeshStandardMaterial({ color: 0x334455, metalness: 0.8, roughness: 0.3 });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.position.set(x, h + 0.01, z);
+  ring.rotation.x = Math.PI / 2;
+  scene.add(ring);
+
+  return mesh;
+}
+
+// Zone floor slab
+function zoneFloor(x, z, w, d, color) {
+  const geo = new THREE.BoxGeometry(w, 0.12, d);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, 0.06, z);
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
+
+// Zone outline wire
+function zoneOutline(x, z, w, h, d, color) {
+  const geo = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d));
+  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.5 });
+  const mesh = new THREE.LineSegments(geo, mat);
+  mesh.position.set(x, h / 2, z);
+  scene.add(mesh);
+  return mesh;
+}
+
+// Pipe segment
+function pipe(x1, y1, z1, x2, y2, z2, color, r = 0.07) {
+  const dir = new THREE.Vector3(x2 - x1, y2 - y1, z2 - z1);
+  const len = dir.length();
+  const geo = new THREE.CylinderGeometry(r, r, len, 8);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.8, emissive: color, emissiveIntensity: 0.15 });
+  const mesh = new THREE.Mesh(geo, mat);
+  const mid = new THREE.Vector3((x1+x2)/2, (y1+y2)/2, (z1+z2)/2);
+  mesh.position.copy(mid);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.normalize());
+  scene.add(mesh);
+  return mesh;
+}
+
+// Pipe elbow (simplified as small sphere join)
+function pipeJoin(x, y, z, color, r = 0.12) {
+  const geo = new THREE.SphereGeometry(r, 8, 8);
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.3, metalness: 0.8 });
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  scene.add(m);
+  return m;
+}
+
+// Agitator shaft
+function agitator(x, z, h, color) {
+  pipe(x, h, z, x, h + 1.2, z, 0x334455, 0.04);
+  // blades
+  const bMat = new THREE.MeshStandardMaterial({ color: 0x334455, roughness: 0.5, metalness: 0.7 });
+  for (let a = 0; a < 3; a++) {
+    const angle = (a / 3) * Math.PI * 2;
+    const bGeo = new THREE.BoxGeometry(0.6, 0.06, 0.06);
+    const b = new THREE.Mesh(bGeo, bMat);
+    b.position.set(x + Math.cos(angle) * 0.3, h + 0.3, z + Math.sin(angle) * 0.3);
+    b.rotation.y = angle;
+    scene.add(b);
+  }
+}
+
+// ═══════════════════════════════
+// Build Plant
+// ═══════════════════════════════
+
+// ── ZONE A: Base Oil Storage ──
+zoneFloor(-22, -8, 14, 20, 0x120f05);
+zoneOutline(-22, -8, 14, 6, 20, C.amber);
+
+// Tanker offload pump skid
+box('A-PUMP', -26, -14, 4, 1.2, 3, C.wallA);
+box('A-PUMP', -26, -14, 3.5, 0.4, 2.5, 0x223344);
+
+// Base oil tanks BO-T01 & BO-T02
+cyl('A-BOT01', -24, -7, 2.2, 5.5, 0x1a2f20);
+cyl('A-BOT02', -19, -7, 2.2, 5.5, 0x1a2f20);
+// Top highlight
+const capMat = new THREE.MeshStandardMaterial({ color: C.amber, roughness: 0.4, metalness: 0.8, emissive: C.amber, emissiveIntensity: 0.1 });
+const cap1 = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.15, 24), capMat);
+cap1.position.set(-24, 5.5 + 0.075, -7);
+scene.add(cap1);
+const cap2 = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 0.15, 24), capMat);
+cap2.position.set(-19, 5.5 + 0.075, -7);
+scene.add(cap2);
+
+// ── ZONE B: Additive Storage ──
+zoneFloor(-22, 5, 14, 14, 0x041220);
+zoneOutline(-22, 5, 14, 4.5, 14, C.blue);
+
+// IBC store
+box('B-IBC', -27, 3, 5, 2.5, 4, 0x132030);
+box('B-IBC', -25, 5, 4, 2.5, 3, 0x132030);
+// Additive vessel
+cyl('B-ADV01', -19, 6, 1.3, 3.5, 0x102535);
+// Dosing pump row
+box('B-DOSE', -22, 10, 10, 1.0, 2, 0x091520);
+box('B-DOSE', -22, 10, 9.5, 0.6, 1.8, C.blue);
+
+// ── ZONE C: Blending Vessels ──
+zoneFloor(-6, -4, 16, 22, 0x110e05);
+zoneOutline(-6, -4, 16, 8, 22, C.amber);
+
+// BV-01 (15W-40)
+cyl('C-BV01', -10, -10, 2.0, 6.5, 0x1f1808);
+const bv01cap = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.15, 24), capMat);
+bv01cap.position.set(-10, 6.575, -10);
+scene.add(bv01cap);
+agitator(-10, -10, 3.0, C.amber);
+
+// BV-02 (15W-40)
+cyl('C-BV02', -10, -3, 2.0, 6.5, 0x1f1808);
+const bv02cap = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.15, 24), capMat);
+bv02cap.position.set(-10, 6.575, -3);
+scene.add(bv02cap);
+agitator(-10, -3, 3.0, C.amber);
+
+// BV-03 (10W)
+cyl('C-BV03', -2, -10, 1.6, 5.5, 0x081525);
+const cap3Mat = new THREE.MeshStandardMaterial({ color: C.blue, roughness: 0.4, metalness: 0.8, emissive: C.blue, emissiveIntensity: 0.1 });
+const bv03cap = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.15, 24), cap3Mat);
+bv03cap.position.set(-2, 5.575, -10);
+scene.add(bv03cap);
+agitator(-2, -10, 2.5, C.blue);
+
+// BV-04 (Degreaser) - ATEX
+cyl('C-BV04', -2, -3, 1.4, 5.0, 0x051510);
+const cap4Mat = new THREE.MeshStandardMaterial({ color: C.green, roughness: 0.4, metalness: 0.8, emissive: C.green, emissiveIntensity: 0.1 });
+const bv04cap = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 0.15, 24), cap4Mat);
+bv04cap.position.set(-2, 5.075, -3);
+scene.add(bv04cap);
+agitator(-2, -3, 2.5, C.green);
+
+// ATEX warning ring
+const atexGeo = new THREE.TorusGeometry(1.8, 0.12, 8, 24);
+const atexMat = new THREE.MeshStandardMaterial({ color: C.amber, emissive: C.amber, emissiveIntensity: 0.4, roughness: 0.3, metalness: 0.5 });
+const atex = new THREE.Mesh(atexGeo, atexMat);
+atex.position.set(-2, 0.2, -3);
+atex.rotation.x = Math.PI / 2;
+scene.add(atex);
+
+// Heating system manifold
+box('C-HEAT', -6, 4, 12, 1.0, 3, 0x1a1205);
+
+// ── ZONE E: Filtration & Transfer ──
+zoneFloor(6, -4, 10, 22, 0x0d0d10);
+zoneOutline(6, -4, 10, 5, 22, C.gray);
+
+// Filter vessels
+box('E-FLT01', 3, -12, 2.5, 2.5, 2, 0x1a1510);
+box('E-FLT02', 3, -9, 2.5, 2.5, 2, 0x0a1520);
+box('E-FLT03', 3, -6, 2.5, 2.5, 2, 0x081510);
+// Transfer pump bank
+box('E-PUMP', 3, -2, 8, 1.5, 3.5, 0x0f1520);
+box('E-PUMP', 3, -2, 7.5, 0.8, 3, 0x1a2535);
+// Batch controller
+box('E-PLC', 8, 4, 3, 3.5, 2.5, 0x101520);
+box('E-PLC', 8, 4, 2.5, 2.5, 2, 0x0a1a30);
+
+// ── ZONE F: Finished Product Storage ──
+zoneFloor(18, -6, 14, 24, 0x081210);
+// Bund wall (low red wall)
+const bundMat = new THREE.MeshStandardMaterial({ color: 0x3a0808, roughness: 0.9, metalness: 0 });
+const bundWalls = [
+  [18, -6, 14, 0.4, 0.5],  // layout: cx, cz, width, height, depth
+];
+// Create bund as frame
+for (const [cx, cz, w, bh, bd] of [[18, -6, 14, 0.4, 24]]) {
+  // four walls
+  const bw = new THREE.Mesh(new THREE.BoxGeometry(w + 0.8, bh, 0.4), bundMat);
+  bw.position.set(cx, bh/2, cz - bd/2); scene.add(bw);
+  const bw2 = bw.clone(); bw2.position.set(cx, bh/2, cz + bd/2); scene.add(bw2);
+  const bw3 = new THREE.Mesh(new THREE.BoxGeometry(0.4, bh, bd), bundMat);
+  bw3.position.set(cx - w/2, bh/2, cz); scene.add(bw3);
+  const bw4 = bw3.clone(); bw4.position.set(cx + w/2, bh/2, cz); scene.add(bw4);
+}
+
+// FP Tanks
+cyl('F-T01', 14, -15, 2.6, 7, 0x1f1808);
+const fpt01cap = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.15, 24), capMat);
+fpt01cap.position.set(14, 7.075, -15);
+scene.add(fpt01cap);
+
+cyl('F-T02', 21, -15, 2.3, 6.5, 0x1f1808);
+const fpt02cap = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.15, 24), capMat);
+fpt02cap.position.set(21, 6.575, -15);
+scene.add(fpt02cap);
+
+cyl('F-T03', 14, -6, 2.4, 6.5, 0x081525);
+const fpt03cap = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 0.15, 24), cap3Mat);
+fpt03cap.position.set(14, 6.575, -6);
+scene.add(fpt03cap);
+
+cyl('F-T04', 21, -6, 2.0, 6.0, 0x051510);
+const fpt04cap = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.15, 24), cap4Mat);
+fpt04cap.position.set(21, 6.075, -6);
+scene.add(fpt04cap);
+
+// N2 manifold
+box('F-N2', 18, 2, 8, 0.8, 1.5, 0x203040);
+
+// ── ZONE G: Filling & Dispatch ──
+zoneFloor(18, 10, 14, 10, 0x100d05);
+zoneOutline(18, 10, 14, 4, 10, C.amber);
+
+// Drum filling station
+box('G-DRUM', 13, 8, 4, 3.5, 4, 0x1a1508);
+box('G-BULK', 18, 9, 4, 2.5, 3.5, 0x1a1508);
+box('G-LABEL', 23, 9, 4, 3.0, 3.5, 0x1a1508);
+// Tanker load bay cover
+box('G-COVER', 18, 13, 10, 0.3, 8, 0x0a0d12);
+
+// ── ZONE D: QC Lab ──
+zoneFloor(-6, 12, 14, 8, 0x050a12);
+zoneOutline(-6, 12, 14, 4, 8, C.blue);
+box('D-VISC', -11, 13, 3, 2.5, 2.5, 0x0a1525);
+box('D-FLASH', -6, 13, 3, 2.5, 2.5, 0x0a1525);
+box('D-SAMP', -1, 13, 3, 2.5, 2.5, 0x0a1525);
+
+// ── ZONE H: Utilities ──
+zoneFloor(30, -4, 12, 22, 0x080a0d);
+zoneOutline(30, -4, 12, 9, 22, C.gray);
+
+box('H-MCC', 28, -15, 6, 5, 3, 0x0f1520);
+box('H-BOILER', 28, -10, 5, 6, 3.5, 0x150a05);
+box('H-AIR', 28, -5, 4, 3, 3, 0x0d1520);
+box('H-N2', 28, 0, 4, 4, 3, 0x091218);
+box('H-FIRE', 28, 5, 5, 3, 3.5, 0x200505);
+box('H-EFF', 28, 10, 6, 2.5, 4, 0x081510);
+box('H-SCADA', 34, 0, 6, 5, 10, 0x050a15);
+// SCADA screen glow
+const scadaGlow = new THREE.Mesh(
+  new THREE.BoxGeometry(5.5, 3, 0.1),
+  new THREE.MeshStandardMaterial({ color: C.blue, emissive: C.blue, emissiveIntensity: 0.4, roughness: 0.9 })
+);
+scadaGlow.position.set(31, 4, -4.5);
+scene.add(scadaGlow);
+
+// ═══════════════════════════════
+// PIPES — Flow Lines
+// ═══════════════════════════════
+const pipes3D = [];
+
+function addPipe(p) { pipes3D.push(p); return p; }
+
+// A→C: Base oil to blending
+addPipe(pipe(-22, 3.0, -7, -14, 3.0, -7, C.amber));
+addPipe(pipe(-14, 3.0, -7, -14, 3.0, -9, C.amber));
+addPipe(pipe(-14, 3.0, -9, -12, 3.0, -9, C.amber));
+pipeJoin(-14, 3.0, -9, C.amber);
+
+// A→C: SN500 to BV02 (10W)
+addPipe(pipe(-17, 3.0, -7, -17, 3.0, -4, C.blue, 0.07));
+addPipe(pipe(-17, 3.0, -4, -12, 3.0, -4, C.blue, 0.07));
+pipeJoin(-17, 3.0, -4, C.blue);
+
+// B→C: Additives
+addPipe(pipe(-15, 2.0, 6, -15, 2.0, -3, C.blue, 0.06));
+addPipe(pipe(-15, 2.0, -3, -12, 2.0, -3, C.blue, 0.06));
+
+// C→E: 15W-40 to filter
+addPipe(pipe(-8, 3.0, -10, 1, 3.0, -10, C.amber));
+addPipe(pipe(1, 3.0, -10, 1.5, 3.0, -12, C.amber));
+pipeJoin(1, 3.0, -10, C.amber);
+
+// C→E: 10W to filter
+addPipe(pipe(-0.4, 3.0, -10, 1, 3.0, -9, C.blue, 0.065));
+pipeJoin(1, 3.0, -9, C.blue);
+
+// C→E: Degreaser to filter
+addPipe(pipe(-0.4, 3.0, -3, 1, 3.0, -6, C.green, 0.065));
+pipeJoin(1, 3.0, -6, C.green);
+
+// E→F: to FP tanks
+addPipe(pipe(11, 3.0, -12, 14, 3.0, -12, C.amber));
+addPipe(pipe(14, 3.0, -12, 14, 3.0, -12.4, C.amber));
+addPipe(pipe(11, 3.0, -9, 14, 3.0, -9, C.blue, 0.065));
+addPipe(pipe(11, 3.0, -6, 14, 3.0, -6, C.green, 0.065));
+
+// F→G: FP to dispatch
+addPipe(pipe(18, 3.0, 2, 18, 3.0, 5, C.amber, 0.08));
+
+// ═══════════════════════════════
+// Flow particles
+// ═══════════════════════════════
+const FLOW_ROUTES = [
+  // [color, points array]
+  { color: C.amber, pts: [[-22,3.2,-7],[-10,3.2,-7],[-10,3.2,-10],[1,3.2,-10],[14,3.2,-10],[14,3.2,-15],[18,3.2,-15]] },
+  { color: C.blue,  pts: [[-22,3.2,-7],[-2,3.2,-7],[-2,3.2,-10],[1,3.2,-9],[14,3.2,-9],[14,3.2,-6]] },
+  { color: C.green, pts: [[-19,3.2,6],[-2,3.2,6],[-2,3.2,-3],[1,3.2,-6],[21,3.2,-6],[21,3.2,-6]] },
+];
+
+const particles = [];
+let flowActive = true;
+
+function createParticles() {
+  FLOW_ROUTES.forEach(route => {
+    for (let i = 0; i < 12; i++) {
+      const geo = new THREE.SphereGeometry(0.12, 6, 6);
+      const mat = new THREE.MeshStandardMaterial({
+        color: route.color,
+        emissive: route.color,
+        emissiveIntensity: 0.8,
+        roughness: 0.2,
+        metalness: 0.5,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.userData.route = route.pts;
+      mesh.userData.t = (i / 12);
+      mesh.userData.speed = 0.003 + Math.random() * 0.002;
+      particles.push(mesh);
+      scene.add(mesh);
+    }
+  });
+}
+
+function evalRoute(pts, t) {
+  const total = pts.length - 1;
+  const seg = t * total;
+  const i = Math.min(Math.floor(seg), total - 1);
+  const f = seg - i;
+  const a = pts[i], b = pts[i + 1];
+  return [a[0] + (b[0]-a[0])*f, a[1] + (b[1]-a[1])*f, a[2] + (b[2]-a[2])*f];
+}
+
+function animateParticles() {
+  particles.forEach(p => {
+    if (!flowActive) return;
+    p.userData.t += p.userData.speed;
+    if (p.userData.t > 1) p.userData.t = 0;
+    const [x, y, z] = evalRoute(p.userData.route, p.userData.t);
+    p.position.set(x, y, z);
+    p.visible = true;
+  });
+  if (!flowActive) particles.forEach(p => p.visible = false);
+}
+
+createParticles();
+
+// ═══════════════════════════════
+// Zone labels (billboards)
+// ═══════════════════════════════
+function makeLabel(text, x, y, z, color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,0,0,0)';
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.font = 'bold 22px "Barlow Condensed", sans-serif';
+  ctx.letterSpacing = '3px';
+  ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 128, 32);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.position.set(x, y, z);
+  sprite.scale.set(5, 1.25, 1);
+  scene.add(sprite);
+  return sprite;
+}
+
+makeLabel('ZONE A — BASE OIL', -22, 7.5, -8, C.amber);
+makeLabel('ZONE B — ADDITIVES', -22, 6.5, 5, C.blue);
+makeLabel('ZONE C — BLENDING', -6, 9.5, -6, C.amber);
+makeLabel('ZONE E — FILTRATION', 6, 7.5, -4, 0xc8d8e8);
+makeLabel('ZONE F — FP STORAGE', 18, 9.5, -7, C.green);
+makeLabel('ZONE G — DISPATCH', 18, 6.5, 10, C.amber);
+makeLabel('ZONE D — QC LAB', -6, 6.0, 12, C.blue);
+makeLabel('ZONE H — UTILITIES', 30, 11.5, -4, 0x4a6078);
+
+// ═══════════════════════════════
+// Interactivity
+// ═══════════════════════════════
+const zoneData = {
+  'A-PUMP':  { title: 'TANKER OFFLOAD PUMP SKID', body: 'Zone A\nBase oil receiving\nDedicated offload pump', color: 'amber' },
+  'A-BOT01': { title: 'BASE OIL TANK BO-T01', body: 'Zone A\nGrade: SN150\nCapacity: 80 kL\nHeated storage', color: 'amber' },
+  'A-BOT02': { title: 'BASE OIL TANK BO-T02', body: 'Zone A\nGrade: SN500\nCapacity: 80 kL\nHeated storage', color: 'amber' },
+  'B-IBC':   { title: 'IBC / DRUM STORE', body: 'Zone B\nAdditive storage\nHeat traced lines\n60°C temp control', color: 'blue' },
+  'B-ADV01': { title: 'ADDITIVE VESSEL ADD-V01', body: 'Zone B\nCapacity: 2 kL\nMetering system\nHeat traced', color: 'blue' },
+  'B-DOSE':  { title: 'DOSING PUMP BANK', body: 'Zone B\n4× metering pumps\nMass flow metered\nPLC controlled', color: 'blue' },
+  'C-BV01':  { title: 'BLEND VESSEL BV-01', body: 'Zone C\nProduct: 15W-40\nCapacity: 30 kL\nAgitator + heating', color: 'amber' },
+  'C-BV02':  { title: 'BLEND VESSEL BV-02', body: 'Zone C\nProduct: 15W-40\nCapacity: 30 kL\n~5–6 batches/month', color: 'amber' },
+  'C-BV03':  { title: 'BLEND VESSEL BV-03', body: 'Zone C\nProduct: 10W Engine Oil\nCapacity: 20 kL\n~4 batches/month', color: 'blue' },
+  'C-BV04':  { title: 'BLEND VESSEL BV-04', body: 'Zone C\nProduct: Degreaser\nCapacity: 10 kL\n⚠ ATEX Zone 1', color: 'green' },
+  'C-HEAT':  { title: 'THERMAL FLUID SYSTEM', body: 'Zone C\nBase oil preheat: 50–70°C\nAdditive: 60°C\nHeat exchanger network', color: 'amber' },
+  'E-FLT01': { title: 'FILTER FLT-01', body: 'Zone E\n15W-40 product filter\nDedicated line\nFlow metered', color: 'amber' },
+  'E-FLT02': { title: 'FILTER FLT-02', body: 'Zone E\n10W product filter\nDedicated line', color: 'blue' },
+  'E-FLT03': { title: 'FILTER FLT-03', body: 'Zone E\nDegreaser filter\nSolvent rated\nATEX rated', color: 'green' },
+  'E-PUMP':  { title: 'TRANSFER PUMP BANK', body: 'Zone E\nP-01 · P-02 · P-03\nDedicated per product\nFlow meter per line', color: 'gray' },
+  'E-PLC':   { title: 'BATCH CONTROLLER / PLC', body: 'Zone E\nPLC / SCADA interface\nRecipe management\nRedlist integration', color: 'blue' },
+  'F-T01':   { title: 'FP TANK FP-T01', body: 'Zone F — BUNDED\nProduct: 15W-40\nCapacity: 50 kL\nN₂ blanket option', color: 'amber' },
+  'F-T02':   { title: 'FP TANK FP-T02', body: 'Zone F — BUNDED\nProduct: 15W-40\nCapacity: 50 kL\n110% containment', color: 'amber' },
+  'F-T03':   { title: 'FP TANK FP-T03', body: 'Zone F — BUNDED\nProduct: 10W Engine Oil\nCapacity: 30 kL', color: 'blue' },
+  'F-T04':   { title: 'FP TANK FP-T04', body: 'Zone F — BUNDED\nProduct: Degreaser\nCapacity: 15 kL\nATEX rated area', color: 'green' },
+  'F-N2':    { title: 'NITROGEN MANIFOLD', body: 'Zone F\nTank blanketing\nFloating roof option\nPLC monitored', color: 'gray' },
+  'G-DRUM':  { title: 'DRUM / IBC FILLING', body: 'Zone G\nAutomatic scale\nDedicated fill heads\nBarcode/QR labelling', color: 'amber' },
+  'G-BULK':  { title: 'BULK TANKER LOAD BAY', body: 'Zone G\nBulk dispatch\nFlow metered\nCertificate of analysis', color: 'amber' },
+  'G-LABEL': { title: 'LABEL & DISPATCH', body: 'Zone G\nBarcode / QR system\nDigital dispatch note\nRedlist integration', color: 'amber' },
+  'G-COVER': { title: 'LOAD BAY CANOPY', body: 'Zone G\nWeather protection\nTanker access', color: 'gray' },
+  'D-VISC':  { title: 'VISCOSITY ANALYSIS', body: 'Zone D — QC Lab\nKV40 / KV100\nASTM D445 method', color: 'blue' },
+  'D-FLASH': { title: 'FLASH PT / DENSITY', body: 'Zone D — QC Lab\nASTM test methods\nBatch release testing', color: 'blue' },
+  'D-SAMP':  { title: 'SAMPLE ARCHIVE', body: 'Zone D — QC Lab\nCertificate of Analysis\nRetention samples\nISO traceability', color: 'blue' },
+  'H-MCC':   { title: 'MOTOR CONTROL CENTRE', body: 'Zone H — Utilities\nAll MCC / electrical\nLV distribution', color: 'gray' },
+  'H-BOILER':{ title: 'THERMAL OIL BOILER', body: 'Zone H — Utilities\nThermal oil system\nBase oil heating supply', color: 'gray' },
+  'H-AIR':   { title: 'COMPRESSED AIR', body: 'Zone H — Utilities\nInstrument air supply\nActuated valve service', color: 'gray' },
+  'H-N2':    { title: 'NITROGEN GENERATOR', body: 'Zone H — Utilities\nTank blanketing supply\nPSA nitrogen gen', color: 'gray' },
+  'H-FIRE':  { title: 'FIRE SUPPRESSION', body: 'Zone H — Utilities\nFoam / CO₂ system\nATEX zone protection', color: 'gray' },
+  'H-EFF':   { title: 'EFFLUENT TREATMENT', body: 'Zone H — Utilities\nOil-water separator\nZero liquid discharge', color: 'gray' },
+  'H-SCADA': { title: 'SCADA / PLC CONTROL ROOM', body: 'Zone H — Utilities\nCentral control\nRedlist asset hub\nBatch management', color: 'blue' },
+};
+
+// Raycaster
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const tooltip = document.getElementById('tooltip');
+const ttTitle = document.getElementById('tt-title');
+const ttBody = document.getElementById('tt-body');
+
+let hoveredId = null;
+const origColors = {};
+let mouseX = 0, mouseY = 0;
+
+function getMeshesWithData() {
+  const result = [];
+  scene.traverse(obj => {
+    if (obj.isMesh && obj.userData.id && zoneData[obj.userData.id]) {
+      result.push(obj);
+    }
+  });
+  return result;
+}
+
+renderer.domElement.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+  mouse.x = (e.clientX / W) * 2 - 1;
+  mouse.y = -(e.clientY / H) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const meshes = getMeshesWithData();
+  const hits = raycaster.intersectObjects(meshes);
+
+  if (hits.length > 0) {
+    const id = hits[0].object.userData.id;
+    if (id !== hoveredId) {
+      if (hoveredId) resetHighlight(hoveredId);
+      hoveredId = id;
+      highlightZone(id);
+    }
+    const d = zoneData[id];
+    ttTitle.textContent = d.title;
+    ttBody.innerHTML = d.body.split('\n').join('<br>');
+    tooltip.className = d.color || 'amber';
+    tooltip.style.display = 'block';
+    tooltip.style.left = (mouseX + 14) + 'px';
+    tooltip.style.top = (mouseY - 10) + 'px';
+    renderer.domElement.style.cursor = 'pointer';
+  } else {
+    if (hoveredId) resetHighlight(hoveredId);
+    hoveredId = null;
+    tooltip.style.display = 'none';
+    renderer.domElement.style.cursor = 'grab';
+  }
+});
+
+function highlightZone(id) {
+  if (!objectMap[id]) return;
+  objectMap[id].forEach(mesh => {
+    if (!origColors[mesh.uuid]) origColors[mesh.uuid] = {
+      em: mesh.material.emissive.clone(),
+      ei: mesh.material.emissiveIntensity
+    };
+    mesh.material.emissive.setHex(C.amber);
+    mesh.material.emissiveIntensity = 0.25;
+  });
+}
+
+function resetHighlight(id) {
+  if (!objectMap[id]) return;
+  objectMap[id].forEach(mesh => {
+    const orig = origColors[mesh.uuid];
+    if (orig) {
+      mesh.material.emissive.copy(orig.em);
+      mesh.material.emissiveIntensity = orig.ei;
+    }
+  });
+}
+
+// ═══════════════════════════════
+// Orbit controls (manual)
+// ═══════════════════════════════
+let isPointerDown = false;
+let lastPointerX = 0, lastPointerY = 0;
+let isRightDown = false;
+let theta = Math.atan2(DEFAULT_CAM.x, DEFAULT_CAM.z);
+let phi = Math.atan2(DEFAULT_CAM.y, Math.sqrt(DEFAULT_CAM.x**2 + DEFAULT_CAM.z**2));
+let radius = Math.sqrt(DEFAULT_CAM.x**2 + DEFAULT_CAM.y**2 + DEFAULT_CAM.z**2);
+let target = new THREE.Vector3(0, 0, 0);
+
+renderer.domElement.style.cursor = 'grab';
+
+renderer.domElement.addEventListener('mousedown', e => {
+  if (e.button === 2) { isRightDown = true; }
+  else { isPointerDown = true; renderer.domElement.style.cursor = 'grabbing'; }
+  lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
+});
+
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+
+window.addEventListener('mouseup', e => {
+  isPointerDown = false;
+  isRightDown = false;
+  renderer.domElement.style.cursor = hoveredId ? 'pointer' : 'grab';
+});
+
+window.addEventListener('mousemove', e => {
+  const dx = e.clientX - lastPointerX;
+  const dy = e.clientY - lastPointerY;
+  if (isPointerDown) {
+    theta -= dx * 0.008;
+    phi = Math.max(0.08, Math.min(Math.PI/2 - 0.05, phi - dy * 0.008));
+    updateCamera();
+  }
+  if (isRightDown) {
+    const panScale = radius * 0.001;
+    const right = new THREE.Vector3();
+    const up = new THREE.Vector3();
+    camera.getWorldDirection(up);
+    right.crossVectors(up, camera.up).normalize();
+    target.addScaledVector(right, -dx * panScale);
+    target.y += dy * panScale;
+    updateCamera();
+  }
+  lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
+});
+
+renderer.domElement.addEventListener('wheel', e => {
+  radius = Math.max(8, Math.min(90, radius + e.deltaY * 0.04));
+  updateCamera();
+}, { passive: true });
+
+// Touch
+let lastTouchDist = 0;
+renderer.domElement.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    isPointerDown = true;
+    lastPointerX = e.touches[0].clientX;
+    lastPointerY = e.touches[0].clientY;
+  }
+  if (e.touches.length === 2) {
+    lastTouchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+});
+renderer.domElement.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1 && isPointerDown) {
+    const dx = e.touches[0].clientX - lastPointerX;
+    const dy = e.touches[0].clientY - lastPointerY;
+    theta -= dx * 0.01;
+    phi = Math.max(0.08, Math.min(Math.PI/2 - 0.05, phi - dy * 0.01));
+    updateCamera();
+    lastPointerX = e.touches[0].clientX;
+    lastPointerY = e.touches[0].clientY;
+  }
+  if (e.touches.length === 2) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    radius = Math.max(8, Math.min(90, radius - (d - lastTouchDist) * 0.05));
+    lastTouchDist = d;
+    updateCamera();
+  }
+}, { passive: false });
+renderer.domElement.addEventListener('touchend', () => { isPointerDown = false; });
+
+function updateCamera() {
+  camera.position.set(
+    target.x + radius * Math.sin(theta) * Math.cos(phi),
+    target.y + radius * Math.sin(phi),
+    target.z + radius * Math.cos(theta) * Math.cos(phi)
+  );
+  camera.lookAt(target);
+}
+
+function resetCamera() {
+  theta = 0.75;
+  phi = 0.72;
+  radius = 58;
+  target.set(0, 0, 0);
+  updateCamera();
+}
+
+resetCamera();
+
+// ═══════════════════════════════
+// Zone focus views
+// ═══════════════════════════════
+const zoneViews = {
+  all: { t: new THREE.Vector3(0, 0, 0), r: 62, th: 0.75, ph: 0.68 },
+  A:   { t: new THREE.Vector3(-22, 0, -7), r: 22, th: -0.5, ph: 0.65 },
+  B:   { t: new THREE.Vector3(-22, 0, 5), r: 20, th: -0.6, ph: 0.62 },
+  C:   { t: new THREE.Vector3(-6, 0, -4), r: 26, th: 0.5, ph: 0.62 },
+  F:   { t: new THREE.Vector3(18, 0, -6), r: 24, th: 0.8, ph: 0.65 },
+  G:   { t: new THREE.Vector3(18, 0, 10), r: 20, th: 1.0, ph: 0.6 },
+};
+
+function setView(z) {
+  document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + z.toLowerCase())?.classList.add('active');
+  const v = zoneViews[z] || zoneViews.all;
+  target.copy(v.t);
+  radius = v.r;
+  theta = v.th;
+  phi = v.ph;
+  updateCamera();
+}
+
+// ═══════════════════════════════
+// Toggle flow
+// ═══════════════════════════════
+function toggleFlow() {
+  flowActive = !flowActive;
+  const btn = document.getElementById('btn-flow');
+  btn.textContent = `● FLOW: ${flowActive ? 'ON' : 'OFF'}`;
+  btn.style.color = flowActive ? 'var(--accent3)' : 'var(--dim)';
+}
+
+// ═══════════════════════════════
+// Animation loop
+// ═══════════════════════════════
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  // Subtle agitator rotation on blend vessel caps
+  if (bv01cap) bv01cap.rotation.y += 0.008;
+  if (bv02cap) bv02cap.rotation.y += 0.007;
+  if (bv03cap) bv03cap.rotation.y += 0.009;
+  if (bv04cap) bv04cap.rotation.y += 0.006;
+
+  // ATEX ring pulse
+  if (atex) atex.material.emissiveIntensity = 0.3 + 0.3 * Math.sin(t * 2.5);
+
+  // SCADA glow pulse
+  if (scadaGlow) scadaGlow.material.emissiveIntensity = 0.3 + 0.15 * Math.sin(t * 1.8);
+
+  animateParticles();
+
+  renderer.render(scene, camera);
+}
+
+// Resize
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+});
+
+// Remove loading
+setTimeout(() => {
+  document.getElementById('loading').style.opacity = '0';
+  document.getElementById('loading').style.transition = 'opacity 0.6s';
+  setTimeout(() => document.getElementById('loading').remove(), 700);
+}, 600);
+
+animate();
+</script>
+</body>
+</html>
