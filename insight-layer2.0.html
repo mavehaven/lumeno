@@ -1070,1008 +1070,1558 @@ select recalculate_form_scores(:form_id);</pre></div>
 <div id="toast"></div>
 
 <script>
-(function(){
 'use strict';
 
-const FILL_PARAM=(function(){const p=new URLSearchParams(location.search).get('fill');return p?p.trim():null;})();
-if(FILL_PARAM){document.body.classList.add('fill-only-mode');const cb=document.getElementById('fill-close-btn');if(cb)cb.style.display='none';}
+// ── FILL PARAM DETECTION ──────────────────────────────────────────────────────
+const FILL_PARAM = (function () {
+  const p = new URLSearchParams(location.search).get('fill');
+  return p ? p.trim() : null;
+})();
 
-/* ── SUPABASE ── */
-let SUPABASE_URL=localStorage.getItem('il_sb_url')||'https://pzioskykakwhwdlcmwyv.supabase.co';
-let SUPABASE_KEY=localStorage.getItem('il_sb_key')||'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
-const{createClient}=supabase;
-let sb=createClient(SUPABASE_URL,SUPABASE_KEY);
-
-/* ── STATE ── */
-let currentUser=null,currentRole='operator',currentOrgId='';
-let allOrgs=[],allForms=[],allResponses=[];
-let formFields=[],currentShareFormId=null;
-let sparkCharts={},metricsCharts={};
-let focusRunning=true,focusSecs=130*60,focusInterval=null;
-let currentAIProvider='claude';
-let fileUploads={};
-let searchDebounce=null;
-let _formSubmitting=false;
-let schemaFields=[];
-let generatedImageDataUrl=null;
-let imgAnalysisBase64=null,imgAnalysisMime='image/jpeg';
-
-/* ── CHAT STATE ── */
-let chatHistory=[];
-let chatSending=false;
-let chatFormScope='';
-
-/* ── NOTIFICATION CONFIG ── */
-let notifConfig={email:{enabled:false,address:'',edgeFnUrl:''},slack:{enabled:false,webhookUrl:''},formScope:''};
-let notifLog=[];
-
-/* ── AI KEY PERSISTENCE ── */
-window.persistKey=function(provider,val){
-  if(provider==='claude') localStorage.setItem('lumenos_claude_key',val);
-  else localStorage.setItem('lumenos_gemini_key',val);
-};
-function loadPersistedKeys(){
-  const ck=localStorage.getItem('lumenos_claude_key');
-  const gk=localStorage.getItem('lumenos_gemini_key');
-  if(ck){const el=document.getElementById('ai-api-key');if(el)el.value=ck;}
-  if(gk){const el=document.getElementById('ai-gemini-key');if(el)el.value=gk;}
+if (FILL_PARAM) {
+  document.body.classList.add('fill-only-mode');
+  const cb = document.getElementById('fill-close-btn');
+  if (cb) cb.style.display = 'none';
 }
 
-/* ── GEMINI TAB CONTROLLER ── */
-window.geminiTab=function(panel,btn){
-  document.querySelectorAll('.gemini-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.gemini-panel').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('gpanel-'+panel).classList.add('active');
+// ── SUPABASE ──────────────────────────────────────────────────────────────────
+const { createClient } = supabase;
+
+let SUPABASE_URL = localStorage.getItem('il_sb_url') || 'https://pzioskykakwhwdlcmwyv.supabase.co';
+let SUPABASE_KEY = localStorage.getItem('il_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
+let sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let currentUser = null, currentRole = 'operator', currentOrgId = '';
+let allOrgs = [], allForms = [], allResponses = [];
+let formFields = [], currentShareFormId = null;
+let sparkCharts = {}, metricsCharts = {};
+let focusRunning = true, focusSecs = 130 * 60, focusInterval = null;
+let currentAIProvider = 'claude';
+let fileUploads = {};
+let searchDebounce = null;
+let _formSubmitting = false;
+let schemaFields = [];
+let generatedImageDataUrl = null;
+let imgAnalysisBase64 = null, imgAnalysisMime = 'image/jpeg';
+
+// ── CHAT STATE ────────────────────────────────────────────────────────────────
+let chatHistory = [];
+let chatSending = false;
+let chatFormScope = '';
+
+// ── NOTIFICATION CONFIG ───────────────────────────────────────────────────────
+let notifConfig = {
+  email: { enabled: false, address: '', edgeFnUrl: '' },
+  slack: { enabled: false, webhookUrl: '' },
+  formScope: ''
+};
+let notifLog = [];
+
+// ── AI KEY PERSISTENCE ────────────────────────────────────────────────────────
+window.persistKey = function (provider, val) {
+  if (provider === 'claude') localStorage.setItem('lumenos_claude_key', val);
+  else localStorage.setItem('lumenos_gemini_key', val);
 };
 
-/* ── TOOL TOGGLE ── */
-window.toggleToolToggle=function(id){
-  const el=document.getElementById(id);if(!el)return;
+function loadPersistedKeys() {
+  const ck = localStorage.getItem('lumenos_claude_key');
+  const gk = localStorage.getItem('lumenos_gemini_key');
+  if (ck) { const el = document.getElementById('ai-api-key'); if (el) el.value = ck; }
+  if (gk) { const el = document.getElementById('ai-gemini-key'); if (el) el.value = gk; }
+}
+
+// ── GEMINI TAB CONTROLLER ─────────────────────────────────────────────────────
+window.geminiTab = function (panel, btn) {
+  document.querySelectorAll('.gemini-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.gemini-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('gpanel-' + panel).classList.add('active');
+};
+
+// ── TOOL TOGGLE ───────────────────────────────────────────────────────────────
+window.toggleToolToggle = function (id) {
+  const el = document.getElementById(id); if (!el) return;
   el.classList.toggle('on');
 };
-function isToolOn(id){return document.getElementById(id)?.classList.contains('on');}
+function isToolOn(id) { return document.getElementById(id)?.classList.contains('on'); }
 
-/* ══════════════════════════════════════════
-   GEMINI 3.1 PRO — FUNCTION 1
-   Image Analysis with Media Resolution (v1alpha)
-══════════════════════════════════════════ */
-window.previewAnalysisImage=function(input){
-  const file=input.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    imgAnalysisBase64=e.target.result.split(',')[1];
-    imgAnalysisMime=file.type||'image/jpeg';
-    const preview=document.getElementById('imganalysis-preview');
-    if(preview){
-      preview.innerHTML=`<div style="position:relative;display:inline-block"><img src="${e.target.result}" style="max-width:100%;max-height:180px;border-radius:var(--radius-sm);border:1px solid var(--border);object-fit:contain;display:block"><div style="position:absolute;top:4px;right:4px;background:var(--green-soft);color:var(--green);font-size:10px;padding:2px 6px;border-radius:10px;font-weight:600">✓ Ready</div></div>`;
+// ══════════════════════════════════════════════════════════════════════════════
+//  GEMINI 3.1 PRO — IMAGE ANALYSIS WITH MEDIA RESOLUTION (v1alpha)
+// ══════════════════════════════════════════════════════════════════════════════
+window.previewAnalysisImage = function (input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    imgAnalysisBase64 = e.target.result.split(',')[1];
+    imgAnalysisMime = file.type || 'image/jpeg';
+    const preview = document.getElementById('imganalysis-preview');
+    if (preview) {
+      preview.innerHTML = `<div style="position:relative;display:inline-block">
+        <img src="${e.target.result}" style="max-width:100%;max-height:180px;border-radius:var(--radius-sm);border:1px solid var(--border);object-fit:contain;display:block">
+        <div style="position:absolute;top:4px;right:4px;background:var(--green-soft);color:var(--green);font-size:10px;padding:2px 6px;border-radius:10px;font-weight:600">✓ Ready</div>
+      </div>`;
     }
-    document.getElementById('imganalysis-zone').style.display='none';
+    document.getElementById('imganalysis-zone').style.display = 'none';
   };
   reader.readAsDataURL(file);
 };
 
-window.runGeminiImageAnalysis=async function(){
-  const key=(document.getElementById('ai-gemini-key')?.value||'').trim();
-  if(!key){toast('Gemini API key required','error');return;}
-  if(!imgAnalysisBase64){toast('Please upload an image first','error');return;}
-  const prompt=(document.getElementById('imganalysis-prompt')?.value||'').trim()||'What is in this image? Describe everything in detail.';
-  const resolution=document.getElementById('imganalysis-resolution')?.value||'media_resolution_high';
-  const btn=document.getElementById('imganalysis-btn');btn.disabled=true;btn.textContent='Analysing…';
-  const output=document.getElementById('imganalysis-output');
-  output.innerHTML='<div style="color:var(--text-3);font-size:12px">Sending to Gemini 3.1 Pro with '+resolution.replace('media_resolution_','')+ ' resolution…</div>';
-  try{
-    /* Uses v1alpha for mediaResolution support */
-    const body={
-      contents:[{
-        parts:[
-          {text:prompt},
-          {
-            inlineData:{mimeType:imgAnalysisMime,data:imgAnalysisBase64},
-            mediaResolution:{level:resolution}
-          }
+window.runGeminiImageAnalysis = async function () {
+  const key = (document.getElementById('ai-gemini-key')?.value || '').trim();
+  if (!key) { toast('Gemini API key required', 'error'); return; }
+  if (!imgAnalysisBase64) { toast('Please upload an image first', 'error'); return; }
+  const prompt = (document.getElementById('imganalysis-prompt')?.value || '').trim() || 'What is in this image? Describe everything in detail.';
+  const resolution = document.getElementById('imganalysis-resolution')?.value || 'media_resolution_high';
+  const btn = document.getElementById('imganalysis-btn'); btn.disabled = true; btn.textContent = 'Analysing…';
+  const output = document.getElementById('imganalysis-output');
+  output.innerHTML = `<div style="color:var(--text-3);font-size:12px">Sending to Gemini 3.1 Pro with ${resolution.replace('media_resolution_', '')} resolution…</div>`;
+  try {
+    const body = {
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: imgAnalysisMime, data: imgAnalysisBase64 }, mediaResolution: { level: resolution } }
         ]
       }]
     };
-    const res=await fetch(
+    const res = await fetch(
       `https://generativelanguage.googleapis.com/v1alpha/models/gemini-3.1-pro-preview:generateContent?key=${encodeURIComponent(key)}`,
-      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     );
-    const data=await res.json();
-    if(data.error)throw new Error(data.error.message);
-    const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'No response received.';
-    output.innerHTML=`<div style="font-size:13px;line-height:1.75;white-space:pre-wrap">${esc(text)}</div>`;
-    toast('Image analysis complete!','success');
-  }catch(e){
-    output.innerHTML=`<div style="color:var(--red);background:var(--red-soft);padding:10px;border-radius:var(--radius-sm);font-size:12.5px">${esc(e.message)}</div>`;
-    toast('Analysis failed','error');
-  }finally{btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Analyse Image';}
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response received.';
+    output.innerHTML = `<div style="font-size:13px;line-height:1.75;white-space:pre-wrap">${esc(text)}</div>`;
+    toast('Image analysis complete!', 'success');
+  } catch (e) {
+    output.innerHTML = `<div style="color:var(--red);background:var(--red-soft);padding:10px;border-radius:var(--radius-sm);font-size:12.5px">${esc(e.message)}</div>`;
+    toast('Analysis failed', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Analyse Image';
+  }
 };
 
-/* ══════════════════════════════════════════
-   GEMINI 3.1 PRO — FUNCTION 2
-   Image Generation with gemini-3-pro-image-preview
-══════════════════════════════════════════ */
-window.runGeminiImageGen=async function(){
-  const key=(document.getElementById('ai-gemini-key')?.value||'').trim();
-  if(!key){toast('Gemini API key required','error');return;}
-  const prompt=(document.getElementById('imggen-prompt')?.value||'').trim();
-  if(!prompt){toast('Enter a generation prompt','error');return;}
-  const aspectRatio=document.getElementById('imggen-ratio')?.value||'16:9';
-  const useSearch=isToolOn('imggen-search-toggle');
-  const btn=document.getElementById('imggen-btn');btn.disabled=true;btn.textContent='Generating…';
-  const outputEl=document.getElementById('imggen-output');
-  outputEl.innerHTML='<div style="text-align:center;color:var(--text-3);font-size:12px;padding:20px"><div style="width:24px;height:24px;border:2px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 8px"></div>Generating 4K image with Gemini…</div>';
-  const tools=useSearch?[{googleSearch:{}}]:[];
-  const body={
-    contents:prompt,
-    config:{
-      responseFormat:{image:{aspectRatio,imageSize:'4K'}},
-      ...(tools.length?{tools}:{})
+// ══════════════════════════════════════════════════════════════════════════════
+//  GEMINI 3.1 PRO — IMAGE GENERATION (gemini-3-pro-image-preview)
+// ══════════════════════════════════════════════════════════════════════════════
+window.runGeminiImageGen = async function () {
+  const key = (document.getElementById('ai-gemini-key')?.value || '').trim();
+  if (!key) { toast('Gemini API key required', 'error'); return; }
+  const prompt = (document.getElementById('imggen-prompt')?.value || '').trim();
+  if (!prompt) { toast('Enter a generation prompt', 'error'); return; }
+  const aspectRatio = document.getElementById('imggen-ratio')?.value || '16:9';
+  const useSearch = isToolOn('imggen-search-toggle');
+  const btn = document.getElementById('imggen-btn'); btn.disabled = true; btn.textContent = 'Generating…';
+  const outputEl = document.getElementById('imggen-output');
+  outputEl.innerHTML = `<div style="text-align:center;color:var(--text-3);font-size:12px;padding:20px">
+    <div style="width:24px;height:24px;border:2px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 8px"></div>
+    Generating 4K image with Gemini…
+  </div>`;
+  const tools = useSearch ? [{ googleSearch: {} }] : [];
+  const body = {
+    contents: prompt,
+    config: {
+      responseFormat: { image: { aspectRatio, imageSize: '4K' } },
+      ...(tools.length ? { tools } : {})
     }
   };
-  try{
-    const res=await fetch(
+  try {
+    const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${encodeURIComponent(key)}`,
-      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     );
-    const data=await res.json();
-    if(data.error)throw new Error(data.error.message);
-    const parts=data.candidates?.[0]?.content?.parts||[];
-    const imagePart=parts.find(p=>p.inlineData);
-    if(!imagePart){
-      /* Fallback: show text response if no image returned */
-      const textPart=parts.find(p=>p.text);
-      if(textPart){
-        outputEl.innerHTML=`<div style="padding:16px;font-size:13px;color:var(--text-2);line-height:1.7">${esc(textPart.text)}</div>`;
-        toast('No image returned — text response shown','info');
-      }else throw new Error('No image or text returned by the model.');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find(p => p.inlineData);
+    if (!imagePart) {
+      const textPart = parts.find(p => p.text);
+      if (textPart) {
+        outputEl.innerHTML = `<div style="padding:16px;font-size:13px;color:var(--text-2);line-height:1.7">${esc(textPart.text)}</div>`;
+        toast('No image returned — text response shown', 'info');
+      } else throw new Error('No image or text returned by the model.');
       return;
     }
-    const dataUrl=`data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-    generatedImageDataUrl=dataUrl;
-    outputEl.innerHTML=`<img src="${dataUrl}" style="width:100%;border-radius:var(--radius-sm);display:block;object-fit:contain" alt="Generated image">`;
-    document.getElementById('imggen-download-row').style.display='block';
-    toast('Image generated!','success');
-  }catch(e){
-    outputEl.innerHTML=`<div style="padding:16px;color:var(--red);background:var(--red-soft);border-radius:var(--radius-sm);font-size:12.5px">${esc(e.message)}</div>`;
-    toast('Generation failed','error');
-  }finally{btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Generate Image (4K)';}
+    const dataUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+    generatedImageDataUrl = dataUrl;
+    outputEl.innerHTML = `<img src="${dataUrl}" style="width:100%;border-radius:var(--radius-sm);display:block;object-fit:contain" alt="Generated image">`;
+    document.getElementById('imggen-download-row').style.display = 'block';
+    toast('Image generated!', 'success');
+  } catch (e) {
+    outputEl.innerHTML = `<div style="padding:16px;color:var(--red);background:var(--red-soft);border-radius:var(--radius-sm);font-size:12.5px">${esc(e.message)}</div>`;
+    toast('Generation failed', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Generate Image (4K)';
+  }
 };
 
-window.downloadGenImage=function(){
-  if(!generatedImageDataUrl){toast('No image to download','error');return;}
-  const a=document.createElement('a');
-  a.href=generatedImageDataUrl;
-  a.download=`lumenos-generated-${Date.now()}.png`;
-  a.click();toast('Image downloaded!','success');
+window.downloadGenImage = function () {
+  if (!generatedImageDataUrl) { toast('No image to download', 'error'); return; }
+  const a = document.createElement('a');
+  a.href = generatedImageDataUrl;
+  a.download = `lumenos-generated-${Date.now()}.png`;
+  a.click();
+  toast('Image downloaded!', 'success');
 };
 
-/* ══════════════════════════════════════════
-   GEMINI 3.1 PRO — FUNCTION 3
-   Structured JSON Output with Schema + Search + URL Context
-══════════════════════════════════════════ */
-/* Schema field builder */
-window.addSchemaField=function(){
-  const nameEl=document.getElementById('schema-field-name');
-  const typeEl=document.getElementById('schema-field-type');
-  if(!nameEl||!typeEl)return;
-  const name=nameEl.value.trim();
-  if(!name){toast('Enter a field name','error');return;}
-  schemaFields.push({name,type:typeEl.value});
-  nameEl.value='';
+// ══════════════════════════════════════════════════════════════════════════════
+//  GEMINI 3.1 PRO — STRUCTURED JSON OUTPUT (schema + Search + URL Context)
+// ══════════════════════════════════════════════════════════════════════════════
+window.addSchemaField = function () {
+  const nameEl = document.getElementById('schema-field-name');
+  const typeEl = document.getElementById('schema-field-type');
+  if (!nameEl || !typeEl) return;
+  const name = nameEl.value.trim();
+  if (!name) { toast('Enter a field name', 'error'); return; }
+  schemaFields.push({ name, type: typeEl.value });
+  nameEl.value = '';
   renderSchemaFields();
 };
-function renderSchemaFields(){
-  const list=document.getElementById('schema-fields-list');if(!list)return;
-  if(!schemaFields.length){list.innerHTML='<div style="font-size:11.5px;color:var(--text-3);padding:4px 0">No fields yet — add some above.</div>';return;}
-  list.innerHTML=schemaFields.map((f,i)=>`<div class="schema-field-row" style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px 8px"><span style="flex:1;font-size:12px;color:var(--text-1);font-weight:500">${esc(f.name)}</span><span style="font-size:10.5px;color:var(--text-3);background:var(--surface);padding:1px 6px;border-radius:10px;border:1px solid var(--border)">${esc(f.type)}</span><button onclick="removeSchemaField(${i})" style="background:var(--red-soft);color:var(--red);border:none;border-radius:4px;width:18px;height:18px;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;margin-left:4px">✕</button></div>`).join('');
-}
-window.removeSchemaField=function(i){schemaFields.splice(i,1);renderSchemaFields();};
 
-/* Build a simple JSON schema from schemaFields */
-function buildJsonSchema(){
-  if(!schemaFields.length){
-    /* Default schema if none defined */
+function renderSchemaFields() {
+  const list = document.getElementById('schema-fields-list'); if (!list) return;
+  if (!schemaFields.length) {
+    list.innerHTML = '<div style="font-size:11.5px;color:var(--text-3);padding:4px 0">No fields yet — add some above.</div>';
+    return;
+  }
+  list.innerHTML = schemaFields.map((f, i) => `
+    <div class="schema-field-row" style="background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:5px 8px">
+      <span style="flex:1;font-size:12px;color:var(--text-1);font-weight:500">${esc(f.name)}</span>
+      <span style="font-size:10.5px;color:var(--text-3);background:var(--surface);padding:1px 6px;border-radius:10px;border:1px solid var(--border)">${esc(f.type)}</span>
+      <button onclick="removeSchemaField(${i})" style="background:var(--red-soft);color:var(--red);border:none;border-radius:4px;width:18px;height:18px;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;margin-left:4px">✕</button>
+    </div>`).join('');
+}
+
+window.removeSchemaField = function (i) { schemaFields.splice(i, 1); renderSchemaFields(); };
+
+function buildJsonSchema() {
+  if (!schemaFields.length) {
     return {
-      type:'object',
-      properties:{
-        title:{type:'string',description:'Title or name'},
-        summary:{type:'string',description:'Brief summary'},
-        details:{type:'string',description:'Additional details'},
-        date:{type:'string',description:'Relevant date if available'},
-        source:{type:'string',description:'Source or URL'}
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Title or name' },
+        summary: { type: 'string', description: 'Brief summary' },
+        details: { type: 'string', description: 'Additional details' },
+        date: { type: 'string', description: 'Relevant date if available' },
+        source: { type: 'string', description: 'Source or URL' }
       }
     };
   }
-  const properties={};
-  schemaFields.forEach(f=>{
-    if(f.type==='array')properties[f.name]={type:'array',items:{type:'string'}};
-    else properties[f.name]={type:f.type};
+  const properties = {};
+  schemaFields.forEach(f => {
+    if (f.type === 'array') properties[f.name] = { type: 'array', items: { type: 'string' } };
+    else properties[f.name] = { type: f.type };
   });
-  return {type:'object',properties};
+  return { type: 'object', properties };
 }
 
-window.runGeminiStructured=async function(){
-  const key=(document.getElementById('ai-gemini-key')?.value||'').trim();
-  if(!key){toast('Gemini API key required','error');return;}
-  const prompt=(document.getElementById('structured-prompt')?.value||'').trim();
-  if(!prompt){toast('Enter a prompt','error');return;}
-  const useSearch=isToolOn('structured-search-toggle');
-  const useUrlCtx=isToolOn('structured-url-toggle');
-  const btn=document.getElementById('structured-btn');btn.disabled=true;btn.textContent='Generating…';
-  const output=document.getElementById('structured-output');
-  output.textContent='// Calling Gemini 3.1 Pro with structured output…';
-  const schema=buildJsonSchema();
-  const tools=[];
-  if(useSearch)tools.push({googleSearch:{}});
-  if(useUrlCtx)tools.push({urlContext:{}});
-  const body={
-    contents:[{role:'user',parts:[{text:prompt}]}],
-    ...(tools.length?{tools}:{}),
-    generationConfig:{
-      responseMimeType:'application/json',
-      responseSchema:schema,
-      maxOutputTokens:2000,
-      temperature:0.7
+window.runGeminiStructured = async function () {
+  const key = (document.getElementById('ai-gemini-key')?.value || '').trim();
+  if (!key) { toast('Gemini API key required', 'error'); return; }
+  const prompt = (document.getElementById('structured-prompt')?.value || '').trim();
+  if (!prompt) { toast('Enter a prompt', 'error'); return; }
+  const useSearch = isToolOn('structured-search-toggle');
+  const useUrlCtx = isToolOn('structured-url-toggle');
+  const btn = document.getElementById('structured-btn'); btn.disabled = true; btn.textContent = 'Generating…';
+  const output = document.getElementById('structured-output');
+  output.textContent = '// Calling Gemini 3.1 Pro with structured output…';
+  const schema = buildJsonSchema();
+  const tools = [];
+  if (useSearch) tools.push({ googleSearch: {} });
+  if (useUrlCtx) tools.push({ urlContext: {} });
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    ...(tools.length ? { tools } : {}),
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: schema,
+      maxOutputTokens: 2000,
+      temperature: 0.7
     }
   };
-  try{
-    const res=await fetch(
+  try {
+    const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${encodeURIComponent(key)}`,
-      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     );
-    const data=await res.json();
-    if(data.error)throw new Error(data.error.message);
-    const rawText=data.candidates?.[0]?.content?.parts?.[0]?.text||'{}';
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     let parsed;
-    try{parsed=JSON.parse(rawText.replace(/```json|```/g,'').trim());}
-    catch(_){parsed=rawText;}
-    output.textContent=typeof parsed==='string'?parsed:JSON.stringify(parsed,null,2);
-    toast('Structured JSON generated!','success');
-  }catch(e){
-    output.textContent='// Error: '+e.message;
-    toast('Request failed','error');
-  }finally{btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Generate Structured JSON';}
+    try { parsed = JSON.parse(rawText.replace(/```json|```/g, '').trim()); }
+    catch (_) { parsed = rawText; }
+    output.textContent = typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2);
+    toast('Structured JSON generated!', 'success');
+  } catch (e) {
+    output.textContent = '// Error: ' + e.message;
+    toast('Request failed', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Generate Structured JSON';
+  }
 };
 
-window.copyStructuredOutput=function(){
-  const text=document.getElementById('structured-output')?.textContent||'';
-  navigator.clipboard.writeText(text).then(()=>toast('Copied!','success'));
+window.copyStructuredOutput = function () {
+  const text = document.getElementById('structured-output')?.textContent || '';
+  navigator.clipboard.writeText(text).then(() => toast('Copied!', 'success'));
 };
 
-/* ── NOTIFICATION HELPERS ── */
-function loadNotifConfig(){
-  try{const s=localStorage.getItem('lumenos_notif_config');if(s)notifConfig=JSON.parse(s);const l=localStorage.getItem('lumenos_notif_log');if(l)notifLog=JSON.parse(l);}catch(_){}
+// ── NOTIFICATION HELPERS ──────────────────────────────────────────────────────
+function loadNotifConfig() {
+  try {
+    const s = localStorage.getItem('lumenos_notif_config'); if (s) notifConfig = JSON.parse(s);
+    const l = localStorage.getItem('lumenos_notif_log'); if (l) notifLog = JSON.parse(l);
+  } catch (_) {}
 }
-window.saveNotifConfig=function(){
-  notifConfig.email.address=document.getElementById('email-notif-address')?.value.trim()||notifConfig.email.address;
-  notifConfig.slack.webhookUrl=document.getElementById('slack-webhook-url')?.value.trim()||notifConfig.slack.webhookUrl;
-  notifConfig.email.edgeFnUrl=document.getElementById('edge-fn-url')?.value.trim()||notifConfig.email.edgeFnUrl;
-  notifConfig.formScope=document.getElementById('notif-form-scope')?.value||'';
-  localStorage.setItem('lumenos_notif_config',JSON.stringify(notifConfig));
+
+window.saveNotifConfig = function () {
+  notifConfig.email.address = document.getElementById('email-notif-address')?.value.trim() || notifConfig.email.address;
+  notifConfig.slack.webhookUrl = document.getElementById('slack-webhook-url')?.value.trim() || notifConfig.slack.webhookUrl;
+  notifConfig.email.edgeFnUrl = document.getElementById('edge-fn-url')?.value.trim() || notifConfig.email.edgeFnUrl;
+  notifConfig.formScope = document.getElementById('notif-form-scope')?.value || '';
+  localStorage.setItem('lumenos_notif_config', JSON.stringify(notifConfig));
   updateNotifUI();
 };
-function updateNotifUI(){
-  const et=document.getElementById('email-toggle');const st=document.getElementById('slack-toggle');
-  const ed=document.getElementById('email-status-dot');const sd=document.getElementById('slack-status-dot');
-  const badge=document.getElementById('notif-active-badge');
-  if(et)et.classList.toggle('on',notifConfig.email.enabled);
-  if(st)st.classList.toggle('on',notifConfig.slack.enabled);
-  if(ed){ed.classList.toggle('active',notifConfig.email.enabled);ed.classList.toggle('inactive',!notifConfig.email.enabled);}
-  if(sd){sd.classList.toggle('active',notifConfig.slack.enabled);sd.classList.toggle('inactive',!notifConfig.slack.enabled);}
-  const any=notifConfig.email.enabled||notifConfig.slack.enabled;
-  if(badge)badge.style.display=any?'inline':'none';
-  const ea=document.getElementById('email-notif-address');const su=document.getElementById('slack-webhook-url');const eu=document.getElementById('edge-fn-url');
-  if(ea&&!ea.value)ea.value=notifConfig.email.address;
-  if(su&&!su.value)su.value=notifConfig.slack.webhookUrl;
-  if(eu&&!eu.value)eu.value=notifConfig.email.edgeFnUrl;
-}
-window.toggleChannel=function(ch){
-  if(ch==='email')notifConfig.email.enabled=!notifConfig.email.enabled;
-  if(ch==='slack')notifConfig.slack.enabled=!notifConfig.slack.enabled;
-  saveNotifConfig();
-  toast(ch==='email'?(notifConfig.email.enabled?'Email notifications enabled':'Email notifications disabled'):(notifConfig.slack.enabled?'Slack notifications enabled':'Slack notifications disabled'),notifConfig[ch]?.enabled?'success':'info');
-};
-function addNotifLog(ch,status,msg){
-  const e={channel:ch,status,message:msg,time:new Date().toISOString()};
-  notifLog.unshift(e);if(notifLog.length>50)notifLog=notifLog.slice(0,50);
-  localStorage.setItem('lumenos_notif_log',JSON.stringify(notifLog));renderNotifLog();
-}
-function renderNotifLog(){
-  const el=document.getElementById('notif-log');if(!el)return;
-  if(!notifLog.length){el.innerHTML='<div style="padding:14px;font-size:12px;color:var(--text-3);text-align:center">No notifications sent yet.</div>';return;}
-  el.innerHTML=notifLog.map(e=>`<div class="notif-log-item"><div class="notif-log-dot ${e.status}"></div><span class="notif-log-msg">${esc(e.message)}</span><span class="notif-log-time">${timeAgo(e.time)}</span></div>`).join('');
-}
-window.clearNotifLog=function(){notifLog=[];localStorage.removeItem('lumenos_notif_log');renderNotifLog();};
 
-async function fireNotifications(form,respondentName,answers,score){
-  const cfg=notifConfig;
-  if(cfg.formScope&&cfg.formScope!==form.id)return;
-  const formName=form.name||'Unknown Form';const respName=respondentName||'Anonymous';
-  const scoreText=score!=null?`Score: ${score}`:'No score';const now=new Date().toLocaleString();
-  const answerLines=Object.entries(answers).slice(0,5).map(([q,a])=>`<tr><td style="padding:4px 8px;color:#666;font-size:13px">${esc(q)}</td><td style="padding:4px 8px;font-size:13px">${esc(Array.isArray(a)?a.join(', '):String(a??'—'))}</td></tr>`).join('');
-  if(cfg.email.enabled&&cfg.email.address){
-    if(!cfg.email.edgeFnUrl){addNotifLog('email','fail','Not sent — Edge Function URL not configured');}
-    else{addNotifLog('email','pending',`Sending to ${cfg.email.address}…`);
-      try{const html=`<div style="font-family:sans-serif;max-width:520px;margin:0 auto"><div style="background:#4f63e8;padding:20px 24px;border-radius:10px 10px 0 0"><h2 style="color:white;margin:0;font-size:18px">📋 New Response — ${esc(formName)}</h2></div><div style="background:#f8f9ff;padding:20px 24px;border:1px solid #e0e3f4;border-top:none"><p style="margin:0 0 12px;color:#1a1d2e"><strong>Respondent:</strong> ${esc(respName)}</p><p style="margin:0 0 12px;color:#1a1d2e"><strong>${scoreText}</strong></p><p style="margin:0 0 8px;color:#4a5270;font-size:13px">Submitted at ${now}</p><table style="width:100%;border-collapse:collapse;margin-top:12px;background:white;border-radius:8px;overflow:hidden;border:1px solid #e0e3f4"><thead><tr style="background:#4f63e8"><th style="padding:8px;color:white;text-align:left;font-size:12px">Question</th><th style="padding:8px;color:white;text-align:left;font-size:12px">Answer</th></tr></thead><tbody>${answerLines}</tbody></table></div></div>`;
-        const res=await fetch(cfg.email.edgeFnUrl,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPABASE_KEY}`},body:JSON.stringify({to:cfg.email.address,subject:`[LumenOS] New response: ${formName}`,html})});
-        if(!res.ok)throw new Error(`HTTP ${res.status}`);
-        if(notifLog[0]?.status==='pending'){notifLog[0].status='ok';notifLog[0].message=`Email sent to ${cfg.email.address} — ${formName}`;}
-        localStorage.setItem('lumenos_notif_log',JSON.stringify(notifLog));renderNotifLog();toast('Email notification sent!','success');
-      }catch(e){if(notifLog[0]?.status==='pending'){notifLog[0].status='fail';notifLog[0].message=`Email failed: ${e.message}`;}localStorage.setItem('lumenos_notif_log',JSON.stringify(notifLog));renderNotifLog();}
+function updateNotifUI() {
+  const et = document.getElementById('email-toggle'); const st = document.getElementById('slack-toggle');
+  const ed = document.getElementById('email-status-dot'); const sd = document.getElementById('slack-status-dot');
+  const badge = document.getElementById('notif-active-badge');
+  if (et) et.classList.toggle('on', notifConfig.email.enabled);
+  if (st) st.classList.toggle('on', notifConfig.slack.enabled);
+  if (ed) { ed.classList.toggle('active', notifConfig.email.enabled); ed.classList.toggle('inactive', !notifConfig.email.enabled); }
+  if (sd) { sd.classList.toggle('active', notifConfig.slack.enabled); sd.classList.toggle('inactive', !notifConfig.slack.enabled); }
+  const any = notifConfig.email.enabled || notifConfig.slack.enabled;
+  if (badge) badge.style.display = any ? 'inline' : 'none';
+  const ea = document.getElementById('email-notif-address'); const su = document.getElementById('slack-webhook-url'); const eu = document.getElementById('edge-fn-url');
+  if (ea && !ea.value) ea.value = notifConfig.email.address;
+  if (su && !su.value) su.value = notifConfig.slack.webhookUrl;
+  if (eu && !eu.value) eu.value = notifConfig.email.edgeFnUrl;
+}
+
+window.toggleChannel = function (ch) {
+  if (ch === 'email') notifConfig.email.enabled = !notifConfig.email.enabled;
+  if (ch === 'slack') notifConfig.slack.enabled = !notifConfig.slack.enabled;
+  saveNotifConfig();
+  toast(
+    ch === 'email'
+      ? (notifConfig.email.enabled ? 'Email notifications enabled' : 'Email notifications disabled')
+      : (notifConfig.slack.enabled ? 'Slack notifications enabled' : 'Slack notifications disabled'),
+    notifConfig[ch]?.enabled ? 'success' : 'info'
+  );
+};
+
+function addNotifLog(ch, status, msg) {
+  const e = { channel: ch, status, message: msg, time: new Date().toISOString() };
+  notifLog.unshift(e); if (notifLog.length > 50) notifLog = notifLog.slice(0, 50);
+  localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+  renderNotifLog();
+}
+
+function renderNotifLog() {
+  const el = document.getElementById('notif-log'); if (!el) return;
+  if (!notifLog.length) {
+    el.innerHTML = '<div style="padding:14px;font-size:12px;color:var(--text-3);text-align:center">No notifications sent yet.</div>';
+    return;
+  }
+  el.innerHTML = notifLog.map(e =>
+    `<div class="notif-log-item">
+      <div class="notif-log-dot ${e.status}"></div>
+      <span class="notif-log-msg">${esc(e.message)}</span>
+      <span class="notif-log-time">${timeAgo(e.time)}</span>
+    </div>`
+  ).join('');
+}
+
+window.clearNotifLog = function () { notifLog = []; localStorage.removeItem('lumenos_notif_log'); renderNotifLog(); };
+
+async function fireNotifications(form, respondentName, answers, score) {
+  const cfg = notifConfig;
+  if (cfg.formScope && cfg.formScope !== form.id) return;
+  const formName = form.name || 'Unknown Form'; const respName = respondentName || 'Anonymous';
+  const scoreText = score != null ? `Score: ${score}` : 'No score'; const now = new Date().toLocaleString();
+  const answerLines = Object.entries(answers).slice(0, 5).map(([q, a]) =>
+    `<tr><td style="padding:4px 8px;color:#666;font-size:13px">${esc(q)}</td><td style="padding:4px 8px;font-size:13px">${esc(Array.isArray(a) ? a.join(', ') : String(a ?? '—'))}</td></tr>`
+  ).join('');
+
+  if (cfg.email.enabled && cfg.email.address) {
+    if (!cfg.email.edgeFnUrl) {
+      addNotifLog('email', 'fail', 'Not sent — Edge Function URL not configured');
+    } else {
+      addNotifLog('email', 'pending', `Sending to ${cfg.email.address}…`);
+      try {
+        const html = `<div style="font-family:sans-serif;max-width:520px;margin:0 auto">
+          <div style="background:#4f63e8;padding:20px 24px;border-radius:10px 10px 0 0">
+            <h2 style="color:white;margin:0;font-size:18px">📋 New Response — ${esc(formName)}</h2>
+          </div>
+          <div style="background:#f8f9ff;padding:20px 24px;border:1px solid #e0e3f4;border-top:none">
+            <p style="margin:0 0 12px;color:#1a1d2e"><strong>Respondent:</strong> ${esc(respName)}</p>
+            <p style="margin:0 0 12px;color:#1a1d2e"><strong>${scoreText}</strong></p>
+            <p style="margin:0 0 8px;color:#4a5270;font-size:13px">Submitted at ${now}</p>
+            <table style="width:100%;border-collapse:collapse;margin-top:12px;background:white;border-radius:8px;overflow:hidden;border:1px solid #e0e3f4">
+              <thead><tr style="background:#4f63e8"><th style="padding:8px;color:white;text-align:left;font-size:12px">Question</th><th style="padding:8px;color:white;text-align:left;font-size:12px">Answer</th></tr></thead>
+              <tbody>${answerLines}</tbody>
+            </table>
+          </div>
+        </div>`;
+        const res = await fetch(cfg.email.edgeFnUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+          body: JSON.stringify({ to: cfg.email.address, subject: `[LumenOS] New response: ${formName}`, html })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (notifLog[0]?.status === 'pending') { notifLog[0].status = 'ok'; notifLog[0].message = `Email sent to ${cfg.email.address} — ${formName}`; }
+        localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+        renderNotifLog(); toast('Email notification sent!', 'success');
+      } catch (e) {
+        if (notifLog[0]?.status === 'pending') { notifLog[0].status = 'fail'; notifLog[0].message = `Email failed: ${e.message}`; }
+        localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+        renderNotifLog();
+      }
     }
   }
-  if(cfg.slack.enabled&&cfg.slack.webhookUrl){
-    addNotifLog('slack','pending','Posting to Slack…');
-    const answerText=Object.entries(answers).slice(0,5).map(([q,a])=>`*${q}:* ${Array.isArray(a)?a.join(', '):String(a??'—')}`).join('\n');
-    const payload={blocks:[{type:'header',text:{type:'plain_text',text:`📋 New Response: ${formName}`,emoji:true}},{type:'section',fields:[{type:'mrkdwn',text:`*Respondent:*\n${respName}`},{type:'mrkdwn',text:`*${scoreText}*\n${now}`}]},answerText?{type:'section',text:{type:'mrkdwn',text:answerText}}:null,{type:'actions',elements:[{type:'button',text:{type:'plain_text',text:'View in LumenOS →'},url:location.href.split('?')[0],style:'primary'}]}].filter(Boolean)};
-    try{await fetch(cfg.slack.webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),mode:'no-cors'});
-      if(notifLog[0]?.status==='pending'){notifLog[0].status='ok';notifLog[0].message=`Slack message sent — ${formName} / ${respName}`;}
-      localStorage.setItem('lumenos_notif_log',JSON.stringify(notifLog));renderNotifLog();toast('Slack notification sent!','success');
-    }catch(e){if(notifLog[0]?.status==='pending'){notifLog[0].status='fail';notifLog[0].message=`Slack failed: ${e.message}`;}localStorage.setItem('lumenos_notif_log',JSON.stringify(notifLog));renderNotifLog();}
+
+  if (cfg.slack.enabled && cfg.slack.webhookUrl) {
+    addNotifLog('slack', 'pending', 'Posting to Slack…');
+    const answerText = Object.entries(answers).slice(0, 5).map(([q, a]) =>
+      `*${q}:* ${Array.isArray(a) ? a.join(', ') : String(a ?? '—')}`
+    ).join('\n');
+    const payload = {
+      blocks: [
+        { type: 'header', text: { type: 'plain_text', text: `📋 New Response: ${formName}`, emoji: true } },
+        { type: 'section', fields: [{ type: 'mrkdwn', text: `*Respondent:*\n${respName}` }, { type: 'mrkdwn', text: `*${scoreText}*\n${now}` }] },
+        answerText ? { type: 'section', text: { type: 'mrkdwn', text: answerText } } : null,
+        { type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: 'View in LumenOS →' }, url: location.href.split('?')[0], style: 'primary' }] }
+      ].filter(Boolean)
+    };
+    try {
+      await fetch(cfg.slack.webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), mode: 'no-cors' });
+      if (notifLog[0]?.status === 'pending') { notifLog[0].status = 'ok'; notifLog[0].message = `Slack message sent — ${formName} / ${respName}`; }
+      localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+      renderNotifLog(); toast('Slack notification sent!', 'success');
+    } catch (e) {
+      if (notifLog[0]?.status === 'pending') { notifLog[0].status = 'fail'; notifLog[0].message = `Slack failed: ${e.message}`; }
+      localStorage.setItem('lumenos_notif_log', JSON.stringify(notifLog));
+      renderNotifLog();
+    }
   }
 }
-window.testNotification=async function(channel){
-  const resultEl=document.getElementById(`${channel}-test-result`);if(resultEl)resultEl.textContent='Sending…';
-  if(channel==='email'){const addr=document.getElementById('email-notif-address')?.value.trim();const edgeUrl=document.getElementById('edge-fn-url')?.value.trim();if(!addr){if(resultEl)resultEl.textContent='⚠ Enter an email address first.';return;}if(!edgeUrl){if(resultEl)resultEl.textContent='⚠ Enter Edge Function URL first.';return;}notifConfig.email.address=addr;notifConfig.email.edgeFnUrl=edgeUrl;notifConfig.email.enabled=true;}
-  if(channel==='slack'){const url=document.getElementById('slack-webhook-url')?.value.trim();if(!url){if(resultEl)resultEl.textContent='⚠ Enter a webhook URL first.';return;}notifConfig.slack.webhookUrl=url;notifConfig.slack.enabled=true;}
-  await fireNotifications({id:'test',name:'Test Form'},'Test User',{'Question 1':'Sample answer','Question 2':'Another answer'},85);
-  if(resultEl)resultEl.textContent=channel==='slack'?'✓ Sent (check your channel)':'✓ Check your inbox';
-  setTimeout(()=>{if(resultEl)resultEl.textContent='';},5000);
+
+window.testNotification = async function (channel) {
+  const resultEl = document.getElementById(`${channel}-test-result`); if (resultEl) resultEl.textContent = 'Sending…';
+  if (channel === 'email') {
+    const addr = document.getElementById('email-notif-address')?.value.trim();
+    const edgeUrl = document.getElementById('edge-fn-url')?.value.trim();
+    if (!addr) { if (resultEl) resultEl.textContent = '⚠ Enter an email address first.'; return; }
+    if (!edgeUrl) { if (resultEl) resultEl.textContent = '⚠ Enter Edge Function URL first.'; return; }
+    notifConfig.email.address = addr; notifConfig.email.edgeFnUrl = edgeUrl; notifConfig.email.enabled = true;
+  }
+  if (channel === 'slack') {
+    const url = document.getElementById('slack-webhook-url')?.value.trim();
+    if (!url) { if (resultEl) resultEl.textContent = '⚠ Enter a webhook URL first.'; return; }
+    notifConfig.slack.webhookUrl = url; notifConfig.slack.enabled = true;
+  }
+  await fireNotifications({ id: 'test', name: 'Test Form' }, 'Test User', { 'Question 1': 'Sample answer', 'Question 2': 'Another answer' }, 85);
+  if (resultEl) resultEl.textContent = channel === 'slack' ? '✓ Sent (check your channel)' : '✓ Check your inbox';
+  setTimeout(() => { if (resultEl) resultEl.textContent = ''; }, 5000);
 };
 
-/* ── SETTINGS TABS ── */
-window.settingsTab=function(tab,btn){
-  document.querySelectorAll('#page-settings .auth-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('#page-settings .auth-panel').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');document.getElementById('settings-'+tab).classList.add('active');
-  if(tab==='notifications'){
-    const sel=document.getElementById('notif-form-scope');
-    if(sel)sel.innerHTML='<option value="">All forms</option>'+allForms.map(f=>`<option value="${f.id}" ${f.id===notifConfig.formScope?'selected':''}>${esc(f.name)}</option>`).join('');
-    updateNotifUI();renderNotifLog();
+// ── SETTINGS TABS ─────────────────────────────────────────────────────────────
+window.settingsTab = function (tab, btn) {
+  document.querySelectorAll('#page-settings .auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#page-settings .auth-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active'); document.getElementById('settings-' + tab).classList.add('active');
+  if (tab === 'notifications') {
+    const sel = document.getElementById('notif-form-scope');
+    if (sel) sel.innerHTML = '<option value="">All forms</option>' + allForms.map(f => `<option value="${f.id}" ${f.id === notifConfig.formScope ? 'selected' : ''}>${esc(f.name)}</option>`).join('');
+    updateNotifUI(); renderNotifLog();
   }
 };
 
-/* ── HELPERS ── */
-function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function timeAgo(d){const diff=Date.now()-new Date(d).getTime();if(diff<60000)return 'Just now';if(diff<3600000)return Math.floor(diff/60000)+'m ago';if(diff<86400000)return Math.floor(diff/3600000)+'h ago';return Math.floor(diff/86400000)+'d ago';}
-function fmtBytes(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(1)+'MB';}
-function toast(msg,type='info'){
-  const icons={success:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',error:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'};
-  const el=document.createElement('div');el.className='toast-item toast-'+type;el.innerHTML=(icons[type]||'')+esc(msg);
-  document.getElementById('toast').appendChild(el);setTimeout(()=>el.remove(),3800);
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-function computeReadinessScore(answers,fields){
-  let sum=0,count=0;
-  (fields||[]).forEach(f=>{if(f.type==='scale'){const v=parseFloat(answers[f.label]);if(!isNaN(v)){sum+=((v-1)/9.0)*100;count++;}}});
-  return count>0?Math.round(sum/count):null;
+
+function timeAgo(d) {
+  const diff = Date.now() - new Date(d).getTime();
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+  return Math.floor(diff / 86400000) + 'd ago';
 }
-window.checkPasswordStrength=function(pw,fillId='pw-strength-fill'){
-  const el=document.getElementById(fillId);if(!el)return;
-  let score=0;if(pw.length>=8)score++;if(pw.length>=12)score++;if(/[A-Z]/.test(pw))score++;if(/[0-9]/.test(pw))score++;if(/[^A-Za-z0-9]/.test(pw))score++;
-  const pct=(score/5)*100;const colors=['#ef4444','#f97316','#eab308','#22c55e','#16a34a'];
-  el.style.width=pct+'%';el.style.background=colors[Math.min(score-1,4)]||'#ef4444';
+
+function fmtBytes(b) {
+  if (b < 1024) return b + 'B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + 'KB';
+  return (b / 1048576).toFixed(1) + 'MB';
+}
+
+function toast(msg, type = 'info') {
+  const icons = {
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+    error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+  };
+  const el = document.createElement('div');
+  el.className = 'toast-item toast-' + type;
+  el.innerHTML = (icons[type] || '') + esc(msg);
+  document.getElementById('toast').appendChild(el);
+  setTimeout(() => el.remove(), 3800);
+}
+
+function computeReadinessScore(answers, fields) {
+  let sum = 0, count = 0;
+  (fields || []).forEach(f => {
+    if (f.type === 'scale') {
+      const v = parseFloat(answers[f.label]);
+      if (!isNaN(v)) { sum += ((v - 1) / 9.0) * 100; count++; }
+    }
+  });
+  return count > 0 ? Math.round(sum / count) : null;
+}
+
+window.checkPasswordStrength = function (pw, fillId = 'pw-strength-fill') {
+  const el = document.getElementById(fillId); if (!el) return;
+  let score = 0;
+  if (pw.length >= 8) score++; if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++; if (/[0-9]/.test(pw)) score++; if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const pct = (score / 5) * 100;
+  const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#16a34a'];
+  el.style.width = pct + '%'; el.style.background = colors[Math.min(score - 1, 4)] || '#ef4444';
 };
 
-/* ── AUTH ── */
-window.authTab=function(tab,btn){
-  document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.auth-panel').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');document.getElementById('ap-'+tab).classList.add('active');
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+window.authTab = function (tab, btn) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.auth-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active'); document.getElementById('ap-' + tab).classList.add('active');
 };
-function showAuthMsg(id,type,text){const el=document.getElementById(id);if(!el)return;el.className='auth-msg '+type;el.textContent=text;}
-window.showResetPanel=function(){document.getElementById('auth-main').style.display='none';document.getElementById('auth-reset').style.display='block';const e=document.getElementById('si-email');if(e)document.getElementById('reset-email').value=e.value;};
-window.hideResetPanel=function(){document.getElementById('auth-reset').style.display='none';document.getElementById('auth-new-password').style.display='none';document.getElementById('auth-main').style.display='block';};
-window.doPasswordReset=async function(){
-  const email=document.getElementById('reset-email').value.trim();if(!email)return showAuthMsg('reset-msg','error','Please enter your email address.');
-  const btn=document.getElementById('reset-btn');btn.disabled=true;btn.textContent='Sending…';
-  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('?')[0]});
-  if(error){showAuthMsg('reset-msg','error',error.message);btn.disabled=false;btn.textContent='Send Reset Link';}
-  else{showAuthMsg('reset-msg','success','Reset link sent! Check your inbox.');btn.textContent='Sent ✓';}
+
+function showAuthMsg(id, type, text) {
+  const el = document.getElementById(id); if (!el) return;
+  el.className = 'auth-msg ' + type; el.textContent = text;
+}
+
+window.showResetPanel = function () {
+  document.getElementById('auth-main').style.display = 'none';
+  document.getElementById('auth-reset').style.display = 'block';
+  const e = document.getElementById('si-email'); if (e) document.getElementById('reset-email').value = e.value;
 };
-function showNewPasswordPanel(){document.getElementById('auth-screen').style.display='flex';document.getElementById('app').style.display='none';document.getElementById('auth-main').style.display='none';document.getElementById('auth-reset').style.display='none';document.getElementById('auth-new-password').style.display='block';}
-window.doSetNewPassword=async function(){
-  const pw=document.getElementById('new-pass-input').value;const conf=document.getElementById('new-pass-confirm').value;
-  if(pw.length<8)return showAuthMsg('new-pass-msg','error','Password must be at least 8 characters.');if(pw!==conf)return showAuthMsg('new-pass-msg','error','Passwords do not match.');
-  const btn=document.getElementById('new-pass-btn');btn.disabled=true;btn.textContent='Updating…';
-  const{error}=await sb.auth.updateUser({password:pw});
-  if(error){showAuthMsg('new-pass-msg','error',error.message);btn.disabled=false;btn.textContent='Update Password';}
-  else{showAuthMsg('new-pass-msg','success','Password updated!');setTimeout(async()=>{const{data:{session}}=await sb.auth.getSession();if(session?.user)await bootApp(session.user);else hideResetPanel();},1500);}
+
+window.hideResetPanel = function () {
+  document.getElementById('auth-reset').style.display = 'none';
+  document.getElementById('auth-new-password').style.display = 'none';
+  document.getElementById('auth-main').style.display = 'block';
 };
-window.showChangePassword=function(){const s=document.getElementById('change-pw-section');s.style.display=s.style.display==='none'?'block':'none';};
-window.doChangePassword=async function(){
-  const pw=document.getElementById('change-pw-input').value;const conf=document.getElementById('change-pw-confirm').value;
-  if(pw.length<8)return showAuthMsg('change-pw-msg','error','Min 8 characters required.');if(pw!==conf)return showAuthMsg('change-pw-msg','error','Passwords do not match.');
-  const{error}=await sb.auth.updateUser({password:pw});
-  if(error)showAuthMsg('change-pw-msg','error',error.message);else showAuthMsg('change-pw-msg','success','Password updated successfully!');
+
+window.doPasswordReset = async function () {
+  const email = document.getElementById('reset-email').value.trim();
+  if (!email) return showAuthMsg('reset-msg', 'error', 'Please enter your email address.');
+  const btn = document.getElementById('reset-btn'); btn.disabled = true; btn.textContent = 'Sending…';
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.href.split('?')[0] });
+  if (error) { showAuthMsg('reset-msg', 'error', error.message); btn.disabled = false; btn.textContent = 'Send Reset Link'; }
+  else { showAuthMsg('reset-msg', 'success', 'Reset link sent! Check your inbox.'); btn.textContent = 'Sent ✓'; }
 };
-window.doSignIn=async function(){
-  const email=document.getElementById('si-email').value.trim();const pass=document.getElementById('si-pass').value;
-  if(!email||!pass)return showAuthMsg('si-msg','error','Enter email and password');
-  const btn=document.getElementById('si-btn');btn.disabled=true;btn.textContent='Signing in…';
-  const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
-  btn.disabled=false;btn.textContent='Access Insight Layer';
-  if(error)return showAuthMsg('si-msg','error',error.message);
+
+function showNewPasswordPanel() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-main').style.display = 'none';
+  document.getElementById('auth-reset').style.display = 'none';
+  document.getElementById('auth-new-password').style.display = 'block';
+}
+
+window.doSetNewPassword = async function () {
+  const pw = document.getElementById('new-pass-input').value;
+  const conf = document.getElementById('new-pass-confirm').value;
+  if (pw.length < 8) return showAuthMsg('new-pass-msg', 'error', 'Password must be at least 8 characters.');
+  if (pw !== conf) return showAuthMsg('new-pass-msg', 'error', 'Passwords do not match.');
+  const btn = document.getElementById('new-pass-btn'); btn.disabled = true; btn.textContent = 'Updating…';
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) { showAuthMsg('new-pass-msg', 'error', error.message); btn.disabled = false; btn.textContent = 'Update Password'; }
+  else {
+    showAuthMsg('new-pass-msg', 'success', 'Password updated!');
+    setTimeout(async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (session?.user) await bootApp(session.user); else hideResetPanel();
+    }, 1500);
+  }
+};
+
+window.showChangePassword = function () {
+  const s = document.getElementById('change-pw-section');
+  s.style.display = s.style.display === 'none' ? 'block' : 'none';
+};
+
+window.doChangePassword = async function () {
+  const pw = document.getElementById('change-pw-input').value;
+  const conf = document.getElementById('change-pw-confirm').value;
+  if (pw.length < 8) return showAuthMsg('change-pw-msg', 'error', 'Min 8 characters required.');
+  if (pw !== conf) return showAuthMsg('change-pw-msg', 'error', 'Passwords do not match.');
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) showAuthMsg('change-pw-msg', 'error', error.message);
+  else showAuthMsg('change-pw-msg', 'success', 'Password updated successfully!');
+};
+
+window.doSignIn = async function () {
+  const email = document.getElementById('si-email').value.trim();
+  const pass = document.getElementById('si-pass').value;
+  if (!email || !pass) return showAuthMsg('si-msg', 'error', 'Enter email and password');
+  const btn = document.getElementById('si-btn'); btn.disabled = true; btn.textContent = 'Signing in…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Access Insight Layer';
+  if (error) return showAuthMsg('si-msg', 'error', error.message);
   await bootApp(data.user);
 };
-window.doSignUp=async function(){
-  const name=document.getElementById('su-name').value.trim();const email=document.getElementById('su-email').value.trim();
-  const pass=document.getElementById('su-pass').value;const role=document.getElementById('su-role').value;
-  if(!name||!email||!pass)return showAuthMsg('su-msg','error','Fill in all fields');
-  if(pass.length<8)return showAuthMsg('su-msg','error','Password must be at least 8 characters');
-  const btn=document.getElementById('su-btn');btn.disabled=true;btn.textContent='Creating…';
-  const{error}=await sb.auth.signUp({email,password:pass,options:{data:{full_name:name,role}}});
-  btn.disabled=false;btn.textContent='Create Account';
-  if(error)return showAuthMsg('su-msg','error',error.message);
-  showAuthMsg('su-msg','success','Account created! Check your email, then sign in.');
+
+window.doSignUp = async function () {
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pass = document.getElementById('su-pass').value;
+  const role = document.getElementById('su-role').value;
+  if (!name || !email || !pass) return showAuthMsg('su-msg', 'error', 'Fill in all fields');
+  if (pass.length < 8) return showAuthMsg('su-msg', 'error', 'Password must be at least 8 characters');
+  const btn = document.getElementById('su-btn'); btn.disabled = true; btn.textContent = 'Creating…';
+  const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { full_name: name, role } } });
+  btn.disabled = false; btn.textContent = 'Create Account';
+  if (error) return showAuthMsg('su-msg', 'error', error.message);
+  showAuthMsg('su-msg', 'success', 'Account created! Check your email, then sign in.');
 };
-window.doSignOut=async function(){
-  await sb.auth.signOut();currentUser=null;
-  document.getElementById('app').style.display='none';document.getElementById('auth-screen').style.display='flex';
+
+window.doSignOut = async function () {
+  await sb.auth.signOut(); currentUser = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
 };
-sb.auth.onAuthStateChange(async(event,session)=>{
-  if(event==='PASSWORD_RECOVERY'){showNewPasswordPanel();return;}
-  if(event==='SIGNED_IN'&&session?.user&&!currentUser){if(document.getElementById('auth-new-password').style.display==='block')return;if(FILL_PARAM)return;await bootApp(session.user);}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'PASSWORD_RECOVERY') { showNewPasswordPanel(); return; }
+  if (event === 'SIGNED_IN' && session?.user && !currentUser) {
+    if (document.getElementById('auth-new-password').style.display === 'block') return;
+    if (FILL_PARAM) return;
+    await bootApp(session.user);
+  }
 });
 
-/* ── BOOT ── */
-async function bootApp(user){
-  currentUser=user;const meta=user.user_metadata||{};currentRole=meta.role||'operator';
-  const name=meta.full_name||user.email.split('@')[0];const first=name.split(' ')[0];
-  document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';
-  const h=new Date().getHours();
-  document.getElementById('dash-greeting').textContent=h<12?'morning':h<18?'afternoon':'evening';
-  document.getElementById('dash-name').textContent=first;
-  document.getElementById('nav-avatar').textContent=name[0].toUpperCase();
-  document.getElementById('settings-email').textContent=user.email;
-  document.getElementById('settings-role').value=currentRole;
-  if(currentRole!=='operator')document.querySelectorAll('.operator-only').forEach(el=>el.style.display='none');
-  loadNotifConfig();updateNotifUI();loadPersistedKeys();
-  wireFormModal();startFocusTimer();drawInsightMap();
-  initChat();renderSchemaFields();
-  await loadOrgs();await loadForms();await loadAllResponses();
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+async function bootApp(user) {
+  currentUser = user; const meta = user.user_metadata || {};
+  currentRole = meta.role || 'operator';
+  const name = meta.full_name || user.email.split('@')[0]; const first = name.split(' ')[0];
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  const h = new Date().getHours();
+  document.getElementById('dash-greeting').textContent = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+  document.getElementById('dash-name').textContent = first;
+  document.getElementById('nav-avatar').textContent = name[0].toUpperCase();
+  document.getElementById('settings-email').textContent = user.email;
+  document.getElementById('settings-role').value = currentRole;
+  if (currentRole !== 'operator') document.querySelectorAll('.operator-only').forEach(el => el.style.display = 'none');
+  loadNotifConfig(); updateNotifUI(); loadPersistedKeys();
+  wireFormModal(); startFocusTimer(); drawInsightMap();
+  initChat(); renderSchemaFields();
+  await loadOrgs(); await loadForms(); await loadAllResponses();
   await renderDashboard();
 }
 
-/* ── FOCUS TIMER ── */
-function startFocusTimer(){clearInterval(focusInterval);if(!focusRunning)return;focusInterval=setInterval(()=>{if(focusSecs<=0){clearInterval(focusInterval);return;}focusSecs--;const h=Math.floor(focusSecs/3600),m=Math.floor((focusSecs%3600)/60),s=focusSecs%60;const disp=h>0?`${h}:${String(m).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`;const el=document.getElementById('focus-time-display');if(el)el.textContent=disp;const gl=document.getElementById('gl-focus');if(gl)gl.textContent=h>0?`${h}h ${m}m left`:`${m}m left`;},1000);}
-window.toggleFocus=function(){focusRunning=!focusRunning;document.getElementById('focus-btn-label').textContent=focusRunning?'Pause':'Resume';const ring=document.querySelector('.focus-ring');if(ring)ring.style.animationPlayState=focusRunning?'running':'paused';if(focusRunning)startFocusTimer();else clearInterval(focusInterval);};
+// ── FOCUS TIMER ───────────────────────────────────────────────────────────────
+function startFocusTimer() {
+  clearInterval(focusInterval); if (!focusRunning) return;
+  focusInterval = setInterval(() => {
+    if (focusSecs <= 0) { clearInterval(focusInterval); return; }
+    focusSecs--;
+    const h = Math.floor(focusSecs / 3600), m = Math.floor((focusSecs % 3600) / 60), s = focusSecs % 60;
+    const disp = h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+    const el = document.getElementById('focus-time-display'); if (el) el.textContent = disp;
+    const gl = document.getElementById('gl-focus'); if (gl) gl.textContent = h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+  }, 1000);
+}
 
-/* ── NAVIGATION ── */
-window.navTo=function(page){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const target=document.getElementById('page-'+page);if(target)target.classList.add('active');
-  document.querySelectorAll('.sb-item[data-page],.nav-btn[data-page]').forEach(n=>n.classList.toggle('active',n.dataset.page===page));
-  const handlers={dashboard:renderDashboard,forms:renderFormsPage,responses:renderResponses,orgs:renderOrgsPage,metrics:renderMetrics,ai:populateAIFormSelect};
-  if(handlers[page])handlers[page]();
+window.toggleFocus = function () {
+  focusRunning = !focusRunning;
+  document.getElementById('focus-btn-label').textContent = focusRunning ? 'Pause' : 'Resume';
+  const ring = document.querySelector('.focus-ring');
+  if (ring) ring.style.animationPlayState = focusRunning ? 'running' : 'paused';
+  if (focusRunning) startFocusTimer(); else clearInterval(focusInterval);
 };
 
-/* ── MODALS ── */
-window.openModal=id=>document.getElementById(id)?.classList.add('open');
-window.closeModal=id=>document.getElementById(id)?.classList.remove('open');
-document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+window.navTo = function (page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('page-' + page); if (target) target.classList.add('active');
+  document.querySelectorAll('.sb-item[data-page],.nav-btn[data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === page));
+  const handlers = { dashboard: renderDashboard, forms: renderFormsPage, responses: renderResponses, orgs: renderOrgsPage, metrics: renderMetrics, ai: populateAIFormSelect };
+  if (handlers[page]) handlers[page]();
+};
 
-/* ── DATA ── */
-async function loadOrgs(){
-  try{const{data,error}=await sb.from('il_organisations').select('*').order('name');if(error)throw error;allOrgs=data||[];const sel=document.getElementById('org-selector');sel.innerHTML='<option value="">All Organisations</option>'+allOrgs.map(o=>`<option value="${o.id}">${esc(o.name)}</option>`).join('');document.getElementById('sb-orgs-count').textContent=allOrgs.length;}catch(e){console.warn('loadOrgs:',e.message);}
-}
-async function loadForms(){
-  try{let q=sb.from('il_forms').select('*').order('created_at',{ascending:false});if(currentOrgId)q=q.eq('org_id',currentOrgId);const{data,error}=await q;if(error)throw error;allForms=data||[];document.getElementById('sb-forms-count').textContent=allForms.length;}catch(e){allForms=[];console.warn('loadForms:',e.message);}
-}
-async function loadAllResponses(){
-  try{let q=sb.from('il_responses').select('*').order('created_at',{ascending:false});if(currentOrgId){const fids=allForms.filter(f=>f.org_id===currentOrgId).map(f=>f.id);if(fids.length)q=q.in('form_id',fids);else{allResponses=[];return;}}const{data,error}=await q;if(error)throw error;allResponses=data||[];document.getElementById('sb-resp-count').textContent=allResponses.length;document.getElementById('nav-badge-resp').style.display=allResponses.length?'block':'none';}catch(e){allResponses=[];console.warn('loadResponses:',e.message);}
-}
-window.onOrgChange=async function(id){currentOrgId=id;await loadForms();await loadAllResponses();renderDashboard();};
+// ── MODALS ────────────────────────────────────────────────────────────────────
+window.openModal = id => document.getElementById(id)?.classList.add('open');
+window.closeModal = id => document.getElementById(id)?.classList.remove('open');
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
 
-/* ── DASHBOARD ── */
-async function renderDashboard(){
-  try{const{data,error}=await sb.from('il_dashboard_kpis').select('*').single();if(!error&&data){document.getElementById('kpi-responses').textContent=data.total_responses??0;document.getElementById('kpi-forms').textContent=data.active_forms??0;document.getElementById('kpi-orgs').textContent=data.total_orgs??0;const score=data.avg_readiness_score;document.getElementById('kpi-score').textContent=score??'—';document.getElementById('kpi-score-sub').textContent=score?'Based on all scored responses':'No scored responses yet';document.getElementById('kpi-responses-sub').textContent=data.responses_last_24h!=null?`${data.responses_last_24h} in last 24h`:'Loading…';}else _renderDashboardLocal();}catch(e){_renderDashboardLocal();}
-  document.getElementById('snap-forms').textContent=allForms.length||'0';document.getElementById('snap-resp').textContent=allResponses.length||'0';
-  const scored=allResponses.filter(r=>r.readiness_score!=null);const localAvg=scored.length?Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length):null;
-  document.getElementById('snap-score').textContent=localAvg??'—';document.getElementById('gl-forms').textContent=`${allForms.length} form${allForms.length!==1?'s':''}`;
-  renderInsightFeed();renderTopForms();drawSparklines();
+// ── DATA LOADING ──────────────────────────────────────────────────────────────
+async function loadOrgs() {
+  try {
+    const { data, error } = await sb.from('il_organisations').select('*').order('name');
+    if (error) throw error; allOrgs = data || [];
+    const sel = document.getElementById('org-selector');
+    sel.innerHTML = '<option value="">All Organisations</option>' + allOrgs.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+    document.getElementById('sb-orgs-count').textContent = allOrgs.length;
+  } catch (e) { console.warn('loadOrgs:', e.message); }
 }
-function _renderDashboardLocal(){
-  const totalResp=allResponses.length;const activeForms=allForms.filter(f=>f.active).length||allForms.length;
-  const scored=allResponses.filter(r=>r.readiness_score!=null);const avgScore=scored.length?Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length):null;
-  document.getElementById('kpi-responses').textContent=totalResp;document.getElementById('kpi-forms').textContent=activeForms;document.getElementById('kpi-orgs').textContent=allOrgs.length;document.getElementById('kpi-score').textContent=avgScore??'—';document.getElementById('kpi-score-sub').textContent=scored.length?`Across ${scored.length} response${scored.length!==1?'s':''}`:'No scored responses yet';document.getElementById('kpi-responses-sub').textContent=totalResp?`From ${allForms.length} form${allForms.length!==1?'s':''}`:'No responses yet';
-}
-function renderInsightFeed(){
-  const el=document.getElementById('insight-feed');if(!allResponses.length){el.innerHTML=`<div class="insight-item"><div class="insight-icon" style="background:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div><div class="insight-text">No responses yet — share a form to start collecting.</div><div class="insight-time">Now</div></div></div>`;return;}
-  el.innerHTML=allResponses.slice(0,4).map(r=>{const form=allForms.find(f=>f.id===r.form_id);const s=r.readiness_score;const col=s>=70?'var(--green)':s>=40?'var(--amber)':s!=null?'var(--red)':'var(--accent)';return `<div class="insight-item"><div class="insight-icon" style="background:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div style="flex:1"><div class="insight-text"><strong>${esc(r.respondent_name||'Anonymous')}</strong> submitted ${esc(form?.name||'a form')}${s!=null?' · Score: '+s:''}</div><div class="insight-time">${timeAgo(r.created_at)}</div></div></div>`;}).join('');
-}
-function renderTopForms(){
-  const el=document.getElementById('top-forms-list');if(!allForms.length){el.innerHTML='<div style="font-size:12.5px;color:var(--text-3);padding:8px 0">No forms yet.</div>';return;}
-  el.innerHTML=allForms.slice(0,4).map(f=>{const count=allResponses.filter(r=>r.form_id===f.id).length;return `<div class="person-row"><div class="person-avatar" style="border-radius:7px;font-size:10px">${(f.name||'F')[0].toUpperCase()}</div><div style="flex:1"><div class="person-name">${esc(f.name)}</div><div class="person-status">${count} response${count!==1?'s':''}</div></div><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button></div>`;}).join('');
-}
-function drawInsightMap(){
-  const container=document.getElementById('insight-map');if(!container)return;
-  container.querySelectorAll('.map-node').forEach(n=>n.remove());const svg=document.getElementById('map-svg');if(svg)svg.innerHTML='';
-  const nodes=[{label:'Form Builder',x:42,y:28,size:52,color:'var(--accent)',active:true},{label:'AI Analysis',x:70,y:18,size:36,color:'var(--purple)'},{label:'Responses',x:28,y:58,size:40,color:'var(--green)'},{label:'Metrics',x:54,y:62,size:32,color:'var(--amber)'},{label:'Organisations',x:20,y:82,size:28,color:'var(--text-3)'},{label:'Notifications',x:68,y:78,size:32,color:'var(--red)'}];
-  const edges=[[0,1],[0,2],[0,3],[2,4],[3,5],[1,3]];
-  if(svg){edges.forEach(([a,b])=>{const na=nodes[a],nb=nodes[b];const line=document.createElementNS('http://www.w3.org/2000/svg','line');line.setAttribute('x1',na.x+'%');line.setAttribute('y1',na.y+'%');line.setAttribute('x2',nb.x+'%');line.setAttribute('y2',nb.y+'%');line.setAttribute('stroke','rgba(0,0,0,0.08)');line.setAttribute('stroke-width','1.5');line.setAttribute('stroke-dasharray','4 3');svg.appendChild(line);});}
-  nodes.forEach(n=>{const wrap=document.createElement('div');wrap.className='map-node';wrap.style.cssText=`position:absolute;left:${n.x}%;top:${n.y}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;z-index:1`;const circle=document.createElement('div');circle.style.cssText=`width:${n.size}px;height:${n.size}px;border-radius:50%;background:white;border:2px solid ${n.active?n.color:'var(--border-2)'};display:flex;align-items:center;justify-content:center;box-shadow:${n.active?'0 0 0 4px rgba(79,99,232,0.10)':'var(--shadow)'}`;const dot=document.createElement('div');dot.style.cssText=`width:${Math.round(n.size*.32)}px;height:${Math.round(n.size*.32)}px;border-radius:50%;background:${n.color};opacity:0.75`;circle.appendChild(dot);const label=document.createElement('div');label.style.cssText='font-size:9.5px;color:var(--text-2);text-align:center;font-weight:500;white-space:nowrap;font-family:var(--font-alt)';label.textContent=n.label;wrap.appendChild(circle);wrap.appendChild(label);container.appendChild(wrap);});
-}
-function drawSparklines(){
-  function makeSparkline(id,data,color,bg){const wrap=document.querySelector(`#${id}`)?.closest('.snap-chart-wrap');const canvas=document.getElementById(id);if(!canvas||!wrap)return;if(sparkCharts[id]){try{sparkCharts[id].destroy();}catch(e){}delete sparkCharts[id];}canvas.width=wrap.offsetWidth||68;canvas.height=wrap.offsetHeight||30;sparkCharts[id]=new Chart(canvas,{type:'line',data:{labels:data.map((_,i)=>i),datasets:[{data,borderColor:color,borderWidth:1.5,fill:true,backgroundColor:bg,pointRadius:0,tension:0.4}]},options:{responsive:false,animation:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}},layout:{padding:0}}});}
-  const respData=buildCumulative(allResponses,8);const formsData=buildCumulative(allForms,8);
-  makeSparkline('chart-forms',formsData.some(v=>v>0)?formsData:[1,1,2,2,3,4,4,allForms.length||0],'#16a34a','rgba(22,163,74,0.08)');
-  makeSparkline('chart-resp',respData.some(v=>v>0)?respData:[1,1,2,2,3,4,4,allResponses.length||0],'#4f63e8','rgba(79,99,232,0.08)');
-  makeSparkline('chart-score',[58,62,65,68,70,72,74,76],'#d97706','rgba(217,119,6,0.08)');
-}
-function buildCumulative(items,days){const out=[];const now=Date.now();let total=0;for(let i=days-1;i>=0;i--){const s=now-(i+1)*86400000,e=now-i*86400000;total+=items.filter(x=>{const t=new Date(x.created_at).getTime();return t>=s&&t<e;}).length;out.push(total);}return out;}
 
-/* ── FORMS PAGE ── */
-async function renderFormsPage(){
-  await loadForms();const grid=document.getElementById('forms-grid');
-  if(!allForms.length){grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No forms yet. Create your first intelligence form.</p><button class="btn btn-accent" onclick="openNewFormModal()">+ New Form</button></div>`;return;}
-  grid.innerHTML=allForms.map(f=>{
-    const count=allResponses.filter(r=>r.form_id===f.id).length;const org=allOrgs.find(o=>o.id===f.org_id);
-    const hasMedia=(f.fields||[]).some(ff=>['image','video','pdf','csv','file'].includes(ff.type));
-    const notifOn=(notifConfig.email.enabled||notifConfig.slack.enabled)&&(!notifConfig.formScope||notifConfig.formScope===f.id);
-    const notifBadge=notifOn?`<span class="badge" style="background:var(--green-soft);color:var(--green)">🔔 Alerts on</span>`:'';
-    return `<div class="form-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px"><div class="form-card-title">${esc(f.name)}</div><span class="badge ${f.active?'badge-green':'badge-grey'}">${f.active?'● Active':'Draft'}</span></div><div class="form-card-desc">${esc(f.description||'No description')}</div><div class="form-card-footer"><span class="badge badge-blue">${(f.fields||[]).length} field${(f.fields||[]).length!==1?'s':''}</span>${org?`<span class="badge badge-grey">${esc(org.name)}</span>`:''} ${hasMedia?'<span class="badge badge-amber">📎 Files</span>':''} ${notifBadge}<span style="font-size:11px;color:var(--text-3)">${count} response${count!==1?'s':''}</span></div><div class="form-card-actions"><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`;
+async function loadForms() {
+  try {
+    let q = sb.from('il_forms').select('*').order('created_at', { ascending: false });
+    if (currentOrgId) q = q.eq('org_id', currentOrgId);
+    const { data, error } = await q; if (error) throw error;
+    allForms = data || []; document.getElementById('sb-forms-count').textContent = allForms.length;
+  } catch (e) { allForms = []; console.warn('loadForms:', e.message); }
+}
+
+async function loadAllResponses() {
+  try {
+    let q = sb.from('il_responses').select('*').order('created_at', { ascending: false });
+    if (currentOrgId) {
+      const fids = allForms.filter(f => f.org_id === currentOrgId).map(f => f.id);
+      if (fids.length) q = q.in('form_id', fids); else { allResponses = []; return; }
+    }
+    const { data, error } = await q; if (error) throw error;
+    allResponses = data || [];
+    document.getElementById('sb-resp-count').textContent = allResponses.length;
+    document.getElementById('nav-badge-resp').style.display = allResponses.length ? 'block' : 'none';
+  } catch (e) { allResponses = []; console.warn('loadResponses:', e.message); }
+}
+
+window.onOrgChange = async function (id) {
+  currentOrgId = id; await loadForms(); await loadAllResponses(); renderDashboard();
+};
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+async function renderDashboard() {
+  try {
+    const { data, error } = await sb.from('il_dashboard_kpis').select('*').single();
+    if (!error && data) {
+      document.getElementById('kpi-responses').textContent = data.total_responses ?? 0;
+      document.getElementById('kpi-forms').textContent = data.active_forms ?? 0;
+      document.getElementById('kpi-orgs').textContent = data.total_orgs ?? 0;
+      const score = data.avg_readiness_score;
+      document.getElementById('kpi-score').textContent = score ?? '—';
+      document.getElementById('kpi-score-sub').textContent = score ? 'Based on all scored responses' : 'No scored responses yet';
+      document.getElementById('kpi-responses-sub').textContent = data.responses_last_24h != null ? `${data.responses_last_24h} in last 24h` : 'Loading…';
+    } else _renderDashboardLocal();
+  } catch (e) { _renderDashboardLocal(); }
+  document.getElementById('snap-forms').textContent = allForms.length || '0';
+  document.getElementById('snap-resp').textContent = allResponses.length || '0';
+  const scored = allResponses.filter(r => r.readiness_score != null);
+  const localAvg = scored.length ? Math.round(scored.reduce((a, r) => a + r.readiness_score, 0) / scored.length) : null;
+  document.getElementById('snap-score').textContent = localAvg ?? '—';
+  document.getElementById('gl-forms').textContent = `${allForms.length} form${allForms.length !== 1 ? 's' : ''}`;
+  renderInsightFeed(); renderTopForms(); drawSparklines();
+}
+
+function _renderDashboardLocal() {
+  const totalResp = allResponses.length;
+  const activeForms = allForms.filter(f => f.active).length || allForms.length;
+  const scored = allResponses.filter(r => r.readiness_score != null);
+  const avgScore = scored.length ? Math.round(scored.reduce((a, r) => a + r.readiness_score, 0) / scored.length) : null;
+  document.getElementById('kpi-responses').textContent = totalResp;
+  document.getElementById('kpi-forms').textContent = activeForms;
+  document.getElementById('kpi-orgs').textContent = allOrgs.length;
+  document.getElementById('kpi-score').textContent = avgScore ?? '—';
+  document.getElementById('kpi-score-sub').textContent = scored.length ? `Across ${scored.length} response${scored.length !== 1 ? 's' : ''}` : 'No scored responses yet';
+  document.getElementById('kpi-responses-sub').textContent = totalResp ? `From ${allForms.length} form${allForms.length !== 1 ? 's' : ''}` : 'No responses yet';
+}
+
+function renderInsightFeed() {
+  const el = document.getElementById('insight-feed');
+  if (!allResponses.length) {
+    el.innerHTML = `<div class="insight-item"><div class="insight-icon" style="background:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div><div class="insight-text">No responses yet — share a form to start collecting.</div><div class="insight-time">Now</div></div></div>`;
+    return;
+  }
+  el.innerHTML = allResponses.slice(0, 4).map(r => {
+    const form = allForms.find(f => f.id === r.form_id);
+    const s = r.readiness_score;
+    const col = s >= 70 ? 'var(--green)' : s >= 40 ? 'var(--amber)' : s != null ? 'var(--red)' : 'var(--accent)';
+    return `<div class="insight-item"><div class="insight-icon" style="background:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div style="flex:1"><div class="insight-text"><strong>${esc(r.respondent_name || 'Anonymous')}</strong> submitted ${esc(form?.name || 'a form')}${s != null ? ' · Score: ' + s : ''}</div><div class="insight-time">${timeAgo(r.created_at)}</div></div></div>`;
   }).join('');
 }
 
-/* ── FORM MODAL ── */
-function wireFormModal(){
-  const typeSelect=document.getElementById('field-type-input');const optWrap=document.getElementById('field-options-input-wrap');
-  if(typeSelect&&optWrap)typeSelect.addEventListener('change',function(){optWrap.style.display=['select','radio','checkbox'].includes(this.value)?'block':'none';});
-  const addBtn=document.getElementById('add-field-btn');if(addBtn)addBtn.addEventListener('click',e=>{e.preventDefault();addField();});
-  const labelInput=document.getElementById('field-label-input');if(labelInput)labelInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addField();}});
-  const submitBtn=document.getElementById('nf-submit-btn');if(submitBtn)submitBtn.addEventListener('click',e=>{e.preventDefault();if(!_formSubmitting)submitFormModal();});
-  const fillSubmit=document.getElementById('fill-submit-btn');if(fillSubmit)fillSubmit.addEventListener('click',e=>{e.preventDefault();submitFill();});
-  const chatInput=document.getElementById('chat-input');
-  if(chatInput){chatInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage();}});}
+function renderTopForms() {
+  const el = document.getElementById('top-forms-list');
+  if (!allForms.length) { el.innerHTML = '<div style="font-size:12.5px;color:var(--text-3);padding:8px 0">No forms yet.</div>'; return; }
+  el.innerHTML = allForms.slice(0, 4).map(f => {
+    const count = allResponses.filter(r => r.form_id === f.id).length;
+    return `<div class="person-row"><div class="person-avatar" style="border-radius:7px;font-size:10px">${(f.name || 'F')[0].toUpperCase()}</div><div style="flex:1"><div class="person-name">${esc(f.name)}</div><div class="person-status">${count} response${count !== 1 ? 's' : ''}</div></div><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button></div>`;
+  }).join('');
 }
-window.openNewFormModal=function(){
-  if(_formSubmitting)return;
-  formFields=[];
-  document.getElementById('nf-edit-id').value='';document.getElementById('nf-old-fields-json').value='';
-  document.getElementById('nf-name').value='';document.getElementById('nf-desc').value='';document.getElementById('nf-slug').value='';
-  document.getElementById('modal-form-title').textContent='Create New Form';
-  const btn=document.getElementById('nf-submit-btn');btn.textContent='Create Form';btn.disabled=false;
-  const orgSel=document.getElementById('nf-org');orgSel.innerHTML='<option value="">None</option>'+allOrgs.map(o=>`<option value="${o.id}">${esc(o.name)}</option>`).join('');
-  document.getElementById('field-label-input').value='';document.getElementById('field-type-input').value='text';
-  document.getElementById('field-options-input').value='';document.getElementById('field-options-input-wrap').style.display='none';
-  renderFieldBuilder();openModal('modal-new-form');
-};
-function addField(){
-  const labelEl=document.getElementById('field-label-input');const typeEl=document.getElementById('field-type-input');const optionsEl=document.getElementById('field-options-input');const optWrap=document.getElementById('field-options-input-wrap');
-  if(!labelEl||!typeEl)return;const label=labelEl.value.trim();if(!label){toast('Enter a field label','error');return;}
-  const type=typeEl.value;const field={id:String(Date.now()),label,type,required:false,options:[]};
-  if(['select','radio','checkbox'].includes(type)){const raw=optionsEl?optionsEl.value.trim():'';field.options=raw?raw.split(',').map(s=>s.trim()).filter(Boolean):['Option 1','Option 2','Option 3'];}
-  formFields.push(field);labelEl.value='';if(optionsEl)optionsEl.value='';if(optWrap)optWrap.style.display='none';typeEl.value='text';
-  renderFieldBuilder();labelEl.focus();
-}
-function renderFieldBuilder(){
-  const list=document.getElementById('field-builder-list');if(!list)return;
-  if(!formFields.length){list.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:6px 0">No fields added yet.</div>';return;}
-  list.innerHTML=formFields.map((f,i)=>`<div class="field-item"><span class="field-item-label">${esc(f.label)}</span><span class="field-item-type">${esc(f.type)}</span>${f.options&&f.options.length?`<span style="font-size:10px;color:var(--text-3)">(${f.options.length} opts)</span>`:''}<button class="btn-icon btn-icon-red" style="width:22px;height:22px;margin-left:auto" onclick="removeField(${i})" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`).join('');
-}
-window.removeField=function(i){formFields.splice(i,1);renderFieldBuilder();};
 
-async function submitFormModal(){
-  if(_formSubmitting)return;_formSubmitting=true;
-  const btn=document.getElementById('nf-submit-btn');if(btn)btn.disabled=true;
-  try{const editId=document.getElementById('nf-edit-id').value;if(editId)await saveFormEdit(editId);else await createNewForm();}
-  finally{_formSubmitting=false;const btn=document.getElementById('nf-submit-btn');if(btn)btn.disabled=false;}
+function drawInsightMap() {
+  const container = document.getElementById('insight-map'); if (!container) return;
+  container.querySelectorAll('.map-node').forEach(n => n.remove());
+  const svg = document.getElementById('map-svg'); if (svg) svg.innerHTML = '';
+  const nodes = [
+    { label: 'Form Builder', x: 42, y: 28, size: 52, color: 'var(--accent)', active: true },
+    { label: 'AI Analysis', x: 70, y: 18, size: 36, color: 'var(--purple)' },
+    { label: 'Responses', x: 28, y: 58, size: 40, color: 'var(--green)' },
+    { label: 'Metrics', x: 54, y: 62, size: 32, color: 'var(--amber)' },
+    { label: 'Organisations', x: 20, y: 82, size: 28, color: 'var(--text-3)' },
+    { label: 'Notifications', x: 68, y: 78, size: 32, color: 'var(--red)' }
+  ];
+  const edges = [[0, 1], [0, 2], [0, 3], [2, 4], [3, 5], [1, 3]];
+  if (svg) {
+    edges.forEach(([a, b]) => {
+      const na = nodes[a], nb = nodes[b];
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', na.x + '%'); line.setAttribute('y1', na.y + '%');
+      line.setAttribute('x2', nb.x + '%'); line.setAttribute('y2', nb.y + '%');
+      line.setAttribute('stroke', 'rgba(0,0,0,0.08)'); line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('stroke-dasharray', '4 3'); svg.appendChild(line);
+    });
+  }
+  nodes.forEach(n => {
+    const wrap = document.createElement('div'); wrap.className = 'map-node';
+    wrap.style.cssText = `position:absolute;left:${n.x}%;top:${n.y}%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;z-index:1`;
+    const circle = document.createElement('div');
+    circle.style.cssText = `width:${n.size}px;height:${n.size}px;border-radius:50%;background:white;border:2px solid ${n.active ? n.color : 'var(--border-2)'};display:flex;align-items:center;justify-content:center;box-shadow:${n.active ? '0 0 0 4px rgba(79,99,232,0.10)' : 'var(--shadow)'}`;
+    const dot = document.createElement('div');
+    dot.style.cssText = `width:${Math.round(n.size * .32)}px;height:${Math.round(n.size * .32)}px;border-radius:50%;background:${n.color};opacity:0.75`;
+    circle.appendChild(dot);
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size:9.5px;color:var(--text-2);text-align:center;font-weight:500;white-space:nowrap;font-family:var(--font-alt)';
+    label.textContent = n.label;
+    wrap.appendChild(circle); wrap.appendChild(label); container.appendChild(wrap);
+  });
 }
-async function createNewForm(){
-  const name=document.getElementById('nf-name').value.trim();const desc=document.getElementById('nf-desc').value.trim();
-  const orgId=document.getElementById('nf-org').value;const slug=document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi,'').toLowerCase()||null;
-  if(!name){toast('Form name is required','error');return;}
-  const btn=document.getElementById('nf-submit-btn');btn.textContent='Creating…';
-  try{
-    const payload={name,description:desc||null,org_id:orgId||null,fields:formFields,active:true,created_by:currentUser.id};
-    if(slug)payload.share_slug=slug;
-    const{data,error}=await sb.from('il_forms').insert([payload]).select();
-    if(error)throw error;
-    closeModal('modal-new-form');toast('Form created!','success');
-    await loadForms();document.getElementById('sb-forms-count').textContent=allForms.length;
-    renderDashboard();if(document.getElementById('page-forms').classList.contains('active'))renderFormsPage();
-  }catch(e){toast('Error: '+e.message,'error');}
-  finally{btn.textContent='Create Form';}
+
+function drawSparklines() {
+  function makeSparkline(id, data, color, bg) {
+    const wrap = document.querySelector(`#${id}`)?.closest('.snap-chart-wrap');
+    const canvas = document.getElementById(id); if (!canvas || !wrap) return;
+    if (sparkCharts[id]) { try { sparkCharts[id].destroy(); } catch (e) {} delete sparkCharts[id]; }
+    canvas.width = wrap.offsetWidth || 68; canvas.height = wrap.offsetHeight || 30;
+    sparkCharts[id] = new Chart(canvas, {
+      type: 'line',
+      data: { labels: data.map((_, i) => i), datasets: [{ data, borderColor: color, borderWidth: 1.5, fill: true, backgroundColor: bg, pointRadius: 0, tension: 0.4 }] },
+      options: { responsive: false, animation: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } }, layout: { padding: 0 } }
+    });
+  }
+  const respData = buildCumulative(allResponses, 8); const formsData = buildCumulative(allForms, 8);
+  makeSparkline('chart-forms', formsData.some(v => v > 0) ? formsData : [1, 1, 2, 2, 3, 4, 4, allForms.length || 0], '#16a34a', 'rgba(22,163,74,0.08)');
+  makeSparkline('chart-resp', respData.some(v => v > 0) ? respData : [1, 1, 2, 2, 3, 4, 4, allResponses.length || 0], '#4f63e8', 'rgba(79,99,232,0.08)');
+  makeSparkline('chart-score', [58, 62, 65, 68, 70, 72, 74, 76], '#d97706', 'rgba(217,119,6,0.08)');
 }
-window.editForm=function(id){
-  const form=allForms.find(f=>f.id===id);if(!form)return;
-  formFields=JSON.parse(JSON.stringify(form.fields||[]));
-  document.getElementById('nf-edit-id').value=id;document.getElementById('nf-old-fields-json').value=JSON.stringify(form.fields||[]);
-  document.getElementById('nf-name').value=form.name;document.getElementById('nf-desc').value=form.description||'';document.getElementById('nf-slug').value=form.share_slug||'';
-  document.getElementById('modal-form-title').textContent='Edit Form';
-  const btn=document.getElementById('nf-submit-btn');btn.textContent='Save Changes';btn.disabled=false;
-  const orgSel=document.getElementById('nf-org');orgSel.innerHTML='<option value="">None</option>'+allOrgs.map(o=>`<option value="${o.id}" ${o.id===form.org_id?'selected':''}>${esc(o.name)}</option>`).join('');
-  document.getElementById('field-label-input').value='';document.getElementById('field-type-input').value='text';
-  renderFieldBuilder();openModal('modal-new-form');
-};
-async function saveFormEdit(id){
-  const name=document.getElementById('nf-name').value.trim();const desc=document.getElementById('nf-desc').value.trim();
-  const orgId=document.getElementById('nf-org').value;const slug=document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi,'').toLowerCase()||null;
-  const oldFieldsJson=document.getElementById('nf-old-fields-json').value;
-  if(!name){toast('Form name required','error');return;}
-  const btn=document.getElementById('nf-submit-btn');btn.textContent='Saving…';
-  try{
-    const{error}=await sb.from('il_forms').update({name,description:desc||null,org_id:orgId||null,fields:formFields,share_slug:slug}).eq('id',id).select();
-    if(error)throw error;
-    const oldFields=JSON.parse(oldFieldsJson||'[]');const oldSL=oldFields.filter(f=>f.type==='scale').map(f=>f.label).sort().join(',');const newSL=formFields.filter(f=>f.type==='scale').map(f=>f.label).sort().join(',');
-    if(oldSL!==newSL)await sb.rpc('recalculate_form_scores',{p_form_id:id}).catch(()=>{});
-    closeModal('modal-new-form');toast('Form updated!','success');
-    await loadForms();renderDashboard();if(document.getElementById('page-forms').classList.contains('active'))renderFormsPage();
-  }catch(e){toast('Error: '+e.message,'error');}
-  finally{btn.textContent='Save Changes';}
+
+function buildCumulative(items, days) {
+  const out = []; const now = Date.now(); let total = 0;
+  for (let i = days - 1; i >= 0; i--) {
+    const s = now - (i + 1) * 86400000, e = now - i * 86400000;
+    total += items.filter(x => { const t = new Date(x.created_at).getTime(); return t >= s && t < e; }).length;
+    out.push(total);
+  }
+  return out;
 }
-window.deleteForm=async function(id){
-  if(!confirm('Delete this form and all its responses?'))return;
-  const{error}=await sb.from('il_forms').delete().eq('id',id);
-  if(error)return toast(error.message,'error');
-  allForms=allForms.filter(f=>f.id!==id);allResponses=allResponses.filter(r=>r.form_id!==id);
-  toast('Form deleted','info');renderFormsPage();renderDashboard();
+
+// ── FORMS PAGE ────────────────────────────────────────────────────────────────
+async function renderFormsPage() {
+  await loadForms(); const grid = document.getElementById('forms-grid');
+  if (!allForms.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No forms yet. Create your first intelligence form.</p><button class="btn btn-accent" onclick="openNewFormModal()">+ New Form</button></div>`;
+    return;
+  }
+  grid.innerHTML = allForms.map(f => {
+    const count = allResponses.filter(r => r.form_id === f.id).length;
+    const org = allOrgs.find(o => o.id === f.org_id);
+    const hasMedia = (f.fields || []).some(ff => ['image', 'video', 'pdf', 'csv', 'file'].includes(ff.type));
+    const notifOn = (notifConfig.email.enabled || notifConfig.slack.enabled) && (!notifConfig.formScope || notifConfig.formScope === f.id);
+    const notifBadge = notifOn ? `<span class="badge" style="background:var(--green-soft);color:var(--green)">🔔 Alerts on</span>` : '';
+    return `<div class="form-card">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px">
+        <div class="form-card-title">${esc(f.name)}</div>
+        <span class="badge ${f.active ? 'badge-green' : 'badge-grey'}">${f.active ? '● Active' : 'Draft'}</span>
+      </div>
+      <div class="form-card-desc">${esc(f.description || 'No description')}</div>
+      <div class="form-card-footer">
+        <span class="badge badge-blue">${(f.fields || []).length} field${(f.fields || []).length !== 1 ? 's' : ''}</span>
+        ${org ? `<span class="badge badge-grey">${esc(org.name)}</span>` : ''}
+        ${hasMedia ? '<span class="badge badge-amber">📎 Files</span>' : ''}
+        ${notifBadge}
+        <span style="font-size:11px;color:var(--text-3)">${count} response${count !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="form-card-actions">
+        <button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button>
+        <button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── FORM MODAL ────────────────────────────────────────────────────────────────
+function wireFormModal() {
+  const typeSelect = document.getElementById('field-type-input'); const optWrap = document.getElementById('field-options-input-wrap');
+  if (typeSelect && optWrap) typeSelect.addEventListener('change', function () { optWrap.style.display = ['select', 'radio', 'checkbox'].includes(this.value) ? 'block' : 'none'; });
+  const addBtn = document.getElementById('add-field-btn'); if (addBtn) addBtn.addEventListener('click', e => { e.preventDefault(); addField(); });
+  const labelInput = document.getElementById('field-label-input'); if (labelInput) labelInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addField(); } });
+  const submitBtn = document.getElementById('nf-submit-btn'); if (submitBtn) submitBtn.addEventListener('click', e => { e.preventDefault(); if (!_formSubmitting) submitFormModal(); });
+  const fillSubmit = document.getElementById('fill-submit-btn'); if (fillSubmit) fillSubmit.addEventListener('click', e => { e.preventDefault(); submitFill(); });
+  const chatInput = document.getElementById('chat-input');
+  if (chatInput) { chatInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }); }
+}
+
+window.openNewFormModal = function () {
+  if (_formSubmitting) return;
+  formFields = [];
+  document.getElementById('nf-edit-id').value = ''; document.getElementById('nf-old-fields-json').value = '';
+  document.getElementById('nf-name').value = ''; document.getElementById('nf-desc').value = ''; document.getElementById('nf-slug').value = '';
+  document.getElementById('modal-form-title').textContent = 'Create New Form';
+  const btn = document.getElementById('nf-submit-btn'); btn.textContent = 'Create Form'; btn.disabled = false;
+  const orgSel = document.getElementById('nf-org');
+  orgSel.innerHTML = '<option value="">None</option>' + allOrgs.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
+  document.getElementById('field-label-input').value = ''; document.getElementById('field-type-input').value = 'text';
+  document.getElementById('field-options-input').value = ''; document.getElementById('field-options-input-wrap').style.display = 'none';
+  renderFieldBuilder(); openModal('modal-new-form');
 };
 
-/* ── SHARE / QR ── */
-window.shareTab=function(tab,btn){
-  document.querySelectorAll('.share-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.share-panel').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');document.getElementById('sp-'+tab).classList.add('active');
-  if(tab==='qr')setTimeout(generateQR,120);
+function addField() {
+  const labelEl = document.getElementById('field-label-input'); const typeEl = document.getElementById('field-type-input'); const optionsEl = document.getElementById('field-options-input'); const optWrap = document.getElementById('field-options-input-wrap');
+  if (!labelEl || !typeEl) return; const label = labelEl.value.trim(); if (!label) { toast('Enter a field label', 'error'); return; }
+  const type = typeEl.value;
+  const field = { id: String(Date.now()), label, type, required: false, options: [] };
+  if (['select', 'radio', 'checkbox'].includes(type)) {
+    const raw = optionsEl ? optionsEl.value.trim() : '';
+    field.options = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : ['Option 1', 'Option 2', 'Option 3'];
+  }
+  formFields.push(field); labelEl.value = ''; if (optionsEl) optionsEl.value = ''; if (optWrap) optWrap.style.display = 'none'; typeEl.value = 'text';
+  renderFieldBuilder(); labelEl.focus();
+}
+
+function renderFieldBuilder() {
+  const list = document.getElementById('field-builder-list'); if (!list) return;
+  if (!formFields.length) { list.innerHTML = '<div style="font-size:12px;color:var(--text-3);padding:6px 0">No fields added yet.</div>'; return; }
+  list.innerHTML = formFields.map((f, i) =>
+    `<div class="field-item">
+      <span class="field-item-label">${esc(f.label)}</span>
+      <span class="field-item-type">${esc(f.type)}</span>
+      ${f.options && f.options.length ? `<span style="font-size:10px;color:var(--text-3)">(${f.options.length} opts)</span>` : ''}
+      <button class="btn-icon btn-icon-red" style="width:22px;height:22px;margin-left:auto" onclick="removeField(${i})" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>`
+  ).join('');
+}
+
+window.removeField = function (i) { formFields.splice(i, 1); renderFieldBuilder(); };
+
+async function submitFormModal() {
+  if (_formSubmitting) return; _formSubmitting = true;
+  const btn = document.getElementById('nf-submit-btn'); if (btn) btn.disabled = true;
+  try { const editId = document.getElementById('nf-edit-id').value; if (editId) await saveFormEdit(editId); else await createNewForm(); }
+  finally { _formSubmitting = false; const btn = document.getElementById('nf-submit-btn'); if (btn) btn.disabled = false; }
+}
+
+async function createNewForm() {
+  const name = document.getElementById('nf-name').value.trim(); const desc = document.getElementById('nf-desc').value.trim();
+  const orgId = document.getElementById('nf-org').value; const slug = document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi, '').toLowerCase() || null;
+  if (!name) { toast('Form name is required', 'error'); return; }
+  const btn = document.getElementById('nf-submit-btn'); btn.textContent = 'Creating…';
+  try {
+    const payload = { name, description: desc || null, org_id: orgId || null, fields: formFields, active: true, created_by: currentUser.id };
+    if (slug) payload.share_slug = slug;
+    const { data, error } = await sb.from('il_forms').insert([payload]).select();
+    if (error) throw error;
+    closeModal('modal-new-form'); toast('Form created!', 'success');
+    await loadForms(); document.getElementById('sb-forms-count').textContent = allForms.length;
+    renderDashboard(); if (document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+  finally { btn.textContent = 'Create Form'; }
+}
+
+window.editForm = function (id) {
+  const form = allForms.find(f => f.id === id); if (!form) return;
+  formFields = JSON.parse(JSON.stringify(form.fields || []));
+  document.getElementById('nf-edit-id').value = id; document.getElementById('nf-old-fields-json').value = JSON.stringify(form.fields || []);
+  document.getElementById('nf-name').value = form.name; document.getElementById('nf-desc').value = form.description || ''; document.getElementById('nf-slug').value = form.share_slug || '';
+  document.getElementById('modal-form-title').textContent = 'Edit Form';
+  const btn = document.getElementById('nf-submit-btn'); btn.textContent = 'Save Changes'; btn.disabled = false;
+  const orgSel = document.getElementById('nf-org');
+  orgSel.innerHTML = '<option value="">None</option>' + allOrgs.map(o => `<option value="${o.id}" ${o.id === form.org_id ? 'selected' : ''}>${esc(o.name)}</option>`).join('');
+  document.getElementById('field-label-input').value = ''; document.getElementById('field-type-input').value = 'text';
+  renderFieldBuilder(); openModal('modal-new-form');
 };
-window.openShareModal=function(formId){
-  const form=allForms.find(f=>f.id===formId);if(!form)return;
-  currentShareFormId=formId;const org=allOrgs.find(o=>o.id===form.org_id);
-  document.getElementById('share-form-name').textContent=form.name;
-  document.getElementById('share-form-org').textContent=org?org.name:'LumenOS';
-  document.getElementById('share-url-text').textContent=getFormURL(formId);
-  const slugRow=document.getElementById('share-slug-row');const slugDisplay=document.getElementById('share-slug-display');
-  if(form.share_slug){slugDisplay.textContent=form.share_slug;slugRow.style.display='block';}else{slugRow.style.display='none';}
-  document.querySelectorAll('.share-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
-  document.querySelectorAll('.share-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
+
+async function saveFormEdit(id) {
+  const name = document.getElementById('nf-name').value.trim(); const desc = document.getElementById('nf-desc').value.trim();
+  const orgId = document.getElementById('nf-org').value; const slug = document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi, '').toLowerCase() || null;
+  const oldFieldsJson = document.getElementById('nf-old-fields-json').value;
+  if (!name) { toast('Form name required', 'error'); return; }
+  const btn = document.getElementById('nf-submit-btn'); btn.textContent = 'Saving…';
+  try {
+    const { error } = await sb.from('il_forms').update({ name, description: desc || null, org_id: orgId || null, fields: formFields, share_slug: slug }).eq('id', id).select();
+    if (error) throw error;
+    const oldFields = JSON.parse(oldFieldsJson || '[]');
+    const oldSL = oldFields.filter(f => f.type === 'scale').map(f => f.label).sort().join(',');
+    const newSL = formFields.filter(f => f.type === 'scale').map(f => f.label).sort().join(',');
+    if (oldSL !== newSL) await sb.rpc('recalculate_form_scores', { p_form_id: id }).catch(() => {});
+    closeModal('modal-new-form'); toast('Form updated!', 'success');
+    await loadForms(); renderDashboard(); if (document.getElementById('page-forms').classList.contains('active')) renderFormsPage();
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+  finally { btn.textContent = 'Save Changes'; }
+}
+
+window.deleteForm = async function (id) {
+  if (!confirm('Delete this form and all its responses?')) return;
+  const { error } = await sb.from('il_forms').delete().eq('id', id);
+  if (error) return toast(error.message, 'error');
+  allForms = allForms.filter(f => f.id !== id); allResponses = allResponses.filter(r => r.form_id !== id);
+  toast('Form deleted', 'info'); renderFormsPage(); renderDashboard();
+};
+
+// ── SHARE / QR ────────────────────────────────────────────────────────────────
+window.shareTab = function (tab, btn) {
+  document.querySelectorAll('.share-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.share-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active'); document.getElementById('sp-' + tab).classList.add('active');
+  if (tab === 'qr') setTimeout(generateQR, 120);
+};
+
+window.openShareModal = function (formId) {
+  const form = allForms.find(f => f.id === formId); if (!form) return;
+  currentShareFormId = formId; const org = allOrgs.find(o => o.id === form.org_id);
+  document.getElementById('share-form-name').textContent = form.name;
+  document.getElementById('share-form-org').textContent = org ? org.name : 'LumenOS';
+  document.getElementById('share-url-text').textContent = getFormURL(formId);
+  const slugRow = document.getElementById('share-slug-row'); const slugDisplay = document.getElementById('share-slug-display');
+  if (form.share_slug) { slugDisplay.textContent = form.share_slug; slugRow.style.display = 'block'; } else { slugRow.style.display = 'none'; }
+  document.querySelectorAll('.share-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('.share-panel').forEach((p, i) => p.classList.toggle('active', i === 0));
   openModal('modal-share');
 };
-function getFormURL(formId){const form=allForms.find(f=>f.id===formId);const base=location.href.split('?')[0];const param=form?.share_slug||formId;return `${base}?fill=${encodeURIComponent(param)}`;}
-function generateQR(){
-  if(!currentShareFormId)return;const wrap=document.getElementById('qr-wrap');if(!wrap)return;
-  wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:8px">Generating QR…</div>';
-  const url=getFormURL(currentShareFormId);const canvas=document.createElement('canvas');
-  QRCode.toCanvas(canvas,url,{width:180,margin:2,color:{dark:'#1a1d2e',light:'#ffffff'},errorCorrectionLevel:'H'},function(err){
-    if(err){wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px">QR failed</div>';return;}
-    wrap.innerHTML='';wrap.appendChild(canvas);
+
+function getFormURL(formId) {
+  const form = allForms.find(f => f.id === formId);
+  const base = location.href.split('?')[0]; const param = form?.share_slug || formId;
+  return `${base}?fill=${encodeURIComponent(param)}`;
+}
+
+function generateQR() {
+  if (!currentShareFormId) return; const wrap = document.getElementById('qr-wrap'); if (!wrap) return;
+  wrap.innerHTML = '<div style="font-size:11px;color:var(--text-3);padding:8px">Generating QR…</div>';
+  const url = getFormURL(currentShareFormId); const canvas = document.createElement('canvas');
+  QRCode.toCanvas(canvas, url, { width: 180, margin: 2, color: { dark: '#1a1d2e', light: '#ffffff' }, errorCorrectionLevel: 'H' }, function (err) {
+    if (err) { wrap.innerHTML = '<div style="font-size:11px;color:var(--red);padding:8px">QR failed</div>'; return; }
+    wrap.innerHTML = ''; wrap.appendChild(canvas);
   });
 }
-window.copyShareLink=function(){const url=getFormURL(currentShareFormId);navigator.clipboard.writeText(url).then(()=>toast('Link copied!','success')).catch(()=>{const ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('Link copied!','success');});};
-window.openFormDirectly=function(){window.open(getFormURL(currentShareFormId),'_blank');};
-window.downloadQR=function(){const canvas=document.getElementById('qr-wrap')?.querySelector('canvas');if(!canvas){toast('Generate QR first','error');return;}const a=document.createElement('a');a.download=`form-${currentShareFormId}.png`;a.href=canvas.toDataURL('image/png');a.click();};
-window.previewForm=function(){closeModal('modal-share');openFillScreen(currentShareFormId);};
-window.shareTo=function(platform){const url=encodeURIComponent(getFormURL(currentShareFormId));const form=allForms.find(f=>f.id===currentShareFormId);const text=encodeURIComponent(`Please fill out this form: ${form?.name||'LumenOS Form'}`);const links={whatsapp:`https://wa.me/?text=${text}%20${url}`,email:`mailto:?subject=${encodeURIComponent(form?.name||'Form')}&body=${text}%20${decodeURIComponent(url)}`,twitter:`https://twitter.com/intent/tweet?text=${text}&url=${url}`};if(platform==='email')location.href=links[platform];else window.open(links[platform],'_blank','width=600,height=400');};
 
-/* ── FILL SCREEN ── */
-function acceptForType(type){if(type==='image')return 'image/*';if(type==='pdf')return 'application/pdf';if(type==='csv')return '.csv,text/csv';if(type==='video')return 'video/*';return '*/*';}
-function maxSizeForType(type){if(type==='video')return 500*1024*1024;if(type==='pdf')return 100*1024*1024;return 50*1024*1024;}
-function labelForType(type){if(type==='image')return 'PNG, JPG, WEBP — up to 50MB';if(type==='pdf')return 'PDF — up to 100MB';if(type==='csv')return 'CSV — up to 50MB';if(type==='video')return 'MP4, MOV — up to 500MB';return 'Any file — up to 50MB';}
-function bucketFolder(type){if(type==='image')return 'images';if(type==='pdf')return 'pdfs';if(type==='csv')return 'csvs';if(type==='video')return 'videos';return 'files';}
-window.openFillScreen=function(formId){
-  const form=allForms.find(f=>f.id===formId);
-  if(!form){sb.from('il_forms').select('*').eq('id',formId).single().then(({data,error})=>{if(error||!data){toast('Form not found','error');return;}if(!allForms.find(f=>f.id===data.id))allForms.push(data);_openFillWith(data);});return;}
+window.copyShareLink = function () {
+  const url = getFormURL(currentShareFormId);
+  navigator.clipboard.writeText(url).then(() => toast('Link copied!', 'success')).catch(() => {
+    const ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); toast('Link copied!', 'success');
+  });
+};
+window.openFormDirectly = function () { window.open(getFormURL(currentShareFormId), '_blank'); };
+window.downloadQR = function () {
+  const canvas = document.getElementById('qr-wrap')?.querySelector('canvas');
+  if (!canvas) { toast('Generate QR first', 'error'); return; }
+  const a = document.createElement('a'); a.download = `form-${currentShareFormId}.png`; a.href = canvas.toDataURL('image/png'); a.click();
+};
+window.previewForm = function () { closeModal('modal-share'); openFillScreen(currentShareFormId); };
+window.shareTo = function (platform) {
+  const url = encodeURIComponent(getFormURL(currentShareFormId));
+  const form = allForms.find(f => f.id === currentShareFormId);
+  const text = encodeURIComponent(`Please fill out this form: ${form?.name || 'LumenOS Form'}`);
+  const links = {
+    whatsapp: `https://wa.me/?text=${text}%20${url}`,
+    email: `mailto:?subject=${encodeURIComponent(form?.name || 'Form')}&body=${text}%20${decodeURIComponent(url)}`,
+    twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`
+  };
+  if (platform === 'email') location.href = links[platform]; else window.open(links[platform], '_blank', 'width=600,height=400');
+};
+
+// ── FILL SCREEN ───────────────────────────────────────────────────────────────
+function acceptForType(type) { if (type === 'image') return 'image/*'; if (type === 'pdf') return 'application/pdf'; if (type === 'csv') return '.csv,text/csv'; if (type === 'video') return 'video/*'; return '*/*'; }
+function maxSizeForType(type) { if (type === 'video') return 500 * 1024 * 1024; if (type === 'pdf') return 100 * 1024 * 1024; return 50 * 1024 * 1024; }
+function labelForType(type) { if (type === 'image') return 'PNG, JPG, WEBP — up to 50MB'; if (type === 'pdf') return 'PDF — up to 100MB'; if (type === 'csv') return 'CSV — up to 50MB'; if (type === 'video') return 'MP4, MOV — up to 500MB'; return 'Any file — up to 50MB'; }
+function bucketFolder(type) { if (type === 'image') return 'images'; if (type === 'pdf') return 'pdfs'; if (type === 'csv') return 'csvs'; if (type === 'video') return 'videos'; return 'files'; }
+
+window.openFillScreen = function (formId) {
+  const form = allForms.find(f => f.id === formId);
+  if (!form) {
+    sb.from('il_forms').select('*').eq('id', formId).single().then(({ data, error }) => {
+      if (error || !data) { toast('Form not found', 'error'); return; }
+      if (!allForms.find(f => f.id === data.id)) allForms.push(data);
+      _openFillWith(data);
+    });
+    return;
+  }
   _openFillWith(form);
 };
-function _openFillWith(form){
-  fileUploads={};
-  document.getElementById('fill-title').textContent=form.name;document.getElementById('fill-desc').textContent=form.description||'';
-  document.getElementById('fill-screen').dataset.formId=form.id;
-  document.getElementById('fill-form-area').style.display='block';document.getElementById('fill-success').style.display='none';
-  document.getElementById('fill-submit-btn').disabled=false;document.getElementById('fill-submit-btn').textContent='Submit Response';
-  document.getElementById('fill-respondent').value='';document.getElementById('fill-progress-bar').style.width='5%';
-  const fieldsEl=document.getElementById('fill-fields');const fields=form.fields||[];
-  fieldsEl.innerHTML=fields.map((f,i)=>renderFillField(f,i)).join('');
-  fieldsEl.querySelectorAll('.fill-scale-btn').forEach(btn=>{btn.addEventListener('click',()=>{btn.closest('.fill-scale').querySelectorAll('.fill-scale-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');updateFillProgress(fields);});});
-  fields.forEach((f,i)=>{
-    const isFileType=['image','pdf','csv','video','file'].includes(f.type);if(!isFileType)return;
-    const zone=document.getElementById(`upload-zone-${i}`);const fileInput=document.getElementById(`upload-input-${i}`);if(!zone||!fileInput)return;
-    zone.addEventListener('click',()=>fileInput.click());zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover');});zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragover');const file=e.dataTransfer.files[0];if(file)handleFileUpload(file,i,f.type,fields);});fileInput.addEventListener('change',()=>{const file=fileInput.files[0];if(file)handleFileUpload(file,i,f.type,fields);});
+
+function _openFillWith(form) {
+  fileUploads = {};
+  document.getElementById('fill-title').textContent = form.name;
+  document.getElementById('fill-desc').textContent = form.description || '';
+  document.getElementById('fill-screen').dataset.formId = form.id;
+  document.getElementById('fill-form-area').style.display = 'block';
+  document.getElementById('fill-success').style.display = 'none';
+  document.getElementById('fill-submit-btn').disabled = false;
+  document.getElementById('fill-submit-btn').textContent = 'Submit Response';
+  document.getElementById('fill-respondent').value = '';
+  document.getElementById('fill-progress-bar').style.width = '5%';
+  const fieldsEl = document.getElementById('fill-fields'); const fields = form.fields || [];
+  fieldsEl.innerHTML = fields.map((f, i) => renderFillField(f, i)).join('');
+  fieldsEl.querySelectorAll('.fill-scale-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.closest('.fill-scale').querySelectorAll('.fill-scale-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected'); updateFillProgress(fields);
+    });
   });
-  fieldsEl.querySelectorAll('input:not([type=file]),select,textarea').forEach(inp=>{inp.addEventListener('change',()=>updateFillProgress(fields));inp.addEventListener('input',()=>updateFillProgress(fields));});
-  if(!FILL_PARAM){document.getElementById('fill-screen').style.display='block';document.body.style.overflow='hidden';}
+  fields.forEach((f, i) => {
+    const isFileType = ['image', 'pdf', 'csv', 'video', 'file'].includes(f.type); if (!isFileType) return;
+    const zone = document.getElementById(`upload-zone-${i}`); const fileInput = document.getElementById(`upload-input-${i}`); if (!zone || !fileInput) return;
+    zone.addEventListener('click', () => fileInput.click());
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); const file = e.dataTransfer.files[0]; if (file) handleFileUpload(file, i, f.type, fields); });
+    fileInput.addEventListener('change', () => { const file = fileInput.files[0]; if (file) handleFileUpload(file, i, f.type, fields); });
+  });
+  fieldsEl.querySelectorAll('input:not([type=file]),select,textarea').forEach(inp => {
+    inp.addEventListener('change', () => updateFillProgress(fields));
+    inp.addEventListener('input', () => updateFillProgress(fields));
+  });
+  if (!FILL_PARAM) { document.getElementById('fill-screen').style.display = 'block'; document.body.style.overflow = 'hidden'; }
 }
-async function handleFileUpload(file,idx,fieldType,fields){
-  const maxSize=maxSizeForType(fieldType);if(file.size>maxSize){toast(`File too large. Max: ${fmtBytes(maxSize)}`,'error');return;}
-  const previewWrap=document.getElementById(`upload-preview-${idx}`);const zone=document.getElementById(`upload-zone-${idx}`);
-  if(previewWrap)previewWrap.innerHTML='<div class="upload-loading"><div class="spinner"></div>Uploading…</div>';
-  let publicUrl=null,dataUrl=null;
-  if(fieldType==='image'||file.size<5*1024*1024){dataUrl=await new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(file);});}
-  try{const ext=file.name.split('.').pop()||'bin';const path=`${bucketFolder(fieldType)}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;const{data:upData,error:upErr}=await sb.storage.from('il-form-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});if(!upErr&&upData){const{data:urlData}=sb.storage.from('il-form-images').getPublicUrl(path);publicUrl=urlData?.publicUrl||null;}}catch(_){}
-  fileUploads[idx]={file,dataUrl,publicUrl,fieldType};
-  if(previewWrap){
-    if(fieldType==='image'&&dataUrl){previewWrap.innerHTML=`<div class="image-preview-wrap"><img src="${dataUrl}" class="image-preview" onclick="openLightbox('${dataUrl}')"><button class="image-preview-remove" onclick="removeUpload(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;}
-    else if(fieldType==='video'&&(publicUrl||dataUrl)){previewWrap.innerHTML=`<div style="position:relative;display:inline-block"><video src="${esc(publicUrl||dataUrl)}" class="video-preview" controls></video><button class="file-preview-remove" onclick="removeUpload(${idx})" style="position:absolute;top:4px;right:4px"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;}
-    else{previewWrap.innerHTML=`<div class="file-preview-doc"><div class="file-preview-doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/></svg></div><div><div class="file-preview-doc-name">${esc(file.name)}</div><div class="file-preview-doc-size">${fmtBytes(file.size)}</div></div><button class="file-preview-remove" onclick="removeUpload(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;}
-    if(zone)zone.style.display='none';
+
+async function handleFileUpload(file, idx, fieldType, fields) {
+  const maxSize = maxSizeForType(fieldType); if (file.size > maxSize) { toast(`File too large. Max: ${fmtBytes(maxSize)}`, 'error'); return; }
+  const previewWrap = document.getElementById(`upload-preview-${idx}`); const zone = document.getElementById(`upload-zone-${idx}`);
+  if (previewWrap) previewWrap.innerHTML = '<div class="upload-loading"><div class="spinner"></div>Uploading…</div>';
+  let publicUrl = null, dataUrl = null;
+  if (fieldType === 'image' || file.size < 5 * 1024 * 1024) {
+    dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(file); });
+  }
+  try {
+    const ext = file.name.split('.').pop() || 'bin';
+    const path = `${bucketFolder(fieldType)}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { data: upData, error: upErr } = await sb.storage.from('il-form-images').upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+    if (!upErr && upData) { const { data: urlData } = sb.storage.from('il-form-images').getPublicUrl(path); publicUrl = urlData?.publicUrl || null; }
+  } catch (_) {}
+  fileUploads[idx] = { file, dataUrl, publicUrl, fieldType };
+  if (previewWrap) {
+    if (fieldType === 'image' && dataUrl) {
+      previewWrap.innerHTML = `<div class="image-preview-wrap"><img src="${dataUrl}" class="image-preview" onclick="openLightbox('${dataUrl}')"><button class="image-preview-remove" onclick="removeUpload(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+    } else if (fieldType === 'video' && (publicUrl || dataUrl)) {
+      previewWrap.innerHTML = `<div style="position:relative;display:inline-block"><video src="${esc(publicUrl || dataUrl)}" class="video-preview" controls></video><button class="file-preview-remove" onclick="removeUpload(${idx})" style="position:absolute;top:4px;right:4px"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+    } else {
+      previewWrap.innerHTML = `<div class="file-preview-doc"><div class="file-preview-doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/></svg></div><div><div class="file-preview-doc-name">${esc(file.name)}</div><div class="file-preview-doc-size">${fmtBytes(file.size)}</div></div><button class="file-preview-remove" onclick="removeUpload(${idx})"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+    }
+    if (zone) zone.style.display = 'none';
   }
   updateFillProgress(fields);
 }
-window.removeUpload=function(idx){delete fileUploads[idx];const zone=document.getElementById(`upload-zone-${idx}`);const pw=document.getElementById(`upload-preview-${idx}`);if(zone)zone.style.display='block';if(pw)pw.innerHTML='';};
-window.openLightbox=function(src){document.getElementById('img-lightbox-img').src=src;document.getElementById('img-lightbox').style.display='flex';};
-function updateFillProgress(fields){
-  const fieldsEl=document.getElementById('fill-fields');let filled=0;
-  fields.forEach((f,i)=>{const id=`fill-f-${i}`;if(f.type==='scale'){if(fieldsEl.querySelector(`#${id} .fill-scale-btn.selected`))filled++;}else if(f.type==='radio'){if(fieldsEl.querySelector(`input[name="${id}"]:checked`))filled++;}else if(f.type==='checkbox'){if(fieldsEl.querySelector(`#${id} input:checked`))filled++;}else if(['image','pdf','csv','video','file'].includes(f.type)){if(fileUploads[i])filled++;}else{const el=document.getElementById(id);if(el&&el.value)filled++;}});
-  const pct=fields.length?Math.max(5,Math.round((filled/fields.length)*90)+5):50;document.getElementById('fill-progress-bar').style.width=pct+'%';
-}
-function renderFillField(f,i){
-  const id=`fill-f-${i}`;const opts=(f.options&&f.options.length)?f.options:['Option 1','Option 2','Option 3'];let input='';
-  const isFileType=['image','pdf','csv','video','file'].includes(f.type);
-  if(isFileType){const accept=acceptForType(f.type);const hint=labelForType(f.type);input=`<div class="file-upload-zone" id="upload-zone-${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15V19a2 2 0 01-2 2H5a2 2 0 01-2-2V15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><p>Click to upload or drag &amp; drop</p><div class="upload-hint">${hint}</div><input type="file" id="upload-input-${i}" accept="${accept}" style="display:none"></div><div class="file-preview-wrap" id="upload-preview-${i}"></div>`;}
-  else{switch(f.type){case 'textarea':input=`<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your answer…"></textarea>`;break;case 'number':input=`<input type="number" class="fill-input" id="${id}" placeholder="0">`;break;case 'email':input=`<input type="email" class="fill-input" id="${id}" placeholder="you@email.com">`;break;case 'date':input=`<input type="date" class="fill-input" id="${id}">`;break;case 'scale':input=`<div class="fill-scale" id="${id}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`;break;case 'radio':input=`<div class="fill-radio-group" id="${id}">${opts.map(o=>`<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;case 'checkbox':input=`<div class="fill-checkbox-group" id="${id}">${opts.map(o=>`<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;case 'select':input=`<select class="fill-input" id="${id}"><option value="">Select…</option>${opts.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;break;default:input=`<input type="text" class="fill-input" id="${id}" placeholder="Your answer…">`;}}
-  return `<div class="fill-field"><div class="fill-field-label">${esc(f.label)}${f.required?'<span class="fill-required">*</span>':''}</div>${f.description?`<div class="fill-field-hint">${esc(f.description)}</div>`:''} ${input}</div>`;
-}
-let _fillSubmitting=false;
-async function submitFill(){
-  if(_fillSubmitting)return;_fillSubmitting=true;
-  const formId=document.getElementById('fill-screen').dataset.formId;const form=allForms.find(f=>f.id===formId);
-  const respondentName=document.getElementById('fill-respondent').value.trim();
-  const btn=document.getElementById('fill-submit-btn');btn.disabled=true;btn.textContent='Submitting…';
-  document.getElementById('fill-progress-bar').style.width='95%';
-  const answers={},fileUrlMap={};
-  if(form?.fields){form.fields.forEach((f,i)=>{const id=`fill-f-${i}`;if(f.type==='scale'){const sel=document.querySelector(`#${id} .fill-scale-btn.selected`);answers[f.label]=sel?parseInt(sel.dataset.val):null;}else if(f.type==='radio'){const sel=document.querySelector(`input[name="${id}"]:checked`);answers[f.label]=sel?sel.value:null;}else if(f.type==='checkbox'){answers[f.label]=[...document.querySelectorAll(`#${id} input:checked`)].map(s=>s.value);}else if(['image','pdf','csv','video','file'].includes(f.type)){const up=fileUploads[i];if(up){answers[f.label]=up.publicUrl||up.file?.name||'[file]';fileUrlMap[f.label]=up.publicUrl||null;}else answers[f.label]=null;}else{const el=document.getElementById(id);answers[f.label]=el?(el.value||null):null;}});}
-  const score=form?.fields?computeReadinessScore(answers,form.fields):null;
-  try{
-    const{error}=await sb.from('il_responses').insert([{form_id:formId,respondent_name:respondentName||null,org_name:respondentName||null,answers,image_urls:fileUrlMap,readiness_score:score,created_by:currentUser?.id||null}]);
-    if(error)throw error;
-    document.getElementById('fill-progress-bar').style.width='100%';document.getElementById('fill-form-area').style.display='none';document.getElementById('fill-success').style.display='block';
-    const closeBtn=document.getElementById('fill-success-close');if(closeBtn)closeBtn.style.display=FILL_PARAM?'none':'inline-flex';
-    if(form)fireNotifications(form,respondentName,answers,score);
-    if(currentUser){await loadAllResponses();renderDashboard();}
-  }catch(e){btn.disabled=false;btn.textContent='Submit Response';toast(e.message,'error');}
-  finally{_fillSubmitting=false;}
-}
-document.body.style.overflow='';fileUploads={};
+
+window.removeUpload = function (idx) {
+  delete fileUploads[idx];
+  const zone = document.getElementById(`upload-zone-${idx}`); const pw = document.getElementById(`upload-preview-${idx}`);
+  if (zone) zone.style.display = 'block'; if (pw) pw.innerHTML = '';
 };
 
-/* ── RESPONSES PAGE ── */
-async function renderResponses(){
+window.openLightbox = function (src) {
+  document.getElementById('img-lightbox-img').src = src;
+  document.getElementById('img-lightbox').style.display = 'flex';
+};
+
+window.closeFillScreen = function () {
+  document.getElementById('fill-screen').style.display = 'none';
+  document.body.style.overflow = '';
+  fileUploads = {};
+};
+
+function updateFillProgress(fields) {
+  const fieldsEl = document.getElementById('fill-fields'); let filled = 0;
+  fields.forEach((f, i) => {
+    const id = `fill-f-${i}`;
+    if (f.type === 'scale') { if (fieldsEl.querySelector(`#${id} .fill-scale-btn.selected`)) filled++; }
+    else if (f.type === 'radio') { if (fieldsEl.querySelector(`input[name="${id}"]:checked`)) filled++; }
+    else if (f.type === 'checkbox') { if (fieldsEl.querySelector(`#${id} input:checked`)) filled++; }
+    else if (['image', 'pdf', 'csv', 'video', 'file'].includes(f.type)) { if (fileUploads[i]) filled++; }
+    else { const el = document.getElementById(id); if (el && el.value) filled++; }
+  });
+  const pct = fields.length ? Math.max(5, Math.round((filled / fields.length) * 90) + 5) : 50;
+  document.getElementById('fill-progress-bar').style.width = pct + '%';
+}
+
+function renderFillField(f, i) {
+  const id = `fill-f-${i}`;
+  const opts = (f.options && f.options.length) ? f.options : ['Option 1', 'Option 2', 'Option 3'];
+  let input = '';
+  const isFileType = ['image', 'pdf', 'csv', 'video', 'file'].includes(f.type);
+  if (isFileType) {
+    const accept = acceptForType(f.type); const hint = labelForType(f.type);
+    input = `<div class="file-upload-zone" id="upload-zone-${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15V19a2 2 0 01-2 2H5a2 2 0 01-2-2V15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><p>Click to upload or drag &amp; drop</p><div class="upload-hint">${hint}</div><input type="file" id="upload-input-${i}" accept="${accept}" style="display:none"></div><div class="file-preview-wrap" id="upload-preview-${i}"></div>`;
+  } else {
+    switch (f.type) {
+      case 'textarea': input = `<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your answer…"></textarea>`; break;
+      case 'number': input = `<input type="number" class="fill-input" id="${id}" placeholder="0">`; break;
+      case 'email': input = `<input type="email" class="fill-input" id="${id}" placeholder="you@email.com">`; break;
+      case 'date': input = `<input type="date" class="fill-input" id="${id}">`; break;
+      case 'scale': input = `<div class="fill-scale" id="${id}">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`; break;
+      case 'radio': input = `<div class="fill-radio-group" id="${id}">${opts.map(o => `<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
+      case 'checkbox': input = `<div class="fill-checkbox-group" id="${id}">${opts.map(o => `<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`; break;
+      case 'select': input = `<select class="fill-input" id="${id}"><option value="">Select…</option>${opts.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`; break;
+      default: input = `<input type="text" class="fill-input" id="${id}" placeholder="Your answer…">`;
+    }
+  }
+  return `<div class="fill-field"><div class="fill-field-label">${esc(f.label)}${f.required ? '<span class="fill-required">*</span>' : ''}</div>${f.description ? `<div class="fill-field-hint">${esc(f.description)}</div>` : ''} ${input}</div>`;
+}
+
+let _fillSubmitting = false;
+async function submitFill() {
+  if (_fillSubmitting) return; _fillSubmitting = true;
+  const formId = document.getElementById('fill-screen').dataset.formId;
+  const form = allForms.find(f => f.id === formId);
+  const respondentName = document.getElementById('fill-respondent').value.trim();
+  const btn = document.getElementById('fill-submit-btn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  document.getElementById('fill-progress-bar').style.width = '95%';
+  const answers = {}, fileUrlMap = {};
+  if (form?.fields) {
+    form.fields.forEach((f, i) => {
+      const id = `fill-f-${i}`;
+      if (f.type === 'scale') { const sel = document.querySelector(`#${id} .fill-scale-btn.selected`); answers[f.label] = sel ? parseInt(sel.dataset.val) : null; }
+      else if (f.type === 'radio') { const sel = document.querySelector(`input[name="${id}"]:checked`); answers[f.label] = sel ? sel.value : null; }
+      else if (f.type === 'checkbox') { answers[f.label] = [...document.querySelectorAll(`#${id} input:checked`)].map(s => s.value); }
+      else if (['image', 'pdf', 'csv', 'video', 'file'].includes(f.type)) { const up = fileUploads[i]; if (up) { answers[f.label] = up.publicUrl || up.file?.name || '[file]'; fileUrlMap[f.label] = up.publicUrl || null; } else answers[f.label] = null; }
+      else { const el = document.getElementById(id); answers[f.label] = el ? (el.value || null) : null; }
+    });
+  }
+  const score = form?.fields ? computeReadinessScore(answers, form.fields) : null;
+  try {
+    const { error } = await sb.from('il_responses').insert([{ form_id: formId, respondent_name: respondentName || null, org_name: respondentName || null, answers, image_urls: fileUrlMap, readiness_score: score, created_by: currentUser?.id || null }]);
+    if (error) throw error;
+    document.getElementById('fill-progress-bar').style.width = '100%';
+    document.getElementById('fill-form-area').style.display = 'none';
+    document.getElementById('fill-success').style.display = 'block';
+    const closeBtn = document.getElementById('fill-success-close'); if (closeBtn) closeBtn.style.display = FILL_PARAM ? 'none' : 'inline-flex';
+    if (form) fireNotifications(form, respondentName, answers, score);
+    if (currentUser) { await loadAllResponses(); renderDashboard(); }
+  } catch (e) { btn.disabled = false; btn.textContent = 'Submit Response'; toast(e.message, 'error'); }
+  finally { _fillSubmitting = false; }
+}
+
+// ── RESPONSES PAGE ────────────────────────────────────────────────────────────
+async function renderResponses() {
   await loadAllResponses();
-  const sel=document.getElementById('resp-form-filter');
-  sel.innerHTML='<option value="">All Forms</option>'+allForms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  const sel = document.getElementById('resp-form-filter');
+  sel.innerHTML = '<option value="">All Forms</option>' + allForms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
   filterResponses();
 }
-window.filterResponses=function(){
-  const formId=document.getElementById('resp-form-filter')?.value||'';
-  const filtered=formId?allResponses.filter(r=>r.form_id===formId):allResponses;
-  const container=document.getElementById('responses-container');
-  if(!filtered.length){container.innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><p>No responses yet.</p></div>`;return;}
-  container.innerHTML=`<table><thead><tr><th>Respondent</th><th>Form</th><th>Score</th><th>Submitted</th><th>Actions</th></tr></thead><tbody>${filtered.map(r=>{
-    const form=allForms.find(f=>f.id===r.form_id);
-    const s=r.readiness_score;
-    const scoreBadge=s!=null?`<span class="badge ${s>=70?'badge-green':s>=40?'badge-amber':'badge-red'}">${s}</span>`:'<span class="badge badge-grey">—</span>';
-    return `<tr><td><strong>${esc(r.respondent_name||'Anonymous')}</strong></td><td>${esc(form?.name||r.form_id)}</td><td>${scoreBadge}</td><td style="color:var(--text-3);font-size:12px">${timeAgo(r.created_at)}</td><td><div style="display:flex;gap:4px"><button class="btn-icon btn-icon-accent" onclick="openRespDetail('${r.id}')" title="View"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="btn-icon btn-icon-red" onclick="deleteResponse('${r.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></td></tr>`;
+
+window.filterResponses = function () {
+  const formId = document.getElementById('resp-form-filter')?.value || '';
+  const filtered = formId ? allResponses.filter(r => r.form_id === formId) : allResponses;
+  const container = document.getElementById('responses-container');
+  if (!filtered.length) { container.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><p>No responses yet.</p></div>`; return; }
+  container.innerHTML = `<table><thead><tr><th>Respondent</th><th>Form</th><th>Score</th><th>Submitted</th><th>Actions</th></tr></thead><tbody>${filtered.map(r => {
+    const form = allForms.find(f => f.id === r.form_id);
+    const s = r.readiness_score;
+    const scoreBadge = s != null ? `<span class="badge ${s >= 70 ? 'badge-green' : s >= 40 ? 'badge-amber' : 'badge-red'}">${s}</span>` : '<span class="badge badge-grey">—</span>';
+    return `<tr><td><strong>${esc(r.respondent_name || 'Anonymous')}</strong></td><td>${esc(form?.name || r.form_id)}</td><td>${scoreBadge}</td><td style="color:var(--text-3);font-size:12px">${timeAgo(r.created_at)}</td><td><div style="display:flex;gap:4px"><button class="btn-icon btn-icon-accent" onclick="openRespDetail('${r.id}')" title="View"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="btn-icon btn-icon-red" onclick="deleteResponse('${r.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></td></tr>`;
   }).join('')}</tbody></table>`;
 };
-window.openRespDetail=function(id){
-  const r=allResponses.find(x=>x.id===id);if(!r)return;
-  const form=allForms.find(f=>f.id===r.form_id);
-  const body=document.getElementById('resp-detail-body');
-  const s=r.readiness_score;
-  const scoreLine=s!=null?`<div style="margin-bottom:12px"><span class="badge ${s>=70?'badge-green':s>=40?'badge-amber':'badge-red'}" style="font-size:13px;padding:4px 10px">Readiness Score: ${s}</span></div>`:'';
-  const answers=r.answers||{};const imageUrls=r.image_urls||{};
-  const fields=Object.keys(answers);
-  body.innerHTML=`<div style="margin-bottom:10px"><div style="font-size:13px;font-weight:600">${esc(r.respondent_name||'Anonymous')}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(form?.name||'Unknown Form')} · ${timeAgo(r.created_at)}</div></div>${scoreLine}<div class="resp-detail-grid">${fields.map(q=>{const a=answers[q];const imgUrl=imageUrls[q];const val=Array.isArray(a)?a.join(', '):(a??'—');return `<div class="resp-answer"><div class="resp-answer-q">${esc(q)}</div><div class="resp-answer-a">${esc(String(val))}</div>${imgUrl?`<img src="${esc(imgUrl)}" class="resp-answer-img" onclick="openLightbox('${esc(imgUrl)}')">`:''}</div>`;}).join('')}</div>`;
+
+window.openRespDetail = function (id) {
+  const r = allResponses.find(x => x.id === id); if (!r) return;
+  const form = allForms.find(f => f.id === r.form_id);
+  const body = document.getElementById('resp-detail-body');
+  const s = r.readiness_score;
+  const scoreLine = s != null ? `<div style="margin-bottom:12px"><span class="badge ${s >= 70 ? 'badge-green' : s >= 40 ? 'badge-amber' : 'badge-red'}" style="font-size:13px;padding:4px 10px">Readiness Score: ${s}</span></div>` : '';
+  const answers = r.answers || {}; const imageUrls = r.image_urls || {};
+  const fields = Object.keys(answers);
+  body.innerHTML = `<div style="margin-bottom:10px"><div style="font-size:13px;font-weight:600">${esc(r.respondent_name || 'Anonymous')}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(form?.name || 'Unknown Form')} · ${timeAgo(r.created_at)}</div></div>${scoreLine}<div class="resp-detail-grid">${fields.map(q => { const a = answers[q]; const imgUrl = imageUrls[q]; const val = Array.isArray(a) ? a.join(', ') : (a ?? '—'); return `<div class="resp-answer"><div class="resp-answer-q">${esc(q)}</div><div class="resp-answer-a">${esc(String(val))}</div>${imgUrl ? `<img src="${esc(imgUrl)}" class="resp-answer-img" onclick="openLightbox('${esc(imgUrl)}')">` : ''}</div>`; }).join('')}</div>`;
   openModal('modal-resp-detail');
 };
-window.deleteResponse=async function(id){
-  if(!confirm('Delete this response?'))return;
-  const{error}=await sb.from('il_responses').delete().eq('id',id);
-  if(error)return toast(error.message,'error');
-  allResponses=allResponses.filter(r=>r.id!==id);
-  toast('Response deleted','info');filterResponses();renderDashboard();
-};
-window.exportCSV=function(){
-  if(!allResponses.length){toast('No responses to export','error');return;}
-  const headers=['Respondent','Form','Score','Submitted',...new Set(allResponses.flatMap(r=>Object.keys(r.answers||{})))];
-  const rows=allResponses.map(r=>{const form=allForms.find(f=>f.id===r.form_id);const base=[r.respondent_name||'Anonymous',form?.name||r.form_id,r.readiness_score??'',new Date(r.created_at).toLocaleString()];const answerCols=headers.slice(4).map(h=>{const v=(r.answers||{})[h];return Array.isArray(v)?v.join('; '):(v??'');});return [...base,...answerCols];});
-  const csv=[headers,…rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`responses-${Date.now()}.csv`;a.click();toast('CSV exported!','success');
+
+window.deleteResponse = async function (id) {
+  if (!confirm('Delete this response?')) return;
+  const { error } = await sb.from('il_responses').delete().eq('id', id);
+  if (error) return toast(error.message, 'error');
+  allResponses = allResponses.filter(r => r.id !== id);
+  toast('Response deleted', 'info'); filterResponses(); renderDashboard();
 };
 
-/* ── ORGS PAGE ── */
-async function renderOrgsPage(){
-  if(currentRole!=='operator')return;
-  await loadOrgs();const grid=document.getElementById('orgs-grid');
-  if(!allOrgs.length){grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No organisations yet.</p><button class="btn btn-accent" onclick="openModal('modal-new-org')">+ New Organisation</button></div>`;return;}
-  grid.innerHTML=allOrgs.map(o=>{
-    const formCount=allForms.filter(f=>f.org_id===o.id).length;
-    const respCount=allResponses.filter(r=>allForms.find(f=>f.id===r.form_id&&f.org_id===o.id)).length;
-    return `<div class="card card-sm"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px"><div class="person-avatar" style="width:34px;height:34px;border-radius:8px;font-size:13px">${(o.name||'O')[0].toUpperCase()}</div><div><div style="font-weight:600;font-size:13px">${esc(o.name)}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(o.industry||'—')}</div></div></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="badge badge-blue">${formCount} form${formCount!==1?'s':''}</span><span class="badge badge-grey">${respCount} response${respCount!==1?'s':''}</span></div><div style="font-size:11.5px;color:var(--text-2)">${esc(o.contact_email||'')}</div><div style="display:flex;gap:5px;margin-top:8px"><button class="btn-icon btn-icon-red" onclick="deleteOrg('${o.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`;
+window.exportCSV = function () {
+  if (!allResponses.length) { toast('No responses to export', 'error'); return; }
+  const headers = ['Respondent', 'Form', 'Score', 'Submitted', ...new Set(allResponses.flatMap(r => Object.keys(r.answers || {})))];
+  const rows = allResponses.map(r => {
+    const form = allForms.find(f => f.id === r.form_id);
+    const base = [r.respondent_name || 'Anonymous', form?.name || r.form_id, r.readiness_score ?? '', new Date(r.created_at).toLocaleString()];
+    const answerCols = headers.slice(4).map(h => { const v = (r.answers || {})[h]; return Array.isArray(v) ? v.join('; ') : (v ?? ''); });
+    return [...base, ...answerCols];
+  });
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' }); const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `responses-${Date.now()}.csv`; a.click();
+  toast('CSV exported!', 'success');
+};
+
+// ── ORGS PAGE ─────────────────────────────────────────────────────────────────
+async function renderOrgsPage() {
+  if (currentRole !== 'operator') return;
+  await loadOrgs(); const grid = document.getElementById('orgs-grid');
+  if (!allOrgs.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No organisations yet.</p><button class="btn btn-accent" onclick="openModal('modal-new-org')">+ New Organisation</button></div>`;
+    return;
+  }
+  grid.innerHTML = allOrgs.map(o => {
+    const formCount = allForms.filter(f => f.org_id === o.id).length;
+    const respCount = allResponses.filter(r => allForms.find(f => f.id === r.form_id && f.org_id === o.id)).length;
+    return `<div class="card card-sm"><div style="display:flex;align-items:center;gap:9px;margin-bottom:8px"><div class="person-avatar" style="width:34px;height:34px;border-radius:8px;font-size:13px">${(o.name || 'O')[0].toUpperCase()}</div><div><div style="font-weight:600;font-size:13px">${esc(o.name)}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(o.industry || '—')}</div></div></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span class="badge badge-blue">${formCount} form${formCount !== 1 ? 's' : ''}</span><span class="badge badge-grey">${respCount} response${respCount !== 1 ? 's' : ''}</span></div><div style="font-size:11.5px;color:var(--text-2)">${esc(o.contact_email || '')}</div><div style="display:flex;gap:5px;margin-top:8px"><button class="btn-icon btn-icon-red" onclick="deleteOrg('${o.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`;
   }).join('');
 }
-window.createOrg=async function(){
-  const name=document.getElementById('no-name').value.trim();
-  if(!name){toast('Organisation name required','error');return;}
-  const{data,error}=await sb.from('il_organisations').insert([{name,industry:document.getElementById('no-industry').value.trim()||null,contact_email:document.getElementById('no-email').value.trim()||null}]).select();
-  if(error)return toast(error.message,'error');
-  allOrgs.push(data[0]);closeModal('modal-new-org');toast('Organisation created!','success');
-  document.getElementById('sb-orgs-count').textContent=allOrgs.length;renderOrgsPage();
-};
-window.deleteOrg=async function(id){
-  if(!confirm('Delete this organisation?'))return;
-  const{error}=await sb.from('il_organisations').delete().eq('id',id);
-  if(error)return toast(error.message,'error');
-  allOrgs=allOrgs.filter(o=>o.id!==id);toast('Organisation deleted','info');renderOrgsPage();
+
+window.createOrg = async function () {
+  const name = document.getElementById('no-name').value.trim();
+  if (!name) { toast('Organisation name required', 'error'); return; }
+  const { data, error } = await sb.from('il_organisations').insert([{ name, industry: document.getElementById('no-industry').value.trim() || null, contact_email: document.getElementById('no-email').value.trim() || null }]).select();
+  if (error) return toast(error.message, 'error');
+  allOrgs.push(data[0]); closeModal('modal-new-org'); toast('Organisation created!', 'success');
+  document.getElementById('sb-orgs-count').textContent = allOrgs.length; renderOrgsPage();
 };
 
-/* ── METRICS PAGE ── */
-async function renderMetrics(){
-  const topForms=document.getElementById('metrics-top-forms');const topOrgs=document.getElementById('metrics-top-orgs');const summary=document.getElementById('metrics-summary');
-  try{
-    const{data:vol}=await sb.rpc('il_response_volume',{p_days:30});
-    const{data:dist}=await sb.rpc('il_score_distribution');
-    if(vol?.length){
-      const labels=vol.map(d=>d.day?.slice(5)||d.date?.slice(5)||'');
-      const counts=vol.map(d=>d.count||d.response_count||0);
-      if(metricsCharts.volume){try{metricsCharts.volume.destroy();}catch(e){}}
-      const cvs=document.getElementById('metrics-chart-volume');
-      if(cvs)metricsCharts.volume=new Chart(cvs,{type:'bar',data:{labels,datasets:[{label:'Responses',data:counts,backgroundColor:'rgba(79,99,232,0.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false}}}}});
+window.deleteOrg = async function (id) {
+  if (!confirm('Delete this organisation?')) return;
+  const { error } = await sb.from('il_organisations').delete().eq('id', id);
+  if (error) return toast(error.message, 'error');
+  allOrgs = allOrgs.filter(o => o.id !== id); toast('Organisation deleted', 'info'); renderOrgsPage();
+};
+
+// ── METRICS PAGE ──────────────────────────────────────────────────────────────
+async function renderMetrics() {
+  const topForms = document.getElementById('metrics-top-forms'); const topOrgs = document.getElementById('metrics-top-orgs'); const summary = document.getElementById('metrics-summary');
+  try {
+    const { data: vol } = await sb.rpc('il_response_volume', { p_days: 30 });
+    const { data: dist } = await sb.rpc('il_score_distribution');
+    if (vol?.length) {
+      const labels = vol.map(d => d.day?.slice(5) || d.date?.slice(5) || '');
+      const counts = vol.map(d => d.count || d.response_count || 0);
+      if (metricsCharts.volume) { try { metricsCharts.volume.destroy(); } catch (e) {} }
+      const cvs = document.getElementById('metrics-chart-volume');
+      if (cvs) metricsCharts.volume = new Chart(cvs, { type: 'bar', data: { labels, datasets: [{ label: 'Responses', data: counts, backgroundColor: 'rgba(79,99,232,0.7)', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' } }, x: { grid: { display: false } } } } });
     }
-    if(dist?.length){
-      const labels=dist.map(d=>d.range||d.bucket||'');const counts2=dist.map(d=>d.count||0);
-      if(metricsCharts.score){try{metricsCharts.score.destroy();}catch(e){}}
-      const cvs2=document.getElementById('metrics-chart-score');
-      if(cvs2)metricsCharts.score=new Chart(cvs2,{type:'doughnut',data:{labels,datasets:[{data:counts2,backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#16a34a'],borderWidth:2,borderColor:'var(--surface)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right'}}}});
+    if (dist?.length) {
+      const labels = dist.map(d => d.range || d.bucket || ''); const counts2 = dist.map(d => d.count || 0);
+      if (metricsCharts.score) { try { metricsCharts.score.destroy(); } catch (e) {} }
+      const cvs2 = document.getElementById('metrics-chart-score');
+      if (cvs2) metricsCharts.score = new Chart(cvs2, { type: 'doughnut', data: { labels, datasets: [{ data: counts2, backgroundColor: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#16a34a'], borderWidth: 2, borderColor: 'var(--surface)' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
     }
-  }catch(e){console.warn('metrics rpc:',e);}
-  const formCounts=allForms.map(f=>({form:f,count:allResponses.filter(r=>r.form_id===f.id).length})).sort((a,b)=>b.count-a.count);
-  topForms.innerHTML=formCounts.slice(0,5).map(({form,count})=>`<div class="met-row"><div class="met-label">${esc(form.name)}</div><div class="met-val">${count}</div></div>`).join('')||'<div style="font-size:12px;color:var(--text-3);padding:8px 0">No data</div>';
-  const orgCounts=allOrgs.map(o=>({org:o,count:allResponses.filter(r=>allForms.find(f=>f.id===r.form_id&&f.org_id===o.id)).length})).sort((a,b)=>b.count-a.count);
-  topOrgs.innerHTML=orgCounts.slice(0,5).map(({org,count})=>`<div class="met-row"><div class="met-label">${esc(org.name)}</div><div class="met-val">${count}</div></div>`).join('')||'<div style="font-size:12px;color:var(--text-3);padding:8px 0">No data</div>';
-  const scored=allResponses.filter(r=>r.readiness_score!=null);const avg=scored.length?Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length):null;const high=scored.filter(r=>r.readiness_score>=70).length;const low=scored.filter(r=>r.readiness_score<40).length;
-  summary.innerHTML=`<div class="met-row"><div class="met-label">Total Responses</div><div class="met-val">${allResponses.length}</div></div><div class="met-row"><div class="met-label">Avg Score</div><div class="met-val">${avg??'—'}</div></div><div class="met-row"><div class="met-label">High Readiness (≥70)</div><div class="met-val" style="color:var(--green)">${high}</div></div><div class="met-row" style="border:none"><div class="met-label">Low Readiness (&lt;40)</div><div class="met-val" style="color:var(--red)">${low}</div></div>`;
+  } catch (e) { console.warn('metrics rpc:', e); }
+  const formCounts = allForms.map(f => ({ form: f, count: allResponses.filter(r => r.form_id === f.id).length })).sort((a, b) => b.count - a.count);
+  topForms.innerHTML = formCounts.slice(0, 5).map(({ form, count }) => `<div class="met-row"><div class="met-label">${esc(form.name)}</div><div class="met-val">${count}</div></div>`).join('') || '<div style="font-size:12px;color:var(--text-3);padding:8px 0">No data</div>';
+  const orgCounts = allOrgs.map(o => ({ org: o, count: allResponses.filter(r => allForms.find(f => f.id === r.form_id && f.org_id === o.id)).length })).sort((a, b) => b.count - a.count);
+  topOrgs.innerHTML = orgCounts.slice(0, 5).map(({ org, count }) => `<div class="met-row"><div class="met-label">${esc(org.name)}</div><div class="met-val">${count}</div></div>`).join('') || '<div style="font-size:12px;color:var(--text-3);padding:8px 0">No data</div>';
+  const scored = allResponses.filter(r => r.readiness_score != null);
+  const avg = scored.length ? Math.round(scored.reduce((a, r) => a + r.readiness_score, 0) / scored.length) : null;
+  const high = scored.filter(r => r.readiness_score >= 70).length; const low = scored.filter(r => r.readiness_score < 40).length;
+  summary.innerHTML = `<div class="met-row"><div class="met-label">Total Responses</div><div class="met-val">${allResponses.length}</div></div><div class="met-row"><div class="met-label">Avg Score</div><div class="met-val">${avg ?? '—'}</div></div><div class="met-row"><div class="met-label">High Readiness (≥70)</div><div class="met-val" style="color:var(--green)">${high}</div></div><div class="met-row" style="border:none"><div class="met-label">Low Readiness (&lt;40)</div><div class="met-val" style="color:var(--red)">${low}</div></div>`;
 }
 
-/* ── AI PAGE ── */
-window.selectProvider=function(p){
-  currentAIProvider=p;
-  document.getElementById('prov-btn-claude').classList.toggle('active',p==='claude');
-  document.getElementById('prov-btn-gemini').classList.toggle('active',p==='gemini');
-  document.getElementById('claude-key-section').style.display=p==='claude'?'block':'none';
-  document.getElementById('gemini-key-section').style.display=p==='gemini'?'block':'none';
+// ── AI PAGE ───────────────────────────────────────────────────────────────────
+window.selectProvider = function (p) {
+  currentAIProvider = p;
+  document.getElementById('prov-btn-claude').classList.toggle('active', p === 'claude');
+  document.getElementById('prov-btn-gemini').classList.toggle('active', p === 'gemini');
+  document.getElementById('claude-key-section').style.display = p === 'claude' ? 'block' : 'none';
+  document.getElementById('gemini-key-section').style.display = p === 'gemini' ? 'block' : 'none';
 };
-function populateAIFormSelect(){
-  const sel=document.getElementById('ai-form-select');const chatSel=document.getElementById('chat-form-scope');
-  const opts='<option value="">All responses</option>'+allForms.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
-  if(sel)sel.innerHTML=opts;if(chatSel)chatSel.innerHTML=opts;
+
+function populateAIFormSelect() {
+  const sel = document.getElementById('ai-form-select'); const chatSel = document.getElementById('chat-form-scope');
+  const opts = '<option value="">All responses</option>' + allForms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  if (sel) sel.innerHTML = opts; if (chatSel) chatSel.innerHTML = opts;
 }
-function buildAIContext(formId){
-  const filtered=formId?allResponses.filter(r=>r.form_id===formId):allResponses;
-  const form=formId?allForms.find(f=>f.id===formId):null;
-  const lines=[`You are an AI data analyst for LumenOS, an intelligence dashboard platform.`,`Total forms: ${allForms.length}. Total responses: ${filtered.length}.`];
-  if(form)lines.push(`Focused form: "${form.name}" (${filtered.length} responses).`);
-  filtered.slice(0,40).forEach((r,i)=>{const s=r.readiness_score!=null?` | Score: ${r.readiness_score}`:'';const f=allForms.find(x=>x.id===r.form_id);lines.push(`Response ${i+1} [${esc(r.respondent_name||'Anonymous')}]${f&&!form?' form:'+f.name:''}${s}: ${JSON.stringify(r.answers||{})}`);});
+
+function buildAIContext(formId) {
+  const filtered = formId ? allResponses.filter(r => r.form_id === formId) : allResponses;
+  const form = formId ? allForms.find(f => f.id === formId) : null;
+  const lines = [
+    `You are an AI data analyst for LumenOS, an intelligence dashboard platform.`,
+    `Total forms: ${allForms.length}. Total responses: ${filtered.length}.`
+  ];
+  if (form) lines.push(`Focused form: "${form.name}" (${filtered.length} responses).`);
+  filtered.slice(0, 40).forEach((r, i) => {
+    const s = r.readiness_score != null ? ` | Score: ${r.readiness_score}` : '';
+    const f = allForms.find(x => x.id === r.form_id);
+    lines.push(`Response ${i + 1} [${esc(r.respondent_name || 'Anonymous')}]${f && !form ? ' form:' + f.name : ''}${s}: ${JSON.stringify(r.answers || {})}`);
+  });
   return lines.join('\n');
 }
-window.runAI=async function(){
-  const prompt=document.getElementById('ai-prompt').value.trim();if(!prompt){toast('Enter a prompt','error');return;}
-  const formId=document.getElementById('ai-form-select').value;
-  const outputEl=document.getElementById('ai-output');const btn=document.getElementById('run-ai-btn');const copyBtn=document.getElementById('ai-copy-btn');
-  btn.disabled=true;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Running…';
-  outputEl.innerHTML='<div style="color:var(--text-3);font-size:12.5px">Analysing with '+( currentAIProvider==='claude'?'Claude':'Gemini 3.1 Pro')+'…</div>';copyBtn.style.display='none';
-  const context=buildAIContext(formId);
-  try{
-    let text='';
-    if(currentAIProvider==='claude'){
-      const key=(document.getElementById('ai-api-key')?.value||'').trim();if(!key){toast('Anthropic API key required','error');return;}
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,system:context,messages:[{role:'user',content:prompt}]})});
-      const d=await res.json();if(d.error)throw new Error(d.error.message);text=d.content?.[0]?.text||'No response.';
-    }else{
-      const key=(document.getElementById('ai-gemini-key')?.value||'').trim();if(!key){toast('Gemini API key required','error');return;}
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:context+'\n\n'+prompt}]}],generationConfig:{maxOutputTokens:1500,temperature:0.7}})});
-      const d=await res.json();if(d.error)throw new Error(d.error.message);text=d.candidates?.[0]?.content?.parts?.[0]?.text||'No response.';
-    }
-    outputEl.innerHTML=`<div style="white-space:pre-wrap;font-size:13px;line-height:1.75;color:var(--text-1)">${esc(text)}</div>`;
-    copyBtn.style.display='block';toast('Analysis complete!','success');
-  }catch(e){outputEl.innerHTML=`<div style="color:var(--red);background:var(--red-soft);padding:10px;border-radius:var(--radius-sm);font-size:12.5px">${esc(e.message)}</div>`;toast('Analysis failed','error');}
-  finally{btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Run Analysis';}
-};
-window.copyAIOutput=function(){const text=document.getElementById('ai-output')?.textContent||'';navigator.clipboard.writeText(text).then(()=>toast('Copied!','success'));};
 
-/* ── CHAT ── */
-function initChat(){chatHistory=[];renderChatMessages();populateAIFormSelect();}
-window.updateChatContext=function(){chatFormScope=document.getElementById('chat-form-scope')?.value||'';const form=allForms.find(f=>f.id===chatFormScope);document.getElementById('chat-context-pill').textContent=form?`Context: ${form.name}`:'Context: all data';};
-window.clearChat=function(){chatHistory=[];renderChatMessages();};
-function renderChatMessages(){
-  const el=document.getElementById('chat-messages');if(!el)return;
-  if(!chatHistory.length){el.innerHTML=`<div style="margin:auto;text-align:center;color:var(--text-3);font-size:12.5px;padding:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="28" height="28" style="display:block;margin:0 auto 8px;opacity:.4"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Ask anything about your data.</div>`;return;}
-  el.innerHTML=chatHistory.map(m=>`<div class="chat-msg ${m.role}">${m.role==='assistant'?renderMarkdown(m.content):esc(m.content)}</div>`).join('');
-  el.scrollTop=el.scrollHeight;
+window.runAI = async function () {
+  const prompt = document.getElementById('ai-prompt').value.trim(); if (!prompt) { toast('Enter a prompt', 'error'); return; }
+  const formId = document.getElementById('ai-form-select').value;
+  const outputEl = document.getElementById('ai-output'); const btn = document.getElementById('run-ai-btn'); const copyBtn = document.getElementById('ai-copy-btn');
+  btn.disabled = true; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Running…';
+  outputEl.innerHTML = `<div style="color:var(--text-3);font-size:12.5px">Analysing with ${currentAIProvider === 'claude' ? 'Claude' : 'Gemini 3.1 Pro'}…</div>`; copyBtn.style.display = 'none';
+  const context = buildAIContext(formId);
+  try {
+    let text = '';
+    if (currentAIProvider === 'claude') {
+      const key = (document.getElementById('ai-api-key')?.value || '').trim(); if (!key) { toast('Anthropic API key required', 'error'); return; }
+      const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }, body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1500, system: context, messages: [{ role: 'user', content: prompt }] }) });
+      const d = await res.json(); if (d.error) throw new Error(d.error.message); text = d.content?.[0]?.text || 'No response.';
+    } else {
+      const key = (document.getElementById('ai-gemini-key')?.value || '').trim(); if (!key) { toast('Gemini API key required', 'error'); return; }
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: context + '\n\n' + prompt }] }], generationConfig: { maxOutputTokens: 1500, temperature: 0.7 } }) });
+      const d = await res.json(); if (d.error) throw new Error(d.error.message); text = d.candidates?.[0]?.content?.parts?.[0]?.text || 'No response.';
+    }
+    outputEl.innerHTML = `<div style="white-space:pre-wrap;font-size:13px;line-height:1.75;color:var(--text-1)">${esc(text)}</div>`;
+    copyBtn.style.display = 'block'; toast('Analysis complete!', 'success');
+  } catch (e) { outputEl.innerHTML = `<div style="color:var(--red);background:var(--red-soft);padding:10px;border-radius:var(--radius-sm);font-size:12.5px">${esc(e.message)}</div>`; toast('Analysis failed', 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="12" height="12"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Run Analysis'; }
+};
+
+window.copyAIOutput = function () { const text = document.getElementById('ai-output')?.textContent || ''; navigator.clipboard.writeText(text).then(() => toast('Copied!', 'success')); };
+
+// ── CHAT ──────────────────────────────────────────────────────────────────────
+function initChat() { chatHistory = []; renderChatMessages(); populateAIFormSelect(); }
+window.updateChatContext = function () {
+  chatFormScope = document.getElementById('chat-form-scope')?.value || '';
+  const form = allForms.find(f => f.id === chatFormScope);
+  document.getElementById('chat-context-pill').textContent = form ? `Context: ${form.name}` : 'Context: all data';
+};
+window.clearChat = function () { chatHistory = []; renderChatMessages(); };
+
+function renderChatMessages() {
+  const el = document.getElementById('chat-messages'); if (!el) return;
+  if (!chatHistory.length) {
+    el.innerHTML = `<div style="margin:auto;text-align:center;color:var(--text-3);font-size:12.5px;padding:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="28" height="28" style="display:block;margin:0 auto 8px;opacity:.4"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Ask anything about your data.</div>`;
+    return;
+  }
+  el.innerHTML = chatHistory.map(m => `<div class="chat-msg ${m.role}">${m.role === 'assistant' ? renderMarkdown(m.content) : esc(m.content)}</div>`).join('');
+  el.scrollTop = el.scrollHeight;
 }
-function renderMarkdown(text){
+
+function renderMarkdown(text) {
   return esc(text)
-    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g,'<em>$1</em>')
-    .replace(/`([^`]+)`/g,'<code>$1</code>')
-    .replace(/```([\s\S]*?)```/g,'<pre><code>$1</code></pre>')
-    .replace(/^#{1,3} (.+)$/gm,'<strong style="font-size:14px;display:block;margin:6px 0 2px">$1</strong>')
-    .replace(/^[-•] (.+)$/gm,'<li style="margin:2px 0">$1</li>')
-    .replace(/\n/g,'<br>');
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+    .replace(/^#{1,3} (.+)$/gm, '<strong style="font-size:14px;display:block;margin:6px 0 2px">$1</strong>')
+    .replace(/^[-•] (.+)$/gm, '<li style="margin:2px 0">$1</li>')
+    .replace(/\n/g, '<br>');
 }
-window.sendChatMessage=async function(){
-  if(chatSending)return;const input=document.getElementById('chat-input');const msg=input?.value.trim();if(!msg)return;
-  input.value='';chatHistory.push({role:'user',content:msg});renderChatMessages();
-  chatSending=true;const sendBtn=document.getElementById('chat-send-btn');if(sendBtn)sendBtn.disabled=true;
-  const el=document.getElementById('chat-messages');
-  const typing=document.createElement('div');typing.className='chat-typing';typing.innerHTML='<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
-  el.appendChild(typing);el.scrollTop=el.scrollHeight;
-  const context=buildAIContext(chatFormScope);
-  try{
-    let reply='';
-    if(currentAIProvider==='claude'){
-      const key=(document.getElementById('ai-api-key')?.value||localStorage.getItem('lumenos_claude_key')||'').trim();if(!key){reply='Please set your Anthropic API key in the AI Analysis tab.';}
-      else{const msgs=chatHistory.slice(-12).map(m=>({role:m.role,content:m.content}));const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:context,messages:msgs})});const d=await res.json();if(d.error)throw new Error(d.error.message);reply=d.content?.[0]?.text||'No response.';}
-    }else{
-      const key=(document.getElementById('ai-gemini-key')?.value||localStorage.getItem('lumenos_gemini_key')||'').trim();if(!key){reply='Please set your Gemini API key in the AI Analysis tab.';}
-      else{const historyMsgs=chatHistory.slice(-12).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:context}]},...historyMsgs],generationConfig:{maxOutputTokens:1000,temperature:0.7}})});const d=await res.json();if(d.error)throw new Error(d.error.message);reply=d.candidates?.[0]?.content?.parts?.[0]?.text||'No response.';}
+
+window.sendChatMessage = async function () {
+  if (chatSending) return; const input = document.getElementById('chat-input'); const msg = input?.value.trim(); if (!msg) return;
+  input.value = ''; chatHistory.push({ role: 'user', content: msg }); renderChatMessages();
+  chatSending = true; const sendBtn = document.getElementById('chat-send-btn'); if (sendBtn) sendBtn.disabled = true;
+  const el = document.getElementById('chat-messages');
+  const typing = document.createElement('div'); typing.className = 'chat-typing'; typing.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+  el.appendChild(typing); el.scrollTop = el.scrollHeight;
+  const context = buildAIContext(chatFormScope);
+  try {
+    let reply = '';
+    if (currentAIProvider === 'claude') {
+      const key = (document.getElementById('ai-api-key')?.value || localStorage.getItem('lumenos_claude_key') || '').trim();
+      if (!key) { reply = 'Please set your Anthropic API key in the AI Analysis tab.'; }
+      else { const msgs = chatHistory.slice(-12).map(m => ({ role: m.role, content: m.content })); const res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }, body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system: context, messages: msgs }) }); const d = await res.json(); if (d.error) throw new Error(d.error.message); reply = d.content?.[0]?.text || 'No response.'; }
+    } else {
+      const key = (document.getElementById('ai-gemini-key')?.value || localStorage.getItem('lumenos_gemini_key') || '').trim();
+      if (!key) { reply = 'Please set your Gemini API key in the AI Analysis tab.'; }
+      else { const historyMsgs = chatHistory.slice(-12).map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })); const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: context }] }, ...historyMsgs], generationConfig: { maxOutputTokens: 1000, temperature: 0.7 } }) }); const d = await res.json(); if (d.error) throw new Error(d.error.message); reply = d.candidates?.[0]?.content?.parts?.[0]?.text || 'No response.'; }
     }
-    chatHistory.push({role:'assistant',content:reply});
-  }catch(e){chatHistory.push({role:'assistant',content:'Error: '+e.message});}
-  finally{typing.remove();chatSending=false;if(sendBtn)sendBtn.disabled=false;renderChatMessages();}
+    chatHistory.push({ role: 'assistant', content: reply });
+  } catch (e) { chatHistory.push({ role: 'assistant', content: 'Error: ' + e.message }); }
+  finally { typing.remove(); chatSending = false; if (sendBtn) sendBtn.disabled = false; renderChatMessages(); }
 };
 
-/* ── SEARCH ── */
-window.handleSearch=function(q){
+// ── SEARCH ────────────────────────────────────────────────────────────────────
+window.handleSearch = function (q) {
   clearTimeout(searchDebounce);
-  const sbRes=document.getElementById('sb-search-results');const cmdRes=document.getElementById('cmd-search-results');
-  if(!q||q.length<2){if(sbRes)sbRes.style.display='none';if(cmdRes)cmdRes.style.display='none';return;}
-  searchDebounce=setTimeout(async()=>{
-    const ql=q.toLowerCase();const results=[];
-    allForms.filter(f=>f.name?.toLowerCase().includes(ql)||f.description?.toLowerCase().includes(ql)).slice(0,4).forEach(f=>results.push({type:'form',title:f.name,sub:f.description||'Form',action:()=>openShareModal(f.id)}));
-    allResponses.filter(r=>r.respondent_name?.toLowerCase().includes(ql)).slice(0,3).forEach(r=>{const f=allForms.find(x=>x.id===r.form_id);results.push({type:'response',title:r.respondent_name||'Anonymous',sub:f?.name||'Response',action:()=>openRespDetail(r.id)});});
-    allOrgs.filter(o=>o.name?.toLowerCase().includes(ql)).slice(0,3).forEach(o=>results.push({type:'org',title:o.name,sub:o.industry||'Organisation',action:()=>{navTo('orgs');}}));
-    const html=results.length?results.map(r=>`<div class="search-result-item" onclick="this.closest('.search-results').style.display='none';(${r.action.toString()})()"><span class="search-result-type srt-${r.type}">${r.type}</span><div><div class="search-result-title">${esc(r.title)}</div><div class="search-result-sub">${esc(r.sub)}</div></div></div>`).join(''):'<div style="padding:12px;font-size:12px;color:var(--text-3);text-align:center">No results found</div>';
-    if(sbRes){sbRes.innerHTML=html;sbRes.style.display='block';}
-    if(cmdRes){cmdRes.innerHTML=html;cmdRes.style.display='block';}
-  },200);
-};
-document.addEventListener('click',e=>{if(!e.target.closest('.sb-search')&&!e.target.closest('.cmd-wrap')){document.querySelectorAll('.search-results').forEach(el=>el.style.display='none');}});
-document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('cmd-input')?.focus();}if(e.key==='Escape'){document.querySelectorAll('.search-results').forEach(el=>el.style.display='none');}});
-
-/* ── SETTINGS — SUPABASE ── */
-function loadSettingsInputs(){const u=document.getElementById('sb-url-input');const k=document.getElementById('sb-key-input');if(u)u.value=SUPABASE_URL;if(k)k.value=SUPABASE_KEY;}
-window.saveSupabaseConfig=function(){
-  const u=document.getElementById('sb-url-input')?.value.trim();const k=document.getElementById('sb-key-input')?.value.trim();
-  if(!u||!k){toast('Both URL and Key are required','error');return;}
-  SUPABASE_URL=u;SUPABASE_KEY=k;localStorage.setItem('il_sb_url',u);localStorage.setItem('il_sb_key',k);
-  sb=createClient(u,k);toast('Supabase reconnected!','success');loadOrgs();loadForms();loadAllResponses();
+  const sbRes = document.getElementById('sb-search-results'); const cmdRes = document.getElementById('cmd-search-results');
+  if (!q || q.length < 2) { if (sbRes) sbRes.style.display = 'none'; if (cmdRes) cmdRes.style.display = 'none'; return; }
+  searchDebounce = setTimeout(async () => {
+    const ql = q.toLowerCase(); const results = [];
+    allForms.filter(f => f.name?.toLowerCase().includes(ql) || f.description?.toLowerCase().includes(ql)).slice(0, 4).forEach(f => results.push({ type: 'form', title: f.name, sub: f.description || 'Form', action: () => openShareModal(f.id) }));
+    allResponses.filter(r => r.respondent_name?.toLowerCase().includes(ql)).slice(0, 3).forEach(r => { const f = allForms.find(x => x.id === r.form_id); results.push({ type: 'response', title: r.respondent_name || 'Anonymous', sub: f?.name || 'Response', action: () => openRespDetail(r.id) }); });
+    allOrgs.filter(o => o.name?.toLowerCase().includes(ql)).slice(0, 3).forEach(o => results.push({ type: 'org', title: o.name, sub: o.industry || 'Organisation', action: () => { navTo('orgs'); } }));
+    const html = results.length ? results.map(r => `<div class="search-result-item" onclick="this.closest('.search-results').style.display='none';(${r.action.toString()})()"><span class="search-result-type srt-${r.type}">${r.type}</span><div><div class="search-result-title">${esc(r.title)}</div><div class="search-result-sub">${esc(r.sub)}</div></div></div>`).join('') : '<div style="padding:12px;font-size:12px;color:var(--text-3);text-align:center">No results found</div>';
+    if (sbRes) { sbRes.innerHTML = html; sbRes.style.display = 'block'; }
+    if (cmdRes) { cmdRes.innerHTML = html; cmdRes.style.display = 'block'; }
+  }, 200);
 };
 
-/* ── FILL-ONLY MODE (URL param) ── */
-async function initFillMode(){
-  if(!FILL_PARAM)return;
-  document.getElementById('fill-screen').style.display='block';
-  let form=null;
-  const{data:bySlug}=await sb.from('il_forms').select('*').eq('share_slug',FILL_PARAM).maybeSingle();
-  if(bySlug){form=bySlug;}else{const{data:byId}=await sb.from('il_forms').select('*').eq('id',FILL_PARAM).maybeSingle();if(byId)form=byId;}
-  if(!form){document.getElementById('fill-title').textContent='Form not found';document.getElementById('fill-fields').innerHTML='<div class="fill-field" style="text-align:center;color:var(--red)">This form could not be found. Please check the link.</div>';return;}
-  if(!allForms.find(f=>f.id===form.id))allForms.push(form);
-  _openFillWith(form);
-  const submitBtn=document.getElementById('fill-submit-btn');
-  if(submitBtn){submitBtn.onclick=async function(){
-    if(_fillSubmitting)return;_fillSubmitting=true;submitBtn.disabled=true;submitBtn.textContent='Submitting…';
-    const respondentName=document.getElementById('fill-respondent').value.trim();
-    const answers={},fileUrlMap={};
-    (form.fields||[]).forEach((f,i)=>{const id=`fill-f-${i}`;if(f.type==='scale'){const sel=document.querySelector(`#${id} .fill-scale-btn.selected`);answers[f.label]=sel?parseInt(sel.dataset.val):null;}else if(f.type==='radio'){const sel=document.querySelector(`input[name="${id}"]:checked`);answers[f.label]=sel?sel.value:null;}else if(f.type==='checkbox'){answers[f.label]=[...document.querySelectorAll(`#${id} input:checked`)].map(s=>s.value);}else if(['image','pdf','csv','video','file'].includes(f.type)){const up=fileUploads[i];if(up){answers[f.label]=up.publicUrl||up.file?.name||'[file]';fileUrlMap[f.label]=up.publicUrl||null;}else answers[f.label]=null;}else{const el=document.getElementById(id);answers[f.label]=el?(el.value||null):null;}});
-    const score=computeReadinessScore(answers,form.fields||[]);
-    try{const{error}=await sb.from('il_responses').insert([{form_id:form.id,respondent_name:respondentName||null,org_name:respondentName||null,answers,image_urls:fileUrlMap,readiness_score:score,created_by:null}]);if(error)throw error;document.getElementById('fill-progress-bar').style.width='100%';document.getElementById('fill-form-area').style.display='none';document.getElementById('fill-success').style.display='block';fireNotifications(form,respondentName,answers,score);}
-    catch(e){submitBtn.disabled=false;submitBtn.textContent='Submit Response';toast(e.message,'error');}
-    finally{_fillSubmitting=false;}
-  };}
+document.addEventListener('click', e => { if (!e.target.closest('.sb-search') && !e.target.closest('.cmd-wrap')) { document.querySelectorAll('.search-results').forEach(el => el.style.display = 'none'); } });
+document.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); document.getElementById('cmd-input')?.focus(); } if (e.key === 'Escape') { document.querySelectorAll('.search-results').forEach(el => el.style.display = 'none'); } });
+
+// ── SETTINGS — SUPABASE ───────────────────────────────────────────────────────
+function loadSettingsInputs() {
+  const u = document.getElementById('sb-url-input'); const k = document.getElementById('sb-key-input');
+  if (u) u.value = SUPABASE_URL; if (k) k.value = SUPABASE_KEY;
 }
 
-/* ── INIT ── */
-(async function init(){
-  loadSettingsInputs();
-  if(FILL_PARAM){await initFillMode();return;}
-  const{data:{session}}=await sb.auth.getSession();
-  if(session?.user)await bootApp(session.user);
-  else{document.getElementById('auth-screen').style.display='flex';}
-})();
+window.saveSupabaseConfig = function () {
+  const u = document.getElementById('sb-url-input')?.value.trim(); const k = document.getElementById('sb-key-input')?.value.trim();
+  if (!u || !k) { toast('Both URL and Key are required', 'error'); return; }
+  SUPABASE_URL = u; SUPABASE_KEY = k; localStorage.setItem('il_sb_url', u); localStorage.setItem('il_sb_key', k);
+  sb = createClient(u, k); toast('Supabase reconnected!', 'success');
+  loadOrgs(); loadForms(); loadAllResponses();
+};
 
+// ── FILL-ONLY MODE (URL param) ────────────────────────────────────────────────
+async function initFillMode() {
+  if (!FILL_PARAM) return;
+  document.getElementById('fill-screen').style.display = 'block';
+  let form = null;
+  const { data: bySlug } = await sb.from('il_forms').select('*').eq('share_slug', FILL_PARAM).maybeSingle();
+  if (bySlug) { form = bySlug; } else { const { data: byId } = await sb.from('il_forms').select('*').eq('id', FILL_PARAM).maybeSingle(); if (byId) form = byId; }
+  if (!form) {
+    document.getElementById('fill-title').textContent = 'Form not found';
+    document.getElementById('fill-fields').innerHTML = '<div class="fill-field" style="text-align:center;color:var(--red)">This form could not be found. Please check the link.</div>';
+    return;
+  }
+  if (!allForms.find(f => f.id === form.id)) allForms.push(form);
+  _openFillWith(form);
+  const submitBtn = document.getElementById('fill-submit-btn');
+  if (submitBtn) {
+    submitBtn.onclick = async function () {
+      if (_fillSubmitting) return; _fillSubmitting = true; submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
+      const respondentName = document.getElementById('fill-respondent').value.trim();
+      const answers = {}, fileUrlMap = {};
+      (form.fields || []).forEach((f, i) => {
+        const id = `fill-f-${i}`;
+        if (f.type === 'scale') { const sel = document.querySelector(`#${id} .fill-scale-btn.selected`); answers[f.label] = sel ? parseInt(sel.dataset.val) : null; }
+        else if (f.type === 'radio') { const sel = document.querySelector(`input[name="${id}"]:checked`); answers[f.label] = sel ? sel.value : null; }
+        else if (f.type === 'checkbox') { answers[f.label] = [...document.querySelectorAll(`#${id} input:checked`)].map(s => s.value); }
+        else if (['image', 'pdf', 'csv', 'video', 'file'].includes(f.type)) { const up = fileUploads[i]; if (up) { answers[f.label] = up.publicUrl || up.file?.name || '[file]'; fileUrlMap[f.label] = up.publicUrl || null; } else answers[f.label] = null; }
+        else { const el = document.getElementById(id); answers[f.label] = el ? (el.value || null) : null; }
+      });
+      const score = computeReadinessScore(answers, form.fields || []);
+      try {
+        const { error } = await sb.from('il_responses').insert([{ form_id: form.id, respondent_name: respondentName || null, org_name: respondentName || null, answers, image_urls: fileUrlMap, readiness_score: score, created_by: null }]);
+        if (error) throw error;
+        document.getElementById('fill-progress-bar').style.width = '100%';
+        document.getElementById('fill-form-area').style.display = 'none';
+        document.getElementById('fill-success').style.display = 'block';
+        fireNotifications(form, respondentName, answers, score);
+      } catch (e) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Response'; toast(e.message, 'error'); }
+      finally { _fillSubmitting = false; }
+    };
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  loadSettingsInputs();
+  if (FILL_PARAM) { await initFillMode(); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) await bootApp(session.user);
+  else { document.getElementById('auth-screen').style.display = 'flex'; }
 })();
 </script>
 </body>
