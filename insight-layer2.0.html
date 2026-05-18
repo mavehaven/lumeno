@@ -1537,7 +1537,26 @@ select * from il_search(:query);</pre></div>
           <button class="btn btn-accent" style="flex:1;justify-content:center" onclick="previewForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
         </div>
       </div>
-      <div class="share-panel" id="sp-qr"><div class="qr-wrap" id="qr-wrap"></div><div style="display:flex;gap:8px"><button class="btn btn-outline" style="flex:1;justify-content:center" onclick="downloadQR()">Download</button><button class="btn btn-accent" style="flex:1;justify-content:center" onclick="previewForm()">Preview</button></div></div>
+      <div class="share-panel" id="sp-qr">
+        <div class="qr-wrap" id="qr-wrap" style="position:relative;min-height:220px;">
+          <div id="qr-loading" style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:8px;"><div class="spinner"></div>Generating QR…</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+          <button class="btn btn-outline" style="width:44px;height:44px;padding:0;justify-content:center;flex-shrink:0;border-radius:var(--radius-sm);" onclick="rotateQR(-1)" title="Rotate left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38"/></svg>
+          </button>
+          <button class="btn btn-outline" style="width:44px;height:44px;padding:0;justify-content:center;flex-shrink:0;border-radius:var(--radius-sm);" onclick="rotateQR(1)" title="Rotate right">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38"/></svg>
+          </button>
+          <button class="btn btn-outline" style="flex:1;justify-content:center;" onclick="downloadQR()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download
+          </button>
+          <button class="btn btn-accent" style="flex:1;justify-content:center;" onclick="previewForm()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Preview
+          </button>
+        </div>
+        <div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:8px;" id="qr-rotation-label"></div>
+      </div>
       <div class="share-panel" id="sp-platforms">
         <div class="share-platforms">
           <button class="platform-btn" onclick="shareTo('whatsapp')"><div class="platform-icon" style="background:#25d366;color:white"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg></div><span>WhatsApp</span></button>
@@ -1995,20 +2014,108 @@ window.openShareModal=function(formId){
   openModal('modal-share');
 };
 function getFormURL(formId){const form=allForms.find(f=>f.id===formId);const base=location.href.split('?')[0];const param=form?.share_slug||formId;return `${base}?fill=${encodeURIComponent(param)}`;}
+
+/* ── QR CODE ── */
+let _qrRotation=0; // in steps of 90
+let _qrDataUrl=null; // cached base image
+
 function generateQR(){
-  if(!currentShareFormId)return;const wrap=document.getElementById('qr-wrap');if(!wrap)return;
-  wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:8px">Generating…</div>';
-  const url=getFormURL(currentShareFormId);const canvas=document.createElement('canvas');
-  QRCode.toCanvas(canvas,url,{width:168,margin:2,color:{dark:'#0f1123',light:'#ffffff'},errorCorrectionLevel:'H'},function(err){
-    if(err){wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px">QR failed</div>';return;}
-    wrap.innerHTML='';wrap.appendChild(canvas);
+  if(!currentShareFormId)return;
+  _qrRotation=0;
+  _qrDataUrl=null;
+  const wrap=document.getElementById('qr-wrap');
+  const label=document.getElementById('qr-rotation-label');
+  if(label)label.textContent='';
+  if(!wrap)return;
+  wrap.innerHTML='<div id="qr-loading" style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:8px;justify-content:center;padding:20px;"><div class="spinner"></div>Generating…</div>';
+  const url=getFormURL(currentShareFormId);
+  const QR=window.QRCode;
+  if(!QR){wrap.innerHTML='<div style="font-size:12px;color:var(--red);padding:16px;text-align:center">QR library not loaded. Please refresh.</div>';return;}
+  // Use toDataURL — most reliable across all platforms
+  QR.toDataURL(url,{
+    width:200,margin:2,
+    color:{dark:'#0f1123',light:'#ffffff'},
+    errorCorrectionLevel:'H',
+    type:'image/png'
+  },function(err,dataUrl){
+    if(err||!dataUrl){
+      // fallback: try toCanvas
+      try{
+        const canvas=document.createElement('canvas');
+        QR.toCanvas(canvas,url,{width:200,margin:2,color:{dark:'#0f1123',light:'#ffffff'},errorCorrectionLevel:'H'},function(err2){
+          if(err2){wrap.innerHTML=`<div style="font-size:12px;color:var(--red);padding:16px;text-align:center">QR generation failed.<br><small>${err2.message||err2}</small></div>`;return;}
+          _qrDataUrl=canvas.toDataURL('image/png');
+          _renderQRImage(wrap);
+        });
+      }catch(e){wrap.innerHTML=`<div style="font-size:12px;color:var(--red);padding:16px;text-align:center">QR unavailable: ${e.message}</div>`;}
+      return;
+    }
+    _qrDataUrl=dataUrl;
+    _renderQRImage(wrap);
   });
 }
-window.copyShareLink=function(){const url=getFormURL(currentShareFormId);navigator.clipboard.writeText(url).then(()=>toast('Link copied!','success')).catch(()=>toast('Copy failed','error'));};
-window.openFormDirectly=function(){window.open(getFormURL(currentShareFormId),'_blank');};
-window.downloadQR=function(){const canvas=document.getElementById('qr-wrap')?.querySelector('canvas');if(!canvas){toast('Generate QR first','error');return;}const a=document.createElement('a');a.download=`form-${currentShareFormId}.png`;a.href=canvas.toDataURL('image/png');a.click();};
-window.previewForm=function(){closeModal('modal-share');openFillScreen(currentShareFormId);};
-window.shareTo=function(platform){const url=encodeURIComponent(getFormURL(currentShareFormId));const form=allForms.find(f=>f.id===currentShareFormId);const text=encodeURIComponent(`Please fill out: ${form?.name||'LumenOS Form'}`);const links={whatsapp:`https://wa.me/?text=${text}%20${url}`,email:`mailto:?subject=${encodeURIComponent(form?.name||'Form')}&body=${text}%20${decodeURIComponent(url)}`,twitter:`https://twitter.com/intent/tweet?text=${text}&url=${url}`};if(platform==='email')location.href=links[platform];else window.open(links[platform],'_blank','width=600,height=400');};
+
+function _renderQRImage(wrap){
+  if(!wrap)wrap=document.getElementById('qr-wrap');
+  if(!_qrDataUrl){wrap.innerHTML='<div style="font-size:12px;color:var(--red);padding:16px;text-align:center">No QR data.</div>';return;}
+  const deg=_qrRotation*90;
+  // For 90/270 we need to swap width/height so the image stays inside its container
+  const isOdd=Math.abs(_qrRotation%2)===1;
+  const imgSize=200;
+  const containerSize=isOdd?imgSize:imgSize;
+  wrap.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:center;padding:12px;background:white;border-radius:var(--radius-sm);">
+      <div style="position:relative;width:${imgSize}px;height:${imgSize}px;display:flex;align-items:center;justify-content:center;overflow:${isOdd?'visible':'hidden'};">
+        <img id="qr-img" src="${_qrDataUrl}"
+          style="width:${imgSize}px;height:${imgSize}px;display:block;image-rendering:pixelated;
+                 transform:rotate(${deg}deg);
+                 transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);"
+          draggable="false" alt="QR Code">
+      </div>
+    </div>`;
+  const label=document.getElementById('qr-rotation-label');
+  if(label)label.textContent=deg===0?'':`Rotated ${deg}°`;
+}
+
+window.rotateQR=function(dir){
+  // dir: +1 = clockwise, -1 = counter-clockwise
+  if(!_qrDataUrl){toast('Generate the QR code first','error');return;}
+  _qrRotation=(_qrRotation+dir+4)%4;
+  _renderQRImage();
+  const deg=_qrRotation*90;
+  const label=document.getElementById('qr-rotation-label');
+  if(label)label.textContent=deg===0?'':`Rotated ${deg}°`;
+};
+
+window.downloadQR=function(){
+  if(!_qrDataUrl){toast('Open the QR tab to generate first','error');return;}
+  const deg=_qrRotation*90;
+  if(deg===0){
+    // Direct download of base image
+    const a=document.createElement('a');
+    const form=allForms.find(f=>f.id===currentShareFormId);
+    a.download=`lumenos-qr-${(form?.name||'form').replace(/\s+/g,'-').toLowerCase()}.png`;
+    a.href=_qrDataUrl;a.click();
+    toast('QR downloaded!','success');return;
+  }
+  // Need to rotate the image onto a canvas before download
+  const img=new Image();
+  img.onload=function(){
+    const size=img.naturalWidth;
+    const canvas=document.createElement('canvas');
+    canvas.width=size;canvas.height=size;
+    const ctx=canvas.getContext('2d');
+    ctx.translate(size/2,size/2);
+    ctx.rotate((deg*Math.PI)/180);
+    ctx.drawImage(img,-size/2,-size/2);
+    const a=document.createElement('a');
+    const form=allForms.find(f=>f.id===currentShareFormId);
+    a.download=`lumenos-qr-${(form?.name||'form').replace(/\s+/g,'-').toLowerCase()}-${deg}deg.png`;
+    a.href=canvas.toDataURL('image/png');a.click();
+    toast('QR downloaded!','success');
+  };
+  img.src=_qrDataUrl;
+};
 
 /* ── FILL ── */
 function acceptForType(type){if(type==='image')return 'image/*';if(type==='pdf')return 'application/pdf';if(type==='csv')return '.csv,text/csv';if(type==='video')return 'video/*';return '*/*';}
@@ -2269,6 +2376,8 @@ window.saveSupabaseConfig=function(){
 
 /* ── SEARCH ── */
 window.handleSearch=function(val){
+  // Sync all search inputs
+  ['main-search-input','sb-search-input','dt-search-input'].forEach(id=>{const el=document.getElementById(id);if(el&&el.value!==val)el.value=val;});
   clearTimeout(searchDebounce);
   if(!val.trim()){hideSearchResults();return;}
   searchDebounce=setTimeout(()=>runSearch(val.trim()),300);
@@ -2283,16 +2392,21 @@ async function runSearch(q){
 }
 function showSearchResults(results){
   const typeMap={form:{cls:'srt-form',label:'Form'},response:{cls:'srt-response',label:'Response'},org:{cls:'srt-org',label:'Org'}};
-  const drop=document.getElementById('search-results-drop');if(!drop)return;
-  drop.innerHTML=results.slice(0,8).map(r=>{const t=typeMap[r.result_type]||{cls:'',label:r.result_type};return `<div class="search-result-item" onclick="handleSearchResultClick('${r.result_type}','${r.id}')"><span class="search-result-type ${t.cls}">${t.label}</span><div><div class="search-result-title">${esc(r.title)}</div><div class="search-result-sub">${esc(r.subtitle)}</div></div></div>`;}).join('')||'<div style="padding:12px 14px;font-size:12.5px;color:var(--text-3)">No results</div>';
-  drop.style.display='block';
+  const html=results.slice(0,8).map(r=>{const t=typeMap[r.result_type]||{cls:'',label:r.result_type};return `<div class="search-result-item" onclick="handleSearchResultClick('${r.result_type}','${r.id}')"><span class="search-result-type ${t.cls}">${t.label}</span><div><div class="search-result-title">${esc(r.title)}</div><div class="search-result-sub">${esc(r.subtitle)}</div></div></div>`;}).join('')||'<div style="padding:12px 14px;font-size:12.5px;color:var(--text-3)">No results</div>';
+  // Show in whichever drop is visible (mobile or desktop)
+  ['search-results-drop','search-results-drop-dt'].forEach(id=>{const el=document.getElementById(id);if(el){el.innerHTML=html;el.style.display='block';}});
 }
-function hideSearchResults(){const drop=document.getElementById('search-results-drop');if(drop)drop.style.display='none';}
+function hideSearchResults(){
+  ['search-results-drop','search-results-drop-dt'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  ['main-search-input','sb-search-input','dt-search-input'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+}
 window.handleSearchResultClick=function(type,id){
-  hideSearchResults();document.getElementById('main-search-input').value='';
+  hideSearchResults();
   if(type==='form')navTo('forms');else if(type==='response'){navTo('responses');setTimeout(()=>viewResponse(id),200);}else if(type==='org')navTo('orgs');
 };
-document.addEventListener('click',e=>{if(!e.target.closest('#search-bar-wrap')&&!e.target.closest('#search-results-drop'))hideSearchResults();});
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#search-bar-wrap')&&!e.target.closest('.desktop-topbar-search')&&!e.target.closest('.sb-search-wrap')&&!e.target.closest('.search-results-drop')&&!e.target.closest('#search-results-drop-dt'))hideSearchResults();
+});
 
 /* ── INIT ── */
 window.addEventListener('load',async()=>{
