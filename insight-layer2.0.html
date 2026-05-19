@@ -745,9 +745,10 @@ body.fill-only-mode #fill-screen{position:static;min-height:100vh}
         <div id="cmd-search-results" class="search-results" style="display:none"></div>
       </div>
       <div class="cmd-right">
-        <button class="btn btn-outline" onclick="openNewFormModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Form</button>
-        <button class="btn btn-accent" onclick="navTo('ai')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>AI Analysis</button>
-      </div>
+  <button class="btn btn-outline" onclick="openNewFormModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Form</button>
+  <button class="btn btn-outline" onclick="shareFullReport()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Share Report</button>
+  <button class="btn btn-accent" onclick="navTo('ai')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>AI Analysis</button>
+</div>
     </div>
 
     <!-- DASHBOARD -->
@@ -1135,6 +1136,75 @@ create table if not exists il_notification_log (
 </div>
 
 <div id="toast"></div>
+
+  <div class="modal-overlay" id="modal-share-report">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <div class="modal-title">Share Full Report</div>
+      <button class="modal-close" onclick="closeModal('modal-share-report')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;padding:10px 12px;background:var(--amber-soft);border:1px solid rgba(217,119,6,.2);border-radius:var(--radius-sm)">
+        <strong style="color:var(--amber)">Operators only.</strong> Recipients must be signed in to LumenOS with an operator account to view this report.
+      </div>
+
+      <!-- Scope selector -->
+      <div class="form-row">
+        <label class="form-label">Scope</label>
+        <select class="form-select" id="report-scope-form">
+          <option value="">All forms & responses</option>
+        </select>
+      </div>
+
+      <!-- Include toggles -->
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:14px">
+        <div style="font-family:var(--font-alt);font-size:9.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Include in report</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="rpt-include-forms" checked> Forms & fields</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="rpt-include-responses" checked> All responses</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="rpt-include-orgs" checked> Organisations</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="rpt-include-metrics" checked> Metrics snapshot</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="rpt-include-ai" checked> AI analysis output</label>
+        </div>
+      </div>
+
+      <!-- AI analysis snapshot -->
+      <div id="rpt-ai-section" style="margin-bottom:14px">
+        <label class="form-label">AI Analysis to include <span style="color:var(--text-3);font-weight:400">(paste or type)</span></label>
+        <textarea class="form-textarea" id="rpt-ai-text" rows="4" placeholder="Paste your AI analysis output here, or run an analysis first on the AI page…"></textarea>
+        <div style="font-size:11px;color:var(--text-3);margin-top:4px">This will be embedded in the report. The recipient sees it as read-only.</div>
+      </div>
+
+      <!-- Expiry -->
+      <div class="form-row">
+        <label class="form-label">Link expiry</label>
+        <select class="form-select" id="rpt-expiry">
+          <option value="0">Never expires</option>
+          <option value="24">24 hours</option>
+          <option value="72">3 days</option>
+          <option value="168">7 days</option>
+          <option value="720">30 days</option>
+        </select>
+      </div>
+
+      <!-- Generated link -->
+      <div id="rpt-link-section" style="display:none;margin-top:4px">
+        <label class="form-label">Report link</label>
+        <div class="url-row">
+          <span class="url-text" id="rpt-url-text">—</span>
+          <button class="btn-copy" onclick="copyReportLink()">Copy</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:5px" id="rpt-expiry-note"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-share-report')">Cancel</button>
+      <button class="btn btn-accent" onclick="generateReportLink()" id="rpt-generate-btn">Generate Link</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -2377,6 +2447,275 @@ window.closeMobileSidebar=function(){
   sidebar.classList.remove('open');overlay.classList.remove('open');
   document.getElementById('mobile-menu-tab')?.classList.remove('active');
   document.body.style.overflow='';
+};
+
+  /* ── FULL REPORT SHARING ── */
+
+// Opens the modal and populates scope selector + AI text from current output
+window.shareFullReport = function() {
+  // Populate scope selector
+  const scopeSel = document.getElementById('report-scope-form');
+  if (scopeSel) {
+    scopeSel.innerHTML = '<option value="">All forms & responses</option>' +
+      allForms.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  }
+
+  // Pre-fill AI text if there's output already on the AI page
+  const aiOutputEl = document.getElementById('ai-output');
+  const aiTextEl   = document.getElementById('rpt-ai-text');
+  if (aiTextEl && aiOutputEl) {
+    const existing = aiOutputEl.innerText.trim();
+    if (existing && !existing.includes('Configure your API key')) {
+      aiTextEl.value = existing;
+    }
+  }
+
+  // Reset link section
+  document.getElementById('rpt-link-section').style.display = 'none';
+  document.getElementById('rpt-generate-btn').textContent = 'Generate Link';
+
+  // Toggle AI section visibility with checkbox
+  document.getElementById('rpt-include-ai').addEventListener('change', function() {
+    document.getElementById('rpt-ai-section').style.display = this.checked ? 'block' : 'none';
+  });
+
+  openModal('modal-share-report');
+};
+
+window.generateReportLink = function() {
+  const scopeFormId  = document.getElementById('report-scope-form').value;
+  const inclForms    = document.getElementById('rpt-include-forms').checked;
+  const inclResp     = document.getElementById('rpt-include-responses').checked;
+  const inclOrgs     = document.getElementById('rpt-include-orgs').checked;
+  const inclMetrics  = document.getElementById('rpt-include-metrics').checked;
+  const inclAI       = document.getElementById('rpt-include-ai').checked;
+  const aiText       = document.getElementById('rpt-ai-text').value.trim();
+  const expiryHours  = parseInt(document.getElementById('rpt-expiry').value, 10);
+
+  // Build the data snapshot
+  const scopedForms     = scopeFormId ? allForms.filter(f => f.id === scopeFormId) : allForms;
+  const scopedResponses = scopeFormId ? allResponses.filter(r => r.form_id === scopeFormId) : allResponses;
+  const scored          = scopedResponses.filter(r => r.readiness_score != null);
+  const avgScore        = scored.length
+    ? Math.round(scored.reduce((a, r) => a + r.readiness_score, 0) / scored.length)
+    : null;
+
+  const snapshot = {
+    generatedAt : new Date().toISOString(),
+    generatedBy : currentUser?.email || 'unknown',
+    expiresAt   : expiryHours ? new Date(Date.now() + expiryHours * 3600000).toISOString() : null,
+    metrics: inclMetrics ? {
+      totalForms     : scopedForms.length,
+      totalResponses : scopedResponses.length,
+      avgScore,
+      totalOrgs      : allOrgs.length,
+    } : null,
+    forms     : inclForms     ? scopedForms.map(f => ({
+      id: f.id, name: f.name, description: f.description,
+      fieldCount: (f.fields || []).length,
+      responseCount: scopedResponses.filter(r => r.form_id === f.id).length,
+    })) : null,
+    responses : inclResp ? scopedResponses.slice(0, 500).map(r => ({
+      id             : r.id,
+      respondent     : r.respondent_name || 'Anonymous',
+      form           : allForms.find(f => f.id === r.form_id)?.name || 'Unknown',
+      score          : r.readiness_score,
+      submittedAt    : r.created_at,
+      answers        : r.answers || {},
+    })) : null,
+    organisations : inclOrgs ? allOrgs.map(o => ({
+      id: o.id, name: o.name, industry: o.industry,
+    })) : null,
+    aiAnalysis : (inclAI && aiText) ? aiText : null,
+  };
+
+  // Encode as base64 in the URL hash — no server needed, operators only (auth still required to view app)
+  let encoded;
+  try {
+    encoded = btoa(unescape(encodeURIComponent(JSON.stringify(snapshot))));
+  } catch(e) {
+    toast('Snapshot too large — try scoping to a single form or reducing included data', 'error');
+    return;
+  }
+
+  const base   = location.href.split('?')[0].split('#')[0];
+  const link   = `${base}?report=${encoded}`;
+
+  document.getElementById('rpt-url-text').textContent = link;
+  document.getElementById('rpt-link-section').style.display = 'block';
+
+  const noteEl = document.getElementById('rpt-expiry-note');
+  noteEl.textContent = expiryHours
+    ? `This report expires ${new Date(Date.now() + expiryHours * 3600000).toLocaleString()}.`
+    : 'This link never expires. Anyone with an operator account on this LumenOS instance can view it.';
+
+  document.getElementById('rpt-generate-btn').textContent = 'Regenerate';
+  toast('Report link generated!', 'success');
+};
+
+window.copyReportLink = function() {
+  const url = document.getElementById('rpt-url-text').textContent;
+  navigator.clipboard.writeText(url)
+    .then(() => toast('Report link copied!', 'success'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = url; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      toast('Report link copied!', 'success');
+    });
+};
+
+// On load: if ?report= is in the URL, show the read-only report viewer
+(function checkReportParam() {
+  const params  = new URLSearchParams(location.search);
+  const encoded = params.get('report');
+  if (!encoded) return;
+
+  // Wait for auth, then render
+  const tryRender = setInterval(async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.user) return; // keep waiting for login
+    clearInterval(tryRender);
+
+    let snapshot;
+    try {
+      snapshot = JSON.parse(decodeURIComponent(escape(atob(encoded))));
+    } catch(e) {
+      toast('Invalid or corrupted report link', 'error');
+      return;
+    }
+
+    // Check expiry
+    if (snapshot.expiresAt && new Date(snapshot.expiresAt) < new Date()) {
+      toast('This report link has expired', 'error');
+      return;
+    }
+
+    renderReportViewer(snapshot);
+  }, 600);
+})();
+
+function renderReportViewer(snap) {
+  // Inject a full-screen report overlay on top of the app
+  const existing = document.getElementById('report-viewer-overlay');
+  if (existing) existing.remove();
+
+  const m = snap.metrics || {};
+  const formRows = (snap.forms || []).map(f =>
+    `<tr><td>${esc(f.name)}</td><td style="color:var(--text-2)">${esc(f.description || '—')}</td><td>${f.fieldCount}</td><td>${f.responseCount}</td></tr>`
+  ).join('');
+
+  const respRows = (snap.responses || []).slice(0, 200).map(r => {
+    const s = r.score;
+    const cls = s >= 70 ? 'badge-green' : s >= 40 ? 'badge-amber' : s != null ? 'badge-red' : 'badge-grey';
+    return `<tr style="cursor:pointer" onclick="toggleRespAnswers(this,'${btoa(encodeURIComponent(JSON.stringify(r.answers||{})))}')">
+      <td><strong>${esc(r.respondent)}</strong></td>
+      <td style="color:var(--text-2)">${esc(r.form)}</td>
+      <td>${s != null ? `<span class="badge ${cls}">${s}</span>` : '<span style="color:var(--text-3)">—</span>'}</td>
+      <td style="color:var(--text-3)">${new Date(r.submittedAt).toLocaleString()}</td>
+      <td><button class="btn-icon btn-icon-ghost" title="Expand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></td>
+    </tr>`;
+  }).join('');
+
+  const orgRows = (snap.organisations || []).map(o =>
+    `<div class="person-row"><div class="person-avatar" style="border-radius:6px">${o.name[0].toUpperCase()}</div><div><div class="person-name">${esc(o.name)}</div><div class="person-status">${esc(o.industry || 'General')}</div></div></div>`
+  ).join('');
+
+  const aiSection = snap.aiAnalysis
+    ? `<div class="card" style="margin-bottom:18px">
+        <div class="card-header"><span class="card-label">AI Analysis</span></div>
+        <div style="font-size:13px;line-height:1.8;white-space:pre-wrap;color:var(--text-1)">${esc(snap.aiAnalysis)}</div>
+       </div>`
+    : '';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'report-viewer-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:950;background:var(--bg);overflow-y:auto';
+  overlay.innerHTML = `
+    <div style="max-width:1100px;margin:0 auto;padding:28px 24px 60px">
+      <!-- Header -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-family:var(--font-serif);font-size:26px;margin-bottom:3px">
+            LumenOS <em style="font-style:italic;color:var(--accent)">Shared Report</em>
+          </div>
+          <div style="font-size:12px;color:var(--text-3)">
+            Generated by <strong>${esc(snap.generatedBy)}</strong> on ${new Date(snap.generatedAt).toLocaleString()}
+            ${snap.expiresAt ? ' · Expires ' + new Date(snap.expiresAt).toLocaleString() : ''}
+          </div>
+        </div>
+        <button class="btn btn-outline" onclick="document.getElementById('report-viewer-overlay').remove();history.replaceState(null,'',location.pathname)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Close report
+        </button>
+      </div>
+
+      <!-- KPI row -->
+      ${snap.metrics ? `
+      <div class="grid-4" style="margin-bottom:18px">
+        <div class="kpi-card"><div class="kpi-glow" style="background:var(--accent)"></div><div class="kpi-icon" style="background:var(--accent-soft);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="kpi-label">Total Responses</div><div class="kpi-value">${m.totalResponses ?? '—'}</div></div>
+        <div class="kpi-card"><div class="kpi-glow" style="background:var(--green)"></div><div class="kpi-icon" style="background:var(--green-soft);color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="kpi-label">Forms</div><div class="kpi-value">${m.totalForms ?? '—'}</div></div>
+        <div class="kpi-card"><div class="kpi-glow" style="background:var(--amber)"></div><div class="kpi-icon" style="background:var(--amber-soft);color:var(--amber)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div class="kpi-label">Avg Score</div><div class="kpi-value">${m.avgScore ?? '—'}</div></div>
+        <div class="kpi-card"><div class="kpi-glow" style="background:var(--purple)"></div><div class="kpi-icon" style="background:var(--purple-soft);color:var(--purple)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div class="kpi-label">Organisations</div><div class="kpi-value">${m.totalOrgs ?? '—'}</div></div>
+      </div>` : ''}
+
+      <!-- AI Analysis -->
+      ${aiSection}
+
+      <!-- Forms table -->
+      ${snap.forms && snap.forms.length ? `
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-header"><span class="card-label">Forms (${snap.forms.length})</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Description</th><th>Fields</th><th>Responses</th></tr></thead>
+            <tbody>${formRows}</tbody>
+          </table>
+        </div>
+      </div>` : ''}
+
+      <!-- Responses table -->
+      ${snap.responses && snap.responses.length ? `
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-header"><span class="card-label">Responses (${snap.responses.length}${snap.responses.length === 200 ? ' — first 200 shown' : ''})</span></div>
+        <div class="table-wrap">
+          <table id="rpt-resp-table">
+            <thead><tr><th>Respondent</th><th>Form</th><th>Score</th><th>Submitted</th><th></th></tr></thead>
+            <tbody>${respRows}</tbody>
+          </table>
+        </div>
+      </div>` : ''}
+
+      <!-- Organisations -->
+      ${snap.organisations && snap.organisations.length ? `
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-header"><span class="card-label">Organisations (${snap.organisations.length})</span></div>
+        ${orgRows}
+      </div>` : ''}
+
+      <div style="text-align:center;font-size:11.5px;color:var(--text-3);margin-top:24px">
+        Read-only snapshot · LumenOS · ${new Date(snap.generatedAt).toLocaleDateString()}
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+}
+
+// Inline answer expander for the report viewer response table
+window.toggleRespAnswers = function(row, encodedAnswers) {
+  const existing = row.nextElementSibling;
+  if (existing && existing.classList.contains('resp-expand-row')) {
+    existing.remove(); return;
+  }
+  let answers = {};
+  try { answers = JSON.parse(decodeURIComponent(atob(encodedAnswers))); } catch(e) {}
+  const cells = Object.entries(answers).map(([q, a]) =>
+    `<div class="resp-answer"><div class="resp-answer-q">${esc(q)}</div><div class="resp-answer-a">${esc(Array.isArray(a) ? a.join(', ') : String(a ?? '—'))}</div></div>`
+  ).join('');
+  const expandRow = document.createElement('tr');
+  expandRow.className = 'resp-expand-row';
+  expandRow.innerHTML = `<td colspan="5" style="padding:10px 12px;background:var(--bg)"><div class="resp-detail-grid">${cells || '<span style="font-size:12px;color:var(--text-3)">No answers recorded.</span>'}</div></td>`;
+  row.after(expandRow);
 };
 
 /* ── INIT ── */
