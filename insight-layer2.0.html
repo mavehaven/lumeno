@@ -1164,6 +1164,9 @@ let chatFormScope='';
 let notifConfig={email:{enabled:false,address:'',edgeFnUrl:''},slack:{enabled:false,webhookUrl:''},formScope:''};
 let notifLog=[];
 
+/* ── QR STATE ── */
+let qrGenerating=false;
+
 /* ── AI KEY PERSISTENCE ── */
 window.persistKey=function(provider,val){
   if(provider==='claude')localStorage.setItem('lumenos_claude_key',val);
@@ -1451,7 +1454,6 @@ window.navTo=function(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const target=document.getElementById('page-'+page);if(target)target.classList.add('active');
   document.querySelectorAll('.sb-item[data-page],.nav-btn[data-page]').forEach(n=>n.classList.toggle('active',n.dataset.page===page));
-  // sync mobile tab bar
   document.querySelectorAll('.mobile-tab[data-page]').forEach(t=>t.classList.toggle('active',t.dataset.page===page));
   document.getElementById('mobile-menu-tab')?.classList.remove('active');
   const handlers={dashboard:renderDashboard,forms:renderFormsPage,responses:renderResponses,orgs:renderOrgsPage,metrics:renderMetrics,ai:populateAIFormSelect};
@@ -1494,7 +1496,6 @@ async function loadAllResponses(){
     allResponses=data||[];
     document.getElementById('sb-resp-count').textContent=allResponses.length;
     document.getElementById('nav-badge-resp').style.display=allResponses.length?'block':'none';
-    // update mobile tab badge if present
     const mobileBadge=document.querySelector('.mobile-tab[data-page="responses"] .mobile-tab-badge');
     if(mobileBadge)mobileBadge.style.display=allResponses.length?'block':'none';
   }catch(e){allResponses=[];console.warn('loadResponses:',e.message);}
@@ -1769,36 +1770,74 @@ window.deleteForm=async function(id){
 window.shareTab=function(tab,btn){
   document.querySelectorAll('.share-tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.share-panel').forEach(p=>p.classList.remove('active'));
-  btn.classList.add('active');document.getElementById('sp-'+tab).classList.add('active');
-  if(tab==='qr')setTimeout(generateQR,120);
+  btn.classList.add('active');
+  document.getElementById('sp-'+tab).classList.add('active');
+  if(tab==='qr'){
+    setTimeout(generateQR,80);
+  }
 };
+
 window.openShareModal=function(formId){
   const form=allForms.find(f=>f.id===formId);if(!form)return;
-  currentShareFormId=formId;const org=allOrgs.find(o=>o.id===form.org_id);
+  currentShareFormId=formId;
+  const org=allOrgs.find(o=>o.id===form.org_id);
   document.getElementById('share-form-name').textContent=form.name;
   document.getElementById('share-form-org').textContent=org?org.name:'LumenOS';
   document.getElementById('share-url-text').textContent=getFormURL(formId);
-  const slugRow=document.getElementById('share-slug-row');const slugDisplay=document.getElementById('share-slug-display');
-  if(form.share_slug){slugDisplay.textContent=form.share_slug;slugRow.style.display='block';}else{slugRow.style.display='none';}
+  const slugRow=document.getElementById('share-slug-row');
+  const slugDisplay=document.getElementById('share-slug-display');
+  if(form.share_slug){slugDisplay.textContent=form.share_slug;slugRow.style.display='block';}
+  else{slugRow.style.display='none';}
   document.querySelectorAll('.share-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
   document.querySelectorAll('.share-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
+  const wrap=document.getElementById('qr-wrap');
+  if(wrap)wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:8px;text-align:center">Click the QR Code tab to generate</div>';
   openModal('modal-share');
 };
+
 function getFormURL(formId){
   const form=allForms.find(f=>f.id===formId);
   const base=location.href.split('?')[0];
   const param=form?.share_slug||formId;
   return `${base}?fill=${encodeURIComponent(param)}`;
 }
+
 function generateQR(){
-  if(!currentShareFormId)return;const wrap=document.getElementById('qr-wrap');if(!wrap)return;
-  wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:8px">Generating QR…</div>';
-  const url=getFormURL(currentShareFormId);const canvas=document.createElement('canvas');
-  QRCode.toCanvas(canvas,url,{width:180,margin:2,color:{dark:'#1a1d2e',light:'#ffffff'},errorCorrectionLevel:'H'},function(err){
-    if(err){wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px">QR failed</div>';return;}
-    wrap.innerHTML='';wrap.appendChild(canvas);
+  if(!currentShareFormId){return;}
+  if(qrGenerating){return;}
+  const wrap=document.getElementById('qr-wrap');
+  if(!wrap){return;}
+  if(typeof QRCode==='undefined'){
+    wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">QR library not loaded. Check your internet connection.</div>';
+    return;
+  }
+  qrGenerating=true;
+  wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:16px;text-align:center">Generating QR code…</div>';
+  const url=getFormURL(currentShareFormId);
+  QRCode.toDataURL(url,{
+    width:180,
+    margin:2,
+    color:{dark:'#1a1d2e',light:'#ffffff'},
+    errorCorrectionLevel:'H'
+  },function(err,dataUrl){
+    qrGenerating=false;
+    if(err){
+      console.error('QR generation error:',err);
+      wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">Failed to generate QR code.</div>';
+      return;
+    }
+    wrap.innerHTML='';
+    const img=document.createElement('img');
+    img.src=dataUrl;
+    img.width=180;
+    img.height=180;
+    img.style.cssText='display:block;border-radius:6px;image-rendering:pixelated';
+    img.alt='QR code for form link';
+    wrap.appendChild(img);
+    wrap.dataset.qrDataUrl=dataUrl;
   });
 }
+
 window.copyShareLink=function(){
   const url=getFormURL(currentShareFormId);
   navigator.clipboard.writeText(url).then(()=>toast('Link copied!','success')).catch(()=>{
@@ -1806,11 +1845,36 @@ window.copyShareLink=function(){
   });
 };
 window.openFormDirectly=function(){window.open(getFormURL(currentShareFormId),'_blank');};
+
 window.downloadQR=function(){
-  const canvas=document.getElementById('qr-wrap')?.querySelector('canvas');
-  if(!canvas){toast('Generate QR first','error');return;}
-  const a=document.createElement('a');a.download=`form-${currentShareFormId}.png`;a.href=canvas.toDataURL('image/png');a.click();
+  const wrap=document.getElementById('qr-wrap');
+  if(!wrap){toast('QR wrap not found','error');return;}
+  const storedDataUrl=wrap.dataset.qrDataUrl;
+  if(storedDataUrl){
+    const a=document.createElement('a');
+    a.download=`lumenos-form-qr.png`;
+    a.href=storedDataUrl;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast('QR code downloaded!','success');
+    return;
+  }
+  const canvas=wrap.querySelector('canvas');
+  if(canvas){
+    const a=document.createElement('a');
+    a.download=`lumenos-form-qr.png`;
+    a.href=canvas.toDataURL('image/png');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast('QR code downloaded!','success');
+    return;
+  }
+  toast('Please wait for QR to generate first','info');
+  generateQR();
 };
+
 window.previewForm=function(){closeModal('modal-share');openFillScreen(currentShareFormId);};
 window.shareTo=function(platform){
   const url=encodeURIComponent(getFormURL(currentShareFormId));
@@ -2310,7 +2374,7 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='k'){
 /* ── MOBILE NAV ── */
 function initMobileNav(){
   const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
-  if(document.getElementById('mobile-sidebar-overlay'))return; // already init
+  if(document.getElementById('mobile-sidebar-overlay'))return;
 
   const overlay=document.createElement('div');
   overlay.id='mobile-sidebar-overlay';
