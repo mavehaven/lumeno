@@ -1167,6 +1167,218 @@ let notifLog=[];
 /* ── QR STATE ── */
 let qrGenerating=false;
 
+
+/* ══════════════════════════════════════════════════════════════
+   DYNAMIC SCORING ENGINE
+   ══════════════════════════════════════════════════════════════ */
+
+const SCORE_CATEGORIES=[
+  {id:'ops', name:'Operational',weight:30,color:'#1D9E75'},
+  {id:'fin', name:'Financial',  weight:25,color:'#378ADD'},
+  {id:'ppl', name:'People',     weight:25,color:'#7F77DD'},
+  {id:'risk',name:'Risk',       weight:20,color:'#D85A30'},
+];
+
+const SCORING_DEFAULTS={
+  fields:[
+    {label:'Team readiness',   category:'ppl', weight:1,   type:'scale', min:1,max:10},
+    {label:'Budget confidence',category:'fin', weight:1.5, type:'scale', min:1,max:10},
+    {label:'Staff count',      category:'ppl', weight:0.8, type:'number',goodAbove:10},
+    {label:'Process maturity', category:'ops', weight:1,   type:'choice',
+      scoreMap:{'Ad hoc':10,'Documented':50,'Optimised':90,'Automated':100}},
+    {label:'Risk awareness',   category:'risk',weight:1.2, type:'choice',
+      scoreMap:{'None':0,'Identified':40,'Mitigated':80,'Monitored':100}},
+    {label:'Compliance docs',  category:'risk',weight:1,   type:'file',presenceScore:60},
+  ],
+  penalties:[
+    {field:'Risk awareness',   condition:'equals',value:'None',deduction:30},
+    {field:'Budget confidence',condition:'below', value:3,     deduction:15},
+  ],
+};
+
+/* Per-form overrides — key = form name (lowercase) or form id */
+const FORM_SCORE_CONFIGS={
+  'operational readiness assessment':{
+    categoryWeights:{ops:40,fin:20,ppl:25,risk:15},
+    fields:[
+      {label:'Process maturity',category:'ops',weight:2,type:'choice',
+        scoreMap:{'Ad hoc':5,'Documented':45,'Optimised':85,'Automated':100}},
+    ],
+    penalties:[
+      {field:'Process maturity',condition:'equals',value:'Ad hoc',deduction:20},
+    ],
+  },
+  'financial health check':{
+    categoryWeights:{ops:15,fin:50,ppl:15,risk:20},
+    fields:[
+      {label:'Budget confidence',category:'fin',weight:2.5,type:'scale',min:1,max:10},
+    ],
+    penalties:[],
+  },
+};
+
+function _inferType(formField){
+  const t=(formField.type||'').toLowerCase();
+  return{scale:'scale',number:'number',radio:'choice',select:'choice',
+    checkbox:'checkbox',textarea:'textarea',email:'email',date:'date',
+    image:'file',pdf:'file',csv:'file',video:'file',file:'file',text:'text'}[t]||'text';
+}
+
+function _scoreField(config,answer,formField){
+  const type=config.type||_inferType(formField);
+  if(answer===null||answer===undefined)return null;
+  if(Array.isArray(answer)&&answer.length===0)return null;
+  if(answer==='')return null;
+  switch(type){
+    case'scale':{
+      const v=parseFloat(answer);if(isNaN(v))return null;
+      const min=config.min??1,max=config.max??10;
+      return Math.round(Math.min(100,Math.max(0,((v-min)/(max-min))*100)));
+    }
+    case'choice':{
+      const map=config.scoreMap||{};
+      if(answer in map)return map[answer];
+      const lower=String(answer).toLowerCase();
+      const key=Object.keys(map).find(k=>k.toLowerCase()===lower);
+      return key!==undefined?map[key]:null;
+    }
+    case'multichoice':
+    case'checkbox':{
+      const map=config.scoreMap||{};
+      const vals=Array.isArray(answer)?answer:[answer];
+      const mapped=vals.map(v=>{
+        if(v in map)return map[v];
+        const lower=String(v).toLowerCase();
+        const key=Object.keys(map).find(k=>k.toLowerCase()===lower);
+        return key!==undefined?map[key]:null;
+      }).filter(s=>s!==null);
+      if(!mapped.length)return null;
+      return Math.round(mapped.reduce((a,b)=>a+b,0)/mapped.length);
+    }
+    case'number':{
+      const v=parseFloat(answer);if(isNaN(v))return null;
+      if(config.goodAbove!==undefined){
+        if(v>=config.goodAbove)return 100;
+        return Math.round(Math.min(100,Math.max(0,(v/config.goodAbove)*100)));
+      }
+      if(config.goodBelow!==undefined){
+        if(v<=config.goodBelow)return 100;
+        return Math.round(Math.max(0,100-((v-config.goodBelow)/config.goodBelow)*100));
+      }
+      if(config.min!==undefined&&config.max!==undefined){
+        return Math.round(Math.min(100,Math.max(0,((v-config.min)/(config.max-config.min))*100)));
+      }
+      return null;
+    }
+    case'text':case'textarea':case'email':case'date':
+      return String(answer).trim().length>0?(config.presenceScore??30):0;
+    case'file':case'image':case'pdf':case'csv':case'video':{
+      const present=Boolean(answer)&&answer!=='null'&&answer!=='false';
+      return present?(config.presenceScore??30):0;
+    }
+    default:return null;
+  }
+}
+
+function _checkPenaltyCondition(penalty,answer){
+  if(answer===null||answer===undefined)return penalty.condition==='empty';
+  switch(penalty.condition){
+    case'equals':    return String(answer).toLowerCase()===String(penalty.value).toLowerCase();
+    case'not_equals':return String(answer).toLowerCase()!==String(penalty.value).toLowerCase();
+    case'below':     return parseFloat(answer)<penalty.value;
+    case'above':     return parseFloat(answer)>penalty.value;
+    case'empty':     return!answer||String(answer).trim()===''||(Array.isArray(answer)&&answer.length===0);
+    case'contains':  return String(answer).toLowerCase().includes(String(penalty.value).toLowerCase());
+    default:         return false;
+  }
+}
+
+function computeDynamicScore(answers,fields,formName){
+  formName=formName||'';
+  const formKey=formName.toLowerCase().trim();
+  const override=FORM_SCORE_CONFIGS[formKey]||{};
+
+  const defaultFieldMap={};
+  (SCORING_DEFAULTS.fields||[]).forEach(fc=>{defaultFieldMap[fc.label.toLowerCase()]=fc;});
+  const overrideFieldMap={};
+  (override.fields||[]).forEach(fc=>{overrideFieldMap[fc.label.toLowerCase()]=fc;});
+  const mergedFieldMap={...defaultFieldMap,...overrideFieldMap};
+
+  const baseCatWeights={};
+  SCORE_CATEGORIES.forEach(c=>{baseCatWeights[c.id]=c.weight;});
+  const catWeights={...baseCatWeights,...(override.categoryWeights||{})};
+
+  const penalties=[...(SCORING_DEFAULTS.penalties||[]),...(override.penalties||[])];
+
+  const fieldScores={};
+  const catAccum={};
+  SCORE_CATEGORIES.forEach(c=>{catAccum[c.id]={total:0,weightTotal:0};});
+
+  (fields||[]).forEach(formField=>{
+    const key=(formField.label||'').toLowerCase();
+    const config=mergedFieldMap[key];
+    if(!config)return;
+    const answer=answers[formField.label];
+    const rawScore=_scoreField(config,answer,formField);
+    if(rawScore===null)return;
+    const w=config.weight||1;
+    fieldScores[formField.label]=rawScore;
+    const catId=config.category;
+    if(catAccum[catId]){
+      catAccum[catId].total+=rawScore*w;
+      catAccum[catId].weightTotal+=w;
+    }
+  });
+
+  const catScores={};
+  SCORE_CATEGORIES.forEach(c=>{
+    const acc=catAccum[c.id];
+    catScores[c.id]=acc.weightTotal>0?Math.round(acc.total/acc.weightTotal):null;
+  });
+
+  let totalNum=0,totalDen=0;
+  SCORE_CATEGORIES.forEach(c=>{
+    const s=catScores[c.id],cw=catWeights[c.id]||0;
+    if(s!==null){totalNum+=s*cw;totalDen+=cw;}
+  });
+  let overall=totalDen>0?Math.round(totalNum/totalDen):null;
+
+  const penaltyLog=[];
+  penalties.forEach(p=>{
+    const val=answers[p.field];
+    const applied=_checkPenaltyCondition(p,val);
+    penaltyLog.push({field:p.field,deduction:p.deduction,applied});
+    if(applied&&overall!==null)overall=Math.max(0,overall-p.deduction);
+  });
+
+  const catLines=SCORE_CATEGORIES.map(c=>`  ${c.name}: ${catScores[c.id]!==null?catScores[c.id]:'N/A'}`).join('\n');
+  const penLines=penaltyLog.filter(p=>p.applied).map(p=>`  -${p.deduction} (${p.field})`).join('\n');
+  const breakdown=[
+    `Overall: ${overall??'N/A'}`,
+    'Category scores:',catLines,
+    penaltyLog.some(p=>p.applied)?`Penalties applied:\n${penLines}`:'No penalties applied.',
+  ].join('\n');
+
+  return{overall,categories:catScores,fieldScores,penalties:penaltyLog,breakdown};
+}
+
+function computeReadinessScore(answers,fields,formName){
+  return computeDynamicScore(answers,fields,formName||'').overall;
+}
+
+function buildScoreContext(response,form){
+  if(!response||!response.answers)return'';
+  const result=computeDynamicScore(response.answers,form?.fields||[],form?.name||'');
+  if(result.overall===null)return'';
+  const catLines=SCORE_CATEGORIES.map(c=>`    ${c.name}: ${result.categories[c.id]!==null?result.categories[c.id]+'/100':'not assessed'}`).join('\n');
+  return`\nReadiness Score for ${response.respondent_name||'this respondent'}:\n  Overall: ${result.overall}/100\n  Categories:\n${catLines}\n${result.penalties.some(p=>p.applied)?'  Penalties: '+result.penalties.filter(p=>p.applied).map(p=>`-${p.deduction} (${p.field})`).join(', '):'  No penalties applied.'}\n`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   END SCORING ENGINE
+   ══════════════════════════════════════════════════════════════ */
+
+
 /* ── AI KEY PERSISTENCE ── */
 window.persistKey=function(provider,val){
   if(provider==='claude')localStorage.setItem('lumenos_claude_key',val);
@@ -1297,13 +1509,6 @@ function toast(msg,type='info'){
   };
   const el=document.createElement('div');el.className='toast-item toast-'+type;el.innerHTML=(icons[type]||'')+esc(msg);
   document.getElementById('toast').appendChild(el);setTimeout(()=>el.remove(),3800);
-}
-function computeReadinessScore(answers,fields){
-  let sum=0,count=0;
-  (fields||[]).forEach(f=>{
-    if(f.type==='scale'){const v=parseFloat(answers[f.label]);if(!isNaN(v)){sum+=((v-1)/9.0)*100;count++;}}
-  });
-  return count>0?Math.round(sum/count):null;
 }
 window.checkPasswordStrength=function(pw,fillId='pw-strength-fill'){
   const el=document.getElementById(fillId);if(!el)return;
@@ -1772,11 +1977,8 @@ window.shareTab=function(tab,btn){
   document.querySelectorAll('.share-panel').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('sp-'+tab).classList.add('active');
-  if(tab==='qr'){
-    setTimeout(generateQR,80);
-  }
+  if(tab==='qr')setTimeout(generateQR,80);
 };
-
 window.openShareModal=function(formId){
   const form=allForms.find(f=>f.id===formId);if(!form)return;
   currentShareFormId=formId;
@@ -1795,66 +1997,32 @@ window.openShareModal=function(formId){
   if(wrap){wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:8px;text-align:center">Click the QR Code tab to generate</div>';delete wrap.dataset.qrDataUrl;}
   openModal('modal-share');
 };
-
 function getFormURL(formId){
   const form=allForms.find(f=>f.id===formId);
   const base=location.href.split('?')[0];
   const param=form?.share_slug||formId;
   return `${base}?fill=${encodeURIComponent(param)}`;
 }
-
 function generateQR(){
-  if(!currentShareFormId){return;}
-  const wrap=document.getElementById('qr-wrap');
-  if(!wrap){return;}
-
-  // Already showing a valid QR image — don't regenerate
-  if(wrap.dataset.qrDataUrl&&wrap.querySelector('img')){return;}
-
-  // Reset stuck flag
+  if(!currentShareFormId)return;
+  const wrap=document.getElementById('qr-wrap');if(!wrap)return;
+  if(wrap.dataset.qrDataUrl&&wrap.querySelector('img'))return;
   qrGenerating=false;
-
-  if(typeof QRCode==='undefined'){
-    wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">QR library not loaded. Check your internet connection.</div>';
-    return;
-  }
-
+  if(typeof QRCode==='undefined'){wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">QR library not loaded.</div>';return;}
   qrGenerating=true;
   wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:16px;text-align:center">Generating QR code…</div>';
   delete wrap.dataset.qrDataUrl;
-
   const url=getFormURL(currentShareFormId);
-
   try{
-    QRCode.toDataURL(url,{
-      width:200,
-      margin:2,
-      color:{dark:'#1a1d2e',light:'#ffffff'},
-      errorCorrectionLevel:'M'
-    },function(err,dataUrl){
+    QRCode.toDataURL(url,{width:200,margin:2,color:{dark:'#1a1d2e',light:'#ffffff'},errorCorrectionLevel:'M'},function(err,dataUrl){
       qrGenerating=false;
-      if(err){
-        console.error('QR generation error:',err);
-        wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">Failed to generate QR code. Try again.</div>';
-        return;
-      }
+      if(err){wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">Failed to generate QR code.</div>';return;}
       wrap.innerHTML='';
-      const img=document.createElement('img');
-      img.src=dataUrl;
-      img.width=200;
-      img.height=200;
-      img.style.cssText='display:block;border-radius:8px;margin:0 auto';
-      img.alt='QR code for form link';
-      wrap.appendChild(img);
-      wrap.dataset.qrDataUrl=dataUrl;
+      const img=document.createElement('img');img.src=dataUrl;img.width=200;img.height=200;img.style.cssText='display:block;border-radius:8px;margin:0 auto';img.alt='QR code';
+      wrap.appendChild(img);wrap.dataset.qrDataUrl=dataUrl;
     });
-  }catch(e){
-    qrGenerating=false;
-    console.error('QR exception:',e);
-    wrap.innerHTML=`<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">QR error: ${esc(e.message)}</div>`;
-  }
+  }catch(e){qrGenerating=false;wrap.innerHTML=`<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">QR error: ${esc(e.message)}</div>`;}
 }
-
 window.copyShareLink=function(){
   const url=getFormURL(currentShareFormId);
   navigator.clipboard.writeText(url).then(()=>toast('Link copied!','success')).catch(()=>{
@@ -1862,36 +2030,12 @@ window.copyShareLink=function(){
   });
 };
 window.openFormDirectly=function(){window.open(getFormURL(currentShareFormId),'_blank');};
-
 window.downloadQR=function(){
-  const wrap=document.getElementById('qr-wrap');
-  if(!wrap){toast('QR wrap not found','error');return;}
+  const wrap=document.getElementById('qr-wrap');if(!wrap){toast('QR wrap not found','error');return;}
   const storedDataUrl=wrap.dataset.qrDataUrl;
-  if(storedDataUrl){
-    const a=document.createElement('a');
-    a.download=`lumenos-form-qr.png`;
-    a.href=storedDataUrl;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    toast('QR code downloaded!','success');
-    return;
-  }
-  const canvas=wrap.querySelector('canvas');
-  if(canvas){
-    const a=document.createElement('a');
-    a.download=`lumenos-form-qr.png`;
-    a.href=canvas.toDataURL('image/png');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    toast('QR code downloaded!','success');
-    return;
-  }
-  toast('Please wait for QR to generate first','info');
-  generateQR();
+  if(storedDataUrl){const a=document.createElement('a');a.download='lumenos-form-qr.png';a.href=storedDataUrl;document.body.appendChild(a);a.click();document.body.removeChild(a);toast('QR code downloaded!','success');return;}
+  toast('Please wait for QR to generate first','info');generateQR();
 };
-
 window.previewForm=function(){closeModal('modal-share');openFillScreen(currentShareFormId);};
 window.shareTo=function(platform){
   const url=encodeURIComponent(getFormURL(currentShareFormId));
@@ -2044,7 +2188,8 @@ async function submitFill(){
       else{const el=document.getElementById(id);answers[f.label]=el?(el.value||null):null;}
     });
   }
-  const score=form?.fields?computeReadinessScore(answers,form.fields):null;
+  /* ── NEW: use dynamic scoring engine, pass form name ── */
+  const score=form?.fields?computeReadinessScore(answers,form.fields,form.name):null;
   try{
     const{error}=await sb.from('il_responses').insert([{form_id:formId,respondent_name:respondentName||null,org_name:respondentName||null,answers,image_urls:fileUrlMap,readiness_score:score,created_by:currentUser?.id||null}]);
     if(error)throw error;
@@ -2092,7 +2237,25 @@ window.viewResponse=function(id){
   const r=allResponses.find(x=>x.id===id);if(!r)return;
   const form=allForms.find(f=>f.id===r.form_id);const answers=r.answers||{};const fileUrls=r.image_urls||{};
   const s=r.readiness_score;const cls=s>=70?'badge-green':s>=40?'badge-amber':'badge-red';
-  document.getElementById('resp-detail-body').innerHTML=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div><div style="font-size:14px;font-weight:600;color:var(--text-1)">${esc(r.respondent_name||'Anonymous')}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(form?.name||'Unknown Form')} · ${new Date(r.created_at).toLocaleString()}</div></div>${s!=null?`<span class="badge ${cls}" style="margin-left:auto;font-size:12px;padding:4px 11px">Score: ${s}</span>`:''}</div><div class="resp-detail-grid">${Object.entries(answers).map(([q,a])=>{
+
+  /* ── NEW: show category breakdown if available ── */
+  let categoryHTML='';
+  if(form&&r.answers){
+    const result=computeDynamicScore(r.answers,form.fields||[],form.name);
+    if(result.overall!==null){
+      const catRows=SCORE_CATEGORIES.map(c=>{
+        const cs=result.categories[c.id];
+        if(cs===null)return'';
+        const barColor=cs>=70?'var(--green)':cs>=40?'var(--amber)':'var(--red)';
+        return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="color:var(--text-2)">${c.name}</span><span style="font-weight:500">${cs}</span></div><div style="height:4px;background:var(--surface-2);border-radius:2px"><div style="height:4px;width:${cs}%;background:${barColor};border-radius:2px"></div></div></div>`;
+      }).join('');
+      if(catRows.trim()){
+        categoryHTML=`<div style="margin-bottom:14px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)"><div style="font-family:var(--font-alt);font-size:9.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Category Breakdown</div>${catRows}</div>`;
+      }
+    }
+  }
+
+  document.getElementById('resp-detail-body').innerHTML=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div><div style="font-size:14px;font-weight:600;color:var(--text-1)">${esc(r.respondent_name||'Anonymous')}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(form?.name||'Unknown Form')} · ${new Date(r.created_at).toLocaleString()}</div></div>${s!=null?`<span class="badge ${cls}" style="margin-left:auto;font-size:12px;padding:4px 11px">Score: ${s}</span>`:''}</div>${categoryHTML}<div class="resp-detail-grid">${Object.entries(answers).map(([q,a])=>{
     const fileUrl=fileUrls[q];let val;
     if(fileUrl){
       const isImg=/\.(png|jpg|jpeg|gif|webp|heic)(\?|$)/i.test(fileUrl);
@@ -2191,7 +2354,10 @@ window.runAI=async function(){
   if(!toAnalyse.length){toast('No responses to analyse','error');btn.disabled=false;return;}
   output.innerHTML='<div style="color:var(--text-3);text-align:center;padding:20px">Analysing… this may take a moment.</div>';
   const form=formId?allForms.find(f=>f.id===formId):null;
-  const summary=toAnalyse.slice(0,30).map((r,i)=>`Response ${i+1} [${r.respondent_name||'Anonymous'}] Score=${r.readiness_score??'N/A'}\n`+Object.entries(r.answers||{}).map(([q,a])=>`  ${q}: ${Array.isArray(a)?a.join(', '):a}`).join('\n')).join('\n\n');
+  const summary=toAnalyse.slice(0,30).map((r,i)=>{
+    const scoreCtx=buildScoreContext(r,form||allForms.find(f=>f.id===r.form_id));
+    return `Response ${i+1} [${r.respondent_name||'Anonymous'}]\n${scoreCtx}`+Object.entries(r.answers||{}).map(([q,a])=>`  ${q}: ${Array.isArray(a)?a.join(', '):a}`).join('\n');
+  }).join('\n\n');
   const userPrompt=(prompt||`Analyse the following${form?` "${form.name}"`:''} form responses. Identify key themes, patterns, and actionable recommendations.`)+'\n\n'+summary;
   try{
     const result=await callAI('You are LumenOS Sight, an expert data analyst. Provide clear, structured analysis with headings, bullet points, and actionable insights. Use markdown formatting.',[{role:'user',content:userPrompt}]);
@@ -2228,9 +2394,10 @@ function buildChatSystemPrompt(){
     return `- "${f.name}" (id:${f.id}): ${fResps.length} responses, avg score: ${avg??'N/A'}, fields: ${(f.fields||[]).map(ff=>ff.label+'('+ff.type+')').join(', ')}`;
   }).join('\n');
   const recentResponses=scopedResponses.slice(0,20).map((r,i)=>{
-    const formName=allForms.find(f=>f.id===r.form_id)?.name||'Unknown';
+    const form=allForms.find(f=>f.id===r.form_id);
+    const scoreCtx=buildScoreContext(r,form);
     const answers=Object.entries(r.answers||{}).slice(0,4).map(([q,a])=>`${q}: ${Array.isArray(a)?a.join(', '):a}`).join(' | ');
-    return `[${i+1}] ${r.respondent_name||'Anonymous'} → ${formName} | Score: ${r.readiness_score??'N/A'} | ${answers}`;
+    return `[${i+1}] ${r.respondent_name||'Anonymous'} → ${form?.name||'Unknown'} | ${scoreCtx.trim()} | ${answers}`;
   }).join('\n');
   const scored=scopedResponses.filter(r=>r.readiness_score!=null);
   const avgAll=scored.length?Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length):null;
@@ -2238,9 +2405,10 @@ function buildChatSystemPrompt(){
 
 ## Platform Data Summary
 - Total forms: ${scopedForms.length}
-- Total responses: ${scopedResponses.length}  
+- Total responses: ${scopedResponses.length}
 - Average readiness score: ${avgAll??'N/A'}
 - Organisations: ${allOrgs.length} (${allOrgs.map(o=>o.name).join(', ')||'none'})
+- Scoring categories: ${SCORE_CATEGORIES.map(c=>c.name).join(', ')}
 
 ## Forms
 ${formsSummary||'No forms yet.'}
@@ -2252,8 +2420,9 @@ Instructions:
 - Use the data above to answer questions directly. Do not say you cannot access data.
 - Format responses with markdown (bold, lists, etc).
 - Be analytical and specific — reference real numbers from the data.
+- When discussing scores, reference both the overall and category breakdown where available.
 - If asked about something not in the data, say so clearly.
-- Keep responses focused and concise (under 400 words unless asked for more detail or more detail is necessary based on request).`;
+- Keep responses focused and concise (under 400 words unless asked for more detail).`;
 }
 function appendChatMessage(role,content){
   const container=document.getElementById('chat-messages');if(!container)return;
@@ -2392,54 +2561,27 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='k'){
 function initMobileNav(){
   const sidebar=document.querySelector('.sidebar');if(!sidebar)return;
   if(document.getElementById('mobile-sidebar-overlay'))return;
-
   const overlay=document.createElement('div');
-  overlay.id='mobile-sidebar-overlay';
-  overlay.className='sidebar-overlay';
+  overlay.id='mobile-sidebar-overlay';overlay.className='sidebar-overlay';
   document.body.appendChild(overlay);
-
   const tabBar=document.createElement('nav');
-  tabBar.className='mobile-tab-bar';
-  tabBar.setAttribute('aria-label','Main navigation');
+  tabBar.className='mobile-tab-bar';tabBar.setAttribute('aria-label','Main navigation');
   tabBar.innerHTML=`<div class="mobile-tabs">
-    <button class="mobile-tab active" data-page="dashboard" onclick="navTo('dashboard');closeMobileSidebar()">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Home
-    </button>
-    <button class="mobile-tab" data-page="forms" onclick="navTo('forms');closeMobileSidebar()">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      Forms
-    </button>
-    <button class="mobile-tab" data-page="responses" onclick="navTo('responses');closeMobileSidebar()" style="position:relative">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      Responses
-      <span class="mobile-tab-badge" id="mobile-resp-badge" style="display:none"></span>
-    </button>
-    <button class="mobile-tab" data-page="ai" onclick="navTo('ai');closeMobileSidebar()">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-      AI
-    </button>
-    <button class="mobile-tab" id="mobile-menu-tab" onclick="toggleMobileSidebar()" aria-label="More">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      More
-    </button>
+    <button class="mobile-tab active" data-page="dashboard" onclick="navTo('dashboard');closeMobileSidebar()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Home</button>
+    <button class="mobile-tab" data-page="forms" onclick="navTo('forms');closeMobileSidebar()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Forms</button>
+    <button class="mobile-tab" data-page="responses" onclick="navTo('responses');closeMobileSidebar()" style="position:relative"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Responses<span class="mobile-tab-badge" id="mobile-resp-badge" style="display:none"></span></button>
+    <button class="mobile-tab" data-page="ai" onclick="navTo('ai');closeMobileSidebar()"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>AI</button>
+    <button class="mobile-tab" id="mobile-menu-tab" onclick="toggleMobileSidebar()" aria-label="More"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>More</button>
   </div>`;
   document.body.appendChild(tabBar);
-
   overlay.addEventListener('click',closeMobileSidebar);
-
   let touchStartX=0;
   sidebar.addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX;},{passive:true});
   sidebar.addEventListener('touchend',e=>{if(e.changedTouches[0].clientX-touchStartX<-60)closeMobileSidebar();},{passive:true});
-
-  sidebar.querySelectorAll('.sb-item[data-page]').forEach(item=>{
-    item.addEventListener('click',()=>setTimeout(closeMobileSidebar,80));
-  });
+  sidebar.querySelectorAll('.sb-item[data-page]').forEach(item=>{item.addEventListener('click',()=>setTimeout(closeMobileSidebar,80));});
 }
-
 window.toggleMobileSidebar=function(){
-  const sidebar=document.querySelector('.sidebar');
-  const overlay=document.getElementById('mobile-sidebar-overlay');
+  const sidebar=document.querySelector('.sidebar');const overlay=document.getElementById('mobile-sidebar-overlay');
   if(!sidebar||!overlay)return;
   const open=sidebar.classList.toggle('open');
   overlay.classList.toggle('open',open);
@@ -2447,8 +2589,7 @@ window.toggleMobileSidebar=function(){
   document.body.style.overflow=open?'hidden':'';
 };
 window.closeMobileSidebar=function(){
-  const sidebar=document.querySelector('.sidebar');
-  const overlay=document.getElementById('mobile-sidebar-overlay');
+  const sidebar=document.querySelector('.sidebar');const overlay=document.getElementById('mobile-sidebar-overlay');
   if(!sidebar||!overlay)return;
   sidebar.classList.remove('open');overlay.classList.remove('open');
   document.getElementById('mobile-menu-tab')?.classList.remove('active');
@@ -2461,7 +2602,6 @@ window.addEventListener('load',async()=>{
   if(savedUrl)document.getElementById('sb-url-input').value=savedUrl;
   if(savedKey)document.getElementById('sb-key-input').value=savedKey;
   loadNotifConfig();
-
   if(FILL_PARAM){
     document.getElementById('fill-title').textContent='Loading form…';
     try{
@@ -2484,7 +2624,6 @@ window.addEventListener('load',async()=>{
     const{data:{session}}=await sb.auth.getSession();if(session?.user)currentUser=session.user;
     return;
   }
-
   const{data:{session}}=await sb.auth.getSession();
   if(session?.user)await bootApp(session.user);
 });
