@@ -1790,8 +1790,9 @@ window.openShareModal=function(formId){
   else{slugRow.style.display='none';}
   document.querySelectorAll('.share-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
   document.querySelectorAll('.share-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
+  qrGenerating=false;
   const wrap=document.getElementById('qr-wrap');
-  if(wrap)wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:8px;text-align:center">Click the QR Code tab to generate</div>';
+  if(wrap){wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:8px;text-align:center">Click the QR Code tab to generate</div>';delete wrap.dataset.qrDataUrl;}
   openModal('modal-share');
 };
 
@@ -1804,38 +1805,54 @@ function getFormURL(formId){
 
 function generateQR(){
   if(!currentShareFormId){return;}
-  if(qrGenerating){return;}
   const wrap=document.getElementById('qr-wrap');
   if(!wrap){return;}
+
+  // Already showing a valid QR image — don't regenerate
+  if(wrap.dataset.qrDataUrl&&wrap.querySelector('img')){return;}
+
+  // Reset stuck flag
+  qrGenerating=false;
+
   if(typeof QRCode==='undefined'){
     wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">QR library not loaded. Check your internet connection.</div>';
     return;
   }
+
   qrGenerating=true;
   wrap.innerHTML='<div style="font-size:11px;color:var(--text-3);padding:16px;text-align:center">Generating QR code…</div>';
+  delete wrap.dataset.qrDataUrl;
+
   const url=getFormURL(currentShareFormId);
-  QRCode.toDataURL(url,{
-    width:180,
-    margin:2,
-    color:{dark:'#1a1d2e',light:'#ffffff'},
-    errorCorrectionLevel:'H'
-  },function(err,dataUrl){
+
+  try{
+    QRCode.toDataURL(url,{
+      width:200,
+      margin:2,
+      color:{dark:'#1a1d2e',light:'#ffffff'},
+      errorCorrectionLevel:'M'
+    },function(err,dataUrl){
+      qrGenerating=false;
+      if(err){
+        console.error('QR generation error:',err);
+        wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">Failed to generate QR code. Try again.</div>';
+        return;
+      }
+      wrap.innerHTML='';
+      const img=document.createElement('img');
+      img.src=dataUrl;
+      img.width=200;
+      img.height=200;
+      img.style.cssText='display:block;border-radius:8px;margin:0 auto';
+      img.alt='QR code for form link';
+      wrap.appendChild(img);
+      wrap.dataset.qrDataUrl=dataUrl;
+    });
+  }catch(e){
     qrGenerating=false;
-    if(err){
-      console.error('QR generation error:',err);
-      wrap.innerHTML='<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">Failed to generate QR code.</div>';
-      return;
-    }
-    wrap.innerHTML='';
-    const img=document.createElement('img');
-    img.src=dataUrl;
-    img.width=180;
-    img.height=180;
-    img.style.cssText='display:block;border-radius:6px;image-rendering:pixelated';
-    img.alt='QR code for form link';
-    wrap.appendChild(img);
-    wrap.dataset.qrDataUrl=dataUrl;
-  });
+    console.error('QR exception:',e);
+    wrap.innerHTML=`<div style="font-size:11px;color:var(--red);padding:8px;text-align:center">QR error: ${esc(e.message)}</div>`;
+  }
 }
 
 window.copyShareLink=function(){
