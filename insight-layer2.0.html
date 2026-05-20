@@ -1029,15 +1029,77 @@ create table if not exists il_notification_log (
         <label class="form-label">Fields</label>
         <div class="field-builder-list" id="field-builder-list"></div>
         <div class="field-add-row">
-          <input type="text" class="form-input" id="field-label-input" placeholder="Field label…" style="flex:1">
-          <select class="form-select" id="field-type-input" style="width:160px">
-            <option value="text">Short text</option><option value="textarea">Long text</option><option value="number">Number</option><option value="email">Email</option><option value="select">Dropdown</option><option value="radio">Multiple choice</option><option value="checkbox">Checkboxes</option><option value="scale">Scale 1–10</option><option value="date">Date</option><option value="image">Image upload</option><option value="pdf">PDF upload</option><option value="csv">CSV upload</option><option value="video">Video upload</option><option value="file">Any file</option>
-          </select>
-          <button class="btn btn-outline" type="button" id="add-field-btn">+ Add</button>
-        </div>
-        <div id="field-options-input-wrap" style="display:none;margin-top:7px"><label class="form-label">Options (comma-separated)</label><input type="text" class="form-input" id="field-options-input" placeholder="Option 1, Option 2, Option 3"></div>
-      </div>
+  <input type="text" class="form-input" id="field-label-input" placeholder="Field label…" style="flex:1">
+  <select class="form-select" id="field-type-input" style="width:160px">
+    <option value="text">Short text</option>
+    <option value="textarea">Long text</option>
+    <option value="number">Number</option>
+    <option value="email">Email</option>
+    <option value="select">Dropdown</option>
+    <option value="radio">Multiple choice</option>
+    <option value="checkbox">Checkboxes</option>
+    <option value="scale">Scale 1–10</option>
+    <option value="date">Date</option>
+    <option value="image">Image upload</option>
+    <option value="pdf">PDF upload</option>
+    <option value="csv">CSV upload</option>
+    <option value="video">Video upload</option>
+    <option value="file">Any file</option>
+  </select>
+  <button class="btn btn-outline" type="button" id="add-field-btn">+ Add</button>
+</div>
+
+<!-- Options (shown for select/radio/checkbox) -->
+<div id="field-options-input-wrap" style="display:none;margin-top:7px">
+  <label class="form-label">Options (comma-separated)</label>
+  <input type="text" class="form-input" id="field-options-input" placeholder="Option 1, Option 2, Option 3">
+</div>
+
+<!-- Scoring config (inline, always visible) -->
+<div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm)">
+  <div style="font-family:var(--font-alt);font-size:9.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Scoring Config</div>
+  <div style="display:grid;grid-template-columns:1fr 80px;gap:7px;margin-bottom:7px">
+    <div>
+      <label class="form-label">Category</label>
+      <select class="form-select" id="field-score-category">
+        <option value="none">Not scored</option>
+        <option value="ops">Operational</option>
+        <option value="fin">Financial</option>
+        <option value="ppl">People</option>
+        <option value="risk">Risk</option>
+      </select>
     </div>
+    <div>
+      <label class="form-label">Weight</label>
+      <input type="number" class="form-input" id="field-score-weight" value="1" min="0.1" max="10" step="0.1" placeholder="1">
+    </div>
+  </div>
+
+  <!-- Score map: only for choice-type fields -->
+  <div id="field-score-map-wrap" style="display:none;margin-bottom:7px">
+    <label class="form-label">Score map <span style="font-weight:400;color:var(--text-3)">(Option: score, …)</span></label>
+    <input type="text" class="form-input" id="field-score-map" placeholder="e.g. Option A: 100, Option B: 50, Option C: 10">
+    <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Each option maps to a score 0–100. Must match option labels exactly.</div>
+  </div>
+
+  <!-- Penalty -->
+  <div id="field-penalty-wrap">
+    <label class="form-label">Penalty</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr 70px;gap:6px">
+      <select class="form-select" id="field-penalty-condition">
+        <option value="none">No penalty</option>
+        <option value="equals">Answer equals</option>
+        <option value="not_equals">Answer ≠</option>
+        <option value="below">Value below</option>
+        <option value="above">Value above</option>
+        <option value="empty">Is empty</option>
+      </select>
+      <input type="text" class="form-input" id="field-penalty-value" placeholder="Trigger value">
+      <input type="number" class="form-input" id="field-penalty-deduction" placeholder="-pts" min="0" max="100">
+    </div>
+    <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">Deducted from overall score when condition is met.</div>
+  </div>
+</div>
     <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-new-form')">Cancel</button><button class="btn btn-accent" id="nf-submit-btn" type="button">Create Form</button></div>
   </div>
 </div>
@@ -1172,255 +1234,196 @@ let qrGenerating=false;
    DYNAMIC SCORING ENGINE
    ══════════════════════════════════════════════════════════════ */
 
-const SCORE_CATEGORIES = [
-  { id: 'ops',  name: 'Operational', weight: 30, color: '#1D9E75' },
-  { id: 'fin',  name: 'Financial',   weight: 25, color: '#378ADD' },
-  { id: 'ppl',  name: 'People',      weight: 25, color: '#7F77DD' },
-  { id: 'risk', name: 'Risk',        weight: 20, color: '#D85A30' },
+const SCORE_CATEGORIES=[
+  {id:'ops', name:'Operational',weight:30,color:'#1D9E75'},
+  {id:'fin', name:'Financial',  weight:25,color:'#378ADD'},
+  {id:'ppl', name:'People',     weight:25,color:'#7F77DD'},
+  {id:'risk',name:'Risk',       weight:20,color:'#D85A30'},
 ];
 
+/* Per-form overrides stored inside each field object.
+   FORM_SCORE_CONFIGS kept only as legacy fallback — can be empty. */
+const FORM_SCORE_CONFIGS={};
+
 /* Auto-assign a category based on field type when no explicit config exists */
-function _autoCategoryForType(type) {
-  switch (type) {
-    case 'scale':    return 'ops';   // generic scored fields → operational
-    case 'number':   return 'fin';   // numeric values → financial
-    case 'image':
-    case 'pdf':
-    case 'csv':
-    case 'file':     return 'risk';  // documents → risk/compliance
-    case 'video':    return 'ppl';   // video → people
-    default:         return null;    // text/email/date/etc → not scored
+function _autoCategoryForType(type){
+  switch(type){
+    case'scale':   return'ops';
+    case'number':  return'fin';
+    case'image':
+    case'pdf':
+    case'csv':
+    case'file':    return'risk';
+    case'video':   return'ppl';
+    default:       return null;
   }
 }
 
-/* Per-form explicit configs — key = form name (lowercase) */
-const FORM_SCORE_CONFIGS = {
-  'operational readiness assessment': {
-    categoryWeights: { ops: 40, fin: 20, ppl: 25, risk: 15 },
-    fields: [
-      { label: 'process maturity', category: 'ops', weight: 2, type: 'choice',
-        scoreMap: { 'Ad hoc': 5, 'Documented': 45, 'Optimised': 85, 'Automated': 100 } },
-      { label: 'risk awareness',   category: 'risk', weight: 1.2, type: 'choice',
-        scoreMap: { 'None': 0, 'Identified': 40, 'Mitigated': 80, 'Monitored': 100 } },
-      { label: 'team readiness',   category: 'ppl',  weight: 1,   type: 'scale', min: 1, max: 10 },
-      { label: 'budget confidence',category: 'fin',  weight: 1.5, type: 'scale', min: 1, max: 10 },
-      { label: 'staff count',      category: 'ppl',  weight: 0.8, type: 'number', goodAbove: 10 },
-      { label: 'compliance docs',  category: 'risk', weight: 1,   type: 'file',  presenceScore: 60 },
-    ],
-    penalties: [
-      { field: 'Process maturity',  condition: 'equals', value: 'Ad hoc', deduction: 20 },
-      { field: 'Budget confidence', condition: 'below',  value: 3,         deduction: 15 },
-    ],
-  },
-  'financial health check': {
-    categoryWeights: { ops: 15, fin: 50, ppl: 15, risk: 20 },
-    fields: [
-      { label: 'budget confidence', category: 'fin', weight: 2.5, type: 'scale', min: 1, max: 10 },
-    ],
-    penalties: [],
-  },
-};
-
-function _inferType(formField) {
-  const t = (formField.type || '').toLowerCase();
-  return {
-    scale: 'scale', number: 'number', radio: 'choice', select: 'choice',
-    checkbox: 'checkbox', textarea: 'textarea', email: 'email', date: 'date',
-    image: 'file', pdf: 'file', csv: 'file', video: 'video', file: 'file', text: 'text',
-  }[t] || 'text';
+function _inferType(formField){
+  const t=(formField.type||'').toLowerCase();
+  return{
+    scale:'scale',number:'number',radio:'choice',select:'choice',
+    checkbox:'checkbox',textarea:'textarea',email:'email',date:'date',
+    image:'file',pdf:'file',csv:'file',video:'video',file:'file',text:'text',
+  }[t]||'text';
 }
 
-function _scoreField(config, answer) {
-  const type = config.type;
-  if (answer === null || answer === undefined) return null;
-  if (Array.isArray(answer) && answer.length === 0) return null;
-  if (answer === '') return null;
-
-  switch (type) {
-    case 'scale': {
-      const v = parseFloat(answer); if (isNaN(v)) return null;
-      const min = config.min ?? 1, max = config.max ?? 10;
-      return Math.round(Math.min(100, Math.max(0, ((v - min) / (max - min)) * 100)));
+function _scoreField(config,answer){
+  const type=config.type;
+  if(answer===null||answer===undefined)return null;
+  if(Array.isArray(answer)&&answer.length===0)return null;
+  if(answer==='')return null;
+  switch(type){
+    case'scale':{
+      const v=parseFloat(answer);if(isNaN(v))return null;
+      const min=config.min??1,max=config.max??10;
+      return Math.round(Math.min(100,Math.max(0,((v-min)/(max-min))*100)));
     }
-    case 'choice': {
-      const map = config.scoreMap || {};
-      if (answer in map) return map[answer];
-      const key = Object.keys(map).find(k => k.toLowerCase() === String(answer).toLowerCase());
-      return key !== undefined ? map[key] : null;
+    case'choice':{
+      const map=config.scoreMap||{};
+      if(answer in map)return map[answer];
+      const key=Object.keys(map).find(k=>k.toLowerCase()===String(answer).toLowerCase());
+      return key!==undefined?map[key]:null;
     }
-    case 'checkbox': {
-      const map = config.scoreMap || {};
-      if (!Object.keys(map).length) return null;
-      const vals = Array.isArray(answer) ? answer : [answer];
-      const mapped = vals.map(v => {
-        if (v in map) return map[v];
-        const k = Object.keys(map).find(k => k.toLowerCase() === String(v).toLowerCase());
-        return k !== undefined ? map[k] : null;
-      }).filter(s => s !== null);
-      return mapped.length ? Math.round(mapped.reduce((a, b) => a + b, 0) / mapped.length) : null;
+    case'checkbox':{
+      const map=config.scoreMap||{};
+      if(!Object.keys(map).length)return null;
+      const vals=Array.isArray(answer)?answer:[answer];
+      const mapped=vals.map(v=>{
+        if(v in map)return map[v];
+        const k=Object.keys(map).find(k=>k.toLowerCase()===String(v).toLowerCase());
+        return k!==undefined?map[k]:null;
+      }).filter(s=>s!==null);
+      return mapped.length?Math.round(mapped.reduce((a,b)=>a+b,0)/mapped.length):null;
     }
-    case 'number': {
-      const v = parseFloat(answer); if (isNaN(v)) return null;
-      if (config.goodAbove !== undefined) {
-        return v >= config.goodAbove ? 100 : Math.round(Math.min(100, (v / config.goodAbove) * 100));
-      }
-      if (config.goodBelow !== undefined) {
-        return v <= config.goodBelow ? 100 : Math.round(Math.max(0, 100 - ((v - config.goodBelow) / config.goodBelow) * 100));
-      }
-      if (config.min !== undefined && config.max !== undefined) {
-        return Math.round(Math.min(100, Math.max(0, ((v - config.min) / (config.max - config.min)) * 100)));
-      }
-      // Generic: treat number as-is capped 0–100
-      return Math.round(Math.min(100, Math.max(0, v)));
+    case'number':{
+      const v=parseFloat(answer);if(isNaN(v))return null;
+      if(config.goodAbove!==undefined)return v>=config.goodAbove?100:Math.round(Math.min(100,(v/config.goodAbove)*100));
+      if(config.goodBelow!==undefined)return v<=config.goodBelow?100:Math.round(Math.max(0,100-((v-config.goodBelow)/config.goodBelow)*100));
+      if(config.min!==undefined&&config.max!==undefined)return Math.round(Math.min(100,Math.max(0,((v-config.min)/(config.max-config.min))*100)));
+      return Math.round(Math.min(100,Math.max(0,v)));
     }
-    case 'file':
-    case 'video': {
-      const present = Boolean(answer) && answer !== 'null' && answer !== 'false';
-      return present ? (config.presenceScore ?? 60) : 0;
+    case'file':
+    case'video':{
+      const present=Boolean(answer)&&answer!=='null'&&answer!=='false';
+      return present?(config.presenceScore??60):0;
     }
-    case 'text': case 'textarea': case 'email': case 'date':
-      return String(answer).trim().length > 0 ? (config.presenceScore ?? 30) : 0;
-    default: return null;
+    case'text':case'textarea':case'email':case'date':
+      return String(answer).trim().length>0?(config.presenceScore??30):0;
+    default:return null;
   }
 }
 
-function _checkPenaltyCondition(penalty, answer) {
-  if (answer === null || answer === undefined) return penalty.condition === 'empty';
-  switch (penalty.condition) {
-    case 'equals':     return String(answer).toLowerCase() === String(penalty.value).toLowerCase();
-    case 'not_equals': return String(answer).toLowerCase() !== String(penalty.value).toLowerCase();
-    case 'below':      return parseFloat(answer) < penalty.value;
-    case 'above':      return parseFloat(answer) > penalty.value;
-    case 'empty':      return !answer || String(answer).trim() === '' || (Array.isArray(answer) && !answer.length);
-    case 'contains':   return String(answer).toLowerCase().includes(String(penalty.value).toLowerCase());
-    default:           return false;
+function _checkPenaltyCondition(penalty,answer){
+  if(answer===null||answer===undefined)return penalty.condition==='empty';
+  switch(penalty.condition){
+    case'equals':    return String(answer).toLowerCase()===String(penalty.value).toLowerCase();
+    case'not_equals':return String(answer).toLowerCase()!==String(penalty.value).toLowerCase();
+    case'below':     return parseFloat(answer)<penalty.value;
+    case'above':     return parseFloat(answer)>penalty.value;
+    case'empty':     return!answer||String(answer).trim()===''||(Array.isArray(answer)&&!answer.length);
+    case'contains':  return String(answer).toLowerCase().includes(String(penalty.value).toLowerCase());
+    default:         return false;
   }
 }
 
-/*
- * Main scoring function.
- * For forms with an explicit config → use that config (label-matched).
- * For all forms → also score any scale/number/file fields generically
- * using _autoCategoryForType, so they always contribute even without a config.
- * Returns null overall only if zero fields produced a score.
- */
-function computeDynamicScore(answers, fields, formName) {
-  formName = formName || '';
-  const formKey = formName.toLowerCase().trim();
-  const override = FORM_SCORE_CONFIGS[formKey] || {};
+function computeDynamicScore(answers,fields,formName){
+  formName=formName||'';
+  const formKey=formName.toLowerCase().trim();
+  const legacyOverride=FORM_SCORE_CONFIGS[formKey]||{};
+  const baseCatWeights={};
+  SCORE_CATEGORIES.forEach(c=>{baseCatWeights[c.id]=c.weight;});
+  const catWeights={...baseCatWeights,...(legacyOverride.categoryWeights||{})};
 
-  /* Build a label→config lookup from the explicit override */
-  const overrideFieldMap = {};
-  (override.fields || []).forEach(fc => {
-    overrideFieldMap[fc.label.toLowerCase()] = fc;
-  });
+  const catAccum={};
+  SCORE_CATEGORIES.forEach(c=>{catAccum[c.id]={total:0,weightTotal:0};});
 
-  const baseCatWeights = {};
-  SCORE_CATEGORIES.forEach(c => { baseCatWeights[c.id] = c.weight; });
-  const catWeights = { ...baseCatWeights, ...(override.categoryWeights || {}) };
-  const penalties = [...(override.penalties || [])];
+  const globalPenalties=[];
+  let anyScored=false;
 
-  /* Accumulate per-category weighted scores */
-  const catAccum = {};
-  SCORE_CATEGORIES.forEach(c => { catAccum[c.id] = { total: 0, weightTotal: 0 }; });
+  (fields||[]).forEach(formField=>{
+    const answer=answers[formField.label];
+    const sc=formField.scoring||{};
 
-  let anyScored = false;
+    let category=sc.category||null;
+    const weight=sc.weight??1;
+    const scoreMap=sc.scoreMap||null;
+    const inferredType=_inferType(formField);
 
-  (fields || []).forEach(formField => {
-    const labelKey = (formField.label || '').toLowerCase();
-    const answer = answers[formField.label];
+    if(!category)category=_autoCategoryForType(formField.type);
+    if(!category)return;
 
-    /* 1. Try explicit config first */
-    let config = overrideFieldMap[labelKey];
+    const config={
+      type:inferredType,
+      category,
+      weight,
+      scoreMap,
+      ...(inferredType==='scale'?{min:1,max:10}:{}),
+    };
 
-    /* 2. If no explicit config, build a generic one from the field type */
-    if (!config) {
-      const inferredScoringType = _inferType(formField);
-      const autoCategory = _autoCategoryForType(formField.type);
+    const rawScore=_scoreField(config,answer);
+    if(rawScore===null)return;
 
-      // Only auto-score types that map to a category
-      if (!autoCategory) return;
+    anyScored=true;
+    catAccum[category].total+=rawScore*weight;
+    catAccum[category].weightTotal+=weight;
 
-      config = {
-        type: inferredScoringType,
-        category: autoCategory,
-        weight: 1,
-        // scale fields: default min/max 1–10
-        ...(inferredScoringType === 'scale' ? { min: 1, max: 10 } : {}),
-      };
-    }
-
-    const rawScore = _scoreField(config, answer);
-    if (rawScore === null) return;
-
-    anyScored = true;
-    const catId = config.category;
-    if (catAccum[catId]) {
-      catAccum[catId].total += rawScore * (config.weight || 1);
-      catAccum[catId].weightTotal += (config.weight || 1);
+    if(sc.penalty&&sc.penalty.condition&&sc.penalty.condition!=='none'&&sc.penalty.deduction>0){
+      globalPenalties.push({field:formField.label,...sc.penalty});
     }
   });
 
-  /* If nothing scored at all → return null (shows as N/A) */
-  if (!anyScored) return { overall: null, categories: {}, fieldScores: {}, penalties: [], breakdown: 'No scorable fields.' };
+  (legacyOverride.penalties||[]).forEach(p=>globalPenalties.push(p));
 
-  /* Compute per-category scores */
-  const catScores = {};
-  SCORE_CATEGORIES.forEach(c => {
-    const acc = catAccum[c.id];
-    catScores[c.id] = acc.weightTotal > 0 ? Math.round(acc.total / acc.weightTotal) : null;
+  if(!anyScored){
+    return{overall:null,categories:{},fieldScores:{},penalties:[],breakdown:'No scorable fields.'};
+  }
+
+  const catScores={};
+  SCORE_CATEGORIES.forEach(c=>{
+    const acc=catAccum[c.id];
+    catScores[c.id]=acc.weightTotal>0?Math.round(acc.total/acc.weightTotal):null;
   });
 
-  /* Weighted overall */
-  let totalNum = 0, totalDen = 0;
-  SCORE_CATEGORIES.forEach(c => {
-    const s = catScores[c.id], cw = catWeights[c.id] || 0;
-    if (s !== null) { totalNum += s * cw; totalDen += cw; }
+  let totalNum=0,totalDen=0;
+  SCORE_CATEGORIES.forEach(c=>{
+    const s=catScores[c.id],cw=catWeights[c.id]||0;
+    if(s!==null){totalNum+=s*cw;totalDen+=cw;}
   });
-  let overall = totalDen > 0 ? Math.round(totalNum / totalDen) : null;
+  let overall=totalDen>0?Math.round(totalNum/totalDen):null;
 
-  /* Apply penalties */
-  const penaltyLog = penalties.map(p => {
-    const val = answers[p.field];
-    const applied = _checkPenaltyCondition(p, val);
-    if (applied && overall !== null) overall = Math.max(0, overall - p.deduction);
-    return { field: p.field, deduction: p.deduction, applied };
+  const penaltyLog=globalPenalties.map(p=>{
+    const val=answers[p.field];
+    const applied=_checkPenaltyCondition(p,val);
+    if(applied&&overall!==null)overall=Math.max(0,overall-p.deduction);
+    return{field:p.field,deduction:p.deduction,applied};
   });
 
-  const catLines = SCORE_CATEGORIES.map(c =>
-    `  ${c.name}: ${catScores[c.id] !== null ? catScores[c.id] : 'N/A'}`
-  ).join('\n');
-  const penLines = penaltyLog.filter(p => p.applied).map(p => `  -${p.deduction} (${p.field})`).join('\n');
-  const breakdown = [
-    `Overall: ${overall ?? 'N/A'}`,
-    'Category scores:', catLines,
-    penaltyLog.some(p => p.applied) ? `Penalties:\n${penLines}` : 'No penalties.',
+  const catLines=SCORE_CATEGORIES.map(c=>`  ${c.name}: ${catScores[c.id]!==null?catScores[c.id]:'N/A'}`).join('\n');
+  const penLines=penaltyLog.filter(p=>p.applied).map(p=>`  -${p.deduction} (${p.field})`).join('\n');
+  const breakdown=[
+    `Overall: ${overall??'N/A'}`,
+    'Category scores:',catLines,
+    penaltyLog.some(p=>p.applied)?`Penalties:\n${penLines}`:'No penalties.',
   ].join('\n');
 
-  return { overall, categories: catScores, fieldScores: {}, penalties: penaltyLog, breakdown };
+  return{overall,categories:catScores,fieldScores:{},penalties:penaltyLog,breakdown};
 }
 
-function computeReadinessScore(answers, fields, formName) {
-  return computeDynamicScore(answers, fields, formName || '').overall;
+function computeReadinessScore(answers,fields,formName){
+  return computeDynamicScore(answers,fields,formName||'').overall;
 }
 
-function buildScoreContext(response, form) {
-  if (!response || !response.answers) return '';
-  // Always look up the form from allForms if not passed correctly
-  const resolvedForm = form || allForms.find(f => f.id === response.form_id);
-  const result = computeDynamicScore(
-    response.answers,
-    resolvedForm?.fields || [],
-    resolvedForm?.name || ''
-  );
-  if (result.overall === null) return '';
-  const catLines = SCORE_CATEGORIES.map(c =>
-    `    ${c.name}: ${result.categories[c.id] !== null ? result.categories[c.id] + '/100' : 'not assessed'}`
-  ).join('\n');
-  return `\nReadiness Score for ${response.respondent_name || 'this respondent'}:\n  Overall: ${result.overall}/100\n  Categories:\n${catLines}\n${
-    result.penalties.some(p => p.applied)
-      ? '  Penalties: ' + result.penalties.filter(p => p.applied).map(p => `-${p.deduction} (${p.field})`).join(', ')
-      : '  No penalties applied.'
+function buildScoreContext(response,form){
+  if(!response||!response.answers)return'';
+  const resolvedForm=form||allForms.find(f=>f.id===response.form_id);
+  const result=computeDynamicScore(response.answers,resolvedForm?.fields||[],resolvedForm?.name||'');
+  if(result.overall===null)return'';
+  const catLines=SCORE_CATEGORIES.map(c=>`    ${c.name}: ${result.categories[c.id]!==null?result.categories[c.id]+'/100':'not assessed'}`).join('\n');
+  return`\nReadiness Score for ${response.respondent_name||'this respondent'}:\n  Overall: ${result.overall}/100\n  Categories:\n${catLines}\n${
+    result.penalties.some(p=>p.applied)
+      ?'  Penalties: '+result.penalties.filter(p=>p.applied).map(p=>`-${p.deduction} (${p.field})`).join(', ')
+      :'  No penalties applied.'
   }\n`;
 }
 
@@ -1549,8 +1552,8 @@ window.settingsTab=function(tab,btn){
 
 /* ── HELPERS ── */
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function timeAgo(d){const diff=Date.now()-new Date(d).getTime();if(diff<60000)return 'Just now';if(diff<3600000)return Math.floor(diff/60000)+'m ago';if(diff<86400000)return Math.floor(diff/3600000)+'h ago';return Math.floor(diff/86400000)+'d ago';}
-function fmtBytes(b){if(b<1024)return b+'B';if(b<1048576)return (b/1024).toFixed(1)+'KB';return (b/1048576).toFixed(1)+'MB';}
+function timeAgo(d){const diff=Date.now()-new Date(d).getTime();if(diff<60000)return'Just now';if(diff<3600000)return Math.floor(diff/60000)+'m ago';if(diff<86400000)return Math.floor(diff/3600000)+'h ago';return Math.floor(diff/86400000)+'d ago';}
+function fmtBytes(b){if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(1)+'KB';return(b/1048576).toFixed(1)+'MB';}
 function toast(msg,type='info'){
   const icons={
     success:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
@@ -1800,7 +1803,7 @@ function renderInsightFeed(){
   el.innerHTML=allResponses.slice(0,4).map(r=>{
     const form=allForms.find(f=>f.id===r.form_id);const s=r.readiness_score;
     const col=s>=70?'var(--green)':s>=40?'var(--amber)':s!=null?'var(--red)':'var(--accent)';
-    return `<div class="insight-item"><div class="insight-icon" style="background:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div style="flex:1"><div class="insight-text"><strong>${esc(r.respondent_name||'Anonymous')}</strong> submitted ${esc(form?.name||'a form')}${s!=null?' · Score: '+s:''}</div><div class="insight-time">${timeAgo(r.created_at)}</div></div></div>`;
+    return`<div class="insight-item"><div class="insight-icon" style="background:var(--accent-soft)"><svg viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div style="flex:1"><div class="insight-text"><strong>${esc(r.respondent_name||'Anonymous')}</strong> submitted ${esc(form?.name||'a form')}${s!=null?' · Score: '+s:''}</div><div class="insight-time">${timeAgo(r.created_at)}</div></div></div>`;
   }).join('');
 }
 function renderTopForms(){
@@ -1808,7 +1811,7 @@ function renderTopForms(){
   if(!allForms.length){el.innerHTML='<div style="font-size:12.5px;color:var(--text-3);padding:8px 0">No forms yet.</div>';return;}
   el.innerHTML=allForms.slice(0,4).map(f=>{
     const count=allResponses.filter(r=>r.form_id===f.id).length;
-    return `<div class="person-row"><div class="person-avatar" style="border-radius:7px;font-size:10px">${(f.name||'F')[0].toUpperCase()}</div><div style="flex:1"><div class="person-name">${esc(f.name)}</div><div class="person-status">${count} response${count!==1?'s':''}</div></div><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button></div>`;
+    return`<div class="person-row"><div class="person-avatar" style="border-radius:7px;font-size:10px">${(f.name||'F')[0].toUpperCase()}</div><div style="flex:1"><div class="person-name">${esc(f.name)}</div><div class="person-status">${count} response${count!==1?'s':''}</div></div><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button></div>`;
   }).join('');
 }
 function drawInsightMap(){
@@ -1886,9 +1889,10 @@ async function renderFormsPage(){
     const count=allResponses.filter(r=>r.form_id===f.id).length;
     const org=allOrgs.find(o=>o.id===f.org_id);
     const hasMedia=(f.fields||[]).some(ff=>['image','video','pdf','csv','file'].includes(ff.type));
+    const scoredFields=(f.fields||[]).filter(ff=>ff.scoring?.category).length;
     const notifOn=(notifConfig.email.enabled||notifConfig.slack.enabled)&&(!notifConfig.formScope||notifConfig.formScope===f.id);
     const notifBadge=notifOn?`<span class="badge" style="background:var(--green-soft);color:var(--green)">🔔 Alerts on</span>`:'';
-    return `<div class="form-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px"><div class="form-card-title">${esc(f.name)}</div><span class="badge ${f.active?'badge-green':'badge-grey'}">${f.active?'● Active':'Draft'}</span></div><div class="form-card-desc">${esc(f.description||'No description')}</div><div class="form-card-footer"><span class="badge badge-blue">${(f.fields||[]).length} field${(f.fields||[]).length!==1?'s':''}</span>${org?`<span class="badge badge-grey">${esc(org.name)}</span>`:''} ${hasMedia?'<span class="badge badge-amber">📎 Files</span>':''} ${notifBadge}<span style="font-size:11px;color:var(--text-3)">${count} response${count!==1?'s':''}</span></div><div class="form-card-actions"><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`;
+    return`<div class="form-card"><div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px"><div class="form-card-title">${esc(f.name)}</div><span class="badge ${f.active?'badge-green':'badge-grey'}">${f.active?'● Active':'Draft'}</span></div><div class="form-card-desc">${esc(f.description||'No description')}</div><div class="form-card-footer"><span class="badge badge-blue">${(f.fields||[]).length} field${(f.fields||[]).length!==1?'s':''}</span>${org?`<span class="badge badge-grey">${esc(org.name)}</span>`:''} ${hasMedia?'<span class="badge badge-amber">📎 Files</span>':''} ${scoredFields?`<span class="badge" style="background:var(--purple-soft);color:var(--purple)">⚡ ${scoredFields} scored</span>`:''} ${notifBadge}<span style="font-size:11px;color:var(--text-3)">${count} response${count!==1?'s':''}</span></div><div class="form-card-actions"><button class="btn-icon btn-icon-accent" onclick="openShareModal('${f.id}')" title="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="btn-icon btn-icon-green" onclick="openFillScreen('${f.id}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="btn-icon btn-icon-ghost" onclick="editForm('${f.id}')" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button class="btn-icon btn-icon-red" onclick="deleteForm('${f.id}')" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`;
   }).join('');
 }
 
@@ -1896,9 +1900,12 @@ async function renderFormsPage(){
 function wireFormModal(){
   const typeSelect=document.getElementById('field-type-input');
   const optWrap=document.getElementById('field-options-input-wrap');
-  if(typeSelect&&optWrap)typeSelect.addEventListener('change',function(){
-    optWrap.style.display=['select','radio','checkbox'].includes(this.value)?'block':'none';
-  });
+  if(typeSelect&&optWrap){
+    typeSelect.addEventListener('change',function(){
+      optWrap.style.display=['select','radio','checkbox'].includes(this.value)?'block':'none';
+      updateScoreMapVisibility();
+    });
+  }
   const addBtn=document.getElementById('add-field-btn');
   if(addBtn)addBtn.addEventListener('click',e=>{e.preventDefault();addField();});
   const labelInput=document.getElementById('field-label-input');
@@ -1908,8 +1915,22 @@ function wireFormModal(){
   const fillSubmit=document.getElementById('fill-submit-btn');
   if(fillSubmit)fillSubmit.addEventListener('click',e=>{e.preventDefault();submitFill();});
   const chatInput=document.getElementById('chat-input');
-  if(chatInput){chatInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage();}});}
+  if(chatInput)chatInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMessage();}});
+  updateScoreMapVisibility();
 }
+
+function updateScoreMapVisibility(){
+  const type=document.getElementById('field-type-input')?.value||'';
+  const wrap=document.getElementById('field-score-map-wrap');
+  if(wrap)wrap.style.display=['select','radio','checkbox'].includes(type)?'block':'none';
+}
+
+function _resetFieldScoringInputs(){
+  const ids={'field-score-category':'none','field-score-weight':'1','field-score-map':'','field-penalty-condition':'none','field-penalty-value':'','field-penalty-deduction':''};
+  Object.entries(ids).forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.value=val;});
+  updateScoreMapVisibility();
+}
+
 window.openNewFormModal=function(){
   if(_formSubmitting)return;
   formFields=[];
@@ -1926,30 +1947,102 @@ window.openNewFormModal=function(){
   document.getElementById('field-type-input').value='text';
   document.getElementById('field-options-input').value='';
   document.getElementById('field-options-input-wrap').style.display='none';
-  renderFieldBuilder();openModal('modal-new-form');
+  _resetFieldScoringInputs();
+  renderFieldBuilder();
+  openModal('modal-new-form');
 };
+
 function addField(){
   const labelEl=document.getElementById('field-label-input');
   const typeEl=document.getElementById('field-type-input');
   const optionsEl=document.getElementById('field-options-input');
   const optWrap=document.getElementById('field-options-input-wrap');
   if(!labelEl||!typeEl)return;
-  const label=labelEl.value.trim();if(!label){toast('Enter a field label','error');return;}
+  const label=labelEl.value.trim();
+  if(!label){toast('Enter a field label','error');return;}
   const type=typeEl.value;
-  const field={id:String(Date.now()),label,type,required:false,options:[]};
+
+  /* Scoring config from inputs */
+  const category=document.getElementById('field-score-category')?.value||'none';
+  const weight=parseFloat(document.getElementById('field-score-weight')?.value||'1')||1;
+  const scoreMapRaw=(document.getElementById('field-score-map')?.value||'').trim();
+  const penaltyCondition=document.getElementById('field-penalty-condition')?.value||'none';
+  const penaltyValue=document.getElementById('field-penalty-value')?.value.trim()||'';
+  const penaltyDeduction=parseFloat(document.getElementById('field-penalty-deduction')?.value||'0')||0;
+
+  /* Parse score map: "Option A: 80, Option B: 40" */
+  let scoreMap=null;
+  if(scoreMapRaw&&['select','radio','checkbox'].includes(type)){
+    scoreMap={};
+    scoreMapRaw.split(',').forEach(pair=>{
+      const colonIdx=pair.indexOf(':');
+      if(colonIdx===-1)return;
+      const k=pair.slice(0,colonIdx).trim();
+      const v=parseFloat(pair.slice(colonIdx+1).trim());
+      if(k&&!isNaN(v))scoreMap[k]=v;
+    });
+    if(!Object.keys(scoreMap).length)scoreMap=null;
+  }
+
+  /* Penalty config */
+  let penalty=null;
+  if(penaltyCondition!=='none'&&penaltyDeduction>0){
+    penalty={condition:penaltyCondition,value:penaltyValue,deduction:penaltyDeduction};
+  }
+
+  const field={
+    id:String(Date.now()),
+    label,
+    type,
+    required:false,
+    options:[],
+    scoring:{
+      category:category==='none'?null:category,
+      weight,
+      scoreMap,
+      penalty,
+    },
+  };
+
   if(['select','radio','checkbox'].includes(type)){
     const raw=optionsEl?optionsEl.value.trim():'';
     field.options=raw?raw.split(',').map(s=>s.trim()).filter(Boolean):['Option 1','Option 2','Option 3'];
   }
+
   formFields.push(field);
-  labelEl.value='';if(optionsEl)optionsEl.value='';if(optWrap)optWrap.style.display='none';typeEl.value='text';
-  renderFieldBuilder();labelEl.focus();
+  labelEl.value='';
+  if(optionsEl)optionsEl.value='';
+  if(optWrap)optWrap.style.display='none';
+  typeEl.value='text';
+  _resetFieldScoringInputs();
+  renderFieldBuilder();
+  labelEl.focus();
 }
+
 function renderFieldBuilder(){
   const list=document.getElementById('field-builder-list');if(!list)return;
-  if(!formFields.length){list.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:6px 0">No fields added yet.</div>';return;}
-  list.innerHTML=formFields.map((f,i)=>`<div class="field-item"><span class="field-item-label">${esc(f.label)}</span><span class="field-item-type">${esc(f.type)}</span>${f.options&&f.options.length?`<span style="font-size:10px;color:var(--text-3)">(${f.options.length} opts)</span>`:''}<button class="btn-icon btn-icon-red" style="width:22px;height:22px;margin-left:auto" onclick="removeField(${i})" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`).join('');
+  if(!formFields.length){
+    list.innerHTML='<div style="font-size:12px;color:var(--text-3);padding:6px 0">No fields added yet.</div>';
+    return;
+  }
+  list.innerHTML=formFields.map((f,i)=>{
+    const sc=f.scoring||{};
+    const catLabel=sc.category?SCORE_CATEGORIES.find(c=>c.id===sc.category)?.name||sc.category:null;
+    const hasPenalty=sc.penalty&&sc.penalty.condition&&sc.penalty.condition!=='none';
+    const hasScoreMap=sc.scoreMap&&Object.keys(sc.scoreMap).length;
+    return`<div class="field-item">
+      <span class="field-item-label">${esc(f.label)}</span>
+      <span class="field-item-type">${esc(f.type)}</span>
+      ${catLabel?`<span class="field-item-type" style="background:var(--accent-soft);color:var(--accent);border-color:transparent">${esc(catLabel)} ×${sc.weight??1}</span>`:''}
+      ${hasScoreMap?`<span class="field-item-type" style="background:var(--green-soft);color:var(--green);border-color:transparent">map</span>`:''}
+      ${hasPenalty?`<span class="field-item-type" style="background:var(--red-soft);color:var(--red);border-color:transparent">-${sc.penalty.deduction}</span>`:''}
+      <button class="btn-icon btn-icon-red" style="width:22px;height:22px;margin-left:auto" onclick="removeField(${i})" title="Remove">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
+  }).join('');
 }
+
 window.removeField=function(i){formFields.splice(i,1);renderFieldBuilder();};
 
 async function submitFormModal(){
@@ -1958,6 +2051,7 @@ async function submitFormModal(){
   try{const editId=document.getElementById('nf-edit-id').value;if(editId)await saveFormEdit(editId);else await createNewForm();}
   finally{_formSubmitting=false;const btn=document.getElementById('nf-submit-btn');if(btn)btn.disabled=false;}
 }
+
 async function createNewForm(){
   const name=document.getElementById('nf-name').value.trim();
   const desc=document.getElementById('nf-desc').value.trim();
@@ -1976,6 +2070,7 @@ async function createNewForm(){
   }catch(e){toast('Error: '+e.message,'error');}
   finally{btn.textContent='Create Form';}
 }
+
 window.editForm=function(id){
   const form=allForms.find(f=>f.id===id);if(!form)return;
   formFields=JSON.parse(JSON.stringify(form.fields||[]));
@@ -1990,8 +2085,11 @@ window.editForm=function(id){
   orgSel.innerHTML='<option value="">None</option>'+allOrgs.map(o=>`<option value="${o.id}" ${o.id===form.org_id?'selected':''}>${esc(o.name)}</option>`).join('');
   document.getElementById('field-label-input').value='';
   document.getElementById('field-type-input').value='text';
-  renderFieldBuilder();openModal('modal-new-form');
+  _resetFieldScoringInputs();
+  renderFieldBuilder();
+  openModal('modal-new-form');
 };
+
 async function saveFormEdit(id){
   const name=document.getElementById('nf-name').value.trim();
   const desc=document.getElementById('nf-desc').value.trim();
@@ -2013,6 +2111,7 @@ async function saveFormEdit(id){
   }catch(e){toast('Error: '+e.message,'error');}
   finally{btn.textContent='Save Changes';}
 }
+
 window.deleteForm=async function(id){
   if(!confirm('Delete this form and all its responses?'))return;
   const{error}=await sb.from('il_forms').delete().eq('id',id);
@@ -2051,7 +2150,7 @@ function getFormURL(formId){
   const form=allForms.find(f=>f.id===formId);
   const base=location.href.split('?')[0];
   const param=form?.share_slug||formId;
-  return `${base}?fill=${encodeURIComponent(param)}`;
+  return`${base}?fill=${encodeURIComponent(param)}`;
 }
 function generateQR(){
   if(!currentShareFormId)return;
@@ -2096,10 +2195,10 @@ window.shareTo=function(platform){
 };
 
 /* ── FILL SCREEN ── */
-function acceptForType(type){if(type==='image')return 'image/*';if(type==='pdf')return 'application/pdf';if(type==='csv')return '.csv,text/csv';if(type==='video')return 'video/*';return '*/*';}
+function acceptForType(type){if(type==='image')return'image/*';if(type==='pdf')return'application/pdf';if(type==='csv')return'.csv,text/csv';if(type==='video')return'video/*';return'*/*';}
 function maxSizeForType(type){if(type==='video')return 500*1024*1024;if(type==='pdf')return 100*1024*1024;return 50*1024*1024;}
-function labelForType(type){if(type==='image')return 'PNG, JPG, WEBP — up to 50MB';if(type==='pdf')return 'PDF — up to 100MB';if(type==='csv')return 'CSV — up to 50MB';if(type==='video')return 'MP4, MOV — up to 500MB';return 'Any file — up to 50MB';}
-function bucketFolder(type){if(type==='image')return 'images';if(type==='pdf')return 'pdfs';if(type==='csv')return 'csvs';if(type==='video')return 'videos';return 'files';}
+function labelForType(type){if(type==='image')return'PNG, JPG, WEBP — up to 50MB';if(type==='pdf')return'PDF — up to 100MB';if(type==='csv')return'CSV — up to 50MB';if(type==='video')return'MP4, MOV — up to 500MB';return'Any file — up to 50MB';}
+function bucketFolder(type){if(type==='image')return'images';if(type==='pdf')return'pdfs';if(type==='csv')return'csvs';if(type==='video')return'videos';return'files';}
 
 window.openFillScreen=function(formId){
   const form=allForms.find(f=>f.id===formId);
@@ -2206,19 +2305,20 @@ function renderFillField(f,i){
     input=`<div class="file-upload-zone" id="upload-zone-${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15V19a2 2 0 01-2 2H5a2 2 0 01-2-2V15"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><p>Click to upload or drag &amp; drop</p><div class="upload-hint">${hint}</div><input type="file" id="upload-input-${i}" accept="${accept}" style="display:none"></div><div class="file-preview-wrap" id="upload-preview-${i}"></div>`;
   }else{
     switch(f.type){
-      case 'textarea':input=`<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your answer…"></textarea>`;break;
-      case 'number':input=`<input type="number" class="fill-input" id="${id}" placeholder="0">`;break;
-      case 'email':input=`<input type="email" class="fill-input" id="${id}" placeholder="you@email.com">`;break;
-      case 'date':input=`<input type="date" class="fill-input" id="${id}">`;break;
-      case 'scale':input=`<div class="fill-scale" id="${id}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`;break;
-      case 'radio':input=`<div class="fill-radio-group" id="${id}">${opts.map(o=>`<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;
-      case 'checkbox':input=`<div class="fill-checkbox-group" id="${id}">${opts.map(o=>`<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;
-      case 'select':input=`<select class="fill-input" id="${id}"><option value="">Select…</option>${opts.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;break;
+      case'textarea':input=`<textarea class="fill-input fill-textarea" id="${id}" placeholder="Your answer…"></textarea>`;break;
+      case'number':input=`<input type="number" class="fill-input" id="${id}" placeholder="0">`;break;
+      case'email':input=`<input type="email" class="fill-input" id="${id}" placeholder="you@email.com">`;break;
+      case'date':input=`<input type="date" class="fill-input" id="${id}">`;break;
+      case'scale':input=`<div class="fill-scale" id="${id}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button class="fill-scale-btn" type="button" data-val="${n}">${n}</button>`).join('')}</div>`;break;
+      case'radio':input=`<div class="fill-radio-group" id="${id}">${opts.map(o=>`<label class="fill-radio-opt"><input type="radio" name="${id}" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;
+      case'checkbox':input=`<div class="fill-checkbox-group" id="${id}">${opts.map(o=>`<label class="fill-checkbox-opt"><input type="checkbox" value="${esc(o)}">${esc(o)}</label>`).join('')}</div>`;break;
+      case'select':input=`<select class="fill-input" id="${id}"><option value="">Select…</option>${opts.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;break;
       default:input=`<input type="text" class="fill-input" id="${id}" placeholder="Your answer…">`;
     }
   }
-  return `<div class="fill-field"><div class="fill-field-label">${esc(f.label)}${f.required?'<span class="fill-required">*</span>':''}</div>${f.description?`<div class="fill-field-hint">${esc(f.description)}</div>`:''} ${input}</div>`;
+  return`<div class="fill-field"><div class="fill-field-label">${esc(f.label)}${f.required?'<span class="fill-required">*</span>':''}</div>${f.description?`<div class="fill-field-hint">${esc(f.description)}</div>`:''} ${input}</div>`;
 }
+
 let _fillSubmitting=false;
 async function submitFill(){
   if(_fillSubmitting)return;_fillSubmitting=true;
@@ -2238,7 +2338,6 @@ async function submitFill(){
       else{const el=document.getElementById(id);answers[f.label]=el?(el.value||null):null;}
     });
   }
-  /* ── NEW: use dynamic scoring engine, pass form name ── */
   const score=form?.fields?computeReadinessScore(answers,form.fields,form.name):null;
   try{
     const{error}=await sb.from('il_responses').insert([{form_id:formId,respondent_name:respondentName||null,org_name:respondentName||null,answers,image_urls:fileUrlMap,readiness_score:score,created_by:currentUser?.id||null}]);
@@ -2280,7 +2379,7 @@ function displayResponses(responses){
     const form=allForms.find(f=>f.id===r.form_id);const s=r.readiness_score;
     const cls=s>=70?'badge-green':s>=40?'badge-amber':s!=null?'badge-red':'badge-grey';
     const hasFiles=r.image_urls&&Object.keys(r.image_urls).length>0;
-    return `<tr style="cursor:pointer" onclick="viewResponse('${r.id}')"><td><strong>${esc(r.respondent_name||'Anonymous')}</strong>${hasFiles?'&nbsp;<span style="font-size:10px">📎</span>':''}</td><td style="color:var(--text-2)">${esc(form?.name||'Unknown')}</td><td>${s!=null?`<span class="badge ${cls}">${s}</span>`:'<span style="color:var(--text-3)">—</span>'}</td><td style="color:var(--text-3)">${new Date(r.created_at).toLocaleString()}</td><td><span class="badge badge-green">Complete</span></td><td><button class="btn-icon btn-icon-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></td></tr>`;
+    return`<tr style="cursor:pointer" onclick="viewResponse('${r.id}')"><td><strong>${esc(r.respondent_name||'Anonymous')}</strong>${hasFiles?'&nbsp;<span style="font-size:10px">📎</span>':''}</td><td style="color:var(--text-2)">${esc(form?.name||'Unknown')}</td><td>${s!=null?`<span class="badge ${cls}">${s}</span>`:'<span style="color:var(--text-3)">—</span>'}</td><td style="color:var(--text-3)">${new Date(r.created_at).toLocaleString()}</td><td><span class="badge badge-green">Complete</span></td><td><button class="btn-icon btn-icon-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg></button></td></tr>`;
   }).join('')}</tbody></table>`;
 }
 window.viewResponse=function(id){
@@ -2288,16 +2387,14 @@ window.viewResponse=function(id){
   const form=allForms.find(f=>f.id===r.form_id);const answers=r.answers||{};const fileUrls=r.image_urls||{};
   const s=r.readiness_score;const cls=s>=70?'badge-green':s>=40?'badge-amber':'badge-red';
 
-  /* ── NEW: show category breakdown if available ── */
   let categoryHTML='';
   if(form&&r.answers){
     const result=computeDynamicScore(r.answers,form.fields||[],form.name);
     if(result.overall!==null){
       const catRows=SCORE_CATEGORIES.map(c=>{
-        const cs=result.categories[c.id];
-        if(cs===null)return'';
+        const cs=result.categories[c.id];if(cs===null)return'';
         const barColor=cs>=70?'var(--green)':cs>=40?'var(--amber)':'var(--red)';
-        return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="color:var(--text-2)">${c.name}</span><span style="font-weight:500">${cs}</span></div><div style="height:4px;background:var(--surface-2);border-radius:2px"><div style="height:4px;width:${cs}%;background:${barColor};border-radius:2px"></div></div></div>`;
+        return`<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="color:var(--text-2)">${c.name}</span><span style="font-weight:500">${cs}</span></div><div style="height:4px;background:var(--surface-2);border-radius:2px"><div style="height:4px;width:${cs}%;background:${barColor};border-radius:2px"></div></div></div>`;
       }).join('');
       if(catRows.trim()){
         categoryHTML=`<div style="margin-bottom:14px;padding:12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)"><div style="font-family:var(--font-alt);font-size:9.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Category Breakdown</div>${catRows}</div>`;
@@ -2315,7 +2412,7 @@ window.viewResponse=function(id){
       else val=`<a href="${esc(fileUrl)}" target="_blank" style="color:var(--accent);font-size:12px">📎 Download</a>`;
     }else if(Array.isArray(a))val=esc(a.join(', '));
     else val=a!=null?esc(String(a)):'—';
-    return `<div class="resp-answer"><div class="resp-answer-q">${esc(q)}</div><div class="resp-answer-a">${val}</div></div>`;
+    return`<div class="resp-answer"><div class="resp-answer-q">${esc(q)}</div><div class="resp-answer-a">${val}</div></div>`;
   }).join('')}</div>${!Object.keys(answers).length?'<div style="font-size:13px;color:var(--text-3);text-align:center;padding:20px">No detailed answers recorded.</div>':''}`;
   openModal('modal-resp-detail');
 };
@@ -2326,7 +2423,7 @@ window.exportCSV=function(){
   const rows=data.map(r=>{
     const form=allForms.find(f=>f.id===r.form_id);
     const a=JSON.stringify(r.answers||{}).replace(/"/g,'""');
-    return [r.id,r.respondent_name||'Anonymous',form?.name||'Unknown',r.readiness_score||'',new Date(r.created_at).toISOString(),`"${a}"`].join(',');
+    return[r.id,r.respondent_name||'Anonymous',form?.name||'Unknown',r.readiness_score||'',new Date(r.created_at).toISOString(),`"${a}"`].join(',');
   });
   const blob=new Blob([['ID,Respondent,Form,Score,Submitted,Answers',...rows].join('\n')],{type:'text/csv'});
   const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`lumenos-responses-${Date.now()}.csv`;link.click();
@@ -2343,7 +2440,7 @@ function renderOrgsPage(){
   grid.innerHTML=allOrgs.map(o=>{
     const fc=allForms.filter(f=>f.org_id===o.id).length;
     const rc=allResponses.filter(r=>allForms.find(f=>f.id===r.form_id&&f.org_id===o.id)).length;
-    return `<div class="form-card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><div style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-family:var(--font-alt);font-weight:700;font-size:13px;color:var(--accent)">${o.name[0].toUpperCase()}</div><div><div class="form-card-title">${esc(o.name)}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(o.industry||'General')}</div></div></div><div class="form-card-footer"><span class="badge badge-blue">${fc} form${fc!==1?'s':''}</span><span class="badge badge-grey">${rc} response${rc!==1?'s':''}</span></div></div>`;
+    return`<div class="form-card"><div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><div style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-family:var(--font-alt);font-weight:700;font-size:13px;color:var(--accent)">${o.name[0].toUpperCase()}</div><div><div class="form-card-title">${esc(o.name)}</div><div style="font-size:11.5px;color:var(--text-3)">${esc(o.industry||'General')}</div></div></div><div class="form-card-footer"><span class="badge badge-blue">${fc} form${fc!==1?'s':''}</span><span class="badge badge-grey">${rc} response${rc!==1?'s':''}</span></div></div>`;
   }).join('');
 }
 window.createOrg=async function(){
@@ -2406,7 +2503,7 @@ window.runAI=async function(){
   const form=formId?allForms.find(f=>f.id===formId):null;
   const summary=toAnalyse.slice(0,30).map((r,i)=>{
     const scoreCtx=buildScoreContext(r,form||allForms.find(f=>f.id===r.form_id));
-    return `Response ${i+1} [${r.respondent_name||'Anonymous'}]\n${scoreCtx}`+Object.entries(r.answers||{}).map(([q,a])=>`  ${q}: ${Array.isArray(a)?a.join(', '):a}`).join('\n');
+    return`Response ${i+1} [${r.respondent_name||'Anonymous'}]\n${scoreCtx}`+Object.entries(r.answers||{}).map(([q,a])=>`  ${q}: ${Array.isArray(a)?a.join(', '):a}`).join('\n');
   }).join('\n\n');
   const userPrompt=(prompt||`Analyse the following${form?` "${form.name}"`:''} form responses. Identify key themes, patterns, and actionable recommendations.`)+'\n\n'+summary;
   try{
@@ -2441,17 +2538,18 @@ function buildChatSystemPrompt(){
     const fResps=scopedResponses.filter(r=>r.form_id===f.id);
     const scored=fResps.filter(r=>r.readiness_score!=null);
     const avg=scored.length?Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length):null;
-    return `- "${f.name}" (id:${f.id}): ${fResps.length} responses, avg score: ${avg??'N/A'}, fields: ${(f.fields||[]).map(ff=>ff.label+'('+ff.type+')').join(', ')}`;
+    const scoredFields=(f.fields||[]).filter(ff=>ff.scoring?.category).length;
+    return`- "${f.name}" (id:${f.id}): ${fResps.length} responses, avg score: ${avg??'N/A'}, scored fields: ${scoredFields}, fields: ${(f.fields||[]).map(ff=>ff.label+'('+ff.type+')').join(', ')}`;
   }).join('\n');
   const recentResponses=scopedResponses.slice(0,20).map((r,i)=>{
     const form=allForms.find(f=>f.id===r.form_id);
     const scoreCtx=buildScoreContext(r,form);
     const answers=Object.entries(r.answers||{}).slice(0,4).map(([q,a])=>`${q}: ${Array.isArray(a)?a.join(', '):a}`).join(' | ');
-    return `[${i+1}] ${r.respondent_name||'Anonymous'} → ${form?.name||'Unknown'} | ${scoreCtx.trim()} | ${answers}`;
+    return`[${i+1}] ${r.respondent_name||'Anonymous'} → ${form?.name||'Unknown'} | ${scoreCtx.trim()} | ${answers}`;
   }).join('\n');
   const scored=scopedResponses.filter(r=>r.readiness_score!=null);
   const avgAll=scored.length?Math.round(scored.reduce((a,r)=>a+r.readiness_score,0)/scored.length):null;
-  return `You are LumenOS AI, an intelligent assistant for the LumenOS data platform. Answer questions using the live data provided below. Be concise and insightful.
+  return`You are LumenOS AI, an intelligent assistant for the LumenOS data platform. Answer questions using the live data provided below. Be concise and insightful.
 
 ## Platform Data Summary
 - Total forms: ${scopedForms.length}
@@ -2501,7 +2599,7 @@ function renderMarkdown(text){
   t=t.replace(/^\d+\. (.+)$/gm,'<li style="margin-left:16px">$1</li>');
   t=t.replace(/\n\n/g,'</p><p style="margin-top:6px">');
   t=t.replace(/\n/g,'<br>');
-  return `<p style="margin:0">${t}</p>`;
+  return`<p style="margin:0">${t}</p>`;
 }
 window.sendChatMessage=async function(){
   if(chatSending)return;
@@ -2588,7 +2686,7 @@ function showSearchResults(results){
   const typeMap={form:{cls:'srt-form',label:'Form'},response:{cls:'srt-response',label:'Response'},org:{cls:'srt-org',label:'Org'}};
   const html=results.slice(0,10).map(r=>{
     const t=typeMap[r.result_type]||{cls:'',label:r.result_type};
-    return `<div class="search-result-item" onclick="handleSearchResultClick('${r.result_type}','${r.id}')"><span class="search-result-type ${t.cls}">${t.label}</span><div><div class="search-result-title">${esc(r.title)}</div><div class="search-result-sub">${esc(r.subtitle)}</div></div></div>`;
+    return`<div class="search-result-item" onclick="handleSearchResultClick('${r.result_type}','${r.id}')"><span class="search-result-type ${t.cls}">${t.label}</span><div><div class="search-result-title">${esc(r.title)}</div><div class="search-result-sub">${esc(r.subtitle)}</div></div></div>`;
   }).join('');
   ['sb-search-results','cmd-search-results'].forEach(id=>{
     const el=document.getElementById(id);
