@@ -1172,206 +1172,256 @@ let qrGenerating=false;
    DYNAMIC SCORING ENGINE
    ══════════════════════════════════════════════════════════════ */
 
-const SCORE_CATEGORIES=[
-  {id:'ops', name:'Operational',weight:30,color:'#1D9E75'},
-  {id:'fin', name:'Financial',  weight:25,color:'#378ADD'},
-  {id:'ppl', name:'People',     weight:25,color:'#7F77DD'},
-  {id:'risk',name:'Risk',       weight:20,color:'#D85A30'},
+const SCORE_CATEGORIES = [
+  { id: 'ops',  name: 'Operational', weight: 30, color: '#1D9E75' },
+  { id: 'fin',  name: 'Financial',   weight: 25, color: '#378ADD' },
+  { id: 'ppl',  name: 'People',      weight: 25, color: '#7F77DD' },
+  { id: 'risk', name: 'Risk',        weight: 20, color: '#D85A30' },
 ];
 
-const SCORING_DEFAULTS={
-  fields:[
-    {label:'Team readiness',   category:'ppl', weight:1,   type:'scale', min:1,max:10},
-    {label:'Budget confidence',category:'fin', weight:1.5, type:'scale', min:1,max:10},
-    {label:'Staff count',      category:'ppl', weight:0.8, type:'number',goodAbove:10},
-    {label:'Process maturity', category:'ops', weight:1,   type:'choice',
-      scoreMap:{'Ad hoc':10,'Documented':50,'Optimised':90,'Automated':100}},
-    {label:'Risk awareness',   category:'risk',weight:1.2, type:'choice',
-      scoreMap:{'None':0,'Identified':40,'Mitigated':80,'Monitored':100}},
-    {label:'Compliance docs',  category:'risk',weight:1,   type:'file',presenceScore:60},
-  ],
-  penalties:[
-    {field:'Risk awareness',   condition:'equals',value:'None',deduction:30},
-    {field:'Budget confidence',condition:'below', value:3,     deduction:15},
-  ],
-};
-
-/* Per-form overrides — key = form name (lowercase) or form id */
-const FORM_SCORE_CONFIGS={
-  'operational readiness assessment':{
-    categoryWeights:{ops:40,fin:20,ppl:25,risk:15},
-    fields:[
-      {label:'Process maturity',category:'ops',weight:2,type:'choice',
-        scoreMap:{'Ad hoc':5,'Documented':45,'Optimised':85,'Automated':100}},
-    ],
-    penalties:[
-      {field:'Process maturity',condition:'equals',value:'Ad hoc',deduction:20},
-    ],
-  },
-  'financial health check':{
-    categoryWeights:{ops:15,fin:50,ppl:15,risk:20},
-    fields:[
-      {label:'Budget confidence',category:'fin',weight:2.5,type:'scale',min:1,max:10},
-    ],
-    penalties:[],
-  },
-};
-
-function _inferType(formField){
-  const t=(formField.type||'').toLowerCase();
-  return{scale:'scale',number:'number',radio:'choice',select:'choice',
-    checkbox:'checkbox',textarea:'textarea',email:'email',date:'date',
-    image:'file',pdf:'file',csv:'file',video:'file',file:'file',text:'text'}[t]||'text';
-}
-
-function _scoreField(config,answer,formField){
-  const type=config.type||_inferType(formField);
-  if(answer===null||answer===undefined)return null;
-  if(Array.isArray(answer)&&answer.length===0)return null;
-  if(answer==='')return null;
-  switch(type){
-    case'scale':{
-      const v=parseFloat(answer);if(isNaN(v))return null;
-      const min=config.min??1,max=config.max??10;
-      return Math.round(Math.min(100,Math.max(0,((v-min)/(max-min))*100)));
-    }
-    case'choice':{
-      const map=config.scoreMap||{};
-      if(answer in map)return map[answer];
-      const lower=String(answer).toLowerCase();
-      const key=Object.keys(map).find(k=>k.toLowerCase()===lower);
-      return key!==undefined?map[key]:null;
-    }
-    case'multichoice':
-    case'checkbox':{
-      const map=config.scoreMap||{};
-      const vals=Array.isArray(answer)?answer:[answer];
-      const mapped=vals.map(v=>{
-        if(v in map)return map[v];
-        const lower=String(v).toLowerCase();
-        const key=Object.keys(map).find(k=>k.toLowerCase()===lower);
-        return key!==undefined?map[key]:null;
-      }).filter(s=>s!==null);
-      if(!mapped.length)return null;
-      return Math.round(mapped.reduce((a,b)=>a+b,0)/mapped.length);
-    }
-    case'number':{
-      const v=parseFloat(answer);if(isNaN(v))return null;
-      if(config.goodAbove!==undefined){
-        if(v>=config.goodAbove)return 100;
-        return Math.round(Math.min(100,Math.max(0,(v/config.goodAbove)*100)));
-      }
-      if(config.goodBelow!==undefined){
-        if(v<=config.goodBelow)return 100;
-        return Math.round(Math.max(0,100-((v-config.goodBelow)/config.goodBelow)*100));
-      }
-      if(config.min!==undefined&&config.max!==undefined){
-        return Math.round(Math.min(100,Math.max(0,((v-config.min)/(config.max-config.min))*100)));
-      }
-      return null;
-    }
-    case'text':case'textarea':case'email':case'date':
-      return String(answer).trim().length>0?(config.presenceScore??30):0;
-    case'file':case'image':case'pdf':case'csv':case'video':{
-      const present=Boolean(answer)&&answer!=='null'&&answer!=='false';
-      return present?(config.presenceScore??30):0;
-    }
-    default:return null;
+/* Auto-assign a category based on field type when no explicit config exists */
+function _autoCategoryForType(type) {
+  switch (type) {
+    case 'scale':    return 'ops';   // generic scored fields → operational
+    case 'number':   return 'fin';   // numeric values → financial
+    case 'image':
+    case 'pdf':
+    case 'csv':
+    case 'file':     return 'risk';  // documents → risk/compliance
+    case 'video':    return 'ppl';   // video → people
+    default:         return null;    // text/email/date/etc → not scored
   }
 }
 
-function _checkPenaltyCondition(penalty,answer){
-  if(answer===null||answer===undefined)return penalty.condition==='empty';
-  switch(penalty.condition){
-    case'equals':    return String(answer).toLowerCase()===String(penalty.value).toLowerCase();
-    case'not_equals':return String(answer).toLowerCase()!==String(penalty.value).toLowerCase();
-    case'below':     return parseFloat(answer)<penalty.value;
-    case'above':     return parseFloat(answer)>penalty.value;
-    case'empty':     return!answer||String(answer).trim()===''||(Array.isArray(answer)&&answer.length===0);
-    case'contains':  return String(answer).toLowerCase().includes(String(penalty.value).toLowerCase());
-    default:         return false;
+/* Per-form explicit configs — key = form name (lowercase) */
+const FORM_SCORE_CONFIGS = {
+  'operational readiness assessment': {
+    categoryWeights: { ops: 40, fin: 20, ppl: 25, risk: 15 },
+    fields: [
+      { label: 'process maturity', category: 'ops', weight: 2, type: 'choice',
+        scoreMap: { 'Ad hoc': 5, 'Documented': 45, 'Optimised': 85, 'Automated': 100 } },
+      { label: 'risk awareness',   category: 'risk', weight: 1.2, type: 'choice',
+        scoreMap: { 'None': 0, 'Identified': 40, 'Mitigated': 80, 'Monitored': 100 } },
+      { label: 'team readiness',   category: 'ppl',  weight: 1,   type: 'scale', min: 1, max: 10 },
+      { label: 'budget confidence',category: 'fin',  weight: 1.5, type: 'scale', min: 1, max: 10 },
+      { label: 'staff count',      category: 'ppl',  weight: 0.8, type: 'number', goodAbove: 10 },
+      { label: 'compliance docs',  category: 'risk', weight: 1,   type: 'file',  presenceScore: 60 },
+    ],
+    penalties: [
+      { field: 'Process maturity',  condition: 'equals', value: 'Ad hoc', deduction: 20 },
+      { field: 'Budget confidence', condition: 'below',  value: 3,         deduction: 15 },
+    ],
+  },
+  'financial health check': {
+    categoryWeights: { ops: 15, fin: 50, ppl: 15, risk: 20 },
+    fields: [
+      { label: 'budget confidence', category: 'fin', weight: 2.5, type: 'scale', min: 1, max: 10 },
+    ],
+    penalties: [],
+  },
+};
+
+function _inferType(formField) {
+  const t = (formField.type || '').toLowerCase();
+  return {
+    scale: 'scale', number: 'number', radio: 'choice', select: 'choice',
+    checkbox: 'checkbox', textarea: 'textarea', email: 'email', date: 'date',
+    image: 'file', pdf: 'file', csv: 'file', video: 'video', file: 'file', text: 'text',
+  }[t] || 'text';
+}
+
+function _scoreField(config, answer) {
+  const type = config.type;
+  if (answer === null || answer === undefined) return null;
+  if (Array.isArray(answer) && answer.length === 0) return null;
+  if (answer === '') return null;
+
+  switch (type) {
+    case 'scale': {
+      const v = parseFloat(answer); if (isNaN(v)) return null;
+      const min = config.min ?? 1, max = config.max ?? 10;
+      return Math.round(Math.min(100, Math.max(0, ((v - min) / (max - min)) * 100)));
+    }
+    case 'choice': {
+      const map = config.scoreMap || {};
+      if (answer in map) return map[answer];
+      const key = Object.keys(map).find(k => k.toLowerCase() === String(answer).toLowerCase());
+      return key !== undefined ? map[key] : null;
+    }
+    case 'checkbox': {
+      const map = config.scoreMap || {};
+      if (!Object.keys(map).length) return null;
+      const vals = Array.isArray(answer) ? answer : [answer];
+      const mapped = vals.map(v => {
+        if (v in map) return map[v];
+        const k = Object.keys(map).find(k => k.toLowerCase() === String(v).toLowerCase());
+        return k !== undefined ? map[k] : null;
+      }).filter(s => s !== null);
+      return mapped.length ? Math.round(mapped.reduce((a, b) => a + b, 0) / mapped.length) : null;
+    }
+    case 'number': {
+      const v = parseFloat(answer); if (isNaN(v)) return null;
+      if (config.goodAbove !== undefined) {
+        return v >= config.goodAbove ? 100 : Math.round(Math.min(100, (v / config.goodAbove) * 100));
+      }
+      if (config.goodBelow !== undefined) {
+        return v <= config.goodBelow ? 100 : Math.round(Math.max(0, 100 - ((v - config.goodBelow) / config.goodBelow) * 100));
+      }
+      if (config.min !== undefined && config.max !== undefined) {
+        return Math.round(Math.min(100, Math.max(0, ((v - config.min) / (config.max - config.min)) * 100)));
+      }
+      // Generic: treat number as-is capped 0–100
+      return Math.round(Math.min(100, Math.max(0, v)));
+    }
+    case 'file':
+    case 'video': {
+      const present = Boolean(answer) && answer !== 'null' && answer !== 'false';
+      return present ? (config.presenceScore ?? 60) : 0;
+    }
+    case 'text': case 'textarea': case 'email': case 'date':
+      return String(answer).trim().length > 0 ? (config.presenceScore ?? 30) : 0;
+    default: return null;
   }
 }
 
-function computeDynamicScore(answers,fields,formName){
-  formName=formName||'';
-  const formKey=formName.toLowerCase().trim();
-  const override=FORM_SCORE_CONFIGS[formKey]||{};
+function _checkPenaltyCondition(penalty, answer) {
+  if (answer === null || answer === undefined) return penalty.condition === 'empty';
+  switch (penalty.condition) {
+    case 'equals':     return String(answer).toLowerCase() === String(penalty.value).toLowerCase();
+    case 'not_equals': return String(answer).toLowerCase() !== String(penalty.value).toLowerCase();
+    case 'below':      return parseFloat(answer) < penalty.value;
+    case 'above':      return parseFloat(answer) > penalty.value;
+    case 'empty':      return !answer || String(answer).trim() === '' || (Array.isArray(answer) && !answer.length);
+    case 'contains':   return String(answer).toLowerCase().includes(String(penalty.value).toLowerCase());
+    default:           return false;
+  }
+}
 
-  const defaultFieldMap={};
-  (SCORING_DEFAULTS.fields||[]).forEach(fc=>{defaultFieldMap[fc.label.toLowerCase()]=fc;});
-  const overrideFieldMap={};
-  (override.fields||[]).forEach(fc=>{overrideFieldMap[fc.label.toLowerCase()]=fc;});
-  const mergedFieldMap={...defaultFieldMap,...overrideFieldMap};
+/*
+ * Main scoring function.
+ * For forms with an explicit config → use that config (label-matched).
+ * For all forms → also score any scale/number/file fields generically
+ * using _autoCategoryForType, so they always contribute even without a config.
+ * Returns null overall only if zero fields produced a score.
+ */
+function computeDynamicScore(answers, fields, formName) {
+  formName = formName || '';
+  const formKey = formName.toLowerCase().trim();
+  const override = FORM_SCORE_CONFIGS[formKey] || {};
 
-  const baseCatWeights={};
-  SCORE_CATEGORIES.forEach(c=>{baseCatWeights[c.id]=c.weight;});
-  const catWeights={...baseCatWeights,...(override.categoryWeights||{})};
+  /* Build a label→config lookup from the explicit override */
+  const overrideFieldMap = {};
+  (override.fields || []).forEach(fc => {
+    overrideFieldMap[fc.label.toLowerCase()] = fc;
+  });
 
-  const penalties=[...(SCORING_DEFAULTS.penalties||[]),...(override.penalties||[])];
+  const baseCatWeights = {};
+  SCORE_CATEGORIES.forEach(c => { baseCatWeights[c.id] = c.weight; });
+  const catWeights = { ...baseCatWeights, ...(override.categoryWeights || {}) };
+  const penalties = [...(override.penalties || [])];
 
-  const fieldScores={};
-  const catAccum={};
-  SCORE_CATEGORIES.forEach(c=>{catAccum[c.id]={total:0,weightTotal:0};});
+  /* Accumulate per-category weighted scores */
+  const catAccum = {};
+  SCORE_CATEGORIES.forEach(c => { catAccum[c.id] = { total: 0, weightTotal: 0 }; });
 
-  (fields||[]).forEach(formField=>{
-    const key=(formField.label||'').toLowerCase();
-    const config=mergedFieldMap[key];
-    if(!config)return;
-    const answer=answers[formField.label];
-    const rawScore=_scoreField(config,answer,formField);
-    if(rawScore===null)return;
-    const w=config.weight||1;
-    fieldScores[formField.label]=rawScore;
-    const catId=config.category;
-    if(catAccum[catId]){
-      catAccum[catId].total+=rawScore*w;
-      catAccum[catId].weightTotal+=w;
+  let anyScored = false;
+
+  (fields || []).forEach(formField => {
+    const labelKey = (formField.label || '').toLowerCase();
+    const answer = answers[formField.label];
+
+    /* 1. Try explicit config first */
+    let config = overrideFieldMap[labelKey];
+
+    /* 2. If no explicit config, build a generic one from the field type */
+    if (!config) {
+      const inferredScoringType = _inferType(formField);
+      const autoCategory = _autoCategoryForType(formField.type);
+
+      // Only auto-score types that map to a category
+      if (!autoCategory) return;
+
+      config = {
+        type: inferredScoringType,
+        category: autoCategory,
+        weight: 1,
+        // scale fields: default min/max 1–10
+        ...(inferredScoringType === 'scale' ? { min: 1, max: 10 } : {}),
+      };
+    }
+
+    const rawScore = _scoreField(config, answer);
+    if (rawScore === null) return;
+
+    anyScored = true;
+    const catId = config.category;
+    if (catAccum[catId]) {
+      catAccum[catId].total += rawScore * (config.weight || 1);
+      catAccum[catId].weightTotal += (config.weight || 1);
     }
   });
 
-  const catScores={};
-  SCORE_CATEGORIES.forEach(c=>{
-    const acc=catAccum[c.id];
-    catScores[c.id]=acc.weightTotal>0?Math.round(acc.total/acc.weightTotal):null;
+  /* If nothing scored at all → return null (shows as N/A) */
+  if (!anyScored) return { overall: null, categories: {}, fieldScores: {}, penalties: [], breakdown: 'No scorable fields.' };
+
+  /* Compute per-category scores */
+  const catScores = {};
+  SCORE_CATEGORIES.forEach(c => {
+    const acc = catAccum[c.id];
+    catScores[c.id] = acc.weightTotal > 0 ? Math.round(acc.total / acc.weightTotal) : null;
   });
 
-  let totalNum=0,totalDen=0;
-  SCORE_CATEGORIES.forEach(c=>{
-    const s=catScores[c.id],cw=catWeights[c.id]||0;
-    if(s!==null){totalNum+=s*cw;totalDen+=cw;}
+  /* Weighted overall */
+  let totalNum = 0, totalDen = 0;
+  SCORE_CATEGORIES.forEach(c => {
+    const s = catScores[c.id], cw = catWeights[c.id] || 0;
+    if (s !== null) { totalNum += s * cw; totalDen += cw; }
   });
-  let overall=totalDen>0?Math.round(totalNum/totalDen):null;
+  let overall = totalDen > 0 ? Math.round(totalNum / totalDen) : null;
 
-  const penaltyLog=[];
-  penalties.forEach(p=>{
-    const val=answers[p.field];
-    const applied=_checkPenaltyCondition(p,val);
-    penaltyLog.push({field:p.field,deduction:p.deduction,applied});
-    if(applied&&overall!==null)overall=Math.max(0,overall-p.deduction);
+  /* Apply penalties */
+  const penaltyLog = penalties.map(p => {
+    const val = answers[p.field];
+    const applied = _checkPenaltyCondition(p, val);
+    if (applied && overall !== null) overall = Math.max(0, overall - p.deduction);
+    return { field: p.field, deduction: p.deduction, applied };
   });
 
-  const catLines=SCORE_CATEGORIES.map(c=>`  ${c.name}: ${catScores[c.id]!==null?catScores[c.id]:'N/A'}`).join('\n');
-  const penLines=penaltyLog.filter(p=>p.applied).map(p=>`  -${p.deduction} (${p.field})`).join('\n');
-  const breakdown=[
-    `Overall: ${overall??'N/A'}`,
-    'Category scores:',catLines,
-    penaltyLog.some(p=>p.applied)?`Penalties applied:\n${penLines}`:'No penalties applied.',
+  const catLines = SCORE_CATEGORIES.map(c =>
+    `  ${c.name}: ${catScores[c.id] !== null ? catScores[c.id] : 'N/A'}`
+  ).join('\n');
+  const penLines = penaltyLog.filter(p => p.applied).map(p => `  -${p.deduction} (${p.field})`).join('\n');
+  const breakdown = [
+    `Overall: ${overall ?? 'N/A'}`,
+    'Category scores:', catLines,
+    penaltyLog.some(p => p.applied) ? `Penalties:\n${penLines}` : 'No penalties.',
   ].join('\n');
 
-  return{overall,categories:catScores,fieldScores,penalties:penaltyLog,breakdown};
+  return { overall, categories: catScores, fieldScores: {}, penalties: penaltyLog, breakdown };
 }
 
-function computeReadinessScore(answers,fields,formName){
-  return computeDynamicScore(answers,fields,formName||'').overall;
+function computeReadinessScore(answers, fields, formName) {
+  return computeDynamicScore(answers, fields, formName || '').overall;
 }
 
-function buildScoreContext(response,form){
-  if(!response||!response.answers)return'';
-  const result=computeDynamicScore(response.answers,form?.fields||[],form?.name||'');
-  if(result.overall===null)return'';
-  const catLines=SCORE_CATEGORIES.map(c=>`    ${c.name}: ${result.categories[c.id]!==null?result.categories[c.id]+'/100':'not assessed'}`).join('\n');
-  return`\nReadiness Score for ${response.respondent_name||'this respondent'}:\n  Overall: ${result.overall}/100\n  Categories:\n${catLines}\n${result.penalties.some(p=>p.applied)?'  Penalties: '+result.penalties.filter(p=>p.applied).map(p=>`-${p.deduction} (${p.field})`).join(', '):'  No penalties applied.'}\n`;
+function buildScoreContext(response, form) {
+  if (!response || !response.answers) return '';
+  // Always look up the form from allForms if not passed correctly
+  const resolvedForm = form || allForms.find(f => f.id === response.form_id);
+  const result = computeDynamicScore(
+    response.answers,
+    resolvedForm?.fields || [],
+    resolvedForm?.name || ''
+  );
+  if (result.overall === null) return '';
+  const catLines = SCORE_CATEGORIES.map(c =>
+    `    ${c.name}: ${result.categories[c.id] !== null ? result.categories[c.id] + '/100' : 'not assessed'}`
+  ).join('\n');
+  return `\nReadiness Score for ${response.respondent_name || 'this respondent'}:\n  Overall: ${result.overall}/100\n  Categories:\n${catLines}\n${
+    result.penalties.some(p => p.applied)
+      ? '  Penalties: ' + result.penalties.filter(p => p.applied).map(p => `-${p.deduction} (${p.field})`).join(', ')
+      : '  No penalties applied.'
+  }\n`;
 }
 
 /* ══════════════════════════════════════════════════════════════
