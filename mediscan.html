@@ -1307,7 +1307,6 @@ tbody tr:hover td{background:rgba(0,180,216,.02);}
 /* ════════════════ CONFIG ════════════════ */
 const SUPABASE_URL = 'https://pzioskykakwhwdlcmwyv.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const OLLAMA_BASE = 'http://localhost:11434';
 
 const { createClient } = supabase;
@@ -1316,7 +1315,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 /* ════════════════ STATE ════════════════ */
 let currentUser = null, currentProfile = null;
 let patients = [], allPatients = [];
-let appointments = [], allAppointments = [];
+let allAppointments = [];
 let invoices = [], allInvoices = [];
 let editingPatientId = null, viewingPatient = null, qrPatientId = null, roleEditingId = null;
 let activeFilter = 'all', apptFilter = 'all', billFilter = 'all';
@@ -1326,12 +1325,14 @@ let invLineCount = 1;
 // Calendar state
 let calDate = new Date();
 let selectedCalDate = new Date();
+selectedCalDate.setHours(0,0,0,0);
 
 // AI state
 let aiMessages = [];
-let aiFiles = []; // {name, type, base64, mediaType}
-let currentAiModel = 'claude-sonnet-4-20250514';
+let aiFiles = [];
+let currentAiModel = 'gemma4:e4b';
 let ollamaOnline = false;
+let _ollamaStatusInterval = null;
 
 /* ════════════════ PENDING PROFILE ════════════════ */
 let _pendingProfile = null;
@@ -1437,7 +1438,7 @@ async function createProfileRecord(uid, email, fullName, role) {
 }
 async function doLogout() { await sb.auth.signOut(); location.reload(); }
 async function loadProfile() {
-  const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
   if (data) {
     currentProfile = data;
     const pending = readPending();
@@ -1514,9 +1515,10 @@ function showSection(name, evt) {
   if (name === 'scanlogs') loadScanLogs();
   if (name === 'team') loadTeam();
   if (name === 'notifications') renderNotifications();
-  if (name === 'booking') { renderCalendar(); loadAppointments(); refreshReminders(); }
+  if (name === 'booking') { selectedCalDate = new Date(); selectedCalDate.setHours(0,0,0,0); renderCalendar(); loadAppointments(); }
   if (name === 'billing') loadInvoices();
-  if (name === 'ai') { checkOllamaStatus(); populateAiPatientSelect(); }
+  if (name === 'ai') { startOllamaPolling(); populateAiPatientSelect(); }
+  else { stopOllamaPolling(); }
 }
 function setBottomNav(name) {
   document.querySelectorAll('.bottom-nav-item').forEach(b => b.classList.remove('active'));
@@ -1546,17 +1548,19 @@ function showApp() {
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-ZA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
   if (canDo('manage_team')) { document.getElementById('nav-admin-label').style.display = ''; document.getElementById('nav-team').style.display = ''; }
   if (!canDo('insert')) { const btn = document.getElementById('btn-new-patient'); if (btn) btn.style.display = 'none'; }
-  const isMobile = window.innerWidth <= 768;
-  if (isMobile) { showSection('patients', null); setBottomNav('patients'); }
-  else { showSection('dashboard', null); }
-  loadPatients();
-  loadScanLogs();
   // Set default dates
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('appt-date').value = today;
   document.getElementById('inv-date').value = today;
   const due = new Date(); due.setDate(due.getDate() + 30);
   document.getElementById('inv-due').value = due.toISOString().split('T')[0];
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) { showSection('patients', null); setBottomNav('patients'); }
+  else { showSection('dashboard', null); }
+  // Load patients first; booking/dashboard depend on it
+  loadPatients().then(() => {
+    loadScanLogs();
+  });
 }
 
 /* ════════════════ PATIENTS ════════════════ */
@@ -1566,10 +1570,18 @@ async function loadPatients() {
   const { data, error } = await sb.from('patients').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
   if (error) { toast('Load failed: ' + error.message, 'error'); return; }
   allPatients = data || []; patients = [...allPatients];
-  renderPatients(); renderDashboard();
+  renderPatients();
   populatePatientSelects();
+  // Now load appointments (needs patients loaded for KPIs)
+  await loadAppointments();
+  renderDashboard();
 }
-function setFilter(f, el) { activeFilter = f; document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active')); if (el) el.classList.add('active'); filterPatients(); }
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('#section-patients .filter-chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  filterPatients();
+}
 function filterPatients() {
   const q = document.getElementById('patient-search').value.toLowerCase();
   let list = q ? allPatients.filter(p => (p.full_name||'').toLowerCase().includes(q) || (p.phone||'').toLowerCase().includes(q) || (p.id_number||'').toLowerCase().includes(q)) : [...allPatients];
@@ -1587,11 +1599,11 @@ function renderPatients() {
     tbody.innerHTML = `<tr><td colspan="7">${e}</td></tr>`; cardList.innerHTML = e; return;
   }
   const iconView = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-  const iconQr = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`;
+  const iconQr   = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`;
   const iconEdit = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-  const iconDel = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+  const iconDel  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
   const editBtn = (id, p) => canDo('update', p) ? `<button class="btn-icon" title="Edit" onclick="editPatient('${esc(id)}')">${iconEdit}</button>` : '';
-  const delBtn = (id, name) => canDo('delete') ? `<button class="btn-icon danger" title="Delete" onclick="deletePatient('${esc(id)}','${esc(name)}')">${iconDel}</button>` : '';
+  const delBtn  = (id, name) => canDo('delete') ? `<button class="btn-icon danger" title="Delete" onclick="deletePatient('${esc(id)}','${esc(name)}')">${iconDel}</button>` : '';
   tbody.innerHTML = patients.map(p => `<tr>
     <td><div style="font-weight:600">${esc(p.full_name)}</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:1px">${esc(p.id_number||p.email||'')}</div></td>
     <td style="color:var(--text-secondary);font-size:13px">${fmtDate(p.date_of_birth)}</td>
@@ -1619,29 +1631,21 @@ function renderPatients() {
   </div>`).join('');
 }
 function populatePatientSelects() {
-  const selects = ['appt-patient-select','inv-patient-select','ai-patient-ctx'];
-  selects.forEach(sid => {
-    const sel = document.getElementById(sid);
-    if (!sel) return;
-    const first = sel.options[0];
-    sel.innerHTML = '';
-    sel.appendChild(first);
-    allPatients.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id; opt.textContent = p.full_name;
-      sel.appendChild(opt);
-    });
+  ['appt-patient-select','inv-patient-select','ai-patient-ctx'].forEach(sid => {
+    const sel = document.getElementById(sid); if (!sel) return;
+    const first = sel.options[0]; sel.innerHTML = ''; sel.appendChild(first);
+    allPatients.forEach(p => { const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.full_name; sel.appendChild(opt); });
   });
 }
 
 /* ════════════════ DASHBOARD ════════════════ */
 function renderDashboard() {
-  const total = allPatients.length;
-  const active = allPatients.filter(p => p.qr_active).length;
-  const insured = allPatients.filter(p => p.medical_aid_provider).length;
+  const total    = allPatients.length;
+  const active   = allPatients.filter(p => p.qr_active).length;
+  const insured  = allPatients.filter(p => p.medical_aid_provider).length;
   const highRisk = allPatients.filter(p => riskScore(p) >= 5).length;
-  const medRisk = allPatients.filter(p => { const s = riskScore(p); return s >= 2 && s < 5; }).length;
-  const lowRisk = allPatients.filter(p => riskScore(p) < 2).length;
+  const medRisk  = allPatients.filter(p => { const s = riskScore(p); return s >= 2 && s < 5; }).length;
+  const lowRisk  = allPatients.filter(p => riskScore(p) < 2).length;
   const withAllergies = allPatients.filter(p => Array.isArray(p.allergies) && p.allergies.length).length;
   const todayStr = new Date().toISOString().split('T')[0];
   const todayAppts = allAppointments.filter(a => a.appointment_date && a.appointment_date.startsWith(todayStr)).length;
@@ -1649,7 +1653,7 @@ function renderDashboard() {
   setText('stat-total', total); setText('stat-active', active); setText('stat-insured', insured);
   const next7 = allAppointments.filter(a => { const d = new Date(a.appointment_date); const now = new Date(); return d >= now && d <= new Date(now.getTime() + 7*86400000); }).length;
   setText('stat-appts', next7); setText('stat-appts-sub', 'Next 7 days');
-  const activePct = total ? Math.round(active / total * 100) : 0;
+  const activePct  = total ? Math.round(active / total * 100) : 0;
   const insuredPct = total ? Math.round(insured / total * 100) : 0;
   setText('stat-active-pct', activePct + '% coverage');
   setText('stat-insured-pct', insuredPct + '% of patients');
@@ -1692,10 +1696,7 @@ function renderApptBarChart() {
   }
   const max = Math.max(...days.map(d => d.count), 1);
   const chart = document.getElementById('appt-bar-chart');
-  chart.innerHTML = days.map((d, i) => `<div class="bar-wrap">
-    <div class="bar${i===6?' appt':''}" style="height:${Math.max(Math.round(d.count/max*100),4)}%" title="${d.count} appts"></div>
-    <div class="bar-label">${d.label}</div>
-  </div>`).join('');
+  chart.innerHTML = days.map((d, i) => `<div class="bar-wrap"><div class="bar${i===6?' appt':''}" style="height:${Math.max(Math.round(d.count/max*100),4)}%" title="${d.count} appts"></div><div class="bar-label">${d.label}</div></div>`).join('');
 }
 function renderAlerts() {
   const alerts = [];
@@ -1736,196 +1737,238 @@ async function loadScanLogs() {
   c.innerHTML = myLogs.map(log => `<div class="scan-log-item"><div class="scan-indicator"></div><div class="scan-info"><div class="scan-patient">${esc(log.patients?.full_name||'Unknown')}</div><div class="scan-meta">${esc(log.location||log.scanner_ip||'Unknown location')}</div></div><div class="scan-time">${esc(new Date(log.scanned_at).toLocaleString('en-ZA'))}</div></div>`).join('');
 }
 
-/* ════════════════ BOOKING / APPOINTMENTS ════════════════ */
-// In-memory store for local demo (replace with Supabase table when schema exists)
-const APPT_KEY = `lumenos_appts_${SUPABASE_URL.slice(-8)}`;
-function loadApptStore() { try { return JSON.parse(localStorage.getItem(APPT_KEY) || '[]'); } catch(e) { return []; } }
-function saveApptStore(data) { try { localStorage.setItem(APPT_KEY, JSON.stringify(data)); } catch(e) {} }
+/* ════════════════════════════════════════════
+   BOOKING / APPOINTMENTS (Supabase-backed)
+════════════════════════════════════════════ */
 
 async function loadAppointments() {
-  allAppointments = loadApptStore().filter(a => a.user_id === currentUser.id);
+  const { data, error } = await sb
+    .from('appointments')
+    .select('*, patients(full_name)')
+    .eq('user_id', currentUser.id)
+    .order('appointment_date', { ascending: true });
+  if (error) { toast('Failed to load appointments: ' + error.message, 'error'); return; }
+  allAppointments = (data || []).map(a => ({ ...a, patient_name: a.patients?.full_name || 'Unknown' }));
   renderCalendar();
   renderApptList();
-  renderDashboard();
+  renderReminders();
 }
-function openBookingModal() {
+
+function openBookingModal(prefillPatientId) {
   document.getElementById('booking-modal-title').textContent = 'New Appointment';
+  document.getElementById('save-appt-btn').dataset.editId = '';
   const today = new Date().toISOString().split('T')[0];
-  document.getElementById('appt-date').value = today;
-  document.getElementById('appt-time').value = '09:00';
+  document.getElementById('appt-date').value  = today;
+  document.getElementById('appt-time').value  = '09:00';
   document.getElementById('appt-notes').value = '';
+  document.getElementById('appt-type').value  = 'Consultation';
+  document.getElementById('appt-duration').value = '30';
+  document.getElementById('remind-sms').checked   = true;
+  document.getElementById('remind-email').checked = true;
+  document.getElementById('remind-2h').checked    = false;
+  document.getElementById('appt-patient-select').value = prefillPatientId || '';
   openModal('booking-modal');
 }
+
+function openEditApptModal(apptId) {
+  const a = allAppointments.find(x => x.id === apptId); if (!a) return;
+  document.getElementById('booking-modal-title').textContent = 'Edit Appointment';
+  document.getElementById('save-appt-btn').dataset.editId = apptId;
+  const dt = new Date(a.appointment_date);
+  document.getElementById('appt-patient-select').value  = a.patient_id;
+  document.getElementById('appt-date').value            = dt.toISOString().split('T')[0];
+  document.getElementById('appt-time').value            = dt.toTimeString().slice(0,5);
+  document.getElementById('appt-type').value            = a.type || 'Consultation';
+  document.getElementById('appt-duration').value        = String(a.duration_minutes || 30);
+  document.getElementById('appt-notes').value           = a.notes || '';
+  document.getElementById('remind-sms').checked         = a.remind_sms   ?? true;
+  document.getElementById('remind-email').checked       = a.remind_email ?? true;
+  document.getElementById('remind-2h').checked          = a.remind_2h    ?? false;
+  openModal('booking-modal');
+}
+
 async function saveAppointment() {
   const patientId = document.getElementById('appt-patient-select').value;
-  const date = document.getElementById('appt-date').value;
-  const time = document.getElementById('appt-time').value;
-  const type = document.getElementById('appt-type').value;
-  const duration = document.getElementById('appt-duration').value;
-  const notes = document.getElementById('appt-notes').value.trim();
-  const remSms = document.getElementById('remind-sms').checked;
-  const remEmail = document.getElementById('remind-email').checked;
-  const rem2h = document.getElementById('remind-2h').checked;
+  const date      = document.getElementById('appt-date').value;
+  const time      = document.getElementById('appt-time').value;
   if (!patientId) { toast('Please select a patient', 'error'); return; }
-  if (!date) { toast('Please select a date', 'error'); return; }
-  const patient = allPatients.find(p => p.id === patientId);
-  const btn = document.getElementById('save-appt-btn'); setLoading(btn, true);
-  const appt = {
-    id: crypto.randomUUID(), user_id: currentUser.id, patient_id: patientId,
-    patient_name: patient?.full_name || 'Unknown',
-    appointment_date: `${date}T${time}:00`, type, duration: parseInt(duration),
-    notes, status: 'confirmed',
-    reminders: { sms: remSms, email: remEmail, twoHour: rem2h },
-    created_at: new Date().toISOString()
+  if (!date)      { toast('Please select a date', 'error'); return; }
+  if (!time)      { toast('Please select a time', 'error'); return; }
+  const appointmentDate = `${date}T${time}:00`;
+  const editId = document.getElementById('save-appt-btn').dataset.editId || '';
+  // Conflict check
+  const conflict = allAppointments.find(a =>
+    a.appointment_date?.startsWith(date + 'T' + time) &&
+    a.status !== 'cancelled' &&
+    a.id !== editId
+  );
+  if (conflict) { toast(`⚠ Time conflict with ${conflict.patient_name}`, 'error'); return; }
+  const payload = {
+    user_id: currentUser.id, patient_id: patientId,
+    appointment_date: appointmentDate,
+    type: document.getElementById('appt-type').value,
+    duration_minutes: parseInt(document.getElementById('appt-duration').value),
+    notes: document.getElementById('appt-notes').value.trim() || null,
+    status: 'confirmed',
+    remind_sms:   document.getElementById('remind-sms').checked,
+    remind_email: document.getElementById('remind-email').checked,
+    remind_2h:    document.getElementById('remind-2h').checked
   };
-  const store = loadApptStore();
-  store.push(appt); saveApptStore(store);
-  allAppointments = store.filter(a => a.user_id === currentUser.id);
+  const btn = document.getElementById('save-appt-btn'); setLoading(btn, true);
+  let error;
+  if (editId) {
+    ({ error } = await sb.from('appointments').update(payload).eq('id', editId).eq('user_id', currentUser.id));
+  } else {
+    ({ error } = await sb.from('appointments').insert(payload));
+  }
   setLoading(btn, false);
-  toast(`Appointment booked for ${patient?.full_name}`, 'success');
-  // Simulate reminder scheduling
-  if (remSms || remEmail) scheduleReminders(appt, patient);
+  if (error) { toast('Save failed: ' + error.message, 'error'); return; }
+  toast(editId ? 'Appointment updated' : 'Appointment booked', 'success');
   closeModal('booking-modal');
-  renderCalendar(); renderApptList(); refreshReminders(); renderDashboard();
+  await loadAppointments();
+  renderDashboard();
 }
-function scheduleReminders(appt, patient) {
-  const apptTime = new Date(appt.appointment_date);
-  const now = new Date();
-  const msUntil24h = apptTime.getTime() - 24*3600000 - now.getTime();
-  const msUntil2h = apptTime.getTime() - 2*3600000 - now.getTime();
-  if (appt.reminders.sms || appt.reminders.email) {
-    const channels = [appt.reminders.sms && 'SMS', appt.reminders.email && 'Email'].filter(Boolean).join(' + ');
-    if (msUntil24h > 0 && msUntil24h < 24*3600000) {
-      setTimeout(() => toast(`⏰ Reminder sent via ${channels} to ${patient?.full_name} for their ${appt.type} appointment`, 'info'), Math.min(msUntil24h, 5000));
-    } else {
-      toast(`📬 Reminder queued via ${channels} for ${patient?.full_name}`, 'info');
-    }
-  }
-  if (appt.reminders.twoHour && msUntil2h > 0 && msUntil2h < 2*3600000) {
-    setTimeout(() => toast(`⏰ 2-hour SMS reminder sent to ${patient?.full_name}`, 'info'), Math.min(msUntil2h, 3000));
-  }
+
+async function updateApptStatus(id, status) {
+  const { error } = await sb.from('appointments').update({ status }).eq('id', id).eq('user_id', currentUser.id);
+  if (error) { toast('Update failed: ' + error.message, 'error'); return; }
+  toast(`Appointment marked ${status}`, status === 'completed' ? 'success' : 'warn');
+  await loadAppointments();
 }
+async function completeAppt(id) { await updateApptStatus(id, 'completed'); }
+async function cancelAppt(id) { if (!confirm('Cancel this appointment?')) return; await updateApptStatus(id, 'cancelled'); }
+async function deleteAppt(id) {
+  if (!confirm('Permanently delete this appointment?')) return;
+  const { error } = await sb.from('appointments').delete().eq('id', id).eq('user_id', currentUser.id);
+  if (error) { toast('Delete failed: ' + error.message, 'error'); return; }
+  toast('Appointment deleted', 'warn');
+  await loadAppointments(); renderDashboard();
+}
+
 function setApptFilter(f, el) {
   apptFilter = f;
-  document.querySelectorAll('.filter-bar .filter-chip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('#section-booking .filter-chip').forEach(c => c.classList.remove('active'));
   if (el) el.classList.add('active');
   renderApptList();
 }
+
 function renderApptList() {
   const el = document.getElementById('appt-list');
-  let list = [...allAppointments].sort((a,b) => new Date(a.appointment_date)-new Date(b.appointment_date));
-  if (apptFilter !== 'all') list = list.filter(a => a.status === apptFilter);
+  const ds = [
+    selectedCalDate.getFullYear(),
+    String(selectedCalDate.getMonth()+1).padStart(2,'0'),
+    String(selectedCalDate.getDate()).padStart(2,'0')
+  ].join('-');
   const dateLabel = selectedCalDate.toLocaleDateString('en-ZA', { weekday:'long', day:'numeric', month:'long' });
-  setText('appt-day-label', dateLabel + ' Appointments');
-  const ds = selectedCalDate.toISOString().split('T')[0];
-  const dayList = list.filter(a => a.appointment_date && a.appointment_date.startsWith(ds));
-  if (!dayList.length) {
-    const all = list.slice(0, 5);
-    if (!all.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No appointments</div><div class="empty-desc">Book your first appointment above</div></div>'; return; }
-    el.innerHTML = `<div style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)">Upcoming</div>` + all.map(a => apptItemHtml(a)).join('');
+  setText('appt-day-label', dateLabel);
+  let list = allAppointments.filter(a => a.appointment_date && a.appointment_date.startsWith(ds));
+  if (apptFilter !== 'all') list = list.filter(a => a.status === apptFilter);
+  if (!list.length) {
+    const now = new Date();
+    const upcoming = allAppointments
+      .filter(a => new Date(a.appointment_date) >= now && a.status !== 'cancelled')
+      .slice(0, 5);
+    if (!upcoming.length) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No appointments</div><div class="empty-desc">Nothing on ${dateLabel}. Book one above.</div></div>`;
+      return;
+    }
+    el.innerHTML = `<div style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)">Next upcoming</div>` + upcoming.map(a => apptItemHtml(a)).join('');
     return;
   }
-  el.innerHTML = dayList.map(a => apptItemHtml(a)).join('');
+  el.innerHTML = list.map(a => apptItemHtml(a)).join('');
 }
+
 function apptItemHtml(a) {
-  const dt = new Date(a.appointment_date);
+  const dt      = new Date(a.appointment_date);
   const timeStr = dt.toLocaleTimeString('en-ZA', { hour:'2-digit', minute:'2-digit' });
-  const statusColors = { confirmed:'confirmed', pending:'pending', cancelled:'cancelled', completed:'completed' };
-  const statusBadges = { confirmed:'badge-green', pending:'badge-amber', cancelled:'badge-red', completed:'badge-blue' };
+  const statusBar   = { confirmed:'confirmed', pending:'pending', cancelled:'cancelled', completed:'completed' };
+  const statusBadge = { confirmed:'badge-green', pending:'badge-amber', cancelled:'badge-red', completed:'badge-blue' };
+  const isDone = a.status === 'completed' || a.status === 'cancelled';
+  const iconEdit = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+  const iconDel  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
   return `<div class="appt-list-item">
-    <div class="appt-color-bar ${statusColors[a.status]||'pending'}"></div>
+    <div class="appt-color-bar ${statusBar[a.status]||'pending'}"></div>
     <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">
         <span style="font-size:13.5px;font-weight:700;color:var(--text-primary)">${esc(a.patient_name)}</span>
-        <span class="badge ${statusBadges[a.status]||'badge-amber'}">${esc(a.status||'pending')}</span>
+        <span class="badge ${statusBadge[a.status]||'badge-amber'}">${esc(a.status||'pending')}</span>
       </div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:3px">${esc(a.type)} · ${a.duration} min</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:3px">${esc(a.type)} · ${a.duration_minutes||30} min</div>
       ${a.notes ? `<div style="font-size:11.5px;color:var(--text-muted)">${esc(a.notes)}</div>` : ''}
+      <div style="display:flex;gap:4px;margin-top:7px;flex-wrap:wrap">
+        ${!isDone ? `
+          <button class="btn-icon green"  onclick="completeAppt('${esc(a.id)}')"      title="Complete" style="width:28px;height:28px">✓</button>
+          <button class="btn-icon"        onclick="openEditApptModal('${esc(a.id)}')" title="Edit"     style="width:28px;height:28px">${iconEdit}</button>
+          <button class="btn-icon danger" onclick="cancelAppt('${esc(a.id)}')"        title="Cancel"   style="width:28px;height:28px">✕</button>
+        ` : ''}
+        <button class="btn-icon danger" onclick="deleteAppt('${esc(a.id)}')" title="Delete" style="width:28px;height:28px">${iconDel}</button>
+      </div>
     </div>
-    <div style="text-align:right;flex-shrink:0">
-      <div style="font-family:'DM Mono',monospace;font-size:12px;font-weight:600;color:var(--teal-dim)">${timeStr}</div>
+    <div style="text-align:right;flex-shrink:0;padding-left:8px">
+      <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--teal-dim)">${timeStr}</div>
       <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">${fmtDate(a.appointment_date)}</div>
-      <div style="display:flex;gap:4px;margin-top:5px;justify-content:flex-end">
-        <button class="btn-icon" onclick="completeAppt('${esc(a.id)}')" title="Complete" style="width:26px;height:26px">✓</button>
-        <button class="btn-icon danger" onclick="cancelAppt('${esc(a.id)}')" title="Cancel" style="width:26px;height:26px">✕</button>
+      <div style="display:flex;gap:3px;margin-top:5px;justify-content:flex-end;flex-wrap:wrap">
+        ${a.remind_sms   ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:var(--green-dim);color:#1a9e92;border:1px solid var(--green-border)">SMS</span>'    : ''}
+        ${a.remind_email ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:var(--indigo-dim);color:var(--indigo);border:1px solid rgba(79,110,247,.2)">Email</span>' : ''}
+        ${a.remind_2h    ? '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;background:var(--amber-dim);color:#c07a20;border:1px solid rgba(244,162,97,.3)">2h</span>'       : ''}
       </div>
     </div>
   </div>`;
 }
-function completeAppt(id) {
-  const store = loadApptStore();
-  const idx = store.findIndex(a => a.id === id);
-  if (idx >= 0) { store[idx].status = 'completed'; saveApptStore(store); }
-  allAppointments = store.filter(a => a.user_id === currentUser.id);
-  renderApptList(); toast('Appointment marked complete', 'success');
-}
-function cancelAppt(id) {
-  if (!confirm('Cancel this appointment?')) return;
-  const store = loadApptStore();
-  const idx = store.findIndex(a => a.id === id);
-  if (idx >= 0) { store[idx].status = 'cancelled'; saveApptStore(store); }
-  allAppointments = store.filter(a => a.user_id === currentUser.id);
-  renderApptList(); toast('Appointment cancelled', 'warn');
-}
 
-/* ── CALENDAR ── */
+/* ── Calendar ── */
 function renderCalendar() {
   const y = calDate.getFullYear(), m = calDate.getMonth();
   document.getElementById('cal-month-label').textContent = calDate.toLocaleString('default', { month:'long', year:'numeric' });
-  const firstDay = new Date(y, m, 1).getDay();
+  const firstDay    = new Date(y, m, 1).getDay();
   const daysInMonth = new Date(y, m+1, 0).getDate();
-  const daysInPrev = new Date(y, m, 0).getDate();
-  const todayStr = new Date().toISOString().split('T')[0];
-  const selStr = selectedCalDate.toISOString().split('T')[0];
-  const apptDays = new Set(allAppointments.map(a => a.appointment_date ? a.appointment_date.split('T')[0] : null).filter(Boolean));
+  const daysInPrev  = new Date(y, m, 0).getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayS = today.toISOString().split('T')[0];
+  const selS   = [selectedCalDate.getFullYear(), String(selectedCalDate.getMonth()+1).padStart(2,'0'), String(selectedCalDate.getDate()).padStart(2,'0')].join('-');
+  const apptDays = new Set(allAppointments.filter(a => a.status !== 'cancelled').map(a => a.appointment_date?.split('T')[0]).filter(Boolean));
   let cells = '';
-  for (let i = 0; i < firstDay; i++) {
-    const d = daysInPrev - firstDay + 1 + i;
-    cells += `<div class="cal-day other-month">${d}</div>`;
-  }
+  for (let i = 0; i < firstDay; i++) cells += `<div class="cal-day other-month">${daysInPrev - firstDay + 1 + i}</div>`;
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday = ds === todayStr;
-    const isSel = ds === selStr;
-    const hasAppt = apptDays.has(ds);
-    cells += `<div class="cal-day${isToday?' today':''}${isSel?' selected':''}${hasAppt?' has-appt':''}" onclick="selectDay(${y},${m},${d})">${d}</div>`;
+    const cls = ['cal-day', ds===todayS?'today':'', ds===selS?'selected':'', apptDays.has(ds)?'has-appt':''].filter(Boolean).join(' ');
+    cells += `<div class="${cls}" onclick="selectDay(${y},${m},${d})">${d}</div>`;
   }
   const remaining = 42 - firstDay - daysInMonth;
   for (let d = 1; d <= remaining; d++) cells += `<div class="cal-day other-month">${d}</div>`;
   document.getElementById('cal-days').innerHTML = cells;
 }
-function selectDay(y, m, d) {
-  selectedCalDate = new Date(y, m, d);
-  renderCalendar(); renderApptList();
-}
+function selectDay(y, m, d) { selectedCalDate = new Date(y, m, d); selectedCalDate.setHours(0,0,0,0); renderCalendar(); renderApptList(); }
 function prevMonth() { calDate = new Date(calDate.getFullYear(), calDate.getMonth()-1, 1); renderCalendar(); }
 function nextMonth() { calDate = new Date(calDate.getFullYear(), calDate.getMonth()+1, 1); renderCalendar(); }
 
-/* ── REMINDERS ── */
-function refreshReminders() {
-  const el = document.getElementById('reminders-list');
+/* ── Reminders ── */
+function renderReminders() {
+  const el  = document.getElementById('reminders-list');
   const now = new Date();
   const upcoming = allAppointments
     .filter(a => a.status !== 'cancelled' && a.status !== 'completed' && new Date(a.appointment_date) > now)
     .sort((a,b) => new Date(a.appointment_date)-new Date(b.appointment_date))
-    .slice(0, 6);
+    .slice(0, 8);
   if (!upcoming.length) { el.innerHTML = '<div style="padding:14px 16px;font-size:12.5px;color:var(--text-muted)">No upcoming reminders</div>'; return; }
   el.innerHTML = upcoming.map(a => {
     const dt = new Date(a.appointment_date);
-    const channels = [a.reminders?.sms && 'SMS', a.reminders?.email && 'Email'].filter(Boolean);
+    const hoursUntil = Math.round((dt - now) / 3600000);
+    const urgency  = hoursUntil <= 2 ? 'var(--red)' : hoursUntil <= 24 ? 'var(--amber)' : 'var(--teal-dim)';
+    const channels = [a.remind_sms && 'SMS', a.remind_email && 'Email', a.remind_2h && '2h'].filter(Boolean);
     return `<div class="reminder-chip">
-      <div class="reminder-time">${dt.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="reminder-time" style="color:${urgency}">${dt.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>
       <div class="reminder-info">
         <div class="reminder-name">${esc(a.patient_name)}</div>
-        <div class="reminder-sub">${esc(a.type)} · ${fmtDate(a.appointment_date)}</div>
+        <div class="reminder-sub">${esc(a.type)} · ${fmtDate(a.appointment_date)} · in ${hoursUntil < 1 ? '<1' : hoursUntil}h</div>
       </div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
-        ${channels.map(c => `<span class="reminder-channel ${c==='SMS'?'ch-sms':'ch-email'}">${c}</span>`).join('')}
-        ${a.reminders?.twoHour ? '<span class="reminder-channel ch-push">2h</span>' : ''}
+        ${channels.map(c => `<span class="reminder-channel ${c==='SMS'?'ch-sms':c==='Email'?'ch-email':'ch-push'}">${c}</span>`).join('')}
       </div>
     </div>`;
   }).join('');
 }
+function refreshReminders() { renderReminders(); }
 
 /* ════════════════ BILLING / INVOICES ════════════════ */
 const INV_KEY = `lumenos_invoices_${SUPABASE_URL.slice(-8)}`;
@@ -1933,8 +1976,7 @@ function loadInvStore() { try { return JSON.parse(localStorage.getItem(INV_KEY) 
 function saveInvStore(data) { try { localStorage.setItem(INV_KEY, JSON.stringify(data)); } catch(e) {} }
 async function loadInvoices() {
   allInvoices = loadInvStore().filter(i => i.user_id === currentUser.id);
-  invoices = [...allInvoices];
-  renderInvoices();
+  invoices = [...allInvoices]; renderInvoices();
 }
 function openInvoiceModal() {
   invLineCount = 1;
@@ -1952,8 +1994,7 @@ function openInvoiceModal() {
 function addInvLine() {
   const idx = invLineCount++;
   const div = document.createElement('div');
-  div.className = 'invoice-line'; div.id = `inv-line-${idx}`;
-  div.style.cssText = 'gap:8px;align-items:center;padding:6px 0';
+  div.className = 'invoice-line'; div.id = `inv-line-${idx}`; div.style.cssText = 'gap:8px;align-items:center;padding:6px 0';
   div.innerHTML = `<input style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;outline:none;color:var(--text-primary)" placeholder="Description" id="inv-line-${idx}-desc"><input style="width:100px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;outline:none;color:var(--text-primary)" type="number" placeholder="Amount" id="inv-line-${idx}-amt"><button onclick="this.parentElement.remove()" style="width:28px;height:28px;border:1px solid var(--red-border);border-radius:6px;background:var(--red-dim);color:var(--red);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>`;
   document.getElementById('inv-lines').appendChild(div);
 }
@@ -1961,11 +2002,10 @@ async function saveInvoice() {
   const patientId = document.getElementById('inv-patient-select').value;
   if (!patientId) { toast('Please select a patient', 'error'); return; }
   const patient = allPatients.find(p => p.id === patientId);
-  const lines = [];
-  let total = 0;
+  const lines = []; let total = 0;
   for (let i = 0; i < invLineCount + 5; i++) {
     const descEl = document.getElementById(`inv-line-${i}-desc`);
-    const amtEl = document.getElementById(`inv-line-${i}-amt`);
+    const amtEl  = document.getElementById(`inv-line-${i}-amt`);
     if (!descEl || !descEl.closest('#inv-lines')) continue;
     const desc = descEl.value.trim(); const amt = parseFloat(amtEl.value) || 0;
     if (desc) { lines.push({ description: desc, amount: amt }); total += amt; }
@@ -1991,8 +2031,7 @@ async function saveInvoice() {
 function setBillFilter(f, el) {
   billFilter = f;
   document.querySelectorAll('#section-billing .filter-chip').forEach(c => c.classList.remove('active'));
-  if (el) el.classList.add('active');
-  filterInvoices();
+  if (el) el.classList.add('active'); filterInvoices();
 }
 function filterInvoices() {
   const q = (document.getElementById('invoice-search')?.value||'').toLowerCase();
@@ -2002,8 +2041,8 @@ function filterInvoices() {
 }
 function renderInvoices() {
   const totalBilled = allInvoices.reduce((s,i) => s+i.total, 0);
-  const totalPaid = allInvoices.filter(i => i.status==='paid').reduce((s,i) => s+i.total, 0);
-  const totalOut = allInvoices.filter(i => i.status!=='paid').reduce((s,i) => s+i.total, 0);
+  const totalPaid   = allInvoices.filter(i => i.status==='paid').reduce((s,i) => s+i.total, 0);
+  const totalOut    = allInvoices.filter(i => i.status!=='paid').reduce((s,i) => s+i.total, 0);
   setText('bill-total', fmtCurrency(totalBilled));
   setText('bill-outstanding', fmtCurrency(totalOut));
   setText('bill-paid', fmtCurrency(totalPaid));
@@ -2013,14 +2052,9 @@ function renderInvoices() {
   el.innerHTML = invoices.map(inv => `<div class="invoice-card">
     <div class="invoice-header">
       <div style="flex:1"><div class="invoice-num">${esc(inv.invoice_number)}</div><div class="invoice-patient">${esc(inv.patient_name)}</div></div>
-      <div style="text-align:right">
-        <div class="invoice-amount">${fmtCurrency(inv.total)}</div>
-        <span class="badge ${statusBadge[inv.status]||'badge-amber'}" style="margin-top:4px">${esc(inv.status)}</span>
-      </div>
+      <div style="text-align:right"><div class="invoice-amount">${fmtCurrency(inv.total)}</div><span class="badge ${statusBadge[inv.status]||'badge-amber'}" style="margin-top:4px">${esc(inv.status)}</span></div>
     </div>
-    <div class="invoice-body">
-      ${inv.lines.map(l => `<div class="invoice-line"><span class="invoice-line-name">${esc(l.description)}</span><span class="invoice-line-amount">${fmtCurrency(l.amount)}</span></div>`).join('')}
-    </div>
+    <div class="invoice-body">${inv.lines.map(l => `<div class="invoice-line"><span class="invoice-line-name">${esc(l.description)}</span><span class="invoice-line-amount">${fmtCurrency(l.amount)}</span></div>`).join('')}</div>
     <div class="invoice-footer">
       <div style="font-size:11.5px;color:var(--text-muted)">Due: ${fmtDate(inv.due_date)} ${inv.payment_method ? '· ' + esc(inv.payment_method) : ''}</div>
       <div style="display:flex;gap:6px">
@@ -2032,8 +2066,7 @@ function renderInvoices() {
   </div>`).join('');
 }
 function markPaid(id) {
-  const store = loadInvStore();
-  const idx = store.findIndex(i => i.id === id);
+  const store = loadInvStore(); const idx = store.findIndex(i => i.id === id);
   if (idx >= 0) { store[idx].status = 'paid'; saveInvStore(store); }
   allInvoices = store.filter(i => i.user_id === currentUser.id); invoices = [...allInvoices];
   renderInvoices(); toast('Invoice marked as paid', 'success');
@@ -2080,9 +2113,11 @@ async function savePatient() {
   if (!name) { toast('Full name required', 'error'); switchFormTab('identity', null); return; }
   const btn = document.getElementById('save-btn'); setLoading(btn, true);
   const payload = {
-    full_name: name, id_number: document.getElementById('f-id_number').value.trim()||null,
+    full_name: name,
+    id_number: document.getElementById('f-id_number').value.trim()||null,
     date_of_birth: document.getElementById('f-date_of_birth').value||null,
-    phone: document.getElementById('f-phone').value.trim()||null, email: document.getElementById('f-email').value.trim()||null,
+    phone: document.getElementById('f-phone').value.trim()||null,
+    email: document.getElementById('f-email').value.trim()||null,
     blood_type: document.getElementById('f-blood_type').value||null,
     emergency_contact_name: document.getElementById('f-emergency_contact_name').value.trim()||null,
     emergency_contact_relation: document.getElementById('f-emergency_contact_relation').value.trim()||null,
@@ -2242,77 +2277,81 @@ async function saveRole() {
 }
 
 /* ════════════════════════════════════════════
-   ── ONTOLOGICAL AI ASSISTANT ──
-   Uses Ollama Gemma4 (local) with fallback to
-   Claude Sonnet 4 via Anthropic API
+   AI ASSISTANT — Gemma4 via Ollama
 ════════════════════════════════════════════ */
 
 async function checkOllamaStatus() {
-  const el = document.getElementById('ollama-status');
+  const el  = document.getElementById('ollama-status');
+  const sel = document.getElementById('ai-model-select');
   try {
     const res = await fetch(`${OLLAMA_BASE}/api/tags`, { signal: AbortSignal.timeout(2500) });
-    if (res.ok) {
-      ollamaOnline = true;
-      const data = await res.json();
-      const models = (data.models || []).map(m => m.name);
-      el.className = 'ai-ollama-status online';
-      el.innerHTML = `<span>●</span> Ollama online · ${models.length} model${models.length!==1?'s':''}`;
-      // Populate model select with actual models
-      const sel = document.getElementById('ai-model-select');
-      if (models.length) {
-        sel.innerHTML = models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('') + `<option value="claude-sonnet-4-20250514">Claude Sonnet 4 (API fallback)</option>`;
-        currentAiModel = models.find(m => m.includes('gemma4')) || models[0];
-        sel.value = currentAiModel;
-        setText('ai-model-label', currentAiModel);
-      }
-      return;
+    if (!res.ok) throw new Error('non-200');
+    const data   = await res.json();
+    const models = (data.models || []).map(m => m.name);
+    ollamaOnline = true;
+    el.className = 'ai-ollama-status online';
+    el.innerHTML = `<span>●</span> Ollama online · ${models.length} model${models.length !== 1 ? 's' : ''}`;
+    if (models.length) {
+      sel.innerHTML  = models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+      const preferred = models.find(m => m.startsWith('gemma4')) || models[0];
+      sel.value       = preferred;
+      currentAiModel  = preferred;
+      setText('ai-model-label', preferred);
     }
+    return;
   } catch(e) {}
-  ollamaOnline = false;
-  el.className = 'ai-ollama-status offline';
-  el.innerHTML = `<span>○</span> Ollama offline — using Claude Sonnet 4 API`;
-  currentAiModel = 'claude-sonnet-4-20250514';
-  document.getElementById('ai-model-select').value = currentAiModel;
-  setText('ai-model-label', 'Claude Sonnet 4');
+  ollamaOnline   = false;
+  el.className   = 'ai-ollama-status offline';
+  el.innerHTML   = `<span>○</span> Ollama offline — run <code style="font-size:11px">ollama serve</code>`;
+  sel.innerHTML  = `<option value="gemma4:e4b">gemma4:e4b (offline)</option>`;
+  currentAiModel = 'gemma4:e4b';
+  setText('ai-model-label', 'gemma4:e4b (offline)');
+}
+
+function startOllamaPolling() {
+  checkOllamaStatus();
+  if (!_ollamaStatusInterval) _ollamaStatusInterval = setInterval(checkOllamaStatus, 30000);
+}
+function stopOllamaPolling() {
+  clearInterval(_ollamaStatusInterval);
+  _ollamaStatusInterval = null;
 }
 function updateAiModel() {
   currentAiModel = document.getElementById('ai-model-select').value;
   setText('ai-model-label', currentAiModel);
 }
 function populateAiPatientSelect() { populatePatientSelects(); }
+
 function loadAiPatientCtx() {
-  const id = document.getElementById('ai-patient-ctx').value;
+  const id      = document.getElementById('ai-patient-ctx').value;
   const display = document.getElementById('ai-patient-ctx-display');
-  const ontEl = document.getElementById('ontology-display');
+  const ontEl   = document.getElementById('ontology-display');
   if (!id) { display.innerHTML = ''; ontEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px">Select a patient to view their ontology graph.</div>'; return; }
-  const p = allPatients.find(x => x.id === id);
-  if (!p) return;
+  const p = allPatients.find(x => x.id === id); if (!p) return;
   display.innerHTML = `<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;font-size:12px">
     <div style="font-weight:700;color:var(--text-primary);margin-bottom:6px">${esc(p.full_name)}</div>
     ${p.blood_type ? `<div style="color:var(--red);font-weight:600;margin-bottom:3px">🩸 ${esc(p.blood_type)}</div>` : ''}
     ${Array.isArray(p.allergies)&&p.allergies.length ? `<div style="color:var(--red);margin-bottom:3px">⚠ ${p.allergies.map(esc).join(', ')}</div>` : ''}
     ${Array.isArray(p.medical_conditions)&&p.medical_conditions.length ? `<div style="color:var(--text-secondary)">🏥 ${p.medical_conditions.map(esc).join(', ')}</div>` : ''}
   </div>`;
-  // Build ontology graph
-  const ont = buildOntology(p);
-  ontEl.innerHTML = renderOntologyNode(ont, 0);
+  ontEl.innerHTML = renderOntologyNode(buildOntology(p), 0);
 }
 function buildOntology(p) {
   return {
     label: p.full_name, type: 'Patient', children: [
       { label: 'Identity', type: 'Domain', children: [
         p.date_of_birth && { label: `DOB: ${fmtDate(p.date_of_birth)}`, type: 'Attribute' },
-        p.blood_type && { label: `Blood: ${p.blood_type}`, type: 'CriticalAttribute' },
-        p.id_number && { label: `ID: ${p.id_number}`, type: 'Attribute' }
+        p.blood_type    && { label: `Blood: ${p.blood_type}`,           type: 'CriticalAttribute' },
+        p.id_number     && { label: `ID: ${p.id_number}`,               type: 'Attribute' }
       ].filter(Boolean) },
       { label: 'Clinical', type: 'Domain', children: [
-        ...(Array.isArray(p.allergies) ? p.allergies.map(a => ({ label: `Allergy: ${a}`, type: 'Risk' })) : []),
-        ...(Array.isArray(p.medical_conditions) ? p.medical_conditions.map(c => ({ label: `Condition: ${c}`, type: 'Condition' })) : []),
-        ...(Array.isArray(p.current_medications) ? p.current_medications.map(m => ({ label: `Med: ${m}`, type: 'Medication' })) : [])
+        ...(Array.isArray(p.allergies)           ? p.allergies.map(a           => ({ label: `Allergy: ${a}`,   type: 'Risk'      })) : []),
+        ...(Array.isArray(p.medical_conditions)  ? p.medical_conditions.map(c  => ({ label: `Condition: ${c}`, type: 'Condition' })) : []),
+        ...(Array.isArray(p.current_medications) ? p.current_medications.map(m => ({ label: `Med: ${m}`,       type: 'Medication'})) : [])
       ] },
       { label: 'Coverage', type: 'Domain', children: [
         p.medical_aid_provider && { label: `Aid: ${p.medical_aid_provider}`, type: 'Attribute' },
-        p.primary_doctor && { label: `Dr: ${p.primary_doctor}`, type: 'Attribute' }
+        p.primary_doctor       && { label: `Dr: ${p.primary_doctor}`,        type: 'Attribute' }
       ].filter(Boolean) }
     ]
   };
@@ -2320,32 +2359,34 @@ function buildOntology(p) {
 function renderOntologyNode(node, depth) {
   if (!node) return '';
   const colors = { Patient:'var(--teal)', Domain:'var(--indigo)', Risk:'var(--red)', CriticalAttribute:'var(--red)', Condition:'var(--amber)', Medication:'var(--green)', Attribute:'var(--text-muted)' };
-  const c = colors[node.type] || 'var(--text-secondary)';
-  const childrenHtml = node.children?.length ? `<div class="ontology-child">${node.children.map(ch => renderOntologyNode(ch, depth+1)).join('')}</div>` : '';
-  return `<div class="ontology-node"><span style="color:${c};font-size:${depth===0?'13':'12'}px;font-weight:${depth===0?700:500}">${depth===0?'◈':depth===1?'◦':'·'} ${esc(node.label)}</span></div>${childrenHtml}`;
+  const c      = colors[node.type] || 'var(--text-secondary)';
+  const prefix = depth === 0 ? '◈' : depth === 1 ? '◦' : '·';
+  const kids   = node.children?.length ? `<div class="ontology-child">${node.children.map(ch => renderOntologyNode(ch, depth+1)).join('')}</div>` : '';
+  return `<div class="ontology-node"><span style="color:${c};font-size:${depth===0?13:12}px;font-weight:${depth===0?700:500}">${prefix} ${esc(node.label)}</span></div>${kids}`;
 }
 
 /* ── File handling ── */
 function handleAiFile(event) { Array.from(event.target.files).forEach(processAiFile); }
-function aiDragOver(e) { e.preventDefault(); document.getElementById('ai-media-drop').classList.add('dragging'); }
-function aiDragLeave(e) { document.getElementById('ai-media-drop').classList.remove('dragging'); }
+function aiDragOver(e)  { e.preventDefault(); document.getElementById('ai-media-drop').classList.add('dragging'); }
+function aiDragLeave()  { document.getElementById('ai-media-drop').classList.remove('dragging'); }
 function aiDrop(e) { e.preventDefault(); document.getElementById('ai-media-drop').classList.remove('dragging'); Array.from(e.dataTransfer.files).forEach(processAiFile); }
 function processAiFile(file) {
-  if (aiFiles.length >= 3) { toast('Max 3 files at a time', 'warn'); return; }
+  if (aiFiles.length >= 4) { toast('Max 4 files at once', 'warn'); return; }
   const reader = new FileReader();
   reader.onload = () => {
-    const base64 = reader.result.split(',')[1];
-    const mediaType = file.type;
-    aiFiles.push({ name: file.name, type: file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'audio' : 'document', base64, mediaType });
+    const base64   = reader.result.split(',')[1];
+    const fileType = file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'audio' : 'document';
+    aiFiles.push({ name: file.name, type: fileType, base64, mediaType: file.type });
     renderAiFileList();
   };
   reader.readAsDataURL(file);
 }
 function renderAiFileList() {
-  const el = document.getElementById('ai-file-list');
-  el.innerHTML = aiFiles.map((f, i) => `<div class="ai-uploaded-item"><span class="ai-uploaded-icon">${f.type==='image'?'🖼️':f.type==='audio'?'🎵':'📄'}</span><span class="ai-uploaded-name">${esc(f.name)}</span><button class="ai-uploaded-remove" onclick="removeAiFile(${i})">×</button></div>`).join('');
-  // Also show in chat input area
-  document.getElementById('ai-uploaded-preview').innerHTML = aiFiles.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${aiFiles.map((f,i) => `<div style="display:flex;align-items:center;gap:5px;background:var(--purple-dim);border:1px solid rgba(123,94,167,.2);border-radius:6px;padding:3px 8px;font-size:11.5px;color:var(--purple)"><span>${f.type==='image'?'🖼️':f.type==='audio'?'🎵':'📄'}</span>${esc(f.name.slice(0,16))}<button onclick="removeAiFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--purple);font-size:13px;opacity:.6;padding:0 0 0 3px">×</button></div>`).join('')}</div>` : '';
+  const icons     = { image:'🖼️', audio:'🎵', document:'📄' };
+  const listEl    = document.getElementById('ai-file-list');
+  const previewEl = document.getElementById('ai-uploaded-preview');
+  listEl.innerHTML = aiFiles.map((f, i) => `<div class="ai-uploaded-item"><span class="ai-uploaded-icon">${icons[f.type]}</span><span class="ai-uploaded-name">${esc(f.name)}</span><button class="ai-uploaded-remove" onclick="removeAiFile(${i})">×</button></div>`).join('');
+  previewEl.innerHTML = aiFiles.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${aiFiles.map((f,i) => `<div style="display:flex;align-items:center;gap:5px;background:var(--purple-dim);border:1px solid rgba(123,94,167,.2);border-radius:6px;padding:3px 8px;font-size:11.5px;color:var(--purple)"><span>${icons[f.type]}</span>${esc(f.name.slice(0,18))}<button onclick="removeAiFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--purple);font-size:13px;opacity:.6;padding:0 0 0 3px">×</button></div>`).join('')}</div>` : '';
 }
 function removeAiFile(i) { aiFiles.splice(i, 1); renderAiFileList(); }
 
@@ -2359,48 +2400,40 @@ function clearAiChat() {
 }
 
 async function sendAiMessage() {
-  const input = document.getElementById('ai-input');
-  const text = input.value.trim();
+  const input    = document.getElementById('ai-input');
+  const text     = input.value.trim();
   if (!text && !aiFiles.length) return;
-  const btn = document.getElementById('btn-ai-send');
-  
-  // ════════════════════════════════════════════
-// REMAINING JS — paste immediately after:
-//   const btn = document.getElementById('btn-ai-send');
-// ════════════════════════════════════════════
-
-  btn.disabled = true;
+  const btn      = document.getElementById('btn-ai-send');
+  btn.disabled   = true;
   const userText = text;
-  input.value = '';
+  input.value    = '';
   input.style.height = 'auto';
 
-  // ── Build display bubble ──
+  // Build display bubble
+  const icons = { image:'🖼️', audio:'🎵', document:'📄' };
   const userDisplay = [
-    ...aiFiles.map(f =>
-      f.type === 'image'
-        ? `<img src="data:${f.mediaType};base64,${f.base64}" style="max-width:180px;max-height:120px;border-radius:8px;display:block;margin-bottom:4px">`
-        : `<span style="opacity:.7">[${f.type}: ${esc(f.name)}]</span>`
+    ...aiFiles.map(f => f.type === 'image'
+      ? `<img src="data:${f.mediaType};base64,${f.base64}" style="max-width:180px;max-height:120px;border-radius:8px;display:block;margin-bottom:4px">`
+      : `<span style="opacity:.7">${icons[f.type]} ${esc(f.name)}</span>`
     ),
     userText ? `<span>${esc(userText)}</span>` : ''
   ].filter(Boolean).join('<br>');
-
   appendAiMsg('user', userDisplay, true);
 
-  // ── Collect images + audios for Gemma4 ──
-  const images = aiFiles.filter(f => f.type === 'image').map(f => f.base64);
-  const audios  = aiFiles.filter(f => f.type === 'audio').map(f => f.base64);
+  // Snapshot media before clearing
+  const sentImages = aiFiles.filter(f => f.type === 'image').map(f => f.base64);
+  const sentAudios = aiFiles.filter(f => f.type === 'audio').map(f => f.base64);
 
-  // ── Build history entry (store raw base64 arrays alongside text) ──
-  aiMessages.push({ role: 'user', text: userText, images, audios });
+  // Push to history — text only (media not stored in history)
+  aiMessages.push({ role: 'user', content: userText || '(see attached media)' });
 
   aiFiles = [];
   renderAiFileList();
 
-  // ── Typing indicator ──
-  const typingId = 'typing-' + Date.now();
+  // Typing indicator
+  const typingId  = 'typing-' + Date.now();
   const typingDiv = document.createElement('div');
-  typingDiv.className = 'ai-msg';
-  typingDiv.id = typingId;
+  typingDiv.className = 'ai-msg'; typingDiv.id = typingId;
   typingDiv.innerHTML = `<div class="ai-msg-avatar assistant">🧠</div><div class="ai-typing"><span></span><span></span><span></span></div>`;
   document.getElementById('ai-messages').appendChild(typingDiv);
   scrollAiToBottom();
@@ -2409,19 +2442,21 @@ async function sendAiMessage() {
     const ctxPatientId = document.getElementById('ai-patient-ctx').value;
     const ctxPatient   = allPatients.find(p => p.id === ctxPatientId);
     const systemPrompt = buildAiSystemPrompt(ctxPatient);
-
-    const reply = await callGemma4(systemPrompt, aiMessages, userText, images, audios);
-
+    const reply        = await callGemma4(systemPrompt, aiMessages, sentImages, sentAudios);
     document.getElementById(typingId)?.remove();
-    aiMessages.push({ role: 'assistant', text: reply, images: [], audios: [] });
+    aiMessages.push({ role: 'assistant', content: reply });
+    // Trim to last 20 turns
+    if (aiMessages.length > 20) aiMessages = aiMessages.slice(-20);
     appendAiMsg('assistant', formatAiReply(reply), false);
   } catch (err) {
     document.getElementById(typingId)?.remove();
     appendAiMsg('assistant',
       `<span style="color:var(--red)">⚠ Gemma4 error: ${esc(err.message)}</span><br>` +
-      `<span style="font-size:12px;opacity:.6">Make sure Ollama is running and <code>gemma4:e4b</code> is pulled.</span>`,
+      `<span style="font-size:12px;opacity:.6">Make sure Ollama is running: <code>ollama serve</code> · Model: <code>gemma4:e4b</code></span>`,
       false
     );
+    // Remove failed user turn so history stays clean
+    if (aiMessages.at(-1)?.role === 'user') aiMessages.pop();
     console.error('Gemma4 error:', err);
   }
 
@@ -2429,74 +2464,48 @@ async function sendAiMessage() {
   scrollAiToBottom();
 }
 
-// ────────────────────────────────────────────
-// Core Gemma4 call — mirrors your analyzeMedia shape
-// Sends full conversation history; attaches images/audios
-// only on the most recent user turn (Ollama doesn't support
-// multimodal on prior history turns).
-// ────────────────────────────────────────────
-async function callGemma4(systemPrompt, history, latestText, images, audios) {
+async function callGemma4(systemPrompt, history, images, audios) {
   const model = document.getElementById('ai-model-select').value || 'gemma4:e4b';
 
-  // Build message array from history
-  // Older turns: text only (Ollama ignores images on non-last turns anyway)
-  const messages = [
-    { role: 'user', content: systemPrompt + '\n\n---\nYou are now in a live clinical session. Respond to the following conversation.' },
-    { role: 'assistant', content: 'Understood. I am ready to assist with your clinical queries.' },
-    ...history.slice(0, -1).map(m => ({
-      role: m.role,
-      content: m.text || ''
-    }))
-  ];
+  // History turns (all text-only except the last)
+  const messages = history.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
 
-  // Most recent user turn — attach images + audios
-  const lastMsg = {
-    role: 'user',
-    content: latestText || ''
-  };
-  if (images.length)  lastMsg.images = images;
-  if (audios.length)  lastMsg.audios  = audios;
-  messages.push(lastMsg);
+  // Final user turn with media
+  const lastTurn = { role: 'user', content: history.at(-1)?.content || '' };
+  if (images.length) lastTurn.images = images;
+  if (audios.length) lastTurn.audios = audios;
+  messages.push(lastTurn);
 
   const response = await fetch(`${OLLAMA_BASE}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model,
+      system: systemPrompt,
       messages,
       stream: false,
-      options: {
-        temperature: 0.35,
-        num_predict: 1024,
-        top_p: 0.9
-      }
+      options: { temperature: 0.35, num_predict: 1024, top_p: 0.9 }
     }),
-    signal: AbortSignal.timeout(120000)  // 2 min — vision can be slow
+    signal: AbortSignal.timeout(120000)
   });
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '');
-    throw new Error(`Ollama ${response.status}: ${errText.slice(0, 120)}`);
+    throw new Error(`Ollama ${response.status}: ${errText.slice(0, 200)}`);
   }
-
-  const data = await response.json();
+  const data    = await response.json();
   const content = data.message?.content;
   if (!content) throw new Error('Empty response from Gemma4');
   return content;
 }
 
-// ────────────────────────────────────────────
-// System prompt — injects patient context +
-// full clinic summary into Gemma4's first turn
-// ────────────────────────────────────────────
 function buildAiSystemPrompt(patient) {
   const arr = a => Array.isArray(a) && a.length ? a.join(', ') : 'None recorded';
-
   const patientBlock = patient ? `
 ## ACTIVE PATIENT RECORD
 Name:              ${patient.full_name}
 DOB:               ${patient.date_of_birth || 'Unknown'}
-Blood Type:        ${patient.blood_type    || 'Unknown'}
+Blood Type:        ${patient.blood_type || 'Unknown'}
 Allergies:         ${arr(patient.allergies)}
 Current Meds:      ${arr(patient.current_medications)}
 Conditions:        ${arr(patient.medical_conditions)}
@@ -2504,7 +2513,7 @@ Surgical History:  ${arr(patient.surgical_history)}
 Vaccinations:      ${arr(patient.vaccination_history)}
 Medical Aid:       ${patient.medical_aid_provider || 'None'}
 Primary Doctor:    ${patient.primary_doctor || 'Unknown'}
-Emergency Contact: ${patient.emergency_contact_name || 'None'} ${patient.emergency_contact_phone ? '(' + patient.emergency_contact_phone + ')' : ''}
+Emergency Contact: ${patient.emergency_contact_name || 'None'}${patient.emergency_contact_phone ? ' (' + patient.emergency_contact_phone + ')' : ''}
 Advance Directive: ${patient.advance_directive || 'None'}
 Notes:             ${patient.notes || 'None'}
 Risk Score:        ${riskScore(patient)} / 10
@@ -2530,31 +2539,20 @@ Blood types on file:  ${[...new Set(allPatients.map(p => p.blood_type).filter(Bo
 ## RULES
 - Be medically precise. Flag uncertainty explicitly.
 - Mark anything critical with ⚠ so it stands out.
-- When analysing an image, describe findings systematically (region → finding → severity → recommendation).
-- Apply South African clinical context: SASOG/SAMA guidelines, metric units, medical aid terminology (Discovery, Bonitas, etc.).
+- When analysing an image, describe findings systematically: region → finding → severity → recommendation.
+- Apply South African clinical context: SASOG/SAMA guidelines, metric units, medical aid terminology.
 - Never fabricate drug dosages — state standard ranges and advise verification.
 - Keep responses concise and structured. Use bullet points for lists.
 
-${clinicBlock}
-${patientBlock}`;
+${clinicBlock}${patientBlock}`;
 }
 
-// ────────────────────────────────────────────
-// Render helpers
-// ────────────────────────────────────────────
-function appendAiMsg(role, htmlContent, isRaw) {
-  const msgArea = document.getElementById('ai-messages');
-  const div = document.createElement('div');
-  div.className = `ai-msg${role === 'user' ? ' user' : ''}`;
-
-  const initials = currentProfile?.full_name
-    ? getInitials(currentProfile.full_name)
-    : (currentUser?.email?.[0] || '?').toUpperCase();
-
-  div.innerHTML = `
-    <div class="ai-msg-avatar ${role}">${role === 'assistant' ? '🧠' : esc(initials)}</div>
-    <div class="ai-bubble ${role}">${htmlContent}</div>
-  `;
+function appendAiMsg(role, htmlContent) {
+  const msgArea  = document.getElementById('ai-messages');
+  const div      = document.createElement('div');
+  div.className  = `ai-msg${role === 'user' ? ' user' : ''}`;
+  const initials = currentProfile?.full_name ? getInitials(currentProfile.full_name) : (currentUser?.email?.[0] || '?').toUpperCase();
+  div.innerHTML  = `<div class="ai-msg-avatar ${role}">${role === 'assistant' ? '🧠' : esc(initials)}</div><div class="ai-bubble ${role}">${htmlContent}</div>`;
   msgArea.appendChild(div);
   scrollAiToBottom();
 }
@@ -2563,10 +2561,10 @@ function formatAiReply(text) {
   if (!text) return '';
   return text
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/```[\s\S]*?```/g, m => `<pre>${m.replace(/```\w*\n?/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')}</pre>`)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-    .replace(/```[\s\S]*?```/g, m => `<pre>${m.replace(/```\w*\n?/g,'')}</pre>`)
     .replace(/^#{1,3} (.+)$/gm, '<strong style="font-size:14px">$1</strong>')
     .replace(/^[•\-\*] (.+)$/gm, '• $1')
     .replace(/⚠/g, '<span style="color:var(--red);font-weight:700">⚠</span>')
@@ -2579,181 +2577,16 @@ function scrollAiToBottom() {
   if (el) setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
 }
 
-// ────────────────────────────────────────────
-// Ollama status — shows real model list
-// ────────────────────────────────────────────
-async function checkOllamaStatus() {
-  const el  = document.getElementById('ollama-status');
-  const sel = document.getElementById('ai-model-select');
-  try {
-    const res = await fetch(`${OLLAMA_BASE}/api/tags`, {
-      signal: AbortSignal.timeout(2500)
-    });
-    if (!res.ok) throw new Error('non-200');
-    const data   = await res.json();
-    const models = (data.models || []).map(m => m.name);
-    ollamaOnline = true;
-    el.className = 'ai-ollama-status online';
-    el.innerHTML = `<span>●</span> Ollama online · ${models.length} model${models.length !== 1 ? 's' : ''}`;
-
-    if (models.length) {
-      sel.innerHTML = models
-        .map(m => `<option value="${esc(m)}">${esc(m)}</option>`)
-        .join('');
-      // Prefer gemma4 if available
-      const preferred = models.find(m => m.startsWith('gemma4')) || models[0];
-      sel.value       = preferred;
-      currentAiModel  = preferred;
-      setText('ai-model-label', preferred);
-    }
-    return;
-  } catch (e) { /* fall through */ }
-
-  ollamaOnline   = false;
-  el.className   = 'ai-ollama-status offline';
-  el.innerHTML   = `<span>○</span> Ollama offline — start with <code style="font-size:11px">ollama serve</code>`;
-  sel.innerHTML  = `<option value="gemma4:e4b">gemma4:e4b (offline)</option>`;
-  currentAiModel = 'gemma4:e4b';
-  setText('ai-model-label', 'gemma4:e4b (offline)');
-}
-
-function updateAiModel() {
-  currentAiModel = document.getElementById('ai-model-select').value;
-  setText('ai-model-label', currentAiModel);
-}
-
-function populateAiPatientSelect() { populatePatientSelects(); }
-
-function loadAiPatientCtx() {
-  const id      = document.getElementById('ai-patient-ctx').value;
-  const display = document.getElementById('ai-patient-ctx-display');
-  const ontEl   = document.getElementById('ontology-display');
-
-  if (!id) {
-    display.innerHTML = '';
-    ontEl.innerHTML   = '<div style="color:var(--text-muted);font-size:12px">Select a patient to view their ontology graph.</div>';
-    return;
-  }
-  const p = allPatients.find(x => x.id === id);
-  if (!p) return;
-
-  display.innerHTML = `
-    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;font-size:12px">
-      <div style="font-weight:700;color:var(--text-primary);margin-bottom:6px">${esc(p.full_name)}</div>
-      ${p.blood_type ? `<div style="color:var(--red);font-weight:600;margin-bottom:3px">🩸 ${esc(p.blood_type)}</div>` : ''}
-      ${Array.isArray(p.allergies) && p.allergies.length ? `<div style="color:var(--red);margin-bottom:3px">⚠ ${p.allergies.map(esc).join(', ')}</div>` : ''}
-      ${Array.isArray(p.medical_conditions) && p.medical_conditions.length ? `<div style="color:var(--text-secondary)">🏥 ${p.medical_conditions.map(esc).join(', ')}</div>` : ''}
-    </div>`;
-
-  ontEl.innerHTML = renderOntologyNode(buildOntology(p), 0);
-}
-
-function buildOntology(p) {
-  return {
-    label: p.full_name, type: 'Patient', children: [
-      { label: 'Identity', type: 'Domain', children: [
-        p.date_of_birth && { label: `DOB: ${fmtDate(p.date_of_birth)}`, type: 'Attribute' },
-        p.blood_type    && { label: `Blood: ${p.blood_type}`,           type: 'CriticalAttribute' },
-        p.id_number     && { label: `ID: ${p.id_number}`,               type: 'Attribute' }
-      ].filter(Boolean) },
-      { label: 'Clinical', type: 'Domain', children: [
-        ...(Array.isArray(p.allergies)           ? p.allergies.map(a           => ({ label: `Allergy: ${a}`,   type: 'Risk'      })) : []),
-        ...(Array.isArray(p.medical_conditions)  ? p.medical_conditions.map(c  => ({ label: `Condition: ${c}`, type: 'Condition' })) : []),
-        ...(Array.isArray(p.current_medications) ? p.current_medications.map(m => ({ label: `Med: ${m}`,       type: 'Medication'})) : [])
-      ] },
-      { label: 'Coverage', type: 'Domain', children: [
-        p.medical_aid_provider && { label: `Aid: ${p.medical_aid_provider}`, type: 'Attribute' },
-        p.primary_doctor       && { label: `Dr: ${p.primary_doctor}`,        type: 'Attribute' }
-      ].filter(Boolean) }
-    ]
-  };
-}
-
-function renderOntologyNode(node, depth) {
-  if (!node) return '';
-  const colors = {
-    Patient: 'var(--teal)', Domain: 'var(--indigo)', Risk: 'var(--red)',
-    CriticalAttribute: 'var(--red)', Condition: 'var(--amber)',
-    Medication: 'var(--green)', Attribute: 'var(--text-muted)'
-  };
-  const c = colors[node.type] || 'var(--text-secondary)';
-  const prefix = depth === 0 ? '◈' : depth === 1 ? '◦' : '·';
-  const childrenHtml = node.children?.length
-    ? `<div class="ontology-child">${node.children.map(ch => renderOntologyNode(ch, depth + 1)).join('')}</div>`
-    : '';
-  return `<div class="ontology-node"><span style="color:${c};font-size:${depth === 0 ? 13 : 12}px;font-weight:${depth === 0 ? 700 : 500}">${prefix} ${esc(node.label)}</span></div>${childrenHtml}`;
-}
-
-// ────────────────────────────────────────────
-// File handling
-// ────────────────────────────────────────────
-function handleAiFile(event) { Array.from(event.target.files).forEach(processAiFile); }
-function aiDragOver(e)  { e.preventDefault(); document.getElementById('ai-media-drop').classList.add('dragging'); }
-function aiDragLeave()  { document.getElementById('ai-media-drop').classList.remove('dragging'); }
-function aiDrop(e) {
-  e.preventDefault();
-  document.getElementById('ai-media-drop').classList.remove('dragging');
-  Array.from(e.dataTransfer.files).forEach(processAiFile);
-}
-
-function processAiFile(file) {
-  if (aiFiles.length >= 4) { toast('Max 4 files at once', 'warn'); return; }
-  const reader = new FileReader();
-  reader.onload = () => {
-    const base64    = reader.result.split(',')[1];
-    const mediaType = file.type;
-    const fileType  = file.type.startsWith('image/') ? 'image'
-                    : file.type.startsWith('audio/') ? 'audio'
-                    : 'document';
-    aiFiles.push({ name: file.name, type: fileType, base64, mediaType });
-    renderAiFileList();
-  };
-  reader.readAsDataURL(file);
-}
-
-function renderAiFileList() {
-  const listEl    = document.getElementById('ai-file-list');
-  const previewEl = document.getElementById('ai-uploaded-preview');
-  const icons     = { image: '🖼️', audio: '🎵', document: '📄' };
-
-  listEl.innerHTML = aiFiles.map((f, i) => `
-    <div class="ai-uploaded-item">
-      <span class="ai-uploaded-icon">${icons[f.type]}</span>
-      <span class="ai-uploaded-name">${esc(f.name)}</span>
-      <button class="ai-uploaded-remove" onclick="removeAiFile(${i})">×</button>
-    </div>`).join('');
-
-  previewEl.innerHTML = aiFiles.length ? `
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
-      ${aiFiles.map((f, i) => `
-        <div style="display:flex;align-items:center;gap:5px;background:var(--purple-dim);border:1px solid rgba(123,94,167,.2);border-radius:6px;padding:3px 8px;font-size:11.5px;color:var(--purple)">
-          <span>${icons[f.type]}</span>${esc(f.name.slice(0, 18))}
-          <button onclick="removeAiFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--purple);font-size:13px;opacity:.6;padding:0 0 0 3px">×</button>
-        </div>`).join('')}
-    </div>` : '';
-}
-
-function removeAiFile(i) { aiFiles.splice(i, 1); renderAiFileList(); }
-
-// ────────────────────────────────────────────
-// Modal UX helpers
-// ────────────────────────────────────────────
+/* ════════════════ MODAL UX ════════════════ */
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) closeModal(overlay.id);
-  });
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(overlay.id); });
 });
-
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
-  }
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
 });
-
 document.querySelectorAll('.modal').forEach(m => {
   m.addEventListener('touchmove', e => e.stopPropagation(), { passive: true });
 });
-
 </script>
 </body>
 </html>
