@@ -1307,7 +1307,7 @@ tbody tr:hover td{background:rgba(0,180,216,.02);}
 /* ════════════════ CONFIG ════════════════ */
 const SUPABASE_URL = 'https://pzioskykakwhwdlcmwyv.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
-const OLLAMA_BASE = 'http://localhost:11434';
+const OLLAMA_BASE  = 'http://localhost:11434';
 
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1322,12 +1322,10 @@ let activeFilter = 'all', apptFilter = 'all', billFilter = 'all';
 let pillData = { allergies:[], current_medications:[], medical_conditions:[], surgical_history:[], vaccination_history:[] };
 let invLineCount = 1;
 
-// Calendar state
 let calDate = new Date();
 let selectedCalDate = new Date();
 selectedCalDate.setHours(0,0,0,0);
 
-// AI state
 let aiMessages = [];
 let aiFiles = [];
 let currentAiModel = 'gemma4:e4b';
@@ -1548,7 +1546,6 @@ function showApp() {
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-ZA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
   if (canDo('manage_team')) { document.getElementById('nav-admin-label').style.display = ''; document.getElementById('nav-team').style.display = ''; }
   if (!canDo('insert')) { const btn = document.getElementById('btn-new-patient'); if (btn) btn.style.display = 'none'; }
-  // Set default dates
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('appt-date').value = today;
   document.getElementById('inv-date').value = today;
@@ -1557,10 +1554,7 @@ function showApp() {
   const isMobile = window.innerWidth <= 768;
   if (isMobile) { showSection('patients', null); setBottomNav('patients'); }
   else { showSection('dashboard', null); }
-  // Load patients first; booking/dashboard depend on it
-  loadPatients().then(() => {
-    loadScanLogs();
-  });
+  loadPatients().then(() => loadScanLogs());
 }
 
 /* ════════════════ PATIENTS ════════════════ */
@@ -1572,7 +1566,6 @@ async function loadPatients() {
   allPatients = data || []; patients = [...allPatients];
   renderPatients();
   populatePatientSelects();
-  // Now load appointments (needs patients loaded for KPIs)
   await loadAppointments();
   renderDashboard();
 }
@@ -1687,16 +1680,14 @@ function renderDashboard() {
   renderAlerts();
 }
 function renderApptBarChart() {
-  const days = [];
-  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const days = []; const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
     const ds = d.toISOString().split('T')[0];
     days.push({ label: dayNames[d.getDay()], ds, count: allAppointments.filter(a => a.appointment_date && a.appointment_date.startsWith(ds)).length });
   }
   const max = Math.max(...days.map(d => d.count), 1);
-  const chart = document.getElementById('appt-bar-chart');
-  chart.innerHTML = days.map((d, i) => `<div class="bar-wrap"><div class="bar${i===6?' appt':''}" style="height:${Math.max(Math.round(d.count/max*100),4)}%" title="${d.count} appts"></div><div class="bar-label">${d.label}</div></div>`).join('');
+  document.getElementById('appt-bar-chart').innerHTML = days.map((d, i) => `<div class="bar-wrap"><div class="bar${i===6?' appt':''}" style="height:${Math.max(Math.round(d.count/max*100),4)}%" title="${d.count} appts"></div><div class="bar-label">${d.label}</div></div>`).join('');
 }
 function renderAlerts() {
   const alerts = [];
@@ -1740,18 +1731,11 @@ async function loadScanLogs() {
 /* ════════════════════════════════════════════
    BOOKING / APPOINTMENTS (Supabase-backed)
 ════════════════════════════════════════════ */
-
 async function loadAppointments() {
-  const { data, error } = await sb
-    .from('appointments')
-    .select('*, patients(full_name)')
-    .eq('user_id', currentUser.id)
-    .order('appointment_date', { ascending: true });
+  const { data, error } = await sb.from('appointments').select('*, patients(full_name)').eq('user_id', currentUser.id).order('appointment_date', { ascending: true });
   if (error) { toast('Failed to load appointments: ' + error.message, 'error'); return; }
   allAppointments = (data || []).map(a => ({ ...a, patient_name: a.patients?.full_name || 'Unknown' }));
-  renderCalendar();
-  renderApptList();
-  renderReminders();
+  renderCalendar(); renderApptList(); renderReminders();
 }
 
 function openBookingModal(prefillPatientId) {
@@ -1792,17 +1776,16 @@ async function saveAppointment() {
   const date      = document.getElementById('appt-date').value;
   const time      = document.getElementById('appt-time').value;
   if (!patientId) { toast('Please select a patient', 'error'); return; }
-  if (!date)      { toast('Please select a date', 'error'); return; }
-  if (!time)      { toast('Please select a time', 'error'); return; }
+  if (!date)      { toast('Please select a date',    'error'); return; }
+  if (!time)      { toast('Please select a time',    'error'); return; }
   const appointmentDate = `${date}T${time}:00`;
   const editId = document.getElementById('save-appt-btn').dataset.editId || '';
-  // Conflict check
   const conflict = allAppointments.find(a =>
     a.appointment_date?.startsWith(date + 'T' + time) &&
-    a.status !== 'cancelled' &&
-    a.id !== editId
+    a.status !== 'cancelled' && a.id !== editId
   );
   if (conflict) { toast(`⚠ Time conflict with ${conflict.patient_name}`, 'error'); return; }
+  const patient = allPatients.find(p => p.id === patientId);
   const payload = {
     user_id: currentUser.id, patient_id: patientId,
     appointment_date: appointmentDate,
@@ -1815,18 +1798,56 @@ async function saveAppointment() {
     remind_2h:    document.getElementById('remind-2h').checked
   };
   const btn = document.getElementById('save-appt-btn'); setLoading(btn, true);
-  let error;
+  let error, savedAppt;
   if (editId) {
-    ({ error } = await sb.from('appointments').update(payload).eq('id', editId).eq('user_id', currentUser.id));
+    const { data, error: e } = await sb.from('appointments').update(payload).eq('id', editId).eq('user_id', currentUser.id).select().single();
+    error = e; savedAppt = data;
   } else {
-    ({ error } = await sb.from('appointments').insert(payload));
+    const { data, error: e } = await sb.from('appointments').insert(payload).select().single();
+    error = e; savedAppt = data;
+  }
+  if (error) { setLoading(btn, false); toast('Save failed: ' + error.message, 'error'); return; }
+  // Queue reminders via Edge Function (fire-and-forget)
+  if (savedAppt && (payload.remind_sms || payload.remind_email || payload.remind_2h)) {
+    queueReminders({
+      appointment_id:   savedAppt.id,
+      patient_id:       patientId,
+      patient_name:     patient?.full_name || 'Patient',
+      patient_phone:    patient?.phone     || null,
+      patient_email:    patient?.email     || null,
+      appointment_date: appointmentDate,
+      appointment_type: payload.type,
+      remind_sms:       payload.remind_sms,
+      remind_email:     payload.remind_email,
+      remind_2h:        payload.remind_2h
+    });
   }
   setLoading(btn, false);
-  if (error) { toast('Save failed: ' + error.message, 'error'); return; }
   toast(editId ? 'Appointment updated' : 'Appointment booked', 'success');
   closeModal('booking-modal');
-  await loadAppointments();
-  renderDashboard();
+  await loadAppointments(); renderDashboard();
+}
+
+async function queueReminders(data) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/queue-reminders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey':        SUPABASE_KEY
+      },
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (!res.ok) { console.error('queue-reminders failed:', result); toast('Reminders could not be queued: ' + (result.error || 'unknown error'), 'warn'); return; }
+    if (result.queued > 0) toast(`${result.queued} reminder${result.queued > 1 ? 's' : ''} queued`, 'info');
+  } catch (err) {
+    console.error('queueReminders error:', err);
+    toast('Reminder queuing failed — check console', 'warn');
+  }
 }
 
 async function updateApptStatus(id, status) {
@@ -1848,30 +1869,20 @@ async function deleteAppt(id) {
 function setApptFilter(f, el) {
   apptFilter = f;
   document.querySelectorAll('#section-booking .filter-chip').forEach(c => c.classList.remove('active'));
-  if (el) el.classList.add('active');
-  renderApptList();
+  if (el) el.classList.add('active'); renderApptList();
 }
 
 function renderApptList() {
   const el = document.getElementById('appt-list');
-  const ds = [
-    selectedCalDate.getFullYear(),
-    String(selectedCalDate.getMonth()+1).padStart(2,'0'),
-    String(selectedCalDate.getDate()).padStart(2,'0')
-  ].join('-');
+  const ds = [selectedCalDate.getFullYear(), String(selectedCalDate.getMonth()+1).padStart(2,'0'), String(selectedCalDate.getDate()).padStart(2,'0')].join('-');
   const dateLabel = selectedCalDate.toLocaleDateString('en-ZA', { weekday:'long', day:'numeric', month:'long' });
   setText('appt-day-label', dateLabel);
   let list = allAppointments.filter(a => a.appointment_date && a.appointment_date.startsWith(ds));
   if (apptFilter !== 'all') list = list.filter(a => a.status === apptFilter);
   if (!list.length) {
     const now = new Date();
-    const upcoming = allAppointments
-      .filter(a => new Date(a.appointment_date) >= now && a.status !== 'cancelled')
-      .slice(0, 5);
-    if (!upcoming.length) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No appointments</div><div class="empty-desc">Nothing on ${dateLabel}. Book one above.</div></div>`;
-      return;
-    }
+    const upcoming = allAppointments.filter(a => new Date(a.appointment_date) >= now && a.status !== 'cancelled').slice(0, 5);
+    if (!upcoming.length) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-title">No appointments</div><div class="empty-desc">Nothing on ${dateLabel}. Book one above.</div></div>`; return; }
     el.innerHTML = `<div style="padding:10px 16px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)">Next upcoming</div>` + upcoming.map(a => apptItemHtml(a)).join('');
     return;
   }
@@ -1920,9 +1931,7 @@ function apptItemHtml(a) {
 function renderCalendar() {
   const y = calDate.getFullYear(), m = calDate.getMonth();
   document.getElementById('cal-month-label').textContent = calDate.toLocaleString('default', { month:'long', year:'numeric' });
-  const firstDay    = new Date(y, m, 1).getDay();
-  const daysInMonth = new Date(y, m+1, 0).getDate();
-  const daysInPrev  = new Date(y, m, 0).getDate();
+  const firstDay = new Date(y, m, 1).getDay(), daysInMonth = new Date(y, m+1, 0).getDate(), daysInPrev = new Date(y, m, 0).getDate();
   const today = new Date(); today.setHours(0,0,0,0);
   const todayS = today.toISOString().split('T')[0];
   const selS   = [selectedCalDate.getFullYear(), String(selectedCalDate.getMonth()+1).padStart(2,'0'), String(selectedCalDate.getDate()).padStart(2,'0')].join('-');
@@ -1942,42 +1951,70 @@ function selectDay(y, m, d) { selectedCalDate = new Date(y, m, d); selectedCalDa
 function prevMonth() { calDate = new Date(calDate.getFullYear(), calDate.getMonth()-1, 1); renderCalendar(); }
 function nextMonth() { calDate = new Date(calDate.getFullYear(), calDate.getMonth()+1, 1); renderCalendar(); }
 
-/* ── Reminders ── */
-function renderReminders() {
-  const el  = document.getElementById('reminders-list');
-  const now = new Date();
-  const upcoming = allAppointments
-    .filter(a => a.status !== 'cancelled' && a.status !== 'completed' && new Date(a.appointment_date) > now)
-    .sort((a,b) => new Date(a.appointment_date)-new Date(b.appointment_date))
-    .slice(0, 8);
-  if (!upcoming.length) { el.innerHTML = '<div style="padding:14px 16px;font-size:12.5px;color:var(--text-muted)">No upcoming reminders</div>'; return; }
-  el.innerHTML = upcoming.map(a => {
-    const dt = new Date(a.appointment_date);
+/* ── Reminders — live status from Supabase ── */
+async function renderReminders() {
+  const el = document.getElementById('reminders-list');
+  el.innerHTML = '<div style="padding:14px 16px;color:var(--text-muted);font-size:12.5px;display:flex;align-items:center;gap:8px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Loading reminders…</div>';
+  const { data, error } = await sb
+    .from('reminders')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .gte('appointment_date', new Date().toISOString())
+    .order('scheduled_for', { ascending: true })
+    .limit(20);
+  if (error) { el.innerHTML = `<div style="padding:14px 16px;font-size:12px;color:var(--red)">Failed to load reminders: ${esc(error.message)}</div>`; return; }
+  if (!data || !data.length) { el.innerHTML = '<div style="padding:14px 16px;font-size:12.5px;color:var(--text-muted)">No upcoming reminders</div>'; return; }
+  const statusConfig = {
+    queued:  { label:'Queued',  bg:'var(--teal-subtle)', color:'var(--teal-dim)', dot:'var(--teal)'  },
+    sent:    { label:'Sent',    bg:'var(--green-dim)',   color:'#1a9e92',         dot:'var(--green)' },
+    failed:  { label:'Failed',  bg:'var(--red-dim)',     color:'var(--red)',      dot:'var(--red)'   },
+    skipped: { label:'Skipped', bg:'var(--amber-dim)',   color:'#c07a20',         dot:'var(--amber)' }
+  };
+  el.innerHTML = data.map(r => {
+    const dt         = new Date(r.scheduled_for);
+    const now        = new Date();
     const hoursUntil = Math.round((dt - now) / 3600000);
-    const urgency  = hoursUntil <= 2 ? 'var(--red)' : hoursUntil <= 24 ? 'var(--amber)' : 'var(--teal-dim)';
-    const channels = [a.remind_sms && 'SMS', a.remind_email && 'Email', a.remind_2h && '2h'].filter(Boolean);
-    return `<div class="reminder-chip">
-      <div class="reminder-time" style="color:${urgency}">${dt.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>
-      <div class="reminder-info">
-        <div class="reminder-name">${esc(a.patient_name)}</div>
-        <div class="reminder-sub">${esc(a.type)} · ${fmtDate(a.appointment_date)} · in ${hoursUntil < 1 ? '<1' : hoursUntil}h</div>
+    const urgency    = r.status === 'failed' ? 'var(--red)' : hoursUntil <= 2 ? 'var(--red)' : hoursUntil <= 24 ? 'var(--amber)' : 'var(--teal-dim)';
+    const sc         = statusConfig[r.status] || statusConfig.queued;
+    const apptStr    = new Date(r.appointment_date).toLocaleString('en-ZA', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+    const chClass    = r.channel === 'sms' ? 'ch-sms' : 'ch-email';
+    const chLabel    = r.channel === 'sms' ? 'SMS' : 'Email';
+    return `<div class="reminder-chip" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div class="reminder-time" style="color:${urgency};min-width:52px;text-align:center">${dt.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="reminder-info" style="flex:1;min-width:0">
+          <div class="reminder-name">${esc(r.patient_name)}</div>
+          <div class="reminder-sub">${esc(r.appointment_type)} · ${apptStr}${hoursUntil > 0 ? ' · in ' + (hoursUntil < 1 ? '<1' : hoursUntil) + 'h' : ''}</div>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
+          <span class="reminder-channel ${chClass}">${chLabel}</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:${sc.bg};color:${sc.color}">
+            <span style="width:5px;height:5px;border-radius:50%;background:${sc.dot};flex-shrink:0;display:inline-block"></span>${sc.label}
+          </span>
+        </div>
       </div>
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
-        ${channels.map(c => `<span class="reminder-channel ${c==='SMS'?'ch-sms':c==='Email'?'ch-email':'ch-push'}">${c}</span>`).join('')}
-      </div>
+      ${r.status === 'failed' && r.error_message ? `
+        <div style="font-size:11px;color:var(--red);background:var(--red-dim);border:1px solid var(--red-border);border-radius:6px;padding:5px 9px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span>⚠ ${esc(r.error_message.slice(0,100))}</span>
+          <button onclick="retryReminder('${esc(r.id)}')" style="font-size:10px;font-weight:700;background:var(--red);color:white;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;flex-shrink:0">Retry</button>
+        </div>` : ''}
     </div>`;
   }).join('');
 }
+
+async function retryReminder(reminderId) {
+  const { error } = await sb.from('reminders').update({ status: 'queued', error_message: null }).eq('id', reminderId).eq('user_id', currentUser.id);
+  if (error) { toast('Retry failed: ' + error.message, 'error'); return; }
+  toast('Reminder re-queued', 'success'); renderReminders();
+}
+
 function refreshReminders() { renderReminders(); }
 
 /* ════════════════ BILLING / INVOICES ════════════════ */
 const INV_KEY = `lumenos_invoices_${SUPABASE_URL.slice(-8)}`;
 function loadInvStore() { try { return JSON.parse(localStorage.getItem(INV_KEY) || '[]'); } catch(e) { return []; } }
 function saveInvStore(data) { try { localStorage.setItem(INV_KEY, JSON.stringify(data)); } catch(e) {} }
-async function loadInvoices() {
-  allInvoices = loadInvStore().filter(i => i.user_id === currentUser.id);
-  invoices = [...allInvoices]; renderInvoices();
-}
+async function loadInvoices() { allInvoices = loadInvStore().filter(i => i.user_id === currentUser.id); invoices = [...allInvoices]; renderInvoices(); }
 function openInvoiceModal() {
   invLineCount = 1;
   const today = new Date().toISOString().split('T')[0];
@@ -1992,8 +2029,7 @@ function openInvoiceModal() {
   openModal('invoice-modal');
 }
 function addInvLine() {
-  const idx = invLineCount++;
-  const div = document.createElement('div');
+  const idx = invLineCount++; const div = document.createElement('div');
   div.className = 'invoice-line'; div.id = `inv-line-${idx}`; div.style.cssText = 'gap:8px;align-items:center;padding:6px 0';
   div.innerHTML = `<input style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;outline:none;color:var(--text-primary)" placeholder="Description" id="inv-line-${idx}-desc"><input style="width:100px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;font-size:13px;outline:none;color:var(--text-primary)" type="number" placeholder="Amount" id="inv-line-${idx}-amt"><button onclick="this.parentElement.remove()" style="width:28px;height:28px;border:1px solid var(--red-border);border-radius:6px;background:var(--red-dim);color:var(--red);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0">×</button>`;
   document.getElementById('inv-lines').appendChild(div);
@@ -2004,35 +2040,19 @@ async function saveInvoice() {
   const patient = allPatients.find(p => p.id === patientId);
   const lines = []; let total = 0;
   for (let i = 0; i < invLineCount + 5; i++) {
-    const descEl = document.getElementById(`inv-line-${i}-desc`);
-    const amtEl  = document.getElementById(`inv-line-${i}-amt`);
+    const descEl = document.getElementById(`inv-line-${i}-desc`); const amtEl = document.getElementById(`inv-line-${i}-amt`);
     if (!descEl || !descEl.closest('#inv-lines')) continue;
     const desc = descEl.value.trim(); const amt = parseFloat(amtEl.value) || 0;
     if (desc) { lines.push({ description: desc, amount: amt }); total += amt; }
   }
   if (!lines.length) { toast('Add at least one line item', 'error'); return; }
   const btn = document.getElementById('save-inv-btn'); setLoading(btn, true);
-  const inv = {
-    id: crypto.randomUUID(), user_id: currentUser.id, patient_id: patientId,
-    patient_name: patient?.full_name || 'Unknown',
-    invoice_number: 'INV-' + String(loadInvStore().length + 1).padStart(4,'0'),
-    date: document.getElementById('inv-date').value,
-    due_date: document.getElementById('inv-due').value,
-    lines, total, status: document.getElementById('inv-status').value,
-    payment_method: document.getElementById('inv-payment').value,
-    notes: document.getElementById('inv-notes').value.trim(),
-    created_at: new Date().toISOString()
-  };
+  const inv = { id: crypto.randomUUID(), user_id: currentUser.id, patient_id: patientId, patient_name: patient?.full_name || 'Unknown', invoice_number: 'INV-' + String(loadInvStore().length + 1).padStart(4,'0'), date: document.getElementById('inv-date').value, due_date: document.getElementById('inv-due').value, lines, total, status: document.getElementById('inv-status').value, payment_method: document.getElementById('inv-payment').value, notes: document.getElementById('inv-notes').value.trim(), created_at: new Date().toISOString() };
   const store = loadInvStore(); store.push(inv); saveInvStore(store);
   allInvoices = store.filter(i => i.user_id === currentUser.id); invoices = [...allInvoices];
-  setLoading(btn, false); toast('Invoice created', 'success');
-  closeModal('invoice-modal'); renderInvoices();
+  setLoading(btn, false); toast('Invoice created', 'success'); closeModal('invoice-modal'); renderInvoices();
 }
-function setBillFilter(f, el) {
-  billFilter = f;
-  document.querySelectorAll('#section-billing .filter-chip').forEach(c => c.classList.remove('active'));
-  if (el) el.classList.add('active'); filterInvoices();
-}
+function setBillFilter(f, el) { billFilter = f; document.querySelectorAll('#section-billing .filter-chip').forEach(c => c.classList.remove('active')); if (el) el.classList.add('active'); filterInvoices(); }
 function filterInvoices() {
   const q = (document.getElementById('invoice-search')?.value||'').toLowerCase();
   let list = q ? allInvoices.filter(i => (i.patient_name||'').toLowerCase().includes(q) || (i.invoice_number||'').toLowerCase().includes(q)) : [...allInvoices];
@@ -2040,43 +2060,20 @@ function filterInvoices() {
   invoices = list; renderInvoices();
 }
 function renderInvoices() {
-  const totalBilled = allInvoices.reduce((s,i) => s+i.total, 0);
-  const totalPaid   = allInvoices.filter(i => i.status==='paid').reduce((s,i) => s+i.total, 0);
-  const totalOut    = allInvoices.filter(i => i.status!=='paid').reduce((s,i) => s+i.total, 0);
-  setText('bill-total', fmtCurrency(totalBilled));
-  setText('bill-outstanding', fmtCurrency(totalOut));
-  setText('bill-paid', fmtCurrency(totalPaid));
+  setText('bill-total', fmtCurrency(allInvoices.reduce((s,i) => s+i.total, 0)));
+  setText('bill-outstanding', fmtCurrency(allInvoices.filter(i => i.status!=='paid').reduce((s,i) => s+i.total, 0)));
+  setText('bill-paid', fmtCurrency(allInvoices.filter(i => i.status==='paid').reduce((s,i) => s+i.total, 0)));
   const el = document.getElementById('invoices-list');
   if (!invoices.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">🧾</div><div class="empty-title">No invoices yet</div><div class="empty-desc">Create your first invoice above</div></div>'; return; }
   const statusBadge = { unpaid:'badge-amber', paid:'badge-green', overdue:'badge-red', partial:'badge-indigo' };
   el.innerHTML = invoices.map(inv => `<div class="invoice-card">
-    <div class="invoice-header">
-      <div style="flex:1"><div class="invoice-num">${esc(inv.invoice_number)}</div><div class="invoice-patient">${esc(inv.patient_name)}</div></div>
-      <div style="text-align:right"><div class="invoice-amount">${fmtCurrency(inv.total)}</div><span class="badge ${statusBadge[inv.status]||'badge-amber'}" style="margin-top:4px">${esc(inv.status)}</span></div>
-    </div>
+    <div class="invoice-header"><div style="flex:1"><div class="invoice-num">${esc(inv.invoice_number)}</div><div class="invoice-patient">${esc(inv.patient_name)}</div></div><div style="text-align:right"><div class="invoice-amount">${fmtCurrency(inv.total)}</div><span class="badge ${statusBadge[inv.status]||'badge-amber'}" style="margin-top:4px">${esc(inv.status)}</span></div></div>
     <div class="invoice-body">${inv.lines.map(l => `<div class="invoice-line"><span class="invoice-line-name">${esc(l.description)}</span><span class="invoice-line-amount">${fmtCurrency(l.amount)}</span></div>`).join('')}</div>
-    <div class="invoice-footer">
-      <div style="font-size:11.5px;color:var(--text-muted)">Due: ${fmtDate(inv.due_date)} ${inv.payment_method ? '· ' + esc(inv.payment_method) : ''}</div>
-      <div style="display:flex;gap:6px">
-        ${inv.status !== 'paid' ? `<button class="btn-ghost" style="padding:5px 10px;font-size:12px" onclick="markPaid('${esc(inv.id)}')">Mark Paid</button>` : ''}
-        <button class="btn-ghost" style="padding:5px 10px;font-size:12px" onclick="printInvoice('${esc(inv.id)}')">Print</button>
-        <button class="btn-icon danger" onclick="deleteInvoice('${esc(inv.id)}')" style="width:28px;height:28px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
-      </div>
-    </div>
+    <div class="invoice-footer"><div style="font-size:11.5px;color:var(--text-muted)">Due: ${fmtDate(inv.due_date)} ${inv.payment_method ? '· ' + esc(inv.payment_method) : ''}</div><div style="display:flex;gap:6px">${inv.status !== 'paid' ? `<button class="btn-ghost" style="padding:5px 10px;font-size:12px" onclick="markPaid('${esc(inv.id)}')">Mark Paid</button>` : ''}<button class="btn-ghost" style="padding:5px 10px;font-size:12px" onclick="printInvoice('${esc(inv.id)}')">Print</button><button class="btn-icon danger" onclick="deleteInvoice('${esc(inv.id)}')" style="width:28px;height:28px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button></div></div>
   </div>`).join('');
 }
-function markPaid(id) {
-  const store = loadInvStore(); const idx = store.findIndex(i => i.id === id);
-  if (idx >= 0) { store[idx].status = 'paid'; saveInvStore(store); }
-  allInvoices = store.filter(i => i.user_id === currentUser.id); invoices = [...allInvoices];
-  renderInvoices(); toast('Invoice marked as paid', 'success');
-}
-function deleteInvoice(id) {
-  if (!confirm('Delete this invoice?')) return;
-  const store = loadInvStore().filter(i => i.id !== id); saveInvStore(store);
-  allInvoices = store.filter(i => i.user_id === currentUser.id); invoices = [...allInvoices];
-  renderInvoices(); toast('Invoice deleted', 'warn');
-}
+function markPaid(id) { const store = loadInvStore(); const idx = store.findIndex(i => i.id === id); if (idx >= 0) { store[idx].status = 'paid'; saveInvStore(store); } allInvoices = store.filter(i => i.user_id === currentUser.id); invoices = [...allInvoices]; renderInvoices(); toast('Invoice marked as paid', 'success'); }
+function deleteInvoice(id) { if (!confirm('Delete this invoice?')) return; const store = loadInvStore().filter(i => i.id !== id); saveInvStore(store); allInvoices = store.filter(i => i.user_id === currentUser.id); invoices = [...allInvoices]; renderInvoices(); toast('Invoice deleted', 'warn'); }
 function printInvoice(id) {
   const inv = allInvoices.find(i => i.id === id); if (!inv) return;
   const win = window.open('', '_blank');
@@ -2091,8 +2088,7 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 /* ════════════════ PATIENT FORM ════════════════ */
 function openAddModal() {
   if (!canDo('insert')) { toast('No permission to add patients', 'error'); return; }
-  editingPatientId = null;
-  document.getElementById('modal-title').textContent = 'New Patient';
+  editingPatientId = null; document.getElementById('modal-title').textContent = 'New Patient';
   resetForm(); switchFormTab('identity', null); openModal('patient-modal');
 }
 function resetForm() {
@@ -2113,25 +2109,15 @@ async function savePatient() {
   if (!name) { toast('Full name required', 'error'); switchFormTab('identity', null); return; }
   const btn = document.getElementById('save-btn'); setLoading(btn, true);
   const payload = {
-    full_name: name,
-    id_number: document.getElementById('f-id_number').value.trim()||null,
-    date_of_birth: document.getElementById('f-date_of_birth').value||null,
-    phone: document.getElementById('f-phone').value.trim()||null,
-    email: document.getElementById('f-email').value.trim()||null,
-    blood_type: document.getElementById('f-blood_type').value||null,
-    emergency_contact_name: document.getElementById('f-emergency_contact_name').value.trim()||null,
-    emergency_contact_relation: document.getElementById('f-emergency_contact_relation').value.trim()||null,
-    emergency_contact_phone: document.getElementById('f-emergency_contact_phone').value.trim()||null,
-    medical_aid_provider: document.getElementById('f-medical_aid_provider').value.trim()||null,
-    medical_aid_number: document.getElementById('f-medical_aid_number').value.trim()||null,
-    primary_doctor: document.getElementById('f-primary_doctor').value.trim()||null,
-    doctor_contact: document.getElementById('f-doctor_contact').value.trim()||null,
-    advance_directive: document.getElementById('f-advance_directive').value.trim()||null,
+    full_name: name, id_number: document.getElementById('f-id_number').value.trim()||null, date_of_birth: document.getElementById('f-date_of_birth').value||null,
+    phone: document.getElementById('f-phone').value.trim()||null, email: document.getElementById('f-email').value.trim()||null, blood_type: document.getElementById('f-blood_type').value||null,
+    emergency_contact_name: document.getElementById('f-emergency_contact_name').value.trim()||null, emergency_contact_relation: document.getElementById('f-emergency_contact_relation').value.trim()||null,
+    emergency_contact_phone: document.getElementById('f-emergency_contact_phone').value.trim()||null, medical_aid_provider: document.getElementById('f-medical_aid_provider').value.trim()||null,
+    medical_aid_number: document.getElementById('f-medical_aid_number').value.trim()||null, primary_doctor: document.getElementById('f-primary_doctor').value.trim()||null,
+    doctor_contact: document.getElementById('f-doctor_contact').value.trim()||null, advance_directive: document.getElementById('f-advance_directive').value.trim()||null,
     notes: document.getElementById('f-notes').value.trim()||null,
-    allergies: pillData.allergies.length ? pillData.allergies : null,
-    current_medications: pillData.current_medications.length ? pillData.current_medications : null,
-    medical_conditions: pillData.medical_conditions.length ? pillData.medical_conditions : null,
-    surgical_history: pillData.surgical_history.length ? pillData.surgical_history : null,
+    allergies: pillData.allergies.length ? pillData.allergies : null, current_medications: pillData.current_medications.length ? pillData.current_medications : null,
+    medical_conditions: pillData.medical_conditions.length ? pillData.medical_conditions : null, surgical_history: pillData.surgical_history.length ? pillData.surgical_history : null,
     vaccination_history: pillData.vaccination_history.length ? pillData.vaccination_history : null
   };
   let error;
@@ -2139,10 +2125,7 @@ async function savePatient() {
     const existing = allPatients.find(x => x.id === editingPatientId);
     if (!enforceOwnership(existing)) { setLoading(btn, false); return; }
     ({ error } = await sb.from('patients').update(payload).eq('id', editingPatientId).eq('user_id', currentUser.id));
-  } else {
-    payload.user_id = currentUser.id;
-    ({ error } = await sb.from('patients').insert(payload));
-  }
+  } else { payload.user_id = currentUser.id; ({ error } = await sb.from('patients').insert(payload)); }
   setLoading(btn, false);
   if (error) { toast('Save failed: ' + error.message, 'error'); return; }
   toast(editingPatientId ? 'Patient updated' : 'Patient added', 'success');
@@ -2164,9 +2147,7 @@ function switchFormTab(name, evt) {
   else document.querySelectorAll('.form-tab').forEach(t => { if ((t.getAttribute('onclick')||'').includes("'"+name+"'")) t.classList.add('active'); });
 }
 function focusPillInput(c) { c.querySelector('.pill-input').focus(); }
-function handlePillKey(e, key) {
-  if (e.key === 'Enter') { e.preventDefault(); const v = e.target.value.trim(); if (v && !pillData[key].includes(v)) { pillData[key].push(v); renderPills(key); } e.target.value = ''; }
-}
+function handlePillKey(e, key) { if (e.key === 'Enter') { e.preventDefault(); const v = e.target.value.trim(); if (v && !pillData[key].includes(v)) { pillData[key].push(v); renderPills(key); } e.target.value = ''; } }
 function renderPills(key) {
   const c = document.getElementById('pills-' + key); const inp = c.querySelector('.pill-input'); c.innerHTML = '';
   pillData[key].forEach((v, i) => { const p = document.createElement('div'); p.className = `pill${key==='allergies'?' danger':''}`; p.innerHTML = `${esc(v)}<button onclick="removePill('${esc(key)}',${i})">×</button>`; c.appendChild(p); });
@@ -2217,8 +2198,7 @@ function openQrFromView() { if (!viewingPatient) return; closeModal('view-modal'
 /* ════════════════ QR ════════════════ */
 function showQr(id) {
   const p = allPatients.find(x => x.id === id); if (!p) return;
-  qrPatientId = id;
-  document.getElementById('qr-patient-name').textContent = p.full_name;
+  qrPatientId = id; document.getElementById('qr-patient-name').textContent = p.full_name;
   document.getElementById('toggle-qr-btn').textContent = p.qr_active ? 'Deactivate QR' : 'Activate QR';
   const qrDiv = document.getElementById('qr-code-div'); qrDiv.innerHTML = '';
   const base = location.href.replace(/\/[^/]*$/, '');
@@ -2244,8 +2224,7 @@ async function regenerateToken() {
   const newToken = crypto.randomUUID();
   const { error } = await sb.from('patients').update({ qr_token: newToken }).eq('id', qrPatientId).eq('user_id', currentUser.id);
   if (error) { toast('Token rotation failed: ' + error.message, 'error'); return; }
-  toast('QR token rotated', 'warn'); p.qr_token = newToken;
-  closeModal('qr-modal'); showQr(qrPatientId);
+  toast('QR token rotated', 'warn'); p.qr_token = newToken; closeModal('qr-modal'); showQr(qrPatientId);
 }
 function printQr() {
   setTimeout(() => {
@@ -2279,93 +2258,56 @@ async function saveRole() {
 /* ════════════════════════════════════════════
    AI ASSISTANT — Gemma4 via Ollama
 ════════════════════════════════════════════ */
-
 async function checkOllamaStatus() {
   const el  = document.getElementById('ollama-status');
   const sel = document.getElementById('ai-model-select');
   try {
     const res = await fetch(`${OLLAMA_BASE}/api/tags`, { signal: AbortSignal.timeout(2500) });
     if (!res.ok) throw new Error('non-200');
-    const data   = await res.json();
-    const models = (data.models || []).map(m => m.name);
-    ollamaOnline = true;
-    el.className = 'ai-ollama-status online';
+    const data = await res.json(); const models = (data.models || []).map(m => m.name);
+    ollamaOnline = true; el.className = 'ai-ollama-status online';
     el.innerHTML = `<span>●</span> Ollama online · ${models.length} model${models.length !== 1 ? 's' : ''}`;
     if (models.length) {
       sel.innerHTML  = models.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
       const preferred = models.find(m => m.startsWith('gemma4')) || models[0];
-      sel.value       = preferred;
-      currentAiModel  = preferred;
-      setText('ai-model-label', preferred);
+      sel.value = preferred; currentAiModel = preferred; setText('ai-model-label', preferred);
     }
     return;
   } catch(e) {}
-  ollamaOnline   = false;
-  el.className   = 'ai-ollama-status offline';
-  el.innerHTML   = `<span>○</span> Ollama offline — run <code style="font-size:11px">ollama serve</code>`;
-  sel.innerHTML  = `<option value="gemma4:e4b">gemma4:e4b (offline)</option>`;
-  currentAiModel = 'gemma4:e4b';
-  setText('ai-model-label', 'gemma4:e4b (offline)');
+  ollamaOnline = false; el.className = 'ai-ollama-status offline';
+  el.innerHTML = `<span>○</span> Ollama offline — run <code style="font-size:11px">ollama serve</code>`;
+  sel.innerHTML = `<option value="gemma4:e4b">gemma4:e4b (offline)</option>`;
+  currentAiModel = 'gemma4:e4b'; setText('ai-model-label', 'gemma4:e4b (offline)');
 }
-
-function startOllamaPolling() {
-  checkOllamaStatus();
-  if (!_ollamaStatusInterval) _ollamaStatusInterval = setInterval(checkOllamaStatus, 30000);
-}
-function stopOllamaPolling() {
-  clearInterval(_ollamaStatusInterval);
-  _ollamaStatusInterval = null;
-}
-function updateAiModel() {
-  currentAiModel = document.getElementById('ai-model-select').value;
-  setText('ai-model-label', currentAiModel);
-}
+function startOllamaPolling() { checkOllamaStatus(); if (!_ollamaStatusInterval) _ollamaStatusInterval = setInterval(checkOllamaStatus, 30000); }
+function stopOllamaPolling() { clearInterval(_ollamaStatusInterval); _ollamaStatusInterval = null; }
+function updateAiModel() { currentAiModel = document.getElementById('ai-model-select').value; setText('ai-model-label', currentAiModel); }
 function populateAiPatientSelect() { populatePatientSelects(); }
 
 function loadAiPatientCtx() {
-  const id      = document.getElementById('ai-patient-ctx').value;
-  const display = document.getElementById('ai-patient-ctx-display');
-  const ontEl   = document.getElementById('ontology-display');
+  const id = document.getElementById('ai-patient-ctx').value;
+  const display = document.getElementById('ai-patient-ctx-display'); const ontEl = document.getElementById('ontology-display');
   if (!id) { display.innerHTML = ''; ontEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px">Select a patient to view their ontology graph.</div>'; return; }
   const p = allPatients.find(x => x.id === id); if (!p) return;
-  display.innerHTML = `<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;font-size:12px">
-    <div style="font-weight:700;color:var(--text-primary);margin-bottom:6px">${esc(p.full_name)}</div>
-    ${p.blood_type ? `<div style="color:var(--red);font-weight:600;margin-bottom:3px">🩸 ${esc(p.blood_type)}</div>` : ''}
-    ${Array.isArray(p.allergies)&&p.allergies.length ? `<div style="color:var(--red);margin-bottom:3px">⚠ ${p.allergies.map(esc).join(', ')}</div>` : ''}
-    ${Array.isArray(p.medical_conditions)&&p.medical_conditions.length ? `<div style="color:var(--text-secondary)">🏥 ${p.medical_conditions.map(esc).join(', ')}</div>` : ''}
-  </div>`;
+  display.innerHTML = `<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;font-size:12px"><div style="font-weight:700;color:var(--text-primary);margin-bottom:6px">${esc(p.full_name)}</div>${p.blood_type ? `<div style="color:var(--red);font-weight:600;margin-bottom:3px">🩸 ${esc(p.blood_type)}</div>` : ''}${Array.isArray(p.allergies)&&p.allergies.length ? `<div style="color:var(--red);margin-bottom:3px">⚠ ${p.allergies.map(esc).join(', ')}</div>` : ''}${Array.isArray(p.medical_conditions)&&p.medical_conditions.length ? `<div style="color:var(--text-secondary)">🏥 ${p.medical_conditions.map(esc).join(', ')}</div>` : ''}</div>`;
   ontEl.innerHTML = renderOntologyNode(buildOntology(p), 0);
 }
 function buildOntology(p) {
-  return {
-    label: p.full_name, type: 'Patient', children: [
-      { label: 'Identity', type: 'Domain', children: [
-        p.date_of_birth && { label: `DOB: ${fmtDate(p.date_of_birth)}`, type: 'Attribute' },
-        p.blood_type    && { label: `Blood: ${p.blood_type}`,           type: 'CriticalAttribute' },
-        p.id_number     && { label: `ID: ${p.id_number}`,               type: 'Attribute' }
-      ].filter(Boolean) },
-      { label: 'Clinical', type: 'Domain', children: [
-        ...(Array.isArray(p.allergies)           ? p.allergies.map(a           => ({ label: `Allergy: ${a}`,   type: 'Risk'      })) : []),
-        ...(Array.isArray(p.medical_conditions)  ? p.medical_conditions.map(c  => ({ label: `Condition: ${c}`, type: 'Condition' })) : []),
-        ...(Array.isArray(p.current_medications) ? p.current_medications.map(m => ({ label: `Med: ${m}`,       type: 'Medication'})) : [])
-      ] },
-      { label: 'Coverage', type: 'Domain', children: [
-        p.medical_aid_provider && { label: `Aid: ${p.medical_aid_provider}`, type: 'Attribute' },
-        p.primary_doctor       && { label: `Dr: ${p.primary_doctor}`,        type: 'Attribute' }
-      ].filter(Boolean) }
-    ]
-  };
+  return { label: p.full_name, type: 'Patient', children: [
+    { label: 'Identity', type: 'Domain', children: [p.date_of_birth && { label:`DOB: ${fmtDate(p.date_of_birth)}`, type:'Attribute' }, p.blood_type && { label:`Blood: ${p.blood_type}`, type:'CriticalAttribute' }, p.id_number && { label:`ID: ${p.id_number}`, type:'Attribute' }].filter(Boolean) },
+    { label: 'Clinical', type: 'Domain', children: [...(Array.isArray(p.allergies) ? p.allergies.map(a => ({ label:`Allergy: ${a}`, type:'Risk' })) : []), ...(Array.isArray(p.medical_conditions) ? p.medical_conditions.map(c => ({ label:`Condition: ${c}`, type:'Condition' })) : []), ...(Array.isArray(p.current_medications) ? p.current_medications.map(m => ({ label:`Med: ${m}`, type:'Medication' })) : [])] },
+    { label: 'Coverage', type: 'Domain', children: [p.medical_aid_provider && { label:`Aid: ${p.medical_aid_provider}`, type:'Attribute' }, p.primary_doctor && { label:`Dr: ${p.primary_doctor}`, type:'Attribute' }].filter(Boolean) }
+  ]};
 }
 function renderOntologyNode(node, depth) {
   if (!node) return '';
   const colors = { Patient:'var(--teal)', Domain:'var(--indigo)', Risk:'var(--red)', CriticalAttribute:'var(--red)', Condition:'var(--amber)', Medication:'var(--green)', Attribute:'var(--text-muted)' };
-  const c      = colors[node.type] || 'var(--text-secondary)';
-  const prefix = depth === 0 ? '◈' : depth === 1 ? '◦' : '·';
-  const kids   = node.children?.length ? `<div class="ontology-child">${node.children.map(ch => renderOntologyNode(ch, depth+1)).join('')}</div>` : '';
+  const c = colors[node.type] || 'var(--text-secondary)';
+  const prefix = depth===0?'◈':depth===1?'◦':'·';
+  const kids = node.children?.length ? `<div class="ontology-child">${node.children.map(ch => renderOntologyNode(ch, depth+1)).join('')}</div>` : '';
   return `<div class="ontology-node"><span style="color:${c};font-size:${depth===0?13:12}px;font-weight:${depth===0?700:500}">${prefix} ${esc(node.label)}</span></div>${kids}`;
 }
 
-/* ── File handling ── */
 function handleAiFile(event) { Array.from(event.target.files).forEach(processAiFile); }
 function aiDragOver(e)  { e.preventDefault(); document.getElementById('ai-media-drop').classList.add('dragging'); }
 function aiDragLeave()  { document.getElementById('ai-media-drop').classList.remove('dragging'); }
@@ -2374,23 +2316,19 @@ function processAiFile(file) {
   if (aiFiles.length >= 4) { toast('Max 4 files at once', 'warn'); return; }
   const reader = new FileReader();
   reader.onload = () => {
-    const base64   = reader.result.split(',')[1];
+    const base64 = reader.result.split(',')[1];
     const fileType = file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'audio' : 'document';
-    aiFiles.push({ name: file.name, type: fileType, base64, mediaType: file.type });
-    renderAiFileList();
+    aiFiles.push({ name: file.name, type: fileType, base64, mediaType: file.type }); renderAiFileList();
   };
   reader.readAsDataURL(file);
 }
 function renderAiFileList() {
-  const icons     = { image:'🖼️', audio:'🎵', document:'📄' };
-  const listEl    = document.getElementById('ai-file-list');
-  const previewEl = document.getElementById('ai-uploaded-preview');
-  listEl.innerHTML = aiFiles.map((f, i) => `<div class="ai-uploaded-item"><span class="ai-uploaded-icon">${icons[f.type]}</span><span class="ai-uploaded-name">${esc(f.name)}</span><button class="ai-uploaded-remove" onclick="removeAiFile(${i})">×</button></div>`).join('');
-  previewEl.innerHTML = aiFiles.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${aiFiles.map((f,i) => `<div style="display:flex;align-items:center;gap:5px;background:var(--purple-dim);border:1px solid rgba(123,94,167,.2);border-radius:6px;padding:3px 8px;font-size:11.5px;color:var(--purple)"><span>${icons[f.type]}</span>${esc(f.name.slice(0,18))}<button onclick="removeAiFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--purple);font-size:13px;opacity:.6;padding:0 0 0 3px">×</button></div>`).join('')}</div>` : '';
+  const icons = { image:'🖼️', audio:'🎵', document:'📄' };
+  document.getElementById('ai-file-list').innerHTML = aiFiles.map((f, i) => `<div class="ai-uploaded-item"><span class="ai-uploaded-icon">${icons[f.type]}</span><span class="ai-uploaded-name">${esc(f.name)}</span><button class="ai-uploaded-remove" onclick="removeAiFile(${i})">×</button></div>`).join('');
+  document.getElementById('ai-uploaded-preview').innerHTML = aiFiles.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${aiFiles.map((f,i) => `<div style="display:flex;align-items:center;gap:5px;background:var(--purple-dim);border:1px solid rgba(123,94,167,.2);border-radius:6px;padding:3px 8px;font-size:11.5px;color:var(--purple)"><span>${icons[f.type]}</span>${esc(f.name.slice(0,18))}<button onclick="removeAiFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--purple);font-size:13px;opacity:.6;padding:0 0 0 3px">×</button></div>`).join('')}</div>` : '';
 }
 function removeAiFile(i) { aiFiles.splice(i, 1); renderAiFileList(); }
 
-/* ── AI Chat ── */
 function autoGrow(ta) { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'; }
 function handleAiKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); } }
 function useChip(el) { document.getElementById('ai-input').value = el.textContent; document.getElementById('ai-input').focus(); }
@@ -2400,182 +2338,82 @@ function clearAiChat() {
 }
 
 async function sendAiMessage() {
-  const input    = document.getElementById('ai-input');
-  const text     = input.value.trim();
+  const input = document.getElementById('ai-input'); const text = input.value.trim();
   if (!text && !aiFiles.length) return;
-  const btn      = document.getElementById('btn-ai-send');
-  btn.disabled   = true;
-  const userText = text;
-  input.value    = '';
-  input.style.height = 'auto';
-
-  // Build display bubble
+  const btn = document.getElementById('btn-ai-send'); btn.disabled = true;
+  const userText = text; input.value = ''; input.style.height = 'auto';
   const icons = { image:'🖼️', audio:'🎵', document:'📄' };
-  const userDisplay = [
-    ...aiFiles.map(f => f.type === 'image'
-      ? `<img src="data:${f.mediaType};base64,${f.base64}" style="max-width:180px;max-height:120px;border-radius:8px;display:block;margin-bottom:4px">`
-      : `<span style="opacity:.7">${icons[f.type]} ${esc(f.name)}</span>`
-    ),
-    userText ? `<span>${esc(userText)}</span>` : ''
-  ].filter(Boolean).join('<br>');
-  appendAiMsg('user', userDisplay, true);
-
-  // Snapshot media before clearing
-  const sentImages = aiFiles.filter(f => f.type === 'image').map(f => f.base64);
-  const sentAudios = aiFiles.filter(f => f.type === 'audio').map(f => f.base64);
-
-  // Push to history — text only (media not stored in history)
-  aiMessages.push({ role: 'user', content: userText || '(see attached media)' });
-
-  aiFiles = [];
-  renderAiFileList();
-
-  // Typing indicator
-  const typingId  = 'typing-' + Date.now();
-  const typingDiv = document.createElement('div');
+  const userDisplay = [...aiFiles.map(f => f.type==='image' ? `<img src="data:${f.mediaType};base64,${f.base64}" style="max-width:180px;max-height:120px;border-radius:8px;display:block;margin-bottom:4px">` : `<span style="opacity:.7">${icons[f.type]} ${esc(f.name)}</span>`), userText ? `<span>${esc(userText)}</span>` : ''].filter(Boolean).join('<br>');
+  appendAiMsg('user', userDisplay);
+  const sentImages = aiFiles.filter(f => f.type==='image').map(f => f.base64);
+  const sentAudios = aiFiles.filter(f => f.type==='audio').map(f => f.base64);
+  aiMessages.push({ role:'user', content: userText || '(see attached media)' });
+  aiFiles = []; renderAiFileList();
+  const typingId = 'typing-' + Date.now(); const typingDiv = document.createElement('div');
   typingDiv.className = 'ai-msg'; typingDiv.id = typingId;
   typingDiv.innerHTML = `<div class="ai-msg-avatar assistant">🧠</div><div class="ai-typing"><span></span><span></span><span></span></div>`;
-  document.getElementById('ai-messages').appendChild(typingDiv);
-  scrollAiToBottom();
-
+  document.getElementById('ai-messages').appendChild(typingDiv); scrollAiToBottom();
   try {
-    const ctxPatientId = document.getElementById('ai-patient-ctx').value;
-    const ctxPatient   = allPatients.find(p => p.id === ctxPatientId);
-    const systemPrompt = buildAiSystemPrompt(ctxPatient);
-    const reply        = await callGemma4(systemPrompt, aiMessages, sentImages, sentAudios);
+    const ctxPatient = allPatients.find(p => p.id === document.getElementById('ai-patient-ctx').value);
+    const reply = await callGemma4(buildAiSystemPrompt(ctxPatient), aiMessages, sentImages, sentAudios);
     document.getElementById(typingId)?.remove();
-    aiMessages.push({ role: 'assistant', content: reply });
-    // Trim to last 20 turns
+    aiMessages.push({ role:'assistant', content: reply });
     if (aiMessages.length > 20) aiMessages = aiMessages.slice(-20);
-    appendAiMsg('assistant', formatAiReply(reply), false);
+    appendAiMsg('assistant', formatAiReply(reply));
   } catch (err) {
     document.getElementById(typingId)?.remove();
-    appendAiMsg('assistant',
-      `<span style="color:var(--red)">⚠ Gemma4 error: ${esc(err.message)}</span><br>` +
-      `<span style="font-size:12px;opacity:.6">Make sure Ollama is running: <code>ollama serve</code> · Model: <code>gemma4:e4b</code></span>`,
-      false
-    );
-    // Remove failed user turn so history stays clean
+    appendAiMsg('assistant', `<span style="color:var(--red)">⚠ Gemma4 error: ${esc(err.message)}</span><br><span style="font-size:12px;opacity:.6">Make sure Ollama is running: <code>ollama serve</code> · Model: <code>gemma4:e4b</code></span>`);
     if (aiMessages.at(-1)?.role === 'user') aiMessages.pop();
     console.error('Gemma4 error:', err);
   }
-
-  btn.disabled = false;
-  scrollAiToBottom();
+  btn.disabled = false; scrollAiToBottom();
 }
 
 async function callGemma4(systemPrompt, history, images, audios) {
   const model = document.getElementById('ai-model-select').value || 'gemma4:e4b';
-
-  // History turns (all text-only except the last)
-  const messages = history.slice(0, -1).map(m => ({ role: m.role, content: m.content }));
-
-  // Final user turn with media
-  const lastTurn = { role: 'user', content: history.at(-1)?.content || '' };
+  const messages = history.slice(0,-1).map(m => ({ role: m.role, content: m.content }));
+  const lastTurn = { role:'user', content: history.at(-1)?.content || '' };
   if (images.length) lastTurn.images = images;
   if (audios.length) lastTurn.audios = audios;
   messages.push(lastTurn);
-
   const response = await fetch(`${OLLAMA_BASE}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model,
-      system: systemPrompt,
-      messages,
-      stream: false,
-      options: { temperature: 0.35, num_predict: 1024, top_p: 0.9 }
-    }),
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ model, system: systemPrompt, messages, stream:false, options:{ temperature:0.35, num_predict:1024, top_p:0.9 } }),
     signal: AbortSignal.timeout(120000)
   });
-
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '');
-    throw new Error(`Ollama ${response.status}: ${errText.slice(0, 200)}`);
-  }
-  const data    = await response.json();
-  const content = data.message?.content;
+  if (!response.ok) { const errText = await response.text().catch(()=>''); throw new Error(`Ollama ${response.status}: ${errText.slice(0,200)}`); }
+  const data = await response.json(); const content = data.message?.content;
   if (!content) throw new Error('Empty response from Gemma4');
   return content;
 }
 
 function buildAiSystemPrompt(patient) {
   const arr = a => Array.isArray(a) && a.length ? a.join(', ') : 'None recorded';
-  const patientBlock = patient ? `
-## ACTIVE PATIENT RECORD
-Name:              ${patient.full_name}
-DOB:               ${patient.date_of_birth || 'Unknown'}
-Blood Type:        ${patient.blood_type || 'Unknown'}
-Allergies:         ${arr(patient.allergies)}
-Current Meds:      ${arr(patient.current_medications)}
-Conditions:        ${arr(patient.medical_conditions)}
-Surgical History:  ${arr(patient.surgical_history)}
-Vaccinations:      ${arr(patient.vaccination_history)}
-Medical Aid:       ${patient.medical_aid_provider || 'None'}
-Primary Doctor:    ${patient.primary_doctor || 'Unknown'}
-Emergency Contact: ${patient.emergency_contact_name || 'None'}${patient.emergency_contact_phone ? ' (' + patient.emergency_contact_phone + ')' : ''}
-Advance Directive: ${patient.advance_directive || 'None'}
-Notes:             ${patient.notes || 'None'}
-Risk Score:        ${riskScore(patient)} / 10
-` : '## NO PATIENT SELECTED\nYou have access to the general clinic context below.';
-
-  const clinicBlock = allPatients.length ? `
-## CLINIC SUMMARY (${allPatients.length} patients)
-High Risk (score ≥5): ${allPatients.filter(p => riskScore(p) >= 5).length}
-With Allergies:       ${allPatients.filter(p => Array.isArray(p.allergies) && p.allergies.length).length}
-Uninsured:            ${allPatients.filter(p => !p.medical_aid_provider).length}
-Blood types on file:  ${[...new Set(allPatients.map(p => p.blood_type).filter(Boolean))].join(', ') || 'None'}
-` : '';
-
-  return `You are the LumenOS Cognitive Engine — a clinical AI assistant embedded in a South African medical practice management system (LumenOS MediScan QR). You run locally via Ollama on the Gemma4:e4b multimodal model.
-
-## CAPABILITIES
-- Analyse uploaded medical images (X-rays, wound photos, lab slips, ECGs) and audio memos
-- Generate differential diagnoses from symptoms and patient history
-- Flag drug interactions and allergy conflicts against current medications
-- Summarise patient risk profiles and suggest follow-up actions
-- Reason across the clinic's patient knowledge graph
-
-## RULES
-- Be medically precise. Flag uncertainty explicitly.
-- Mark anything critical with ⚠ so it stands out.
-- When analysing an image, describe findings systematically: region → finding → severity → recommendation.
-- Apply South African clinical context: SASOG/SAMA guidelines, metric units, medical aid terminology.
-- Never fabricate drug dosages — state standard ranges and advise verification.
-- Keep responses concise and structured. Use bullet points for lists.
-
-${clinicBlock}${patientBlock}`;
+  const patientBlock = patient ? `\n## ACTIVE PATIENT RECORD\nName:              ${patient.full_name}\nDOB:               ${patient.date_of_birth||'Unknown'}\nBlood Type:        ${patient.blood_type||'Unknown'}\nAllergies:         ${arr(patient.allergies)}\nCurrent Meds:      ${arr(patient.current_medications)}\nConditions:        ${arr(patient.medical_conditions)}\nSurgical History:  ${arr(patient.surgical_history)}\nVaccinations:      ${arr(patient.vaccination_history)}\nMedical Aid:       ${patient.medical_aid_provider||'None'}\nPrimary Doctor:    ${patient.primary_doctor||'Unknown'}\nEmergency Contact: ${patient.emergency_contact_name||'None'}${patient.emergency_contact_phone?' ('+patient.emergency_contact_phone+')':''}\nAdvance Directive: ${patient.advance_directive||'None'}\nNotes:             ${patient.notes||'None'}\nRisk Score:        ${riskScore(patient)} / 10\n` : '## NO PATIENT SELECTED\nYou have access to the general clinic context below.';
+  const clinicBlock = allPatients.length ? `\n## CLINIC SUMMARY (${allPatients.length} patients)\nHigh Risk (score ≥5): ${allPatients.filter(p=>riskScore(p)>=5).length}\nWith Allergies:       ${allPatients.filter(p=>Array.isArray(p.allergies)&&p.allergies.length).length}\nUninsured:            ${allPatients.filter(p=>!p.medical_aid_provider).length}\nBlood types on file:  ${[...new Set(allPatients.map(p=>p.blood_type).filter(Boolean))].join(', ')||'None'}\n` : '';
+  return `You are the LumenOS Cognitive Engine — a clinical AI assistant embedded in a South African medical practice management system (LumenOS MediScan QR). You run locally via Ollama on the Gemma4:e4b multimodal model.\n\n## CAPABILITIES\n- Analyse uploaded medical images (X-rays, wound photos, lab slips, ECGs) and audio memos\n- Generate differential diagnoses from symptoms and patient history\n- Flag drug interactions and allergy conflicts against current medications\n- Summarise patient risk profiles and suggest follow-up actions\n- Reason across the clinic's patient knowledge graph\n\n## RULES\n- Be medically precise. Flag uncertainty explicitly.\n- Mark anything critical with ⚠ so it stands out.\n- When analysing an image, describe findings systematically: region → finding → severity → recommendation.\n- Apply South African clinical context: SASOG/SAMA guidelines, metric units, medical aid terminology.\n- Never fabricate drug dosages — state standard ranges and advise verification.\n- Keep responses concise and structured. Use bullet points for lists.\n\n${clinicBlock}${patientBlock}`;
 }
 
 function appendAiMsg(role, htmlContent) {
-  const msgArea  = document.getElementById('ai-messages');
-  const div      = document.createElement('div');
-  div.className  = `ai-msg${role === 'user' ? ' user' : ''}`;
-  const initials = currentProfile?.full_name ? getInitials(currentProfile.full_name) : (currentUser?.email?.[0] || '?').toUpperCase();
-  div.innerHTML  = `<div class="ai-msg-avatar ${role}">${role === 'assistant' ? '🧠' : esc(initials)}</div><div class="ai-bubble ${role}">${htmlContent}</div>`;
-  msgArea.appendChild(div);
-  scrollAiToBottom();
+  const msgArea = document.getElementById('ai-messages'); const div = document.createElement('div');
+  div.className = `ai-msg${role==='user'?' user':''}`;
+  const initials = currentProfile?.full_name ? getInitials(currentProfile.full_name) : (currentUser?.email?.[0]||'?').toUpperCase();
+  div.innerHTML = `<div class="ai-msg-avatar ${role}">${role==='assistant'?'🧠':esc(initials)}</div><div class="ai-bubble ${role}">${htmlContent}</div>`;
+  msgArea.appendChild(div); scrollAiToBottom();
 }
-
 function formatAiReply(text) {
   if (!text) return '';
   return text
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/```[\s\S]*?```/g, m => `<pre>${m.replace(/```\w*\n?/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')}</pre>`)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-    .replace(/^#{1,3} (.+)$/gm, '<strong style="font-size:14px">$1</strong>')
-    .replace(/^[•\-\*] (.+)$/gm, '• $1')
-    .replace(/⚠/g, '<span style="color:var(--red);font-weight:700">⚠</span>')
-    .replace(/\n{2,}/g, '<br><br>')
-    .replace(/\n/g, '<br>');
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`([^`\n]+)`/g,'<code>$1</code>')
+    .replace(/^#{1,3} (.+)$/gm,'<strong style="font-size:14px">$1</strong>')
+    .replace(/^[•\-\*] (.+)$/gm,'• $1')
+    .replace(/⚠/g,'<span style="color:var(--red);font-weight:700">⚠</span>')
+    .replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');
 }
-
-function scrollAiToBottom() {
-  const el = document.getElementById('ai-messages');
-  if (el) setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
-}
+function scrollAiToBottom() { const el = document.getElementById('ai-messages'); if (el) setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50); }
 
 /* ════════════════ MODAL UX ════════════════ */
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
