@@ -1319,12 +1319,19 @@ let allAppointments = [];
 let invoices = [], allInvoices = [];
 let editingPatientId = null, viewingPatient = null, qrPatientId = null, roleEditingId = null;
 let activeFilter = 'all', apptFilter = 'all', billFilter = 'all';
-let pillData = { allergies:[], current_medications:[], medical_conditions:[], surgical_history:[], vaccination_history:[] };
-let invLineCount = 1;
 
+// pill arrays used in the extended/clinical tabs
+let pillData = {
+  allergies: [],
+  current_medications: [],
+  surgical_history: [],
+  vaccination_history: []
+};
+
+let invLineCount = 1;
 let calDate = new Date();
 let selectedCalDate = new Date();
-selectedCalDate.setHours(0,0,0,0);
+selectedCalDate.setHours(0, 0, 0, 0);
 
 let aiMessages = [];
 let aiFiles = [];
@@ -1369,12 +1376,36 @@ function toast(msg, type='info') {
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-ZA') : '—'; }
 function fmtDateTime(d) { return d ? new Date(d).toLocaleString('en-ZA', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '—'; }
 function fmtCurrency(n) { return 'R ' + Number(n||0).toLocaleString('en-ZA', { minimumFractionDigits:2, maximumFractionDigits:2 }); }
-function setLoading(btn, on) { if (on) { btn.dataset.orig = btn.innerHTML; btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px"></span>'; btn.disabled = true; } else { btn.innerHTML = btn.dataset.orig || btn.innerHTML; btn.disabled = false; } }
+function setLoading(btn, on) {
+  if (on) { btn.dataset.orig = btn.innerHTML; btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px"></span>'; btn.disabled = true; }
+  else { btn.innerHTML = btn.dataset.orig || btn.innerHTML; btn.disabled = false; }
+}
 function getInitials(n) { if (!n) return '?'; const p = n.trim().split(' '); return (p[0][0] + (p[1] ? p[1][0] : '')).toUpperCase(); }
-function roleBadgeHtml(role) { const c = { admin:'role-admin', doctor:'role-doctor', nurse:'role-nurse', receptionist:'role-receptionist' }; return `<span class="role-badge ${c[role]||'role-receptionist'}">${esc(role||'user')}</span>`; }
-function riskScore(p) { let s = 0; if (Array.isArray(p.allergies) && p.allergies.length) s += 2; if (Array.isArray(p.medical_conditions) && p.medical_conditions.length) s += p.medical_conditions.length; if (Array.isArray(p.current_medications) && p.current_medications.length) s += Math.min(p.current_medications.length, 3); if (p.blood_type && ['O-','AB-','B-','A-'].includes(p.blood_type)) s += 1; return s; }
-function riskBadge(p) { const s = riskScore(p); if (s >= 5) return `<span class="risk-badge risk-high">High</span>`; if (s >= 2) return `<span class="risk-badge risk-medium">Medium</span>`; return `<span class="risk-badge risk-low">Low</span>`; }
+function roleBadgeHtml(role) {
+  const c = { admin:'role-admin', doctor:'role-doctor', nurse:'role-nurse', receptionist:'role-receptionist' };
+  return `<span class="role-badge ${c[role]||'role-receptionist'}">${esc(role||'user')}</span>`;
+}
+function riskScore(p) {
+  let s = 0;
+  if (Array.isArray(p.allergies) && p.allergies.length) s += 2;
+  // count chronic conditions
+  const chronics = ['has_hypertension','has_multiple_sclerosis','has_cholesterol','has_emphysema','has_asthma','has_epilepsy','has_thyroid_disorder','has_lupus','has_depression','has_heart_failure','has_porphyria'];
+  chronics.forEach(c => { if (p[c]) s += 1; });
+  if (Array.isArray(p.current_medications) && p.current_medications.length) s += Math.min(p.current_medications.length, 3);
+  if (p.blood_type && ['O-','AB-','B-','A-'].includes(p.blood_type)) s += 1;
+  return s;
+}
+function riskBadge(p) {
+  const s = riskScore(p);
+  if (s >= 5) return `<span class="risk-badge risk-high">High</span>`;
+  if (s >= 2) return `<span class="risk-badge risk-medium">Medium</span>`;
+  return `<span class="risk-badge risk-low">Low</span>`;
+}
 function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function getVal(id) { const el = document.getElementById(id); return el ? el.value.trim() || null : null; }
+function getChecked(id) { const el = document.getElementById(id); return el ? el.checked : false; }
+function setVal(id, val) { const el = document.getElementById(id); if (el) el.value = val || ''; }
+function setChecked(id, val) { const el = document.getElementById(id); if (el) el.checked = !!val; }
 
 /* ════════════════ AUTH ════════════════ */
 function switchAuthTab(tab) {
@@ -1557,7 +1588,9 @@ function showApp() {
   loadPatients().then(() => loadScanLogs());
 }
 
-/* ════════════════ PATIENTS ════════════════ */
+/* ════════════════════════════════════════════
+   PATIENTS
+════════════════════════════════════════════ */
 async function loadPatients() {
   document.getElementById('patients-tbody').innerHTML = '<tr class="loading-row"><td colspan="7"><span class="spinner"></span></td></tr>';
   document.getElementById('patient-card-list').innerHTML = '<div style="padding:36px;text-align:center;color:var(--text-muted)"><span class="spinner"></span></div>';
@@ -1569,6 +1602,13 @@ async function loadPatients() {
   await loadAppointments();
   renderDashboard();
 }
+
+// Derive a display name from Impilo fields
+function patientDisplayName(p) {
+  const parts = [p.title, p.full_name, p.surname].filter(Boolean);
+  return parts.join(' ') || p.surname || p.full_name || '(No name)';
+}
+
 function setFilter(f, el) {
   activeFilter = f;
   document.querySelectorAll('#section-patients .filter-chip').forEach(c => c.classList.remove('active'));
@@ -1577,13 +1617,20 @@ function setFilter(f, el) {
 }
 function filterPatients() {
   const q = document.getElementById('patient-search').value.toLowerCase();
-  let list = q ? allPatients.filter(p => (p.full_name||'').toLowerCase().includes(q) || (p.phone||'').toLowerCase().includes(q) || (p.id_number||'').toLowerCase().includes(q)) : [...allPatients];
+  let list = q ? allPatients.filter(p => {
+    const display = patientDisplayName(p).toLowerCase();
+    return display.includes(q)
+      || (p.mobile_number||'').toLowerCase().includes(q)
+      || (p.identifier_number||'').toLowerCase().includes(q)
+      || (p.email_address||'').toLowerCase().includes(q);
+  }) : [...allPatients];
   if (activeFilter === 'active') list = list.filter(p => p.qr_active);
   else if (activeFilter === 'allergies') list = list.filter(p => Array.isArray(p.allergies) && p.allergies.length);
-  else if (activeFilter === 'insured') list = list.filter(p => p.medical_aid_provider);
+  else if (activeFilter === 'insured') list = list.filter(p => p.medical_aid_scheme);
   else if (activeFilter === 'highrisk') list = list.filter(p => riskScore(p) >= 5);
   patients = list; renderPatients();
 }
+
 function renderPatients() {
   const tbody = document.getElementById('patients-tbody');
   const cardList = document.getElementById('patient-card-list');
@@ -1597,45 +1644,60 @@ function renderPatients() {
   const iconDel  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
   const editBtn = (id, p) => canDo('update', p) ? `<button class="btn-icon" title="Edit" onclick="editPatient('${esc(id)}')">${iconEdit}</button>` : '';
   const delBtn  = (id, name) => canDo('delete') ? `<button class="btn-icon danger" title="Delete" onclick="deletePatient('${esc(id)}','${esc(name)}')">${iconDel}</button>` : '';
-  tbody.innerHTML = patients.map(p => `<tr>
-    <td><div style="font-weight:600">${esc(p.full_name)}</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:1px">${esc(p.id_number||p.email||'')}</div></td>
-    <td style="color:var(--text-secondary);font-size:13px">${fmtDate(p.date_of_birth)}</td>
-    <td>${p.blood_type ? `<span class="badge badge-red">${esc(p.blood_type)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
-    <td>${riskBadge(p)}</td>
-    <td>${p.medical_aid_provider ? `<span class="badge badge-blue">${esc(p.medical_aid_provider)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
-    <td><span class="badge ${p.qr_active ? 'badge-green' : 'badge-red'}">${p.qr_active ? 'Active' : 'Off'}</span></td>
-    <td><div class="row-actions">
-      <button class="btn-icon" title="View" onclick="viewPatient('${esc(p.id)}')">${iconView}</button>
-      <button class="btn-icon green" title="QR" onclick="showQr('${esc(p.id)}')">${iconQr}</button>
-      ${editBtn(p.id, p)}${delBtn(p.id, p.full_name)}
-    </div></td>
-  </tr>`).join('');
-  cardList.innerHTML = patients.map(p => `<div class="patient-card" onclick="viewPatient('${esc(p.id)}')">
-    <div class="patient-avatar">${esc(getInitials(p.full_name))}</div>
-    <div class="patient-card-info">
-      <div class="patient-card-name">${esc(p.full_name)}</div>
-      <div class="patient-card-sub">${esc(p.phone||p.id_number||p.email||'No contact info')}</div>
-      <div class="patient-card-meta">${p.blood_type ? `<span class="badge badge-red">${esc(p.blood_type)}</span>` : ''}${riskBadge(p)}<span class="badge ${p.qr_active ? 'badge-green' : 'badge-red'}">${p.qr_active ? 'QR ✓' : 'QR Off'}</span></div>
-    </div>
-    <div class="patient-card-actions" onclick="event.stopPropagation()">
-      <button class="btn-icon green" title="QR" onclick="showQr('${esc(p.id)}')">${iconQr}</button>
-      ${editBtn(p.id, p)}
-    </div>
-  </div>`).join('');
+  tbody.innerHTML = patients.map(p => {
+    const display = patientDisplayName(p);
+    return `<tr>
+      <td><div style="font-weight:600">${esc(display)}</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:1px">${esc(p.identifier_number||p.email_address||'')}</div></td>
+      <td style="color:var(--text-secondary);font-size:13px">${fmtDate(p.date_of_birth)}</td>
+      <td>${p.blood_type ? `<span class="badge badge-red">${esc(p.blood_type)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td>${riskBadge(p)}</td>
+      <td>${p.medical_aid_scheme ? `<span class="badge badge-blue">${esc(p.medical_aid_scheme)}</span>` : '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td><span class="badge ${p.qr_active ? 'badge-green' : 'badge-red'}">${p.qr_active ? 'Active' : 'Off'}</span></td>
+      <td><div class="row-actions">
+        <button class="btn-icon" title="View" onclick="viewPatient('${esc(p.id)}')">${iconView}</button>
+        <button class="btn-icon green" title="QR" onclick="showQr('${esc(p.id)}')">${iconQr}</button>
+        ${editBtn(p.id, p)}${delBtn(p.id, display)}
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  cardList.innerHTML = patients.map(p => {
+    const display = patientDisplayName(p);
+    return `<div class="patient-card" onclick="viewPatient('${esc(p.id)}')">
+      <div class="patient-avatar">${esc(getInitials(display))}</div>
+      <div class="patient-card-info">
+        <div class="patient-card-name">${esc(display)}</div>
+        <div class="patient-card-sub">${esc(p.mobile_number||p.identifier_number||p.email_address||'No contact info')}</div>
+        <div class="patient-card-meta">${p.blood_type ? `<span class="badge badge-red">${esc(p.blood_type)}</span>` : ''}${riskBadge(p)}<span class="badge ${p.qr_active ? 'badge-green' : 'badge-red'}">${p.qr_active ? 'QR ✓' : 'QR Off'}</span></div>
+      </div>
+      <div class="patient-card-actions" onclick="event.stopPropagation()">
+        <button class="btn-icon green" title="QR" onclick="showQr('${esc(p.id)}')">${iconQr}</button>
+        ${editBtn(p.id, p)}
+      </div>
+    </div>`;
+  }).join('');
 }
+
 function populatePatientSelects() {
   ['appt-patient-select','inv-patient-select','ai-patient-ctx'].forEach(sid => {
     const sel = document.getElementById(sid); if (!sel) return;
     const first = sel.options[0]; sel.innerHTML = ''; sel.appendChild(first);
-    allPatients.forEach(p => { const opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.full_name; sel.appendChild(opt); });
+    allPatients.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = patientDisplayName(p);
+      sel.appendChild(opt);
+    });
   });
 }
 
-/* ════════════════ DASHBOARD ════════════════ */
+/* ════════════════════════════════════════════
+   DASHBOARD
+════════════════════════════════════════════ */
 function renderDashboard() {
   const total    = allPatients.length;
   const active   = allPatients.filter(p => p.qr_active).length;
-  const insured  = allPatients.filter(p => p.medical_aid_provider).length;
+  const insured  = allPatients.filter(p => p.medical_aid_scheme).length;
   const highRisk = allPatients.filter(p => riskScore(p) >= 5).length;
   const medRisk  = allPatients.filter(p => { const s = riskScore(p); return s >= 2 && s < 5; }).length;
   const lowRisk  = allPatients.filter(p => riskScore(p) < 2).length;
@@ -1652,9 +1714,11 @@ function renderDashboard() {
   setText('stat-insured-pct', insuredPct + '% of patients');
   setText('stat-total-change', `↑ ${total} registered`);
   setText('risk-high-n', highRisk); setText('risk-medium-n', medRisk); setText('risk-low-n', lowRisk);
+  // Blood type grid
   const btypes = ['A+','A-','B+','B-','O+','O-','AB+','AB-'];
   const btCells = document.querySelectorAll('#bt-grid .blood-cell');
   btypes.forEach((t, i) => { if (btCells[i]) btCells[i].querySelector('.bt').textContent = allPatients.filter(p => p.blood_type === t).length; });
+  // Donut
   const circ = 2 * Math.PI * 42;
   const donutArc = document.getElementById('donut-active');
   donutArc.setAttribute('stroke-dasharray', `${activePct / 100 * circ} ${circ}`);
@@ -1665,20 +1729,39 @@ function renderDashboard() {
   setText('legend-allergy-pct', withAllergies + '/' + total);
   setText('legend-booked-pct', todayAppts + ' today');
   renderApptBarChart();
-  const allConditions = [];
-  allPatients.forEach(p => { if (Array.isArray(p.medical_conditions)) allConditions.push(...p.medical_conditions); });
+  // Top chronic conditions
+  const conditionLabels = {
+    has_hypertension:'Hypertension', has_multiple_sclerosis:'Multiple Sclerosis',
+    has_cholesterol:'Cholesterol', has_emphysema:'Emphysema', has_asthma:'Asthma',
+    has_epilepsy:'Epilepsy', has_thyroid_disorder:'Thyroid Disorder', has_lupus:'Lupus',
+    has_depression:'Depression', has_heart_failure:'Heart Failure', has_porphyria:'Porphyria'
+  };
   const condCount = {};
-  allConditions.forEach(c => { const k = c.trim().toLowerCase(); condCount[k] = (condCount[k]||0)+1; });
-  const topConds = Object.entries(condCount).sort((a,b) => b[1]-a[1]).slice(0,6);
+  allPatients.forEach(p => {
+    Object.keys(conditionLabels).forEach(k => { if (p[k]) condCount[k] = (condCount[k]||0)+1; });
+    if (p.other_conditions) condCount['_other'] = (condCount['_other']||0)+1;
+  });
+  const topConds = Object.entries(condCount).sort((a,b) => b[1]-a[1]).slice(0,6)
+    .map(([k,v]) => [conditionLabels[k] || 'Other', v]);
   const condEl = document.getElementById('top-conditions-list');
   if (!topConds.length) { condEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px 0">No conditions recorded</div>'; }
-  else { const max = topConds[0][1]; condEl.innerHTML = topConds.map(([name, count]) => `<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:capitalize">${esc(name)}</div><div style="background:var(--surface-3);border-radius:3px;height:5px;margin-top:4px;overflow:hidden"><div style="background:var(--teal);height:100%;width:${Math.round(count/max*100)}%;border-radius:3px;transition:width .5s ease"></div></div></div><div style="font-size:12px;font-weight:700;color:var(--text-secondary);width:20px;text-align:right;flex-shrink:0">${count}</div></div>`).join(''); }
+  else {
+    const max = topConds[0][1];
+    condEl.innerHTML = topConds.map(([name, count]) => `<div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div><div style="background:var(--surface-3);border-radius:3px;height:5px;margin-top:4px;overflow:hidden"><div style="background:var(--teal);height:100%;width:${Math.round(count/max*100)}%;border-radius:3px;transition:width .5s ease"></div></div></div><div style="font-size:12px;font-weight:700;color:var(--text-secondary);width:20px;text-align:right;flex-shrink:0">${count}</div></div>`).join('');
+  }
+  // Recent activity
   const sorted = [...allPatients].sort((a,b) => new Date(b.created_at)-new Date(a.created_at)).slice(0,5);
   const actEl = document.getElementById('dash-activity');
   if (!sorted.length) { actEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px">No patients yet</div>'; }
-  else { actEl.innerHTML = sorted.map(p => `<div class="activity-item"><div class="activity-icon" style="background:var(--teal-subtle)">👤</div><div class="activity-info"><div class="activity-title">${esc(p.full_name)}</div><div class="activity-sub">${p.blood_type ? `Blood: ${esc(p.blood_type)} · ` : ''}${Array.isArray(p.allergies)&&p.allergies.length ? '⚠ Allergies' : p.qr_active ? 'QR Active' : 'No QR'}</div></div><div class="activity-time">${fmtDate(p.created_at)}</div></div>`).join(''); }
+  else {
+    actEl.innerHTML = sorted.map(p => {
+      const display = patientDisplayName(p);
+      return `<div class="activity-item"><div class="activity-icon" style="background:var(--teal-subtle)">👤</div><div class="activity-info"><div class="activity-title">${esc(display)}</div><div class="activity-sub">${p.blood_type ? `Blood: ${esc(p.blood_type)} · ` : ''}${Array.isArray(p.allergies)&&p.allergies.length ? '⚠ Allergies' : p.qr_active ? 'QR Active' : 'No QR'}</div></div><div class="activity-time">${fmtDate(p.created_at)}</div></div>`;
+    }).join('');
+  }
   renderAlerts();
 }
+
 function renderApptBarChart() {
   const days = []; const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   for (let i = 6; i >= 0; i--) {
@@ -1689,12 +1772,13 @@ function renderApptBarChart() {
   const max = Math.max(...days.map(d => d.count), 1);
   document.getElementById('appt-bar-chart').innerHTML = days.map((d, i) => `<div class="bar-wrap"><div class="bar${i===6?' appt':''}" style="height:${Math.max(Math.round(d.count/max*100),4)}%" title="${d.count} appts"></div><div class="bar-label">${d.label}</div></div>`).join('');
 }
+
 function renderAlerts() {
   const alerts = [];
   allPatients.forEach(p => {
-    if (riskScore(p) >= 5) alerts.push({ msg:`${p.full_name} — High risk patient`, icon:'🚨' });
-    if (Array.isArray(p.allergies) && p.allergies.length && !p.qr_active) alerts.push({ msg:`${p.full_name} has allergies but QR is inactive`, icon:'⚠️' });
-    if (!p.emergency_contact_name) alerts.push({ msg:`${p.full_name} — No emergency contact on file`, icon:'📞' });
+    if (riskScore(p) >= 5) alerts.push({ msg:`${patientDisplayName(p)} — High risk patient`, icon:'🚨' });
+    if (Array.isArray(p.allergies) && p.allergies.length && !p.qr_active) alerts.push({ msg:`${patientDisplayName(p)} has allergies but QR is inactive`, icon:'⚠️' });
+    if (!p.ec_name && !p.ec_surname) alerts.push({ msg:`${patientDisplayName(p)} — No emergency contact on file`, icon:'📞' });
   });
   setText('kpi-alerts', alerts.length);
   if (alerts.length) document.getElementById('notif-dot').style.display = '';
@@ -1704,13 +1788,14 @@ function renderAlerts() {
   if (!alerts.length) { alertsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12.5px">✓ No active alerts</div>'; return; }
   alertsEl.innerHTML = alerts.slice(0,8).map(a => `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(214,230,242,.5)"><div style="font-size:16px;flex-shrink:0">${a.icon}</div><div style="font-size:13px;font-weight:500;color:var(--text-primary)">${esc(a.msg)}</div></div>`).join('');
 }
+
 function renderNotifications() {
   const el = document.getElementById('notif-list');
   const alerts = [];
   allPatients.forEach(p => {
-    if (riskScore(p) >= 5) alerts.push({ msg:`High risk patient: ${p.full_name}`, sub:'Multiple allergies, conditions, or medications flagged', icon:'🚨', bg:'var(--red-dim)', border:'var(--red-border)' });
-    if (Array.isArray(p.allergies) && p.allergies.length && !p.qr_active) alerts.push({ msg:`Inactive QR with allergies: ${p.full_name}`, sub:'Emergency responders cannot access allergy info', icon:'⚠️', bg:'var(--amber-dim)', border:'rgba(244,162,97,.25)' });
-    if (!p.emergency_contact_name) alerts.push({ msg:`Missing emergency contact: ${p.full_name}`, sub:'Add emergency contact information', icon:'📞', bg:'var(--teal-subtle)', border:'rgba(0,180,216,.2)' });
+    if (riskScore(p) >= 5) alerts.push({ msg:`High risk patient: ${patientDisplayName(p)}`, sub:'Multiple conditions or medications flagged', icon:'🚨', bg:'var(--red-dim)', border:'var(--red-border)' });
+    if (Array.isArray(p.allergies) && p.allergies.length && !p.qr_active) alerts.push({ msg:`Inactive QR with allergies: ${patientDisplayName(p)}`, sub:'Emergency responders cannot access allergy info', icon:'⚠️', bg:'var(--amber-dim)', border:'rgba(244,162,97,.25)' });
+    if (!p.ec_name && !p.ec_surname) alerts.push({ msg:`Missing emergency contact: ${patientDisplayName(p)}`, sub:'Add emergency contact information', icon:'📞', bg:'var(--teal-subtle)', border:'rgba(0,180,216,.2)' });
   });
   if (!alerts.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">All clear</div><div class="empty-desc">No clinical alerts at this time</div></div>'; return; }
   el.innerHTML = alerts.map(a => `<div style="display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border-bottom:1px solid rgba(214,230,242,.5)"><div style="width:34px;height:34px;border-radius:9px;background:${a.bg};border:1px solid ${a.border};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${a.icon}</div><div style="flex:1"><div style="font-size:13.5px;font-weight:600;color:var(--text-primary)">${esc(a.msg)}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">${esc(a.sub)}</div></div></div>`).join('');
@@ -1720,21 +1805,28 @@ function renderNotifications() {
 async function loadScanLogs() {
   const c = document.getElementById('scan-logs-list');
   c.innerHTML = '<div style="padding:44px;text-align:center;color:var(--text-muted)"><span class="spinner"></span></div>';
-  const { data, error } = await sb.from('scan_logs').select('*, patients(full_name, user_id)').order('scanned_at', { ascending: false }).limit(50);
+  const { data, error } = await sb.from('scan_logs').select('*, patients(surname, full_name, title, user_id)').order('scanned_at', { ascending: false }).limit(50);
   if (error) { c.innerHTML = `<div style="padding:20px;color:var(--red)">${esc(error.message)}</div>`; return; }
   const myLogs = (data || []).filter(log => log.patients?.user_id === currentUser.id);
   setText('stat-scans', myLogs.length); setText('kpi-scans', myLogs.length);
   if (!myLogs.length) { c.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No scans yet</div><div class="empty-desc">Scan logs appear when QR codes are accessed</div></div>`; return; }
-  c.innerHTML = myLogs.map(log => `<div class="scan-log-item"><div class="scan-indicator"></div><div class="scan-info"><div class="scan-patient">${esc(log.patients?.full_name||'Unknown')}</div><div class="scan-meta">${esc(log.location||log.scanner_ip||'Unknown location')}</div></div><div class="scan-time">${esc(new Date(log.scanned_at).toLocaleString('en-ZA'))}</div></div>`).join('');
+  c.innerHTML = myLogs.map(log => {
+    const p = log.patients;
+    const name = p ? [p.title, p.full_name, p.surname].filter(Boolean).join(' ') : 'Unknown';
+    return `<div class="scan-log-item"><div class="scan-indicator"></div><div class="scan-info"><div class="scan-patient">${esc(name)}</div><div class="scan-meta">${esc(log.location||log.scanner_ip||'Unknown location')}</div></div><div class="scan-time">${esc(new Date(log.scanned_at).toLocaleString('en-ZA'))}</div></div>`;
+  }).join('');
 }
 
 /* ════════════════════════════════════════════
-   BOOKING / APPOINTMENTS (Supabase-backed)
+   BOOKING / APPOINTMENTS
 ════════════════════════════════════════════ */
 async function loadAppointments() {
-  const { data, error } = await sb.from('appointments').select('*, patients(full_name)').eq('user_id', currentUser.id).order('appointment_date', { ascending: true });
+  const { data, error } = await sb.from('appointments').select('*, patients(surname, full_name, title)').eq('user_id', currentUser.id).order('appointment_date', { ascending: true });
   if (error) { toast('Failed to load appointments: ' + error.message, 'error'); return; }
-  allAppointments = (data || []).map(a => ({ ...a, patient_name: a.patients?.full_name || 'Unknown' }));
+  allAppointments = (data || []).map(a => {
+    const p = a.patients;
+    return { ...a, patient_name: p ? [p.title, p.full_name, p.surname].filter(Boolean).join(' ') : 'Unknown' };
+  });
   renderCalendar(); renderApptList(); renderReminders();
 }
 
@@ -1753,7 +1845,6 @@ function openBookingModal(prefillPatientId) {
   document.getElementById('appt-patient-select').value = prefillPatientId || '';
   openModal('booking-modal');
 }
-
 function openEditApptModal(apptId) {
   const a = allAppointments.find(x => x.id === apptId); if (!a) return;
   document.getElementById('booking-modal-title').textContent = 'Edit Appointment';
@@ -1770,7 +1861,6 @@ function openEditApptModal(apptId) {
   document.getElementById('remind-2h').checked          = a.remind_2h    ?? false;
   openModal('booking-modal');
 }
-
 async function saveAppointment() {
   const patientId = document.getElementById('appt-patient-select').value;
   const date      = document.getElementById('appt-date').value;
@@ -1780,10 +1870,7 @@ async function saveAppointment() {
   if (!time)      { toast('Please select a time',    'error'); return; }
   const appointmentDate = `${date}T${time}:00`;
   const editId = document.getElementById('save-appt-btn').dataset.editId || '';
-  const conflict = allAppointments.find(a =>
-    a.appointment_date?.startsWith(date + 'T' + time) &&
-    a.status !== 'cancelled' && a.id !== editId
-  );
+  const conflict = allAppointments.find(a => a.appointment_date?.startsWith(date + 'T' + time) && a.status !== 'cancelled' && a.id !== editId);
   if (conflict) { toast(`⚠ Time conflict with ${conflict.patient_name}`, 'error'); return; }
   const patient = allPatients.find(p => p.id === patientId);
   const payload = {
@@ -1807,14 +1894,13 @@ async function saveAppointment() {
     error = e; savedAppt = data;
   }
   if (error) { setLoading(btn, false); toast('Save failed: ' + error.message, 'error'); return; }
-  // Queue reminders via Edge Function (fire-and-forget)
   if (savedAppt && (payload.remind_sms || payload.remind_email || payload.remind_2h)) {
     queueReminders({
       appointment_id:   savedAppt.id,
       patient_id:       patientId,
-      patient_name:     patient?.full_name || 'Patient',
-      patient_phone:    patient?.phone     || null,
-      patient_email:    patient?.email     || null,
+      patient_name:     patientDisplayName(patient || {}),
+      patient_phone:    patient?.mobile_number || null,
+      patient_email:    patient?.email_address || null,
       appointment_date: appointmentDate,
       appointment_type: payload.type,
       remind_sms:       payload.remind_sms,
@@ -1827,29 +1913,20 @@ async function saveAppointment() {
   closeModal('booking-modal');
   await loadAppointments(); renderDashboard();
 }
-
 async function queueReminders(data) {
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return;
     const res = await fetch(`${SUPABASE_URL}/functions/v1/queue-reminders`, {
       method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-        'apikey':        SUPABASE_KEY
-      },
+      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${session.access_token}`, 'apikey': SUPABASE_KEY },
       body: JSON.stringify(data)
     });
     const result = await res.json();
-    if (!res.ok) { console.error('queue-reminders failed:', result); toast('Reminders could not be queued: ' + (result.error || 'unknown error'), 'warn'); return; }
+    if (!res.ok) { toast('Reminders could not be queued: ' + (result.error || 'unknown error'), 'warn'); return; }
     if (result.queued > 0) toast(`${result.queued} reminder${result.queued > 1 ? 's' : ''} queued`, 'info');
-  } catch (err) {
-    console.error('queueReminders error:', err);
-    toast('Reminder queuing failed — check console', 'warn');
-  }
+  } catch (err) { toast('Reminder queuing failed', 'warn'); }
 }
-
 async function updateApptStatus(id, status) {
   const { error } = await sb.from('appointments').update({ status }).eq('id', id).eq('user_id', currentUser.id);
   if (error) { toast('Update failed: ' + error.message, 'error'); return; }
@@ -1865,13 +1942,11 @@ async function deleteAppt(id) {
   toast('Appointment deleted', 'warn');
   await loadAppointments(); renderDashboard();
 }
-
 function setApptFilter(f, el) {
   apptFilter = f;
   document.querySelectorAll('#section-booking .filter-chip').forEach(c => c.classList.remove('active'));
   if (el) el.classList.add('active'); renderApptList();
 }
-
 function renderApptList() {
   const el = document.getElementById('appt-list');
   const ds = [selectedCalDate.getFullYear(), String(selectedCalDate.getMonth()+1).padStart(2,'0'), String(selectedCalDate.getDate()).padStart(2,'0')].join('-');
@@ -1888,11 +1963,10 @@ function renderApptList() {
   }
   el.innerHTML = list.map(a => apptItemHtml(a)).join('');
 }
-
 function apptItemHtml(a) {
-  const dt      = new Date(a.appointment_date);
+  const dt = new Date(a.appointment_date);
   const timeStr = dt.toLocaleTimeString('en-ZA', { hour:'2-digit', minute:'2-digit' });
-  const statusBar   = { confirmed:'confirmed', pending:'pending', cancelled:'cancelled', completed:'completed' };
+  const statusBar = { confirmed:'confirmed', pending:'pending', cancelled:'cancelled', completed:'completed' };
   const statusBadge = { confirmed:'badge-green', pending:'badge-amber', cancelled:'badge-red', completed:'badge-blue' };
   const isDone = a.status === 'completed' || a.status === 'cancelled';
   const iconEdit = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
@@ -1951,17 +2025,11 @@ function selectDay(y, m, d) { selectedCalDate = new Date(y, m, d); selectedCalDa
 function prevMonth() { calDate = new Date(calDate.getFullYear(), calDate.getMonth()-1, 1); renderCalendar(); }
 function nextMonth() { calDate = new Date(calDate.getFullYear(), calDate.getMonth()+1, 1); renderCalendar(); }
 
-/* ── Reminders — live status from Supabase ── */
+/* ── Reminders ── */
 async function renderReminders() {
   const el = document.getElementById('reminders-list');
   el.innerHTML = '<div style="padding:14px 16px;color:var(--text-muted);font-size:12.5px;display:flex;align-items:center;gap:8px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span> Loading reminders…</div>';
-  const { data, error } = await sb
-    .from('reminders')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .gte('appointment_date', new Date().toISOString())
-    .order('scheduled_for', { ascending: true })
-    .limit(20);
+  const { data, error } = await sb.from('reminders').select('*').eq('user_id', currentUser.id).gte('appointment_date', new Date().toISOString()).order('scheduled_for', { ascending: true }).limit(20);
   if (error) { el.innerHTML = `<div style="padding:14px 16px;font-size:12px;color:var(--red)">Failed to load reminders: ${esc(error.message)}</div>`; return; }
   if (!data || !data.length) { el.innerHTML = '<div style="padding:14px 16px;font-size:12.5px;color:var(--text-muted)">No upcoming reminders</div>'; return; }
   const statusConfig = {
@@ -1971,14 +2039,13 @@ async function renderReminders() {
     skipped: { label:'Skipped', bg:'var(--amber-dim)',   color:'#c07a20',         dot:'var(--amber)' }
   };
   el.innerHTML = data.map(r => {
-    const dt         = new Date(r.scheduled_for);
-    const now        = new Date();
+    const dt = new Date(r.scheduled_for); const now = new Date();
     const hoursUntil = Math.round((dt - now) / 3600000);
-    const urgency    = r.status === 'failed' ? 'var(--red)' : hoursUntil <= 2 ? 'var(--red)' : hoursUntil <= 24 ? 'var(--amber)' : 'var(--teal-dim)';
-    const sc         = statusConfig[r.status] || statusConfig.queued;
-    const apptStr    = new Date(r.appointment_date).toLocaleString('en-ZA', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
-    const chClass    = r.channel === 'sms' ? 'ch-sms' : 'ch-email';
-    const chLabel    = r.channel === 'sms' ? 'SMS' : 'Email';
+    const urgency = r.status === 'failed' ? 'var(--red)' : hoursUntil <= 2 ? 'var(--red)' : hoursUntil <= 24 ? 'var(--amber)' : 'var(--teal-dim)';
+    const sc = statusConfig[r.status] || statusConfig.queued;
+    const apptStr = new Date(r.appointment_date).toLocaleString('en-ZA', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+    const chClass = r.channel === 'sms' ? 'ch-sms' : 'ch-email';
+    const chLabel = r.channel === 'sms' ? 'SMS' : 'Email';
     return `<div class="reminder-chip" style="flex-direction:column;align-items:stretch;gap:8px">
       <div style="display:flex;align-items:center;gap:9px">
         <div class="reminder-time" style="color:${urgency};min-width:52px;text-align:center">${dt.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'})}</div>
@@ -1993,21 +2060,15 @@ async function renderReminders() {
           </span>
         </div>
       </div>
-      ${r.status === 'failed' && r.error_message ? `
-        <div style="font-size:11px;color:var(--red);background:var(--red-dim);border:1px solid var(--red-border);border-radius:6px;padding:5px 9px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <span>⚠ ${esc(r.error_message.slice(0,100))}</span>
-          <button onclick="retryReminder('${esc(r.id)}')" style="font-size:10px;font-weight:700;background:var(--red);color:white;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;flex-shrink:0">Retry</button>
-        </div>` : ''}
+      ${r.status === 'failed' && r.error_message ? `<div style="font-size:11px;color:var(--red);background:var(--red-dim);border:1px solid var(--red-border);border-radius:6px;padding:5px 9px;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>⚠ ${esc(r.error_message.slice(0,100))}</span><button onclick="retryReminder('${esc(r.id)}')" style="font-size:10px;font-weight:700;background:var(--red);color:white;border:none;border-radius:5px;padding:3px 8px;cursor:pointer;flex-shrink:0">Retry</button></div>` : ''}
     </div>`;
   }).join('');
 }
-
 async function retryReminder(reminderId) {
   const { error } = await sb.from('reminders').update({ status: 'queued', error_message: null }).eq('id', reminderId).eq('user_id', currentUser.id);
   if (error) { toast('Retry failed: ' + error.message, 'error'); return; }
   toast('Reminder re-queued', 'success'); renderReminders();
 }
-
 function refreshReminders() { renderReminders(); }
 
 /* ════════════════ BILLING / INVOICES ════════════════ */
@@ -2047,7 +2108,15 @@ async function saveInvoice() {
   }
   if (!lines.length) { toast('Add at least one line item', 'error'); return; }
   const btn = document.getElementById('save-inv-btn'); setLoading(btn, true);
-  const inv = { id: crypto.randomUUID(), user_id: currentUser.id, patient_id: patientId, patient_name: patient?.full_name || 'Unknown', invoice_number: 'INV-' + String(loadInvStore().length + 1).padStart(4,'0'), date: document.getElementById('inv-date').value, due_date: document.getElementById('inv-due').value, lines, total, status: document.getElementById('inv-status').value, payment_method: document.getElementById('inv-payment').value, notes: document.getElementById('inv-notes').value.trim(), created_at: new Date().toISOString() };
+  const inv = {
+    id: crypto.randomUUID(), user_id: currentUser.id, patient_id: patientId,
+    patient_name: patientDisplayName(patient || {}),
+    invoice_number: 'INV-' + String(loadInvStore().length + 1).padStart(4,'0'),
+    date: document.getElementById('inv-date').value, due_date: document.getElementById('inv-due').value,
+    lines, total, status: document.getElementById('inv-status').value,
+    payment_method: document.getElementById('inv-payment').value,
+    notes: document.getElementById('inv-notes').value.trim(), created_at: new Date().toISOString()
+  };
   const store = loadInvStore(); store.push(inv); saveInvStore(store);
   allInvoices = store.filter(i => i.user_id === currentUser.id); invoices = [...allInvoices];
   setLoading(btn, false); toast('Invoice created', 'success'); closeModal('invoice-modal'); renderInvoices();
@@ -2077,7 +2146,7 @@ function deleteInvoice(id) { if (!confirm('Delete this invoice?')) return; const
 function printInvoice(id) {
   const inv = allInvoices.find(i => i.id === id); if (!inv) return;
   const win = window.open('', '_blank');
-  win.document.write(`<html><head><title>${inv.invoice_number}</title><style>body{font-family:sans-serif;padding:40px;color:#0A2540}h1{font-size:24px;margin-bottom:4px}.sub{color:#5A7A96;font-size:13px;margin-bottom:30px}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #D6E6F2;font-size:14px}.total{font-weight:700;font-size:17px;padding-top:12px;display:flex;justify-content:space-between}</style></head><body><h1>${inv.invoice_number}</h1><div class="sub">Patient: ${inv.patient_name} | Date: ${inv.date} | Due: ${inv.due_date}</div>${inv.lines.map(l=>`<div class="row"><span>${l.description}</span><span>R ${l.amount.toFixed(2)}</span></div>`).join('')}<div class="total"><span>Total</span><span>R ${inv.total.toFixed(2)}</span></div><p style="margin-top:20px;font-size:12px;color:#8CA9C4">Status: ${inv.status.toUpperCase()}</p></body></html>`);
+  win.document.write(`<html><head><title>${inv.invoice_number}</title><style>body{font-family:sans-serif;padding:40px;color:#0A2540}h1{font-size:24px;margin-bottom:4px}.sub{color:#5A7A96;font-size:13px;margin-bottom:30px}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #D6E6F2;font-size:14px}.row:last-child{border-bottom:none}.total{font-weight:700;font-size:17px;padding-top:12px;display:flex;justify-content:space-between}</style></head><body><h1>${inv.invoice_number}</h1><div class="sub">Patient: ${inv.patient_name} | Date: ${inv.date} | Due: ${inv.due_date}</div>${inv.lines.map(l=>`<div class="row"><span>${l.description}</span><span>R ${l.amount.toFixed(2)}</span></div>`).join('')}<div class="total"><span>Total</span><span>R ${inv.total.toFixed(2)}</span></div><p style="margin-top:20px;font-size:12px;color:#8CA9C4">Status: ${inv.status.toUpperCase()}</p></body></html>`);
   win.print();
 }
 
@@ -2085,52 +2154,343 @@ function printInvoice(id) {
 function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
 
-/* ════════════════ PATIENT FORM ════════════════ */
+/* ════════════════════════════════════════════
+   PATIENT FORM — Impilo PSM-FORM-ADM/001.5
+   Tabs: Identity | Emergency | Alt Contact |
+         Medical Aid | Hospital Visit | Guarantor | Clinical
+════════════════════════════════════════════ */
 function openAddModal() {
   if (!canDo('insert')) { toast('No permission to add patients', 'error'); return; }
-  editingPatientId = null; document.getElementById('modal-title').textContent = 'New Patient';
-  resetForm(); switchFormTab('identity', null); openModal('patient-modal');
+  editingPatientId = null;
+  document.getElementById('modal-title').textContent = 'New Patient — Impilo Admission';
+  resetForm();
+  switchFormTab('identity', null);
+  openModal('patient-modal');
 }
+
 function resetForm() {
-  ['full_name','id_number','date_of_birth','phone','email','blood_type','emergency_contact_name','emergency_contact_relation','emergency_contact_phone','medical_aid_provider','medical_aid_number','primary_doctor','doctor_contact','advance_directive','notes'].forEach(f => { const el = document.getElementById('f-' + f); if (el) el.value = ''; });
+  // All text/select/date inputs inside the modal body
+  document.querySelectorAll('#patient-modal input, #patient-modal select, #patient-modal textarea').forEach(el => {
+    if (el.type === 'checkbox') el.checked = false;
+    else el.value = '';
+  });
+  // Reset pill arrays
   Object.keys(pillData).forEach(k => { pillData[k] = []; renderPills(k); });
 }
+
 function editPatient(id) {
   const p = allPatients.find(x => x.id === id); if (!p) return;
   if (!canDo('update', p)) { toast('No permission to edit', 'error'); return; }
   if (!enforceOwnership(p)) return;
-  editingPatientId = id; document.getElementById('modal-title').textContent = 'Edit Patient';
-  ['full_name','id_number','date_of_birth','phone','email','blood_type','emergency_contact_name','emergency_contact_relation','emergency_contact_phone','medical_aid_provider','medical_aid_number','primary_doctor','doctor_contact','advance_directive','notes'].forEach(f => { const el = document.getElementById('f-' + f); if (el) el.value = p[f] || ''; });
-  Object.keys(pillData).forEach(k => { pillData[k] = Array.isArray(p[k]) ? [...p[k]] : []; renderPills(k); });
-  switchFormTab('identity', null); openModal('patient-modal');
+  editingPatientId = id;
+  document.getElementById('modal-title').textContent = 'Edit Patient';
+
+  // ── Identity
+  setVal('f-identifier_type',      p.identifier_type);
+  setVal('f-identifier_number',    p.identifier_number);
+  setVal('f-surname',              p.surname);
+  setVal('f-full_name',            p.full_name);
+  setVal('f-initials',             p.initials);
+  setVal('f-other_names',          p.other_names);
+  setVal('f-known_as',             p.known_as);
+  setVal('f-title',                p.title);
+  setVal('f-gender',               p.gender);
+  setVal('f-date_of_birth',        p.date_of_birth ? p.date_of_birth.split('T')[0] : '');
+  setVal('f-mobile_number',        p.mobile_number);
+  setVal('f-work_number',          p.work_number);
+  setVal('f-home_number',          p.home_number);
+  setVal('f-preferred_contact_method', p.preferred_contact_method);
+  setChecked('f-receive_marketing',  p.receive_marketing);
+  setChecked('f-receive_statements', p.receive_statements);
+  setVal('f-email_address',        p.email_address);
+  setVal('f-residential_address_line1', p.residential_address_line1);
+  setVal('f-residential_address_line2', p.residential_address_line2);
+  setVal('f-residential_suburb',   p.residential_suburb);
+  setVal('f-residential_city',     p.residential_city);
+  setVal('f-residential_code',     p.residential_code);
+  setVal('f-postal_address_line1', p.postal_address_line1);
+  setVal('f-postal_address_line2', p.postal_address_line2);
+  setVal('f-postal_suburb',        p.postal_suburb);
+  setVal('f-postal_city',          p.postal_city);
+  setVal('f-postal_code',          p.postal_code);
+  setVal('f-marital_status',       p.marital_status);
+  setVal('f-dietary_preference',   p.dietary_preference);
+  setVal('f-religion',             p.religion);
+  setVal('f-congregation',         p.congregation);
+  setVal('f-minister',             p.minister);
+
+  // ── Emergency Contact
+  setVal('f-ec_surname',       p.ec_surname);
+  setVal('f-ec_name',          p.ec_name);
+  setVal('f-ec_relationship',  p.ec_relationship);
+  setVal('f-ec_mobile_number', p.ec_mobile_number);
+  setVal('f-ec_work_number',   p.ec_work_number);
+  setVal('f-ec_home_number',   p.ec_home_number);
+  setVal('f-ec_address_line1', p.ec_address_line1);
+  setVal('f-ec_suburb',        p.ec_suburb);
+  setVal('f-ec_city',          p.ec_city);
+  setVal('f-ec_code',          p.ec_code);
+
+  // ── Alternative Contact
+  setVal('f-alt_surname',       p.alt_surname);
+  setVal('f-alt_name',          p.alt_name);
+  setVal('f-alt_relationship',  p.alt_relationship);
+  setVal('f-alt_mobile_number', p.alt_mobile_number);
+  setVal('f-alt_work_number',   p.alt_work_number);
+  setVal('f-alt_home_number',   p.alt_home_number);
+  setVal('f-alt_address_line1', p.alt_address_line1);
+  setVal('f-alt_suburb',        p.alt_suburb);
+  setVal('f-alt_city',          p.alt_city);
+  setVal('f-alt_code',          p.alt_code);
+
+  // ── Medical Aid
+  setVal('f-medical_aid_scheme',        p.medical_aid_scheme);
+  setVal('f-medical_aid_plan',          p.medical_aid_plan);
+  setVal('f-member_number',             p.member_number);
+  setVal('f-authorisation_number',      p.authorisation_number);
+  setVal('f-principal_member_surname',  p.principal_member_surname);
+  setVal('f-principal_member_name',     p.principal_member_name);
+  setVal('f-principal_member_initials', p.principal_member_initials);
+  setVal('f-principal_member_title',    p.principal_member_title);
+  setVal('f-principal_member_sa_id',    p.principal_member_sa_id);
+  setVal('f-principal_member_dob',      p.principal_member_dob ? p.principal_member_dob.split('T')[0] : '');
+  setVal('f-principal_member_gender',   p.principal_member_gender);
+  setVal('f-dependant_code',            p.dependant_code);
+
+  // ── Hospital Visit
+  setVal('f-admission_date',       p.admission_date ? p.admission_date.split('T')[0] : '');
+  setVal('f-surgery_booked_date',  p.surgery_booked_date ? p.surgery_booked_date.split('T')[0] : '');
+  setVal('f-surgery_time',         p.surgery_time);
+  setVal('f-admitting_doctor',     p.admitting_doctor);
+  setVal('f-referring_doctor',     p.referring_doctor);
+  setVal('f-alternate_doctor',     p.alternate_doctor);
+  setVal('f-general_gp',           p.general_gp);
+  setVal('f-icd_code_diagnosis',   p.icd_code_diagnosis);
+  setVal('f-cpt_code_procedure',   p.cpt_code_procedure);
+
+  // ── Guarantor
+  setVal('f-guar_identifier_type',   p.guar_identifier_type);
+  setVal('f-guar_identifier_number', p.guar_identifier_number);
+  setVal('f-guar_surname',           p.guar_surname);
+  setVal('f-guar_name',              p.guar_name);
+  setVal('f-guar_initials',          p.guar_initials);
+  setVal('f-guar_other_names',       p.guar_other_names);
+  setVal('f-guar_known_as',          p.guar_known_as);
+  setVal('f-guar_title',             p.guar_title);
+  setVal('f-guar_gender',            p.guar_gender);
+  setVal('f-guar_dob',               p.guar_dob ? p.guar_dob.split('T')[0] : '');
+  setVal('f-guar_mobile_number',     p.guar_mobile_number);
+  setVal('f-guar_work_number',       p.guar_work_number);
+  setVal('f-guar_home_number',       p.guar_home_number);
+  setVal('f-guar_preferred_contact', p.guar_preferred_contact);
+  setChecked('f-guar_receive_marketing',  p.guar_receive_marketing);
+  setChecked('f-guar_receive_statements', p.guar_receive_statements);
+  setVal('f-guar_email_address',       p.guar_email_address);
+  setVal('f-guar_residential_address1', p.guar_residential_address1);
+  setVal('f-guar_residential_address2', p.guar_residential_address2);
+  setVal('f-guar_residential_suburb',   p.guar_residential_suburb);
+  setVal('f-guar_residential_city',     p.guar_residential_city);
+  setVal('f-guar_residential_code',     p.guar_residential_code);
+  setVal('f-guar_postal_address1',  p.guar_postal_address1);
+  setVal('f-guar_postal_address2',  p.guar_postal_address2);
+  setVal('f-guar_postal_suburb',    p.guar_postal_suburb);
+  setVal('f-guar_postal_city',      p.guar_postal_city);
+  setVal('f-guar_postal_code',      p.guar_postal_code);
+
+  // ── Clinical
+  setVal('f-symptoms_description', p.symptoms_description);
+  setVal('f-diabetes_control',     p.diabetes_control);
+  setChecked('f-has_hypertension',       p.has_hypertension);
+  setChecked('f-has_multiple_sclerosis', p.has_multiple_sclerosis);
+  setChecked('f-has_cholesterol',        p.has_cholesterol);
+  setChecked('f-has_emphysema',          p.has_emphysema);
+  setChecked('f-has_asthma',             p.has_asthma);
+  setChecked('f-has_epilepsy',           p.has_epilepsy);
+  setChecked('f-has_thyroid_disorder',   p.has_thyroid_disorder);
+  setChecked('f-has_lupus',              p.has_lupus);
+  setChecked('f-has_depression',         p.has_depression);
+  setChecked('f-has_heart_failure',      p.has_heart_failure);
+  setChecked('f-has_porphyria',          p.has_porphyria);
+  setVal('f-other_conditions',  p.other_conditions);
+  setVal('f-blood_type',        p.blood_type);
+  setVal('f-advance_directive', p.advance_directive);
+  setVal('f-notes',             p.notes);
+
+  // Pill arrays
+  pillData.allergies            = Array.isArray(p.allergies)            ? [...p.allergies]            : [];
+  pillData.current_medications  = Array.isArray(p.current_medications)  ? [...p.current_medications]  : [];
+  pillData.surgical_history     = Array.isArray(p.surgical_history)     ? [...p.surgical_history]     : [];
+  pillData.vaccination_history  = Array.isArray(p.vaccination_history)  ? [...p.vaccination_history]  : [];
+  Object.keys(pillData).forEach(k => renderPills(k));
+
+  switchFormTab('identity', null);
+  openModal('patient-modal');
 }
+
 async function savePatient() {
-  const name = document.getElementById('f-full_name').value.trim();
-  if (!name) { toast('Full name required', 'error'); switchFormTab('identity', null); return; }
+  const surname  = document.getElementById('f-surname')?.value.trim();
+  const fullName = document.getElementById('f-full_name')?.value.trim();
+  if (!surname && !fullName) {
+    toast('Surname or first name is required', 'error');
+    switchFormTab('identity', null);
+    return;
+  }
   const btn = document.getElementById('save-btn'); setLoading(btn, true);
+
   const payload = {
-    full_name: name, id_number: document.getElementById('f-id_number').value.trim()||null, date_of_birth: document.getElementById('f-date_of_birth').value||null,
-    phone: document.getElementById('f-phone').value.trim()||null, email: document.getElementById('f-email').value.trim()||null, blood_type: document.getElementById('f-blood_type').value||null,
-    emergency_contact_name: document.getElementById('f-emergency_contact_name').value.trim()||null, emergency_contact_relation: document.getElementById('f-emergency_contact_relation').value.trim()||null,
-    emergency_contact_phone: document.getElementById('f-emergency_contact_phone').value.trim()||null, medical_aid_provider: document.getElementById('f-medical_aid_provider').value.trim()||null,
-    medical_aid_number: document.getElementById('f-medical_aid_number').value.trim()||null, primary_doctor: document.getElementById('f-primary_doctor').value.trim()||null,
-    doctor_contact: document.getElementById('f-doctor_contact').value.trim()||null, advance_directive: document.getElementById('f-advance_directive').value.trim()||null,
-    notes: document.getElementById('f-notes').value.trim()||null,
-    allergies: pillData.allergies.length ? pillData.allergies : null, current_medications: pillData.current_medications.length ? pillData.current_medications : null,
-    medical_conditions: pillData.medical_conditions.length ? pillData.medical_conditions : null, surgical_history: pillData.surgical_history.length ? pillData.surgical_history : null,
-    vaccination_history: pillData.vaccination_history.length ? pillData.vaccination_history : null
+    // ── Identity
+    identifier_type:      getVal('f-identifier_type'),
+    identifier_number:    getVal('f-identifier_number'),
+    surname:              surname || fullName,
+    full_name:            fullName || surname,
+    initials:             getVal('f-initials'),
+    other_names:          getVal('f-other_names'),
+    known_as:             getVal('f-known_as'),
+    title:                getVal('f-title'),
+    gender:               getVal('f-gender'),
+    date_of_birth:        getVal('f-date_of_birth') || null,
+    mobile_number:        getVal('f-mobile_number'),
+    work_number:          getVal('f-work_number'),
+    home_number:          getVal('f-home_number'),
+    preferred_contact_method: getVal('f-preferred_contact_method'),
+    receive_marketing:    getChecked('f-receive_marketing'),
+    receive_statements:   getChecked('f-receive_statements'),
+    email_address:        getVal('f-email_address'),
+    residential_address_line1: getVal('f-residential_address_line1'),
+    residential_address_line2: getVal('f-residential_address_line2'),
+    residential_suburb:   getVal('f-residential_suburb'),
+    residential_city:     getVal('f-residential_city'),
+    residential_code:     getVal('f-residential_code'),
+    postal_address_line1: getVal('f-postal_address_line1'),
+    postal_address_line2: getVal('f-postal_address_line2'),
+    postal_suburb:        getVal('f-postal_suburb'),
+    postal_city:          getVal('f-postal_city'),
+    postal_code:          getVal('f-postal_code'),
+    marital_status:       getVal('f-marital_status'),
+    dietary_preference:   getVal('f-dietary_preference'),
+    religion:             getVal('f-religion'),
+    congregation:         getVal('f-congregation'),
+    minister:             getVal('f-minister'),
+
+    // ── Emergency Contact
+    ec_surname:       getVal('f-ec_surname'),
+    ec_name:          getVal('f-ec_name'),
+    ec_relationship:  getVal('f-ec_relationship'),
+    ec_mobile_number: getVal('f-ec_mobile_number'),
+    ec_work_number:   getVal('f-ec_work_number'),
+    ec_home_number:   getVal('f-ec_home_number'),
+    ec_address_line1: getVal('f-ec_address_line1'),
+    ec_suburb:        getVal('f-ec_suburb'),
+    ec_city:          getVal('f-ec_city'),
+    ec_code:          getVal('f-ec_code'),
+
+    // ── Alternative Contact
+    alt_surname:       getVal('f-alt_surname'),
+    alt_name:          getVal('f-alt_name'),
+    alt_relationship:  getVal('f-alt_relationship'),
+    alt_mobile_number: getVal('f-alt_mobile_number'),
+    alt_work_number:   getVal('f-alt_work_number'),
+    alt_home_number:   getVal('f-alt_home_number'),
+    alt_address_line1: getVal('f-alt_address_line1'),
+    alt_suburb:        getVal('f-alt_suburb'),
+    alt_city:          getVal('f-alt_city'),
+    alt_code:          getVal('f-alt_code'),
+
+    // ── Medical Aid
+    medical_aid_scheme:        getVal('f-medical_aid_scheme'),
+    medical_aid_plan:          getVal('f-medical_aid_plan'),
+    member_number:             getVal('f-member_number'),
+    authorisation_number:      getVal('f-authorisation_number'),
+    principal_member_surname:  getVal('f-principal_member_surname'),
+    principal_member_name:     getVal('f-principal_member_name'),
+    principal_member_initials: getVal('f-principal_member_initials'),
+    principal_member_title:    getVal('f-principal_member_title'),
+    principal_member_sa_id:    getVal('f-principal_member_sa_id'),
+    principal_member_dob:      getVal('f-principal_member_dob') || null,
+    principal_member_gender:   getVal('f-principal_member_gender'),
+    dependant_code:            getVal('f-dependant_code'),
+
+    // ── Hospital Visit
+    admission_date:      getVal('f-admission_date') || null,
+    surgery_booked_date: getVal('f-surgery_booked_date') || null,
+    surgery_time:        getVal('f-surgery_time'),
+    admitting_doctor:    getVal('f-admitting_doctor'),
+    referring_doctor:    getVal('f-referring_doctor'),
+    alternate_doctor:    getVal('f-alternate_doctor'),
+    general_gp:          getVal('f-general_gp'),
+    icd_code_diagnosis:  getVal('f-icd_code_diagnosis'),
+    cpt_code_procedure:  getVal('f-cpt_code_procedure'),
+
+    // ── Guarantor
+    guar_identifier_type:   getVal('f-guar_identifier_type'),
+    guar_identifier_number: getVal('f-guar_identifier_number'),
+    guar_surname:           getVal('f-guar_surname'),
+    guar_name:              getVal('f-guar_name'),
+    guar_initials:          getVal('f-guar_initials'),
+    guar_other_names:       getVal('f-guar_other_names'),
+    guar_known_as:          getVal('f-guar_known_as'),
+    guar_title:             getVal('f-guar_title'),
+    guar_gender:            getVal('f-guar_gender'),
+    guar_dob:               getVal('f-guar_dob') || null,
+    guar_mobile_number:     getVal('f-guar_mobile_number'),
+    guar_work_number:       getVal('f-guar_work_number'),
+    guar_home_number:       getVal('f-guar_home_number'),
+    guar_preferred_contact: getVal('f-guar_preferred_contact'),
+    guar_receive_marketing:  getChecked('f-guar_receive_marketing'),
+    guar_receive_statements: getChecked('f-guar_receive_statements'),
+    guar_email_address:       getVal('f-guar_email_address'),
+    guar_residential_address1: getVal('f-guar_residential_address1'),
+    guar_residential_address2: getVal('f-guar_residential_address2'),
+    guar_residential_suburb:   getVal('f-guar_residential_suburb'),
+    guar_residential_city:     getVal('f-guar_residential_city'),
+    guar_residential_code:     getVal('f-guar_residential_code'),
+    guar_postal_address1: getVal('f-guar_postal_address1'),
+    guar_postal_address2: getVal('f-guar_postal_address2'),
+    guar_postal_suburb:   getVal('f-guar_postal_suburb'),
+    guar_postal_city:     getVal('f-guar_postal_city'),
+    guar_postal_code:     getVal('f-guar_postal_code'),
+
+    // ── Clinical
+    symptoms_description:    getVal('f-symptoms_description'),
+    diabetes_control:        getVal('f-diabetes_control'),
+    has_hypertension:        getChecked('f-has_hypertension'),
+    has_multiple_sclerosis:  getChecked('f-has_multiple_sclerosis'),
+    has_cholesterol:         getChecked('f-has_cholesterol'),
+    has_emphysema:           getChecked('f-has_emphysema'),
+    has_asthma:              getChecked('f-has_asthma'),
+    has_epilepsy:            getChecked('f-has_epilepsy'),
+    has_thyroid_disorder:    getChecked('f-has_thyroid_disorder'),
+    has_lupus:               getChecked('f-has_lupus'),
+    has_depression:          getChecked('f-has_depression'),
+    has_heart_failure:       getChecked('f-has_heart_failure'),
+    has_porphyria:           getChecked('f-has_porphyria'),
+    other_conditions:        getVal('f-other_conditions'),
+
+    // ── Clinical arrays
+    blood_type:           getVal('f-blood_type') || null,
+    allergies:            pillData.allergies.length           ? pillData.allergies           : null,
+    current_medications:  pillData.current_medications.length ? pillData.current_medications : null,
+    surgical_history:     pillData.surgical_history.length    ? pillData.surgical_history    : null,
+    vaccination_history:  pillData.vaccination_history.length ? pillData.vaccination_history : null,
+    advance_directive:    getVal('f-advance_directive'),
+    notes:                getVal('f-notes'),
   };
+
   let error;
   if (editingPatientId) {
     const existing = allPatients.find(x => x.id === editingPatientId);
     if (!enforceOwnership(existing)) { setLoading(btn, false); return; }
     ({ error } = await sb.from('patients').update(payload).eq('id', editingPatientId).eq('user_id', currentUser.id));
-  } else { payload.user_id = currentUser.id; ({ error } = await sb.from('patients').insert(payload)); }
+  } else {
+    payload.user_id = currentUser.id;
+    ({ error } = await sb.from('patients').insert(payload));
+  }
   setLoading(btn, false);
   if (error) { toast('Save failed: ' + error.message, 'error'); return; }
   toast(editingPatientId ? 'Patient updated' : 'Patient added', 'success');
   closeModal('patient-modal'); loadPatients();
 }
+
 async function deletePatient(id, name) {
   if (!canDo('delete')) { toast('No permission to delete', 'error'); return; }
   const p = allPatients.find(x => x.id === id); if (!enforceOwnership(p)) return;
@@ -2139,58 +2499,129 @@ async function deletePatient(id, name) {
   if (error) { toast('Delete failed: ' + error.message, 'error'); return; }
   toast('Patient deleted', 'success'); loadPatients();
 }
+
+/* ── Form tab switcher ── */
 function switchFormTab(name, evt) {
   document.querySelectorAll('.form-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('[id^="ftab-"]').forEach(t => t.style.display = 'none');
-  document.getElementById('ftab-' + name).style.display = '';
+  const tab = document.getElementById('ftab-' + name);
+  if (tab) tab.style.display = '';
   if (evt && evt.currentTarget) evt.currentTarget.classList.add('active');
-  else document.querySelectorAll('.form-tab').forEach(t => { if ((t.getAttribute('onclick')||'').includes("'"+name+"'")) t.classList.add('active'); });
+  else document.querySelectorAll('.form-tab').forEach(t => {
+    if ((t.getAttribute('onclick')||'').includes("'"+name+"'")) t.classList.add('active');
+  });
 }
+
+/* ── Pill tag inputs ── */
 function focusPillInput(c) { c.querySelector('.pill-input').focus(); }
-function handlePillKey(e, key) { if (e.key === 'Enter') { e.preventDefault(); const v = e.target.value.trim(); if (v && !pillData[key].includes(v)) { pillData[key].push(v); renderPills(key); } e.target.value = ''; } }
+function handlePillKey(e, key) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const v = e.target.value.trim().replace(/,$/, '');
+    if (v && !pillData[key].includes(v)) { pillData[key].push(v); renderPills(key); }
+    e.target.value = '';
+  }
+}
 function renderPills(key) {
-  const c = document.getElementById('pills-' + key); const inp = c.querySelector('.pill-input'); c.innerHTML = '';
-  pillData[key].forEach((v, i) => { const p = document.createElement('div'); p.className = `pill${key==='allergies'?' danger':''}`; p.innerHTML = `${esc(v)}<button onclick="removePill('${esc(key)}',${i})">×</button>`; c.appendChild(p); });
+  const c = document.getElementById('pills-' + key); if (!c) return;
+  const inp = c.querySelector('.pill-input');
+  c.innerHTML = '';
+  pillData[key].forEach((v, i) => {
+    const p = document.createElement('div');
+    p.className = `pill${key==='allergies'?' danger':''}`;
+    p.innerHTML = `${esc(v)}<button onclick="removePill('${esc(key)}',${i})">×</button>`;
+    c.appendChild(p);
+  });
   c.appendChild(inp);
 }
 function removePill(key, idx) { pillData[key].splice(idx, 1); renderPills(key); }
 
-/* ════════════════ VIEW ════════════════ */
+/* ════════════════ PATIENT VIEW ════════════════ */
 function viewPatient(id) {
   const p = allPatients.find(x => x.id === id); if (!p) return;
-  viewingPatient = p; document.getElementById('view-modal-title').textContent = p.full_name;
-  const arr = a => Array.isArray(a) && a.length ? a.map(esc).join(', ') : '—';
-  const val = v => v ? esc(v) : '—';
+  viewingPatient = p;
+  const display = patientDisplayName(p);
+  document.getElementById('view-modal-title').textContent = display;
+
+  const val  = v => v ? esc(v) : '—';
+  const bool = v => v ? 'Yes' : 'No';
+  const arr  = a => Array.isArray(a) && a.length ? a.map(esc).join(', ') : '—';
+  const chronics = [];
+  if (p.has_hypertension)      chronics.push('Hypertension');
+  if (p.has_multiple_sclerosis) chronics.push('Multiple Sclerosis');
+  if (p.has_cholesterol)       chronics.push('Cholesterol');
+  if (p.has_emphysema)         chronics.push('Emphysema');
+  if (p.has_asthma)            chronics.push('Asthma');
+  if (p.has_epilepsy)          chronics.push('Epilepsy');
+  if (p.has_thyroid_disorder)  chronics.push('Thyroid Disorder');
+  if (p.has_lupus)             chronics.push('Lupus');
+  if (p.has_depression)        chronics.push('Depression');
+  if (p.has_heart_failure)     chronics.push('Heart Failure');
+  if (p.has_porphyria)         chronics.push('Porphyria');
+  if (p.other_conditions)      chronics.push(p.other_conditions);
+
   document.getElementById('view-modal-body').innerHTML = `
     <div style="margin-bottom:10px">${riskBadge(p)}&nbsp;<span style="font-size:12px;color:var(--text-muted)">Risk score: ${riskScore(p)}</span></div>
     <div class="patient-view">
-      <div class="view-section critical"><div class="view-section-title">⚠ Critical — Emergency</div>
+
+      <div class="view-section critical">
+        <div class="view-section-title">⚠ Critical — Emergency</div>
         <div class="view-field"><div class="key">Blood Type</div><div class="val" style="font-size:22px;font-weight:700;color:var(--red)">${val(p.blood_type)}</div></div>
         <div class="view-field"><div class="key">Allergies</div><div class="val" style="color:var(--red);font-weight:600">${arr(p.allergies)}</div></div>
-        <div class="view-field"><div class="key">Medications</div><div class="val">${arr(p.current_medications)}</div></div>
-        <div class="view-field"><div class="key">Conditions</div><div class="val">${arr(p.medical_conditions)}</div></div>
-        <div class="view-field"><div class="key">Emergency Contact</div><div class="val">${val(p.emergency_contact_name)} <span style="color:var(--text-muted);font-size:12px">${p.emergency_contact_relation?'('+esc(p.emergency_contact_relation)+')':''}</span></div></div>
-        <div class="view-field"><div class="key">Emergency Phone</div><div class="val">${val(p.emergency_contact_phone)}</div></div>
+        <div class="view-field"><div class="key">Current Medications</div><div class="val">${arr(p.current_medications)}</div></div>
+        <div class="view-field"><div class="key">Chronic Conditions</div><div class="val">${chronics.length ? esc(chronics.join(', ')) : '—'}</div></div>
+        <div class="view-field"><div class="key">Symptoms / Complaints</div><div class="val">${val(p.symptoms_description)}</div></div>
+        <div class="view-field"><div class="key">Diabetes Control</div><div class="val">${val(p.diabetes_control)}</div></div>
+        <div class="view-field"><div class="key">Advance Directive</div><div class="val">${val(p.advance_directive)}</div></div>
       </div>
-      <div class="view-section"><div class="view-section-title">Identity</div>
-        <div class="view-field"><div class="key">ID / Passport</div><div class="val">${val(p.id_number)}</div></div>
+
+      <div class="view-section">
+        <div class="view-section-title">Identity</div>
+        <div class="view-field"><div class="key">Identifier</div><div class="val">${val(p.identifier_type)} · ${val(p.identifier_number)}</div></div>
+        <div class="view-field"><div class="key">Surname</div><div class="val">${val(p.surname)}</div></div>
+        <div class="view-field"><div class="key">Name / Initials</div><div class="val">${val(p.full_name)} ${val(p.initials)}</div></div>
+        <div class="view-field"><div class="key">Known As</div><div class="val">${val(p.known_as)}</div></div>
+        <div class="view-field"><div class="key">Title / Gender</div><div class="val">${val(p.title)} · ${val(p.gender)}</div></div>
         <div class="view-field"><div class="key">Date of Birth</div><div class="val">${fmtDate(p.date_of_birth)}</div></div>
-        <div class="view-field"><div class="key">Phone</div><div class="val">${val(p.phone)}</div></div>
-        <div class="view-field"><div class="key">Email</div><div class="val" style="word-break:break-all">${val(p.email)}</div></div>
+        <div class="view-field"><div class="key">Mobile / Work / Home</div><div class="val">${val(p.mobile_number)} · ${val(p.work_number)} · ${val(p.home_number)}</div></div>
+        <div class="view-field"><div class="key">Email</div><div class="val" style="word-break:break-all">${val(p.email_address)}</div></div>
+        <div class="view-field"><div class="key">Residential Address</div><div class="val">${[p.residential_address_line1, p.residential_address_line2, p.residential_suburb, p.residential_city, p.residential_code].filter(Boolean).map(esc).join(', ') || '—'}</div></div>
+        <div class="view-field"><div class="key">Postal Address</div><div class="val">${[p.postal_address_line1, p.postal_address_line2, p.postal_suburb, p.postal_city, p.postal_code].filter(Boolean).map(esc).join(', ') || '—'}</div></div>
+        <div class="view-field"><div class="key">Marital Status</div><div class="val">${val(p.marital_status)}</div></div>
+        <div class="view-field"><div class="key">Religion / Congregation</div><div class="val">${val(p.religion)} · ${val(p.congregation)}</div></div>
       </div>
-      <div class="view-section"><div class="view-section-title">Medical Aid &amp; Doctor</div>
-        <div class="view-field"><div class="key">Provider</div><div class="val">${val(p.medical_aid_provider)}</div></div>
-        <div class="view-field"><div class="key">Policy No.</div><div class="val">${val(p.medical_aid_number)}</div></div>
-        <div class="view-field"><div class="key">Primary Doctor</div><div class="val">${val(p.primary_doctor)}</div></div>
-        <div class="view-field"><div class="key">Doctor Contact</div><div class="val">${val(p.doctor_contact)}</div></div>
+
+      <div class="view-section">
+        <div class="view-section-title">Emergency Contact</div>
+        <div class="view-field"><div class="key">Name</div><div class="val">${val(p.ec_name)} ${val(p.ec_surname)}</div></div>
+        <div class="view-field"><div class="key">Relationship</div><div class="val">${val(p.ec_relationship)}</div></div>
+        <div class="view-field"><div class="key">Mobile / Work / Home</div><div class="val">${val(p.ec_mobile_number)} · ${val(p.ec_work_number)} · ${val(p.ec_home_number)}</div></div>
+        <div class="view-field"><div class="key">Address</div><div class="val">${[p.ec_address_line1, p.ec_suburb, p.ec_city, p.ec_code].filter(Boolean).map(esc).join(', ') || '—'}</div></div>
+        <div class="view-section-title" style="margin-top:12px">Alternative Contact</div>
+        <div class="view-field"><div class="key">Name</div><div class="val">${val(p.alt_name)} ${val(p.alt_surname)}</div></div>
+        <div class="view-field"><div class="key">Relationship</div><div class="val">${val(p.alt_relationship)}</div></div>
+        <div class="view-field"><div class="key">Mobile</div><div class="val">${val(p.alt_mobile_number)}</div></div>
       </div>
-      <div class="view-section"><div class="view-section-title">History</div>
-        <div class="view-field"><div class="key">Surgical</div><div class="val">${arr(p.surgical_history)}</div></div>
-        <div class="view-field"><div class="key">Vaccinations</div><div class="val">${arr(p.vaccination_history)}</div></div>
-        <div class="view-field"><div class="key">Directive</div><div class="val">${val(p.advance_directive)}</div></div>
-        <div class="view-field"><div class="key">Notes</div><div class="val">${val(p.notes)}</div></div>
+
+      <div class="view-section">
+        <div class="view-section-title">Medical Aid</div>
+        <div class="view-field"><div class="key">Scheme / Plan</div><div class="val">${val(p.medical_aid_scheme)} · ${val(p.medical_aid_plan)}</div></div>
+        <div class="view-field"><div class="key">Member No.</div><div class="val">${val(p.member_number)}</div></div>
+        <div class="view-field"><div class="key">Auth No.</div><div class="val">${val(p.authorisation_number)}</div></div>
+        <div class="view-field"><div class="key">Principal Member</div><div class="val">${val(p.principal_member_title)} ${val(p.principal_member_name)} ${val(p.principal_member_surname)}</div></div>
+        <div class="view-field"><div class="key">Principal SA ID</div><div class="val">${val(p.principal_member_sa_id)}</div></div>
+        <div class="view-field"><div class="key">Dependant Code</div><div class="val">${val(p.dependant_code)}</div></div>
+        <div class="view-section-title" style="margin-top:12px">Hospital Visit</div>
+        <div class="view-field"><div class="key">Admission Date</div><div class="val">${fmtDate(p.admission_date)}</div></div>
+        <div class="view-field"><div class="key">Surgery Date / Time</div><div class="val">${fmtDate(p.surgery_booked_date)} ${val(p.surgery_time)}</div></div>
+        <div class="view-field"><div class="key">Admitting Doctor</div><div class="val">${val(p.admitting_doctor)}</div></div>
+        <div class="view-field"><div class="key">Referring / GP</div><div class="val">${val(p.referring_doctor)} · ${val(p.general_gp)}</div></div>
+        <div class="view-field"><div class="key">ICD Code</div><div class="val">${val(p.icd_code_diagnosis)}</div></div>
+        <div class="view-field"><div class="key">CPT Code</div><div class="val">${val(p.cpt_code_procedure)}</div></div>
       </div>
-    </div>`;
+
+    </div>
+    ${p.notes ? `<div style="margin-top:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px 14px;font-size:13px;color:var(--text-secondary)"><strong>Notes:</strong> ${esc(p.notes)}</div>` : ''}`;
   openModal('view-modal');
 }
 function openQrFromView() { if (!viewingPatient) return; closeModal('view-modal'); showQr(viewingPatient.id); }
@@ -2198,7 +2629,8 @@ function openQrFromView() { if (!viewingPatient) return; closeModal('view-modal'
 /* ════════════════ QR ════════════════ */
 function showQr(id) {
   const p = allPatients.find(x => x.id === id); if (!p) return;
-  qrPatientId = id; document.getElementById('qr-patient-name').textContent = p.full_name;
+  qrPatientId = id;
+  document.getElementById('qr-patient-name').textContent = patientDisplayName(p);
   document.getElementById('toggle-qr-btn').textContent = p.qr_active ? 'Deactivate QR' : 'Activate QR';
   const qrDiv = document.getElementById('qr-code-div'); qrDiv.innerHTML = '';
   const base = location.href.replace(/\/[^/]*$/, '');
@@ -2214,7 +2646,8 @@ async function toggleQrActive() {
   const { error } = await sb.from('patients').update({ qr_active: ns }).eq('id', qrPatientId).eq('user_id', currentUser.id);
   if (error) { toast('Update failed: ' + error.message, 'error'); return; }
   toast(`QR ${ns ? 'activated' : 'deactivated'}`, ns ? 'success' : 'warn');
-  p.qr_active = ns; document.getElementById('toggle-qr-btn').textContent = ns ? 'Deactivate QR' : 'Activate QR';
+  p.qr_active = ns;
+  document.getElementById('toggle-qr-btn').textContent = ns ? 'Deactivate QR' : 'Activate QR';
   renderPatients(); renderDashboard();
 }
 async function regenerateToken() {
@@ -2231,7 +2664,8 @@ function printQr() {
     const qrDiv = document.getElementById('qr-code-div');
     const img = qrDiv.querySelector('img') || qrDiv.querySelector('canvas');
     if (!img) { toast('QR not ready', 'warn'); return; }
-    const win = window.open('', '_blank'); const name = esc(document.getElementById('qr-patient-name').textContent);
+    const win = window.open('', '_blank');
+    const name = esc(document.getElementById('qr-patient-name').textContent);
     win.document.write(`<html><head><title>QR — ${name}</title><style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#f0f6fc;color:#0A2540}h2{margin-bottom:6px;font-size:22px}.qr{background:white;padding:20px;border-radius:16px;box-shadow:0 8px 32px rgba(10,37,64,.12)}.foot{color:#8CA9C4;margin-top:14px;font-size:12px;letter-spacing:1px;text-transform:uppercase}</style></head><body><h2>${name}</h2><div class="qr">${img.outerHTML}</div><div class="foot">LumenOS MediScan QR</div></body></html>`);
     win.print();
   }, 150);
@@ -2256,7 +2690,7 @@ async function saveRole() {
 }
 
 /* ════════════════════════════════════════════
-   AI ASSISTANT — Gemma4 via Ollama
+   AI ASSISTANT
 ════════════════════════════════════════════ */
 async function checkOllamaStatus() {
   const el  = document.getElementById('ollama-status');
@@ -2286,19 +2720,50 @@ function populateAiPatientSelect() { populatePatientSelects(); }
 
 function loadAiPatientCtx() {
   const id = document.getElementById('ai-patient-ctx').value;
-  const display = document.getElementById('ai-patient-ctx-display'); const ontEl = document.getElementById('ontology-display');
+  const display = document.getElementById('ai-patient-ctx-display');
+  const ontEl = document.getElementById('ontology-display');
   if (!id) { display.innerHTML = ''; ontEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px">Select a patient to view their ontology graph.</div>'; return; }
   const p = allPatients.find(x => x.id === id); if (!p) return;
-  display.innerHTML = `<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;font-size:12px"><div style="font-weight:700;color:var(--text-primary);margin-bottom:6px">${esc(p.full_name)}</div>${p.blood_type ? `<div style="color:var(--red);font-weight:600;margin-bottom:3px">🩸 ${esc(p.blood_type)}</div>` : ''}${Array.isArray(p.allergies)&&p.allergies.length ? `<div style="color:var(--red);margin-bottom:3px">⚠ ${p.allergies.map(esc).join(', ')}</div>` : ''}${Array.isArray(p.medical_conditions)&&p.medical_conditions.length ? `<div style="color:var(--text-secondary)">🏥 ${p.medical_conditions.map(esc).join(', ')}</div>` : ''}</div>`;
+  const chronics = ['has_hypertension','has_multiple_sclerosis','has_cholesterol','has_emphysema','has_asthma','has_epilepsy','has_thyroid_disorder','has_lupus','has_depression','has_heart_failure','has_porphyria'].filter(k => p[k]).map(k => k.replace('has_','').replace(/_/g,' '));
+  display.innerHTML = `<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;font-size:12px">
+    <div style="font-weight:700;color:var(--text-primary);margin-bottom:6px">${esc(patientDisplayName(p))}</div>
+    ${p.blood_type ? `<div style="color:var(--red);font-weight:600;margin-bottom:3px">🩸 ${esc(p.blood_type)}</div>` : ''}
+    ${Array.isArray(p.allergies)&&p.allergies.length ? `<div style="color:var(--red);margin-bottom:3px">⚠ Allergies: ${p.allergies.map(esc).join(', ')}</div>` : ''}
+    ${chronics.length ? `<div style="color:var(--amber);margin-bottom:3px">🏥 ${chronics.map(c => c.charAt(0).toUpperCase()+c.slice(1)).join(', ')}</div>` : ''}
+    ${p.medical_aid_scheme ? `<div style="color:var(--text-secondary)">💳 ${esc(p.medical_aid_scheme)}</div>` : ''}
+  </div>`;
   ontEl.innerHTML = renderOntologyNode(buildOntology(p), 0);
 }
+
 function buildOntology(p) {
-  return { label: p.full_name, type: 'Patient', children: [
-    { label: 'Identity', type: 'Domain', children: [p.date_of_birth && { label:`DOB: ${fmtDate(p.date_of_birth)}`, type:'Attribute' }, p.blood_type && { label:`Blood: ${p.blood_type}`, type:'CriticalAttribute' }, p.id_number && { label:`ID: ${p.id_number}`, type:'Attribute' }].filter(Boolean) },
-    { label: 'Clinical', type: 'Domain', children: [...(Array.isArray(p.allergies) ? p.allergies.map(a => ({ label:`Allergy: ${a}`, type:'Risk' })) : []), ...(Array.isArray(p.medical_conditions) ? p.medical_conditions.map(c => ({ label:`Condition: ${c}`, type:'Condition' })) : []), ...(Array.isArray(p.current_medications) ? p.current_medications.map(m => ({ label:`Med: ${m}`, type:'Medication' })) : [])] },
-    { label: 'Coverage', type: 'Domain', children: [p.medical_aid_provider && { label:`Aid: ${p.medical_aid_provider}`, type:'Attribute' }, p.primary_doctor && { label:`Dr: ${p.primary_doctor}`, type:'Attribute' }].filter(Boolean) }
+  const chronics = ['has_hypertension','has_multiple_sclerosis','has_cholesterol','has_emphysema','has_asthma','has_epilepsy','has_thyroid_disorder','has_lupus','has_depression','has_heart_failure','has_porphyria']
+    .filter(k => p[k]).map(k => ({ label: k.replace('has_','').replace(/_/g,' '), type:'Condition' }));
+  return { label: patientDisplayName(p), type: 'Patient', children: [
+    { label: 'Identity', type: 'Domain', children: [
+      p.date_of_birth && { label:`DOB: ${fmtDate(p.date_of_birth)}`, type:'Attribute' },
+      p.blood_type && { label:`Blood: ${p.blood_type}`, type:'CriticalAttribute' },
+      p.identifier_number && { label:`ID: ${p.identifier_number}`, type:'Attribute' },
+      p.gender && { label:`Gender: ${p.gender}`, type:'Attribute' }
+    ].filter(Boolean) },
+    { label: 'Clinical', type: 'Domain', children: [
+      ...(Array.isArray(p.allergies) ? p.allergies.map(a => ({ label:`Allergy: ${a}`, type:'Risk' })) : []),
+      ...chronics,
+      ...(Array.isArray(p.current_medications) ? p.current_medications.map(m => ({ label:`Med: ${m}`, type:'Medication' })) : []),
+      p.diabetes_control && { label:`Diabetes: ${p.diabetes_control}`, type:'Condition' },
+    ].filter(Boolean) },
+    { label: 'Medical Aid', type: 'Domain', children: [
+      p.medical_aid_scheme && { label:`Scheme: ${p.medical_aid_scheme}`, type:'Attribute' },
+      p.medical_aid_plan   && { label:`Plan: ${p.medical_aid_plan}`,     type:'Attribute' },
+      p.member_number      && { label:`Member: ${p.member_number}`,      type:'Attribute' },
+    ].filter(Boolean) },
+    { label: 'Hospital', type: 'Domain', children: [
+      p.admitting_doctor && { label:`Admitting: ${p.admitting_doctor}`, type:'Attribute' },
+      p.referring_doctor && { label:`Referring: ${p.referring_doctor}`, type:'Attribute' },
+      p.icd_code_diagnosis && { label:`ICD: ${p.icd_code_diagnosis}`,   type:'Condition' },
+    ].filter(Boolean) }
   ]};
 }
+
 function renderOntologyNode(node, depth) {
   if (!node) return '';
   const colors = { Patient:'var(--teal)', Domain:'var(--indigo)', Risk:'var(--red)', CriticalAttribute:'var(--red)', Condition:'var(--amber)', Medication:'var(--green)', Attribute:'var(--text-muted)' };
@@ -2309,8 +2774,8 @@ function renderOntologyNode(node, depth) {
 }
 
 function handleAiFile(event) { Array.from(event.target.files).forEach(processAiFile); }
-function aiDragOver(e)  { e.preventDefault(); document.getElementById('ai-media-drop').classList.add('dragging'); }
-function aiDragLeave()  { document.getElementById('ai-media-drop').classList.remove('dragging'); }
+function aiDragOver(e) { e.preventDefault(); document.getElementById('ai-media-drop').classList.add('dragging'); }
+function aiDragLeave() { document.getElementById('ai-media-drop').classList.remove('dragging'); }
 function aiDrop(e) { e.preventDefault(); document.getElementById('ai-media-drop').classList.remove('dragging'); Array.from(e.dataTransfer.files).forEach(processAiFile); }
 function processAiFile(file) {
   if (aiFiles.length >= 4) { toast('Max 4 files at once', 'warn'); return; }
@@ -2341,13 +2806,13 @@ async function sendAiMessage() {
   const input = document.getElementById('ai-input'); const text = input.value.trim();
   if (!text && !aiFiles.length) return;
   const btn = document.getElementById('btn-ai-send'); btn.disabled = true;
-  const userText = text; input.value = ''; input.style.height = 'auto';
+  input.value = ''; input.style.height = 'auto';
   const icons = { image:'🖼️', audio:'🎵', document:'📄' };
-  const userDisplay = [...aiFiles.map(f => f.type==='image' ? `<img src="data:${f.mediaType};base64,${f.base64}" style="max-width:180px;max-height:120px;border-radius:8px;display:block;margin-bottom:4px">` : `<span style="opacity:.7">${icons[f.type]} ${esc(f.name)}</span>`), userText ? `<span>${esc(userText)}</span>` : ''].filter(Boolean).join('<br>');
+  const userDisplay = [...aiFiles.map(f => f.type==='image' ? `<img src="data:${f.mediaType};base64,${f.base64}" style="max-width:180px;max-height:120px;border-radius:8px;display:block;margin-bottom:4px">` : `<span style="opacity:.7">${icons[f.type]} ${esc(f.name)}</span>`), text ? `<span>${esc(text)}</span>` : ''].filter(Boolean).join('<br>');
   appendAiMsg('user', userDisplay);
   const sentImages = aiFiles.filter(f => f.type==='image').map(f => f.base64);
   const sentAudios = aiFiles.filter(f => f.type==='audio').map(f => f.base64);
-  aiMessages.push({ role:'user', content: userText || '(see attached media)' });
+  aiMessages.push({ role:'user', content: text || '(see attached media)' });
   aiFiles = []; renderAiFileList();
   const typingId = 'typing-' + Date.now(); const typingDiv = document.createElement('div');
   typingDiv.className = 'ai-msg'; typingDiv.id = typingId;
@@ -2362,9 +2827,8 @@ async function sendAiMessage() {
     appendAiMsg('assistant', formatAiReply(reply));
   } catch (err) {
     document.getElementById(typingId)?.remove();
-    appendAiMsg('assistant', `<span style="color:var(--red)">⚠ Gemma4 error: ${esc(err.message)}</span><br><span style="font-size:12px;opacity:.6">Make sure Ollama is running: <code>ollama serve</code> · Model: <code>gemma4:e4b</code></span>`);
+    appendAiMsg('assistant', `<span style="color:var(--red)">⚠ Error: ${esc(err.message)}</span>`);
     if (aiMessages.at(-1)?.role === 'user') aiMessages.pop();
-    console.error('Gemma4 error:', err);
   }
   btn.disabled = false; scrollAiToBottom();
 }
@@ -2389,9 +2853,10 @@ async function callGemma4(systemPrompt, history, images, audios) {
 
 function buildAiSystemPrompt(patient) {
   const arr = a => Array.isArray(a) && a.length ? a.join(', ') : 'None recorded';
-  const patientBlock = patient ? `\n## ACTIVE PATIENT RECORD\nName:              ${patient.full_name}\nDOB:               ${patient.date_of_birth||'Unknown'}\nBlood Type:        ${patient.blood_type||'Unknown'}\nAllergies:         ${arr(patient.allergies)}\nCurrent Meds:      ${arr(patient.current_medications)}\nConditions:        ${arr(patient.medical_conditions)}\nSurgical History:  ${arr(patient.surgical_history)}\nVaccinations:      ${arr(patient.vaccination_history)}\nMedical Aid:       ${patient.medical_aid_provider||'None'}\nPrimary Doctor:    ${patient.primary_doctor||'Unknown'}\nEmergency Contact: ${patient.emergency_contact_name||'None'}${patient.emergency_contact_phone?' ('+patient.emergency_contact_phone+')':''}\nAdvance Directive: ${patient.advance_directive||'None'}\nNotes:             ${patient.notes||'None'}\nRisk Score:        ${riskScore(patient)} / 10\n` : '## NO PATIENT SELECTED\nYou have access to the general clinic context below.';
-  const clinicBlock = allPatients.length ? `\n## CLINIC SUMMARY (${allPatients.length} patients)\nHigh Risk (score ≥5): ${allPatients.filter(p=>riskScore(p)>=5).length}\nWith Allergies:       ${allPatients.filter(p=>Array.isArray(p.allergies)&&p.allergies.length).length}\nUninsured:            ${allPatients.filter(p=>!p.medical_aid_provider).length}\nBlood types on file:  ${[...new Set(allPatients.map(p=>p.blood_type).filter(Boolean))].join(', ')||'None'}\n` : '';
-  return `You are the LumenOS Cognitive Engine — a clinical AI assistant embedded in a South African medical practice management system (LumenOS MediScan QR). You run locally via Ollama on the Gemma4:e4b multimodal model.\n\n## CAPABILITIES\n- Analyse uploaded medical images (X-rays, wound photos, lab slips, ECGs) and audio memos\n- Generate differential diagnoses from symptoms and patient history\n- Flag drug interactions and allergy conflicts against current medications\n- Summarise patient risk profiles and suggest follow-up actions\n- Reason across the clinic's patient knowledge graph\n\n## RULES\n- Be medically precise. Flag uncertainty explicitly.\n- Mark anything critical with ⚠ so it stands out.\n- When analysing an image, describe findings systematically: region → finding → severity → recommendation.\n- Apply South African clinical context: SASOG/SAMA guidelines, metric units, medical aid terminology.\n- Never fabricate drug dosages — state standard ranges and advise verification.\n- Keep responses concise and structured. Use bullet points for lists.\n\n${clinicBlock}${patientBlock}`;
+  const chronics = patient ? ['has_hypertension','has_multiple_sclerosis','has_cholesterol','has_emphysema','has_asthma','has_epilepsy','has_thyroid_disorder','has_lupus','has_depression','has_heart_failure','has_porphyria'].filter(k => patient[k]).map(k => k.replace('has_','').replace(/_/g,' ')).join(', ') || 'None' : '';
+  const patientBlock = patient ? `\n## ACTIVE PATIENT — ${patientDisplayName(patient)}\nID Number:         ${patient.identifier_number||'Unknown'}\nDOB:               ${patient.date_of_birth||'Unknown'}\nGender:            ${patient.gender||'Unknown'}\nBlood Type:        ${patient.blood_type||'Unknown'}\nAllergies:         ${arr(patient.allergies)}\nCurrent Meds:      ${arr(patient.current_medications)}\nChronic Conditions: ${chronics}\nDiabetes Control:  ${patient.diabetes_control||'None'}\nSymptoms:          ${patient.symptoms_description||'None'}\nSurgical History:  ${arr(patient.surgical_history)}\nVaccinations:      ${arr(patient.vaccination_history)}\nMedical Aid:       ${patient.medical_aid_scheme||'None'} · Plan: ${patient.medical_aid_plan||'—'}\nAdmitting Doctor:  ${patient.admitting_doctor||'Unknown'}\nICD Code:          ${patient.icd_code_diagnosis||'—'}\nCPT Code:          ${patient.cpt_code_procedure||'—'}\nEC Contact:        ${patient.ec_name||''} ${patient.ec_surname||''} (${patient.ec_relationship||'—'}) ${patient.ec_mobile_number||''}\nAdvance Directive: ${patient.advance_directive||'None'}\nRisk Score:        ${riskScore(patient)}\n` : '## NO PATIENT SELECTED\nAnswer general clinical questions.';
+  const clinicBlock = allPatients.length ? `\n## CLINIC SUMMARY (${allPatients.length} patients)\nHigh Risk: ${allPatients.filter(p=>riskScore(p)>=5).length} · With Allergies: ${allPatients.filter(p=>Array.isArray(p.allergies)&&p.allergies.length).length} · Insured: ${allPatients.filter(p=>p.medical_aid_scheme).length}\n` : '';
+  return `You are the LumenOS Cognitive Engine — a clinical AI assistant for a South African hospital (Life Health Group, Impilo). You run locally via Ollama Gemma4.\n\n## CAPABILITIES\n- Analyse medical images, ECGs, lab slips, wound photos and audio memos\n- Generate differential diagnoses from ICD/CPT codes and symptoms\n- Flag drug interactions and allergy conflicts\n- Summarise admission risk and suggest clinical actions\n- Apply SASOG/SAMA guidelines, metric units, South African medical aid context\n\n## RULES\n- Be medically precise. Flag uncertainty with ⚠.\n- Never fabricate drug dosages — cite standard ranges and advise verification.\n- Keep responses structured with bullets for lists.\n${clinicBlock}${patientBlock}`;
 }
 
 function appendAiMsg(role, htmlContent) {
