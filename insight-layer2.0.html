@@ -1196,15 +1196,22 @@ create table if not exists il_notification_log (
 <script>
 /**
  * LumenOS — Intelligence Activation System
- * Revised JS: all 8 reported bugs corrected.
+ * Revised JS: all 8 original bugs corrected + performance patches applied.
  *
- * Fix index:
+ * Performance fixes (from audit):
+ *  [P1] DashboardCache — data-hash guard prevents heavy re-renders when data unchanged
+ *  [P2] drawInsightMap() moved to bootApp (called once, never on every dashboard render)
+ *  [P3] navTo uses requestAnimationFrame for page-handler calls — keeps tab clicks instant
+ *  [P4] Focus timer only updates DOM when dashboard page is active
+ *  [P5] navTo prevents redundant page switches (same-page guard)
+ *
+ * Original bug fixes retained:
  *  [F1] Double fill-submit listener — single registration via _fillSubmitWired guard
  *  [F2] KPI cache — 60-second TTL, skips network on repeated dashboard renders
  *  [F3] wireInteractivity() double-run guard (_wired flag)
  *  [F4] maxSizeForType NaN — explicit map, no arithmetic on undefined
  *  [F5] sb-forms-count double-write — owned exclusively by updateBadges()
- *  [F6] authTab global scope bleed — renamed authSigninTab, scoped to auth card only
+ *  [F6] authTab global scope bleed — scoped to auth card only
  *  [F7] renderMarkdown greedy list regex — non-greedy, safe <ul> wrapping
  *  [F8] Focus timer double interval — _focusStarted guard
  */
@@ -1283,6 +1290,19 @@ function setState(patch) {
   Object.assign(AppState, patch);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   [P1] DASHBOARD PERFORMANCE CACHE
+═══════════════════════════════════════════════════════════ */
+
+const DashboardCache = {
+  lastDataHash: '',
+};
+
+function getDataHash() {
+  const { forms, responses, orgs } = AppState;
+  return `${forms.length}|${responses.length}|${orgs.length}|${responses.filter(r => r.readiness_score != null).length}`;
+}
+
 
 /* ═══════════════════════════════════════════════════════════
    2. SUPABASE CLIENT
@@ -1352,10 +1372,11 @@ const DB = {
     } catch { return null; }
   },
 
-  // Call this whenever we know data has changed so the cache is invalidated
   invalidateKPICache() {
     AppState._kpiCache   = null;
     AppState._kpiCacheAt = 0;
+    // [P1] Also reset data hash so next dashboard render rebuilds heavy components
+    DashboardCache.lastDataHash = '';
   },
 
   async loadVolumeData(days = 30) {
@@ -1707,9 +1728,9 @@ const Auth = {
   async signOut() {
     await sb.auth.signOut();
     setState({ user: null });
-    // Reset boot guards so a new sign-in starts clean
     AppState._wired        = false;
     AppState._focusStarted = false;
+    DashboardCache.lastDataHash = '';
     document.getElementById('app').style.display        = 'none';
     document.getElementById('auth-screen').style.display = 'flex';
   },
@@ -1793,7 +1814,7 @@ function checkPasswordStrength(pw, fillId = 'pw-strength-fill') {
 
 
 /* ═══════════════════════════════════════════════════════════
-   8. NAVIGATION
+   8. NAVIGATION  [P3][P5]
 ═══════════════════════════════════════════════════════════ */
 
 const PAGE_HANDLERS = {
@@ -1806,13 +1827,20 @@ const PAGE_HANDLERS = {
   settings:  () => {},
 };
 
+// [P5] same-page guard — don't re-render if already on that page
+// [P3] use requestAnimationFrame so the active-class toggle paints first,
+//      making the tab feel instantly responsive before the handler runs.
 function navTo(page) {
+  if (AppState.currentPage === page) return;
   AppState.currentPage = page;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(`page-${page}`)?.classList.add('active');
   document.querySelectorAll('[data-page]').forEach(n => n.classList.toggle('active', n.dataset.page === page));
   document.getElementById('mobile-menu-tab')?.classList.remove('active');
-  PAGE_HANDLERS[page]?.();
+  // Defer the (potentially heavy) page handler so the visual update paints first
+  requestAnimationFrame(() => {
+    PAGE_HANDLERS[page]?.();
+  });
 }
 
 function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
@@ -1824,7 +1852,6 @@ function closeModal(id) { document.getElementById(id)?.classList.remove('open');
 ═══════════════════════════════════════════════════════════ */
 
 async function bootApp(user) {
-  // Guard: if already booted with this user, skip
   if (AppState.user?.id === user.id) return;
 
   const meta  = user.user_metadata || {};
@@ -1863,7 +1890,9 @@ async function bootApp(user) {
     AppState._focusStarted = true;
   }
 
+  // [P2] Draw insight map ONCE at boot — it doesn't change based on data
   drawInsightMap();
+
   initChat();
   initMobileNav();
 
@@ -1888,7 +1917,7 @@ function updateOrgSelector() {
   if (!sel) return;
   sel.innerHTML = '<option value="">All Organisations</option>' +
     AppState.orgs.map(o => `<option value="${o.id}">${esc(o.name)}</option>`).join('');
-  // [F5] Only write sb-orgs-count here; sb-forms-count is owned by updateBadges()
+  // [F5] sb-orgs-count is owned exclusively here; sb-forms-count is owned by updateBadges()
   document.getElementById('sb-orgs-count').textContent = AppState.orgs.length;
 }
 
@@ -1913,17 +1942,20 @@ function updateBadges() {
   if (sbForms) sbForms.textContent = formsCount;
   const badge = document.getElementById('nav-badge-resp');
   if (badge) badge.style.display = respCount ? 'block' : 'none';
+  // Also sync mobile badge
+  const mobileBadge = document.getElementById('mobile-resp-badge');
+  if (mobileBadge) mobileBadge.style.display = respCount ? 'block' : 'none';
 }
 
 
 /* ═══════════════════════════════════════════════════════════
-   11. DASHBOARD RENDER
+   11. DASHBOARD RENDER  [P1][P2]
 ═══════════════════════════════════════════════════════════ */
 
 async function renderDashboard() {
-  const { forms, responses, orgs } = AppState;
+  const dataHash = getDataHash();
 
-  // [F2] loadKPIs is now cached — no redundant network calls on tab switch
+  // [F2] loadKPIs is cached — safe to call on every render
   const kpis = await DB.loadKPIs();
   if (kpis) {
     document.getElementById('kpi-responses').textContent     = kpis.total_responses ?? 0;
@@ -1934,26 +1966,33 @@ async function renderDashboard() {
     document.getElementById('kpi-score-sub').textContent     = s ? 'Based on all scored responses' : 'No scored responses yet';
     document.getElementById('kpi-responses-sub').textContent = kpis.responses_last_24h != null ? `${kpis.responses_last_24h} in last 24h` : '';
   } else {
-    const scored = responses.filter(r => r.readiness_score != null);
+    const scored = AppState.responses.filter(r => r.readiness_score != null);
     const avg    = scored.length ? Math.round(scored.reduce((a, r) => a + r.readiness_score, 0) / scored.length) : null;
-    document.getElementById('kpi-responses').textContent     = responses.length;
-    document.getElementById('kpi-forms').textContent         = forms.filter(f => f.active).length || forms.length;
-    document.getElementById('kpi-orgs').textContent          = orgs.length;
+    document.getElementById('kpi-responses').textContent     = AppState.responses.length;
+    document.getElementById('kpi-forms').textContent         = AppState.forms.filter(f => f.active).length || AppState.forms.length;
+    document.getElementById('kpi-orgs').textContent          = AppState.orgs.length;
     document.getElementById('kpi-score').textContent         = avg ?? '—';
     document.getElementById('kpi-score-sub').textContent     = scored.length ? `Across ${scored.length} response${scored.length !== 1 ? 's' : ''}` : 'No scored responses yet';
-    document.getElementById('kpi-responses-sub').textContent = responses.length ? `From ${forms.length} form${forms.length !== 1 ? 's' : ''}` : 'No responses yet';
+    document.getElementById('kpi-responses-sub').textContent = AppState.responses.length ? `From ${AppState.forms.length} form${AppState.forms.length !== 1 ? 's' : ''}` : 'No responses yet';
   }
 
-  const scored    = responses.filter(r => r.readiness_score != null);
+  // Snap / glance values — always cheap to update
+  const scored    = AppState.responses.filter(r => r.readiness_score != null);
   const localAvg  = scored.length ? Math.round(scored.reduce((a, r) => a + r.readiness_score, 0) / scored.length) : null;
-  document.getElementById('snap-forms').textContent = forms.length || '0';
-  document.getElementById('snap-resp').textContent  = responses.length || '0';
+  document.getElementById('snap-forms').textContent = AppState.forms.length || '0';
+  document.getElementById('snap-resp').textContent  = AppState.responses.length || '0';
   document.getElementById('snap-score').textContent = localAvg ?? '—';
-  document.getElementById('gl-forms').textContent   = `${forms.length} form${forms.length !== 1 ? 's' : ''}`;
+  document.getElementById('gl-forms').textContent   = `${AppState.forms.length} form${AppState.forms.length !== 1 ? 's' : ''}`;
 
-  renderInsightFeed();
-  renderTopForms();
-  drawSparklines();
+  // [P1] Only rebuild heavy components when underlying data has actually changed
+  if (dataHash !== DashboardCache.lastDataHash) {
+    DashboardCache.lastDataHash = dataHash;
+    renderInsightFeed();
+    renderTopForms();
+    drawSparklines();
+    // [P2] Insight map is NOT redrawn here — it's drawn once in bootApp
+  }
+  // If hash is unchanged we skip the heavy work; KPI numbers are already updated above.
 }
 
 function renderInsightFeed() {
@@ -2009,6 +2048,7 @@ function drawSparklines() {
   ChartManager.createSparkline('chart-score', [58,62,65,68,70,72,74,76], '#d97706', 'rgba(217,119,6,0.08)');
 }
 
+// [P2] drawInsightMap called once from bootApp — no longer called in renderDashboard
 function drawInsightMap() {
   const container = document.getElementById('insight-map');
   if (!container) return;
@@ -2059,18 +2099,20 @@ function drawInsightMap() {
 
 
 /* ═══════════════════════════════════════════════════════════
-   12. FOCUS TIMER
+   12. FOCUS TIMER  [F8][P4]
 ═══════════════════════════════════════════════════════════ */
 
 let _focusInterval = null;
 
-// [F8] Guard prevents double intervals if bootApp fires twice
+// [F8] Guard prevents double intervals; [P4] only touches DOM when dashboard is visible
 function startFocusTimer() {
-  if (_focusInterval) return; // already running
+  if (_focusInterval) return;
   if (!AppState.focusRunning) return;
   _focusInterval = setInterval(() => {
     if (AppState.focusSecs <= 0) { clearInterval(_focusInterval); _focusInterval = null; return; }
     AppState.focusSecs--;
+    // [P4] Skip DOM writes when dashboard isn't visible
+    if (!document.getElementById('page-dashboard')?.classList.contains('active')) return;
     const { focusSecs: s } = AppState;
     const h   = Math.floor(s / 3600);
     const m   = Math.floor((s % 3600) / 60);
@@ -2147,11 +2189,11 @@ async function renderFormsPage() {
 
 function openNewFormModal() {
   AppState.formFields = [];
-  document.getElementById('nf-edit-id').value       = '';
+  document.getElementById('nf-edit-id').value        = '';
   document.getElementById('nf-old-fields-json').value = '';
-  document.getElementById('nf-name').value          = '';
-  document.getElementById('nf-desc').value          = '';
-  document.getElementById('nf-slug').value          = '';
+  document.getElementById('nf-name').value            = '';
+  document.getElementById('nf-desc').value            = '';
+  document.getElementById('nf-slug').value            = '';
   document.getElementById('modal-form-title').textContent = 'Create New Form';
   const btn = document.getElementById('nf-submit-btn');
   btn.textContent = 'Create Form'; btn.disabled = false;
@@ -2166,11 +2208,11 @@ function editForm(id) {
   const form = AppState.forms.find(f => f.id === id);
   if (!form) return;
   AppState.formFields = JSON.parse(JSON.stringify(form.fields || []));
-  document.getElementById('nf-edit-id').value       = id;
+  document.getElementById('nf-edit-id').value        = id;
   document.getElementById('nf-old-fields-json').value = JSON.stringify(form.fields || []);
-  document.getElementById('nf-name').value          = form.name;
-  document.getElementById('nf-desc').value          = form.description || '';
-  document.getElementById('nf-slug').value          = form.share_slug || '';
+  document.getElementById('nf-name').value            = form.name;
+  document.getElementById('nf-desc').value            = form.description || '';
+  document.getElementById('nf-slug').value            = form.share_slug || '';
   document.getElementById('modal-form-title').textContent = 'Edit Form';
   const btn = document.getElementById('nf-submit-btn');
   btn.textContent = 'Save Changes'; btn.disabled = false;
@@ -2320,10 +2362,10 @@ async function _createForm() {
 }
 
 async function _saveFormEdit(id) {
-  const name         = document.getElementById('nf-name').value.trim();
-  const desc         = document.getElementById('nf-desc').value.trim();
-  const orgId        = document.getElementById('nf-org').value;
-  const slug         = document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi, '').toLowerCase() || null;
+  const name          = document.getElementById('nf-name').value.trim();
+  const desc          = document.getElementById('nf-desc').value.trim();
+  const orgId         = document.getElementById('nf-org').value;
+  const slug          = document.getElementById('nf-slug').value.trim().replace(/[^a-z0-9-]/gi, '').toLowerCase() || null;
   const oldFieldsJson = document.getElementById('nf-old-fields-json').value;
   if (!name) { toast('Form name required', 'error'); return; }
 
@@ -2472,10 +2514,10 @@ function shareTo(platform) {
 
 
 /* ═══════════════════════════════════════════════════════════
-   15. FILL SCREEN
+   15. FILL SCREEN  [F1][F4]
 ═══════════════════════════════════════════════════════════ */
 
-// [F4] Safe file size map — no arithmetic on undefined, no accidental NaN
+// [F4] Safe file size map — explicit values, no arithmetic on undefined
 const FILE_MAX_BYTES = { video: 500 * 1024 * 1024, pdf: 100 * 1024 * 1024 };
 const FILE_DEFAULT_MAX = 50 * 1024 * 1024;
 
@@ -2546,7 +2588,7 @@ function _openFillWith(form) {
 }
 
 async function handleFileUpload(file, idx, fieldType, fields) {
-  const maxSize = maxSizeForType(fieldType);  // [F4] Always a valid number now
+  const maxSize = maxSizeForType(fieldType);  // [F4] Always a valid number
   if (file.size > maxSize) { toast(`File too large. Max: ${fmtBytes(maxSize)}`, 'error'); return; }
 
   const previewWrap = document.getElementById(`upload-preview-${idx}`);
@@ -2645,10 +2687,10 @@ async function submitFill() {
     form.fields.forEach((f, i) => {
       const id = `fill-f-${i}`;
       if (f.type === 'scale') {
-        const sel   = document.querySelector(`#${id} .fill-scale-btn.selected`);
+        const sel    = document.querySelector(`#${id} .fill-scale-btn.selected`);
         answers[f.label] = sel ? parseInt(sel.dataset.val) : null;
       } else if (f.type === 'radio') {
-        const sel   = document.querySelector(`input[name="${id}"]:checked`);
+        const sel    = document.querySelector(`input[name="${id}"]:checked`);
         answers[f.label] = sel ? sel.value : null;
       } else if (f.type === 'checkbox') {
         answers[f.label] = [...document.querySelectorAll(`#${id} input:checked`)].map(s => s.value);
@@ -3031,27 +3073,31 @@ function copyAIOutput() {
 
 // ── Chat ─────────────────────────────────────────────────
 
-// [F7] Fixed renderMarkdown: non-greedy list capture, safe <ul> wrapping
+// [F7] Fixed renderMarkdown: non-greedy list capture, safe <ul> wrapping, no runaway matches
 function renderMarkdown(text) {
   let t = text;
-  // Code blocks first (protect inner content)
+  // Code blocks first (protect inner content from further substitution)
   t = t.replace(/```(?:\w*)\n?([\s\S]*?)```/g, (_, code) => `<pre><code>${esc(code.trim())}</code></pre>`);
   // Inline code
   t = t.replace(/`([^`\n]+)`/g, (_, code) => `<code>${esc(code)}</code>`);
   // Bold / italic
   t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
   t = t.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
-  // Headings — must appear at line start
+  // Headings — must appear at line start (multiline flag)
   t = t.replace(/^### (.+)$/gm, '<strong style="font-size:13px;display:block;margin-top:8px;color:var(--accent)">$1</strong>');
   t = t.replace(/^## (.+)$/gm,  '<strong style="font-size:14px;display:block;margin-top:10px">$1</strong>');
-  // Lists — gather consecutive bullet lines, then wrap the whole block in <ul> once
+  // [F7] Unordered lists — gather consecutive bullet lines then wrap the entire block in ONE <ul>
   t = t.replace(/((?:^- .+\n?)+)/gm, block => {
-    const items = block.trim().split('\n').map(line => `<li style="margin-left:16px">${line.replace(/^- /, '')}</li>`).join('');
+    const items = block.trim().split('\n')
+      .map(line => `<li style="margin-left:16px">${line.replace(/^- /, '')}</li>`)
+      .join('');
     return `<ul style="margin:4px 0;padding:0">${items}</ul>`;
   });
-  // Numbered lists
+  // Ordered lists — same pattern
   t = t.replace(/((?:^\d+\. .+\n?)+)/gm, block => {
-    const items = block.trim().split('\n').map(line => `<li style="margin-left:16px">${line.replace(/^\d+\. /, '')}</li>`).join('');
+    const items = block.trim().split('\n')
+      .map(line => `<li style="margin-left:16px">${line.replace(/^\d+\. /, '')}</li>`)
+      .join('');
     return `<ol style="margin:4px 0;padding:0">${items}</ol>`;
   });
   // Paragraphs
@@ -3092,9 +3138,9 @@ function buildChatSystemPrompt() {
   const scopedResponses = chatFormScope ? responses.filter(r => r.form_id === chatFormScope) : responses;
 
   const formsSummary = scopedForms.map(f => {
-    const fResps      = scopedResponses.filter(r => r.form_id === f.id);
-    const scored      = fResps.filter(r => r.readiness_score != null);
-    const avg         = scored.length ? Math.round(scored.reduce((a, r) => a + r.readiness_score, 0) / scored.length) : null;
+    const fResps       = scopedResponses.filter(r => r.form_id === f.id);
+    const scored       = fResps.filter(r => r.readiness_score != null);
+    const avg          = scored.length ? Math.round(scored.reduce((a, r) => a + r.readiness_score, 0) / scored.length) : null;
     const scoredFields = (f.fields || []).filter(ff => ff.scoring?.category).length;
     return `- "${f.name}" (id:${f.id}): ${fResps.length} responses, avg score: ${avg ?? 'N/A'}, scored fields: ${scoredFields}, fields: ${(f.fields || []).map(ff => ff.label + '(' + ff.type + ')').join(', ')}`;
   }).join('\n');
@@ -3220,7 +3266,7 @@ const Notify = {
     ['email','slack'].forEach(ch => {
       const tog = document.getElementById(`${ch}-toggle`);
       const dot = document.getElementById(`${ch}-status-dot`);
-      if (tog) tog.classList.toggle('on',     cfg[ch].enabled);
+      if (tog) tog.classList.toggle('on',      cfg[ch].enabled);
       if (dot) { dot.classList.toggle('active',   cfg[ch].enabled); dot.classList.toggle('inactive', !cfg[ch].enabled); }
     });
     const any   = cfg.email.enabled || cfg.slack.enabled;
@@ -3345,8 +3391,8 @@ const Notify = {
    21. SETTINGS
 ═══════════════════════════════════════════════════════════ */
 
+// [F6] Scoped to #page-settings only — no collision with auth card tabs
 function settingsTab(tab, btn) {
-  // Scoped to the settings page only — does not touch auth card
   document.querySelectorAll('#page-settings .auth-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('#page-settings .auth-panel').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
@@ -3485,9 +3531,7 @@ function closeMobileSidebar() {
 
 /* ═══════════════════════════════════════════════════════════
    24. WIRE INTERACTIVITY  [F1][F3]
-   Called once per session via the _wired guard in bootApp.
-   Fill-only mode registers the submit button here too,
-   so window.addEventListener('load') no longer needs to.
+   Called exactly once per session via the _wired guard in bootApp.
 ═══════════════════════════════════════════════════════════ */
 
 function wireInteractivity() {
@@ -3510,8 +3554,7 @@ function wireInteractivity() {
   // Form modal submit
   document.getElementById('nf-submit-btn')?.addEventListener('click', e => { e.preventDefault(); submitFormModal(); });
 
-  // [F1] Fill submit — registered once, authoritatively, right here.
-  // The window.load handler no longer adds a second listener.
+  // [F1] Fill submit — registered once, right here, for the full-app session.
   if (!AppState._fillSubmitWired) {
     document.getElementById('fill-submit-btn')?.addEventListener('click', e => { e.preventDefault(); submitFill(); });
     AppState._fillSubmitWired = true;
@@ -3570,7 +3613,7 @@ window.authSigninTab = (tab, btn) => {
   btn.classList.add('active');
   document.getElementById('ap-' + tab)?.classList.add('active');
 };
-// Keep backward compat with the existing HTML attribute `onclick="authTab('signin',this)"`
+// Backward compat with existing HTML `onclick="authTab('signin',this)"`
 window.authTab = window.authSigninTab;
 
 // Dashboard / focus
@@ -3643,7 +3686,6 @@ window.onOrgChange = (id) => onOrgChange(id);
 
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'PASSWORD_RECOVERY') { Auth.showNewPasswordPanel(); return; }
-  // [F3] bootApp itself guards against double-boot via user-id equality check
   if (event === 'SIGNED_IN' && session?.user) {
     if (document.getElementById('auth-new-password')?.style.display === 'block') return;
     if (FILL_PARAM) return;
@@ -3673,9 +3715,8 @@ window.addEventListener('load', async () => {
       }
       AppState.forms = [formData];
 
-      // [F1] Register the fill submit button ONCE here for fill-only mode.
-      // wireInteractivity() is NOT called in fill-only mode (no full app),
-      // so this is the single registration path, guarded by _fillSubmitWired.
+      // [F1] Register fill submit ONCE for fill-only mode.
+      // wireInteractivity() is NOT called in this path, so this is the sole registration.
       if (!AppState._fillSubmitWired) {
         document.getElementById('fill-submit-btn')?.addEventListener('click', e => { e.preventDefault(); submitFill(); });
         AppState._fillSubmitWired = true;
