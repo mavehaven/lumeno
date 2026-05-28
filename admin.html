@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LumenOS — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root {
+  --ink: #1a1714; --ink-soft: #4a4540; --ink-muted: #8a847e;
+  --paper: #faf9f7; --paper-warm: #f3f0ea; --rule: #ddd8d0; --rule-light: #eae6df;
+  --gold: #c4922a; --gold-light: #f5e9d0;
+  --blue-deep: #1e3a5f; --blue-mid: #2d5f9e; --blue-light: #dde8f5;
+  --red-flag: #c0392b; --red-light: #fef0ef;
+  --green-ok: #1e6b45; --green-light: #d6efe3;
+  --amber-light: #fef6e4; --r: 6px; --sidebar-w: 220px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; font-size: 14px; display: flex; flex-direction: column; }
+
+.topbar { background: var(--blue-deep); color: white; padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 200; flex-shrink: 0; }
+.topbar-brand { display: flex; align-items: center; gap: 10px; }
+.logo-img-full { height: 32px; max-width: 180px; object-fit: contain; filter: brightness(0) invert(1); }
+.topbar-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.85); font-size: 11px; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.15); border: 1.5px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; }
+.topbar-name { font-size: 12px; opacity: 0.75; }
+
+.sb-bar { background: #0e2540; padding: 5px 1.5rem; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: rgba(255,255,255,0.5); border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0; }
+.sb-dot { width: 7px; height: 7px; border-radius: 50%; background: #555; transition: background 0.3s; flex-shrink: 0; }
+.sb-dot.ready { background: #2ecc71; box-shadow: 0 0 4px #2ecc71; }
+.sb-dot.loading { background: var(--gold); }
+.sb-dot.error { background: var(--red-flag); }
+.sb-text { flex: 1; }
+.refresh-btn { background: none; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.5); font-size: 11px; padding: 2px 10px; border-radius: 10px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+.refresh-btn:hover { border-color: rgba(255,255,255,0.35); color: rgba(255,255,255,0.8); }
+
+.app-body { display: flex; flex: 1; min-height: 0; }
+
+.sidebar { width: var(--sidebar-w); background: white; border-right: 1px solid var(--rule); display: flex; flex-direction: column; position: sticky; top: 80px; height: calc(100vh - 80px); overflow-y: auto; flex-shrink: 0; }
+.sidebar-section { padding: 1.25rem 0 0.5rem; }
+.sidebar-label { font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-muted); padding: 0 1rem 6px; }
+.nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 1rem; font-size: 13px; color: var(--ink-soft); cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; user-select: none; }
+.nav-item:hover { background: var(--paper-warm); color: var(--ink); }
+.nav-item.active { background: var(--blue-light); color: var(--blue-deep); border-left-color: var(--blue-mid); font-weight: 500; }
+.nav-item .icon { font-size: 15px; opacity: 0.7; }
+.nav-count { margin-left: auto; background: var(--blue-mid); color: white; font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 10px; }
+.nav-warn { margin-left: auto; background: var(--red-flag); color: white; font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 10px; }
+.sidebar-footer { margin-top: auto; padding: 1rem; border-top: 1px solid var(--rule-light); }
+
+.main-content { flex: 1; min-width: 0; overflow-y: auto; }
+.content-view { display: none; padding: 2rem 2rem 4rem; max-width: 1200px; }
+.content-view.active { display: block; }
+
+.page-header { margin-bottom: 2rem; display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.page-eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+.page-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 600; }
+.page-sub { font-size: 13px; color: var(--ink-muted); margin-top: 3px; }
+.header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: var(--r); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; border: 1.5px solid transparent; transition: all 0.15s; white-space: nowrap; }
+.btn-outline { border-color: var(--rule); background: white; color: var(--ink-soft); }
+.btn-outline:hover { border-color: var(--ink-muted); color: var(--ink); }
+.btn-primary { background: var(--blue-deep); color: white; border-color: var(--blue-deep); }
+.btn-primary:hover { background: #152e4d; }
+.btn-danger { background: var(--red-flag); color: white; border-color: var(--red-flag); }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+.stat-card { background: white; border: 1px solid var(--rule-light); border-radius: 8px; padding: 1.1rem 1.25rem; position: relative; overflow: hidden; }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 8px 8px 0 0; }
+.stat-card.blue::before { background: var(--blue-mid); }
+.stat-card.green::before { background: var(--green-ok); }
+.stat-card.gold::before { background: var(--gold); }
+.stat-card.red::before { background: var(--red-flag); }
+.stat-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); margin-bottom: 6px; }
+.stat-value { font-size: 28px; font-weight: 300; color: var(--ink); line-height: 1; margin-bottom: 4px; }
+.stat-sub { font-size: 12px; color: var(--ink-muted); }
+
+.charts-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 1.25rem; margin-bottom: 2rem; }
+.chart-card { background: white; border: 1px solid var(--rule-light); border-radius: 8px; padding: 1.25rem; }
+.chart-card-title { font-size: 13px; font-weight: 500; color: var(--ink-soft); margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink-muted); }
+.legend-swatch { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+.donut-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.donut-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-soft); }
+.dl-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+.section-card { background: white; border: 1px solid var(--rule-light); border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden; }
+.section-card-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--rule-light); display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.section-card-title { font-size: 13px; font-weight: 500; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.06em; }
+.search-wrap { position: relative; }
+.search-wrap input { border: 1px solid var(--rule); border-radius: var(--r); padding: 6px 10px 6px 30px; font-size: 12px; font-family: 'DM Sans', sans-serif; color: var(--ink); background: var(--paper-warm); outline: none; width: 200px; }
+.search-wrap input:focus { border-color: var(--blue-mid); background: white; }
+.search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--ink-muted); font-size: 13px; pointer-events: none; }
+.filter-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-btn { padding: 4px 10px; border-radius: 14px; border: 1px solid var(--rule); background: none; font-size: 11px; font-weight: 500; cursor: pointer; color: var(--ink-muted); transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+.filter-btn.active { background: var(--blue-deep); color: white; border-color: var(--blue-deep); }
+.filter-btn:hover:not(.active) { border-color: var(--ink-muted); color: var(--ink); }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th { padding: 9px 12px; text-align: left; font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); background: var(--paper-warm); border-bottom: 1px solid var(--rule-light); white-space: nowrap; }
+.data-table td { padding: 11px 12px; border-bottom: 1px solid var(--rule-light); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: #faf8f5; }
+.data-table tbody tr { cursor: pointer; }
+
+.ref-pill { font-size: 11px; font-weight: 500; background: var(--blue-light); color: var(--blue-deep); padding: 3px 8px; border-radius: 4px; font-family: monospace; letter-spacing: 0.06em; }
+.applicant-cell { display: flex; align-items: center; gap: 9px; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; flex-shrink: 0; }
+.av-blue { background: var(--blue-light); color: var(--blue-deep); }
+.av-green { background: var(--green-light); color: var(--green-ok); }
+.av-gold { background: var(--gold-light); color: #7a5c15; }
+.av-red { background: var(--red-light); color: var(--red-flag); }
+.applicant-name { font-weight: 500; font-size: 13px; }
+.applicant-sub { font-size: 11px; color: var(--ink-muted); }
+
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.b-blue { background: var(--blue-light); color: var(--blue-deep); }
+.b-gold { background: var(--amber-light); color: #7a5c15; }
+.b-green { background: var(--green-light); color: var(--green-ok); }
+.b-muted { background: var(--paper-warm); color: var(--ink-muted); }
+.b-red { background: var(--red-light); color: var(--red-flag); }
+
+.progress-mini { background: var(--rule-light); border-radius: 3px; height: 5px; overflow: hidden; min-width: 70px; }
+.progress-mini-fill { height: 100%; border-radius: 3px; }
+.pf-blue { background: var(--blue-mid); } .pf-green { background: var(--green-ok); } .pf-gold { background: var(--gold); } .pf-red { background: var(--red-flag); }
+
+.flag-tag { background: var(--red-light); color: var(--red-flag); border-radius: 3px; font-size: 10px; font-weight: 500; padding: 2px 5px; white-space: nowrap; display: inline-block; }
+.warn-tag { background: var(--amber-light); color: #7a5c15; border-radius: 3px; font-size: 10px; font-weight: 500; padding: 2px 5px; white-space: nowrap; display: inline-block; }
+
+.detail-tabs { display: flex; gap: 2px; margin-bottom: 1.5rem; border-bottom: 1px solid var(--rule-light); }
+.detail-tab { padding: 8px 14px; font-size: 12.5px; color: var(--ink-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; font-family: 'DM Sans', sans-serif; }
+.detail-tab:hover { color: var(--ink); }
+.detail-tab.active { color: var(--blue-deep); border-bottom-color: var(--blue-mid); font-weight: 500; }
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.field-box { }
+.field-key { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); margin-bottom: 3px; font-weight: 500; }
+.field-val { font-size: 13px; color: var(--ink); }
+.field-val.empty { color: var(--ink-muted); font-style: italic; }
+
+.section-divider { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted); margin: 1.25rem 0 0.75rem; padding-bottom: 6px; border-bottom: 1px solid var(--rule-light); }
+
+.flag-alert { background: var(--red-light); border: 1px solid #f5c0b8; border-radius: var(--r); padding: 10px 14px; font-size: 12.5px; color: #7a1a1a; margin-bottom: 8px; }
+
+.notes-area { border: 1px solid var(--rule); border-radius: var(--r); padding: 10px 12px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--ink); background: white; width: 100%; min-height: 80px; resize: vertical; outline: none; line-height: 1.5; }
+.notes-area:focus { border-color: var(--blue-mid); }
+
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--ink-muted); }
+.empty-state .es-icon { font-size: 36px; margin-bottom: 0.75rem; opacity: 0.4; }
+.empty-state p { font-size: 13px; }
+
+.row { display: flex; gap: 1.25rem; align-items: flex-start; }
+.col { flex: 1; min-width: 0; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .charts-row { grid-template-columns: 1fr; }
+  .field-row { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .content-view { padding: 1rem 1rem 4rem; }
+  .field-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" class="logo-img-full">
+    <span class="topbar-badge">Admin</span>
+  </div>
+  <div class="topbar-right">
+    <span class="topbar-name">LumenOS Admin</span>
+    <div class="topbar-avatar">LX</div>
+  </div>
+</div>
+
+<!-- SUPABASE STATUS BAR -->
+<div class="sb-bar">
+  <div class="sb-dot loading" id="sb-dot"></div>
+  <span class="sb-text" id="sb-text">Connecting to Supabase…</span>
+  <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
+</div>
+
+<!-- APP BODY -->
+<div class="app-body">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Overview</div>
+      <div class="nav-item active" onclick="showView('dashboard')"><span class="icon">📊</span> Dashboard</div>
+      <div class="nav-item" onclick="showView('cases')"><span class="icon">📁</span> All Cases <span class="nav-count" id="nav-total">—</span></div>
+      <div class="nav-item" onclick="showView('flagged')"><span class="icon">🚩</span> Flagged <span class="nav-warn" id="nav-flagged">—</span></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Data</div>
+      <div class="nav-item" onclick="showView('financial')"><span class="icon">💰</span> Financial</div>
+      <div class="nav-item" onclick="showView('travel')"><span class="icon">✈️</span> Travel History</div>
+      <div class="nav-item" onclick="showView('employment')"><span class="icon">💼</span> Employment</div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="nav-item"><span class="icon">⚙️</span> Settings</div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- DASHBOARD -->
+    <div class="content-view active" id="view-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">LumenOS Immigration</div>
+          <div class="page-title">Admin Dashboard</div>
+          <div class="page-sub" id="dash-date">Loading…</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card blue"><div class="stat-label">Total Applicants</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub">All intake files</div></div>
+        <div class="stat-card green"><div class="stat-label">With Intent Filed</div><div class="stat-value" id="stat-intent">—</div><div class="stat-sub">Section 6 complete</div></div>
+        <div class="stat-card gold"><div class="stat-label">Financial on File</div><div class="stat-value" id="stat-financial">—</div><div class="stat-sub">Section 7 complete</div></div>
+        <div class="stat-card red"><div class="stat-label">Risk Flags</div><div class="stat-value" id="stat-flags">—</div><div class="stat-sub">Convictions / refusals / overstay</div></div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-card-title"><span>Submissions by Month</span><span style="font-size:11px;color:var(--ink-muted);font-weight:400;" id="chart-range"></span></div>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-swatch" style="background:#2d5f9e"></div> Applications created</div>
+          </div>
+          <div style="position:relative;width:100%;height:200px;">
+            <canvas id="submissionsChart" role="img" aria-label="Monthly intake submissions bar chart">Monthly submission counts.</canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title"><span>Destination Countries</span></div>
+          <div style="position:relative;width:100%;height:170px;display:flex;align-items:center;justify-content:center;">
+            <canvas id="destChart" role="img" aria-label="Donut chart of destination countries">Destination country breakdown.</canvas>
+          </div>
+          <div class="donut-legend" id="dest-legend"></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col" style="flex:1.6;">
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="section-card-title">Recent Applicants</div>
+              <button class="btn btn-outline btn-sm" onclick="showView('cases')">View All →</button>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Ref</th><th>Name</th><th>Nationality</th><th>Destination</th><th>Purpose</th><th>Submitted</th></tr></thead>
+              <tbody id="recent-tbody">
+                <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--ink-muted);">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="col" style="flex:1;">
+          <div class="section-card">
+            <div class="section-card-header"><div class="section-card-title">Immigration Intent Split</div></div>
+            <div style="position:relative;width:100%;height:220px;padding:1rem;">
+              <canvas id="purposeChart" role="img" aria-label="Bar chart of relocation purposes">Relocation purpose breakdown.</canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALL CASES -->
+    <div class="content-view" id="view-cases">
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">Case Management</div>
+          <div class="page-title">All Applicants</div>
+          <div class="page-sub" id="cases-sub">Loading…</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-outline btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+        </div>
+      </div>
+      <div class="section-card">
+        <div class="section-card-header">
+          <div class="filter-wrap" id="purpose-filters">
+            <button class="filter-btn active" onclick="filterByPurpose('all',this)">All</button>
+          </div>
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Search name, ref, email…" oninput="searchApplicants(this.value)">
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table" style="min-width:900px;">
+            <thead><tr>
+              <th>Ref</th><th>Applicant</th><th>Nationality</th><th>Destination</th>
+              <th>Purpose</th><th>Stay</th><th>Timeline</th><th>Job Offer</th><th>Risk Flags</th><th>Created</th>
+            </tr></thead>
+            <tbody id="cases-tbody">
+              <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--ink-muted);">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLAGGED -->
+    <div class="content-view" id="view-flagged">
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">Risk Management</div>
+          <div class="page-title">Flagged Cases</div>
+          <div class="page-sub">Applicants with disclosed criminal records, visa refusals, deportations, or overstays</div>
+        </div>
+      </div>
+      <div id="flagged-container">
+        <div style="text-align:center;padding:3rem;color:var(--ink-muted);">Loading…</div>
+      </div>
+    </div>
+
+    <!-- CASE DETAIL -->
+    <div class="content-view" id="view-detail">
+      <div style="margin-bottom:1rem;">
+        <button class="btn btn-outline btn-sm" onclick="goBack()">← Back</button>
+      </div>
+      <div id="detail-content"></div>
+    </div>
+
+    <!-- FINANCIAL -->
+    <div class="content-view" id="view-financial">
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">Section 7</div>
+          <div class="page-title">Financial Information</div>
+          <div class="page-sub">Income sources, savings, and sponsorship data</div>
+        </div>
+      </div>
+      <div class="section-card">
+        <div style="overflow-x:auto;">
+          <table class="data-table" style="min-width:800px;">
+            <thead><tr><th>Applicant</th><th>Ref</th><th>Income Source</th><th>Monthly Income</th><th>Savings</th><th>Currency</th><th>Has Sponsor</th><th>Sponsor Name</th></tr></thead>
+            <tbody id="financial-tbody"><tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--ink-muted);">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRAVEL -->
+    <div class="content-view" id="view-travel">
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">Section 8</div>
+          <div class="page-title">Travel History</div>
+          <div class="page-sub">Visa records, refusals, deportations, and overstays</div>
+        </div>
+      </div>
+      <div class="section-card">
+        <div style="overflow-x:auto;">
+          <table class="data-table" style="min-width:900px;">
+            <thead><tr><th>Applicant</th><th>Ref</th><th>Country</th><th>Year</th><th>Purpose</th><th>Visa Type</th><th>Duration</th><th>Refusals</th><th>Deported</th><th>Overstay</th></tr></thead>
+            <tbody id="travel-tbody"><tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--ink-muted);">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPLOYMENT -->
+    <div class="content-view" id="view-employment">
+      <div class="page-header">
+        <div>
+          <div class="page-eyebrow">Section 5</div>
+          <div class="page-title">Employment History</div>
+          <div class="page-sub">Current and previous employer records</div>
+        </div>
+      </div>
+      <div class="section-card">
+        <div style="overflow-x:auto;">
+          <table class="data-table" style="min-width:900px;">
+            <thead><tr><th>Applicant</th><th>Ref</th><th>Employer</th><th>Title</th><th>Type</th><th>From</th><th>To</th><th>Salary</th><th>Current</th></tr></thead>
+            <tbody id="employment-tbody"><tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--ink-muted);">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ═══════════════════════
+// SUPABASE CONFIG
+// ═══════════════════════
+const SB_URL = 'https://pzioskykakwhwdlcmwyv.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
+let sb;
+
+// ═══════════════════════
+// STATE
+// ═══════════════════════
+let allApplicants = [];   // applicants rows
+let allIntent    = [];    // immigration_intent rows
+let allFinancial = [];    // financial rows
+let allCriminal  = [];    // criminal_security rows
+let allTravel    = [];    // travel_history rows
+let allEmployment = [];   // employment rows
+let allContact   = [];    // contact_info rows
+
+let currentFilter = 'all';
+let currentSearch = '';
+let prevView = 'cases';
+let chartInstances = {};
+
+// ═══════════════════════
+// STATUS BAR
+// ═══════════════════════
+function sbStatus(state, msg) {
+  const dot = document.getElementById('sb-dot');
+  const txt = document.getElementById('sb-text');
+  dot.className = 'sb-dot ' + state;
+  txt.textContent = msg;
+}
+
+// ═══════════════════════
+// BOOT
+// ═══════════════════════
+async function boot() {
+  sb = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false } });
+  const now = new Date();
+  document.getElementById('dash-date').textContent =
+    now.toLocaleDateString('en-ZA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  await loadAll();
+}
+
+async function loadAll() {
+  sbStatus('loading', 'Fetching data…');
+  try {
+    const [a, i, f, c, t, e, ct] = await Promise.all([
+      sb.from('applicants').select('*').order('created_at', { ascending: false }),
+      sb.from('immigration_intent').select('*'),
+      sb.from('financial').select('*'),
+      sb.from('criminal_security').select('*'),
+      sb.from('travel_history').select('*'),
+      sb.from('employment').select('*'),
+      sb.from('contact_info').select('*'),
+    ]);
+    if (a.error) throw a.error;
+    allApplicants  = a.data  || [];
+    allIntent      = i.data  || [];
+    allFinancial   = f.data  || [];
+    allCriminal    = c.data  || [];
+    allTravel      = t.data  || [];
+    allEmployment  = e.data  || [];
+    allContact     = ct.data || [];
+
+    sbStatus('ready', `✓ ${allApplicants.length} applicant${allApplicants.length !== 1 ? 's' : ''} loaded · ${new Date().toLocaleTimeString('en-ZA')}`);
+    renderAll();
+  } catch (err) {
+    sbStatus('error', '✗ Error: ' + err.message);
+    console.error(err);
+  }
+}
+
+// ═══════════════════════
+// HELPERS
+// ═══════════════════════
+function getIntent(applicantId)    { return allIntent.find(r => r.applicant_id === applicantId); }
+function getFinancial(applicantId) { return allFinancial.find(r => r.applicant_id === applicantId); }
+function getCriminal(applicantId)  { return allCriminal.find(r => r.applicant_id === applicantId); }
+function getTravel(applicantId)    { return allTravel.find(r => r.applicant_id === applicantId && !r.country); }
+function getContact(applicantId)   { return allContact.find(r => r.applicant_id === applicantId); }
+function getEmployment(applicantId){ return allEmployment.filter(r => r.applicant_id === applicantId); }
+
+function isFlagged(applicantId) {
+  const cr = getCriminal(applicantId);
+  const tr = getTravel(applicantId);
+  return (cr && (cr.has_convictions === 'Yes' || cr.has_arrests === 'Yes' || cr.has_pending_cases === 'Yes')) ||
+         (tr && (tr.has_refusals === 'Yes' || tr.has_deportation === 'Yes' || tr.has_overstay === 'Yes'));
+}
+
+function getFlags(applicantId) {
+  const tags = [];
+  const cr = getCriminal(applicantId);
+  const tr = getTravel(applicantId);
+  if (cr?.has_convictions === 'Yes')   tags.push('Criminal conviction');
+  if (cr?.has_arrests === 'Yes')       tags.push('Prior arrest');
+  if (cr?.has_pending_cases === 'Yes') tags.push('Pending case');
+  if (tr?.has_refusals === 'Yes')      tags.push('Visa refusal');
+  if (tr?.has_deportation === 'Yes')   tags.push('Deportation');
+  if (tr?.has_overstay === 'Yes')      tags.push('Overstay');
+  return tags;
+}
+
+function initials(name) {
+  if (!name) return '?';
+  return name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
+function avatarClass(name) {
+  const c = ['av-blue','av-green','av-gold','av-red'];
+  return c[(name || '').charCodeAt(0) % 4];
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('en-ZA', { year:'numeric', month:'short', day:'numeric' }); } catch { return d; }
+}
+function val(v) { return v || '—'; }
+function yesNo(v) {
+  if (v === 'Yes') return `<span class="badge b-red"><span class="badge-dot"></span>Yes</span>`;
+  if (v === 'No')  return `<span class="badge b-green"><span class="badge-dot"></span>No</span>`;
+  return '—';
+}
+
+function progressColor(p) {
+  if (p >= 80) return 'pf-green';
+  if (p >= 50) return 'pf-blue';
+  if (p >= 30) return 'pf-gold';
+  return 'pf-red';
+}
+
+// Estimate completion % based on which related rows exist
+function completionPct(applicantId) {
+  const checks = [
+    true, // always have applicants row
+    !!getContact(applicantId),
+    !!allFinancial.find(r => r.applicant_id === applicantId),
+    !!getCriminal(applicantId),
+    !!getTravel(applicantId),
+    !!getIntent(applicantId),
+    !!allEmployment.find(r => r.applicant_id === applicantId),
+  ];
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+}
+
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+// ═══════════════════════
+// RENDER ALL
+// ═══════════════════════
+function renderAll() {
+  updateNavCounts();
+  renderDashboard();
+  renderCasesTable(allApplicants);
+  renderFlagged();
+  renderFinancial();
+  renderTravel();
+  renderEmployment();
+}
+
+function updateNavCounts() {
+  document.getElementById('nav-total').textContent = allApplicants.length;
+  const flagCount = allApplicants.filter(a => isFlagged(a.id)).length;
+  document.getElementById('nav-flagged').textContent = flagCount;
+  document.getElementById('stat-total').textContent = allApplicants.length;
+  document.getElementById('stat-intent').textContent = allIntent.length;
+  document.getElementById('stat-financial').textContent = allFinancial.length;
+  document.getElementById('stat-flags').textContent = flagCount;
+  document.getElementById('cases-sub').textContent =
+    `${allApplicants.length} applicant${allApplicants.length !== 1 ? 's' : ''} across all sections`;
+}
+
+// ═══════════════════════
+// DASHBOARD
+// ═══════════════════════
+function renderDashboard() {
+  renderRecentTable();
+  renderSubmissionsChart();
+  renderDestChart();
+  renderPurposeChart();
+}
+
+function renderRecentTable() {
+  const tbody = document.getElementById('recent-tbody');
+  if (!tbody) return;
+  const recent = allApplicants.slice(0, 8);
+  if (!recent.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="es-icon">📭</div><p>No applicants yet.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = recent.map(a => {
+    const intent = getIntent(a.id);
+    return `<tr onclick="openDetail(${a.id})">
+      <td><span class="ref-pill">${val(a.ref_number)}</span></td>
+      <td><div class="applicant-cell">
+        <div class="avatar ${avatarClass(a.full_name)}">${initials(a.full_name)}</div>
+        <div><div class="applicant-name">${val(a.full_name)}</div><div class="applicant-sub">${val(a.nationality)}</div></div>
+      </div></td>
+      <td>${val(a.nationality)}</td>
+      <td>${intent ? val(intent.dest_country) : '—'}</td>
+      <td>${intent ? val(intent.reloc_purpose) : '—'}</td>
+      <td style="font-size:12px;color:var(--ink-muted);">${fmtDate(a.created_at)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSubmissionsChart() {
+  destroyChart('submissionsChart');
+  if (!allApplicants.length) return;
+  const months = {};
+  allApplicants.forEach(a => {
+    if (!a.created_at) return;
+    const key = new Date(a.created_at).toLocaleDateString('en-ZA', { month:'short', year:'2-digit' });
+    months[key] = (months[key] || 0) + 1;
+  });
+  const labels = Object.keys(months).slice(-8);
+  const data   = labels.map(l => months[l]);
+  document.getElementById('chart-range').textContent = `Last ${labels.length} month${labels.length !== 1 ? 's' : ''}`;
+  const ctx = document.getElementById('submissionsChart');
+  if (!ctx) return;
+  chartInstances['submissionsChart'] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label:'Applications', data, backgroundColor:'#2d5f9e', borderRadius:3, borderSkipped:false }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} },
+      scales: { x:{ grid:{display:false}, ticks:{font:{size:11},color:'#8a847e'} }, y:{ grid:{color:'#eae6df'}, ticks:{font:{size:11},color:'#8a847e',stepSize:1}, beginAtZero:true } },
+      barPercentage:0.6 }
+  });
+}
+
+function renderDestChart() {
+  destroyChart('destChart');
+  const counts = {};
+  allIntent.forEach(r => { if (r.dest_country) counts[r.dest_country] = (counts[r.dest_country]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const top5   = sorted.slice(0, 5);
+  const other  = sorted.slice(5).reduce((s,[,v])=>s+v, 0);
+  const labels = top5.map(([l])=>l);
+  const data   = top5.map(([,v])=>v);
+  if (other > 0) { labels.push('Other'); data.push(other); }
+  const total  = data.reduce((s,v)=>s+v,0);
+  const COLORS = ['#2d5f9e','#1e6b45','#c4922a','#c0392b','#6c5ce7','#b2b0aa','#e17055','#00b894'];
+  const legend = document.getElementById('dest-legend');
+  if (legend) {
+    legend.innerHTML = labels.map((l,i) =>
+      `<div class="donut-legend-item"><div class="dl-swatch" style="background:${COLORS[i]||'#ccc'}"></div>${l} ${total?Math.round(data[i]/total*100)+'%':''}</div>`
+    ).join('');
+  }
+  if (!total) return;
+  const ctx = document.getElementById('destChart');
+  if (!ctx) return;
+  chartInstances['destChart'] = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor:COLORS.slice(0,labels.length), borderWidth:0, hoverOffset:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{display:false} } }
+  });
+}
+
+function renderPurposeChart() {
+  destroyChart('purposeChart');
+  const counts = {};
+  allIntent.forEach(r => { if (r.reloc_purpose) counts[r.reloc_purpose] = (counts[r.reloc_purpose]||0)+1; });
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  if (!sorted.length) return;
+  const ctx = document.getElementById('purposeChart');
+  if (!ctx) return;
+  chartInstances['purposeChart'] = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: sorted.map(([l])=>l),
+      datasets:[{ data:sorted.map(([,v])=>v), backgroundColor:'#1e3a5f', borderRadius:3, borderSkipped:false }]
+    },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ grid:{color:'#eae6df'}, ticks:{font:{size:10},color:'#8a847e',stepSize:1}, beginAtZero:true },
+               y:{ grid:{display:false}, ticks:{font:{size:10},color:'#8a847e'} } } }
+  });
+}
+
+// ═══════════════════════
+// CASES TABLE
+// ═══════════════════════
+function renderCasesTable(data) {
+  const tbody = document.getElementById('cases-tbody');
+  if (!tbody) return;
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="es-icon">📭</div><p>No results.</p></div></td></tr>`;
+    buildPurposeFilters();
+    return;
+  }
+  tbody.innerHTML = data.map(a => {
+    const intent  = getIntent(a.id);
+    const flags   = getFlags(a.id);
+    const pct     = completionPct(a.id);
+    return `<tr onclick="openDetail(${a.id})">
+      <td><span class="ref-pill">${val(a.ref_number)}</span></td>
+      <td><div class="applicant-cell">
+        <div class="avatar ${avatarClass(a.full_name)}">${initials(a.full_name)}</div>
+        <div><div class="applicant-name">${val(a.full_name)}</div><div class="applicant-sub">${val(a.nationality)}</div></div>
+      </div></td>
+      <td>${val(a.nationality)}</td>
+      <td>${intent ? val(intent.dest_country) : '—'}</td>
+      <td>${intent ? val(intent.reloc_purpose) : '—'}</td>
+      <td style="font-size:12px;">${intent ? val(intent.stay_duration) : '—'}</td>
+      <td style="font-size:12px;">${intent ? val(intent.reloc_timeline) : '—'}</td>
+      <td>${intent ? yesNo(intent.has_job_offer) : '—'}</td>
+      <td>${flags.length ? flags.map(f=>`<span class="flag-tag">${f}</span>`).join(' ') : '<span style="font-size:11px;color:var(--ink-muted)">None</span>'}</td>
+      <td style="font-size:12px;color:var(--ink-muted);">${fmtDate(a.created_at)}</td>
+    </tr>`;
+  }).join('');
+  buildPurposeFilters();
+}
+
+function buildPurposeFilters() {
+  const wrap = document.getElementById('purpose-filters');
+  if (!wrap) return;
+  const purposes = [...new Set(allIntent.map(r=>r.reloc_purpose).filter(Boolean))];
+  wrap.innerHTML = `<button class="filter-btn ${currentFilter==='all'?'active':''}" onclick="filterByPurpose('all',this)">All (${allApplicants.length})</button>` +
+    purposes.map(p => `<button class="filter-btn ${currentFilter===p?'active':''}" onclick="filterByPurpose('${p}',this)">${p}</button>`).join('');
+}
+
+function filterByPurpose(purpose, btn) {
+  currentFilter = purpose;
+  document.querySelectorAll('#purpose-filters .filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function searchApplicants(val) { currentSearch = val.toLowerCase(); applyFilters(); }
+
+function applyFilters() {
+  let data = allApplicants;
+  if (currentFilter !== 'all') {
+    const ids = allIntent.filter(r=>r.reloc_purpose===currentFilter).map(r=>r.applicant_id);
+    data = data.filter(a => ids.includes(a.id));
+  }
+  if (currentSearch) {
+    data = data.filter(a =>
+      (a.full_name||'').toLowerCase().includes(currentSearch) ||
+      (a.ref_number||'').toLowerCase().includes(currentSearch) ||
+      (a.nationality||'').toLowerCase().includes(currentSearch) ||
+      (a.passport_number||'').toLowerCase().includes(currentSearch)
+    );
+    // also search contact email
+    if (!data.length) {
+      const matchIds = allContact.filter(c=>(c.email||'').toLowerCase().includes(currentSearch)).map(c=>c.applicant_id);
+      data = allApplicants.filter(a=>matchIds.includes(a.id));
+    }
+  }
+  renderCasesTable(data);
+}
+
+// ═══════════════════════
+// FLAGGED VIEW
+// ═══════════════════════
+function renderFlagged() {
+  const container = document.getElementById('flagged-container');
+  if (!container) return;
+  const flagged = allApplicants.filter(a => isFlagged(a.id));
+  if (!flagged.length) {
+    container.innerHTML = `<div class="empty-state"><div class="es-icon">✅</div><p>No flagged applicants at this time.</p></div>`;
+    return;
+  }
+  container.innerHTML = flagged.map(a => {
+    const intent  = getIntent(a.id);
+    const cr      = getCriminal(a.id);
+    const tr      = getTravel(a.id);
+    const flags   = getFlags(a.id);
+    const contact = getContact(a.id);
+    return `<div class="section-card" style="margin-bottom:1rem;">
+      <div style="padding:1.25rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+          <div class="applicant-cell">
+            <div class="avatar av-red" style="width:38px;height:38px;">${initials(a.full_name)}</div>
+            <div>
+              <div class="applicant-name">${val(a.full_name)}</div>
+              <div class="applicant-sub">${val(a.ref_number)} · ${val(a.nationality)}${intent?' → '+val(intent.dest_country):''}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">${flags.map(f=>`<span class="flag-tag">${f}</span>`).join('')}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;font-size:12px;margin-bottom:1rem;">
+          ${cr?.has_convictions==='Yes' ? `<div><div class="field-key">Conviction detail</div><div>${val(cr.conviction_detail)}</div></div>` : ''}
+          ${cr?.has_pending_cases==='Yes' ? `<div><div class="field-key">Pending case detail</div><div>${val(cr.pending_detail)}</div></div>` : ''}
+          ${cr?.has_arrests==='Yes' ? `<div><div class="field-key">Arrest detail</div><div>${val(cr.arrest_detail)}</div></div>` : ''}
+          ${tr?.has_refusals==='Yes' ? `<div><div class="field-key">Refusal detail</div><div>${val(tr.refusal_detail)}</div></div>` : ''}
+          ${tr?.has_deportation==='Yes' ? `<div><div class="field-key">Deportation detail</div><div>${val(tr.deportation_detail)}</div></div>` : ''}
+          ${tr?.has_overstay==='Yes' ? `<div><div class="field-key">Overstay detail</div><div>${val(tr.overstay_detail)}</div></div>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="openDetail(${a.id})">View Full Case →</button>
+          ${contact?.email ? `<a href="mailto:${contact.email}" class="btn btn-outline btn-sm">✉ ${contact.email}</a>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════
+// FINANCIAL VIEW
+// ═══════════════════════
+function renderFinancial() {
+  const tbody = document.getElementById('financial-tbody');
+  if (!tbody) return;
+  if (!allFinancial.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--ink-muted);">No financial records yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allFinancial.map(f => {
+    const a = allApplicants.find(x => x.id === f.applicant_id);
+    return `<tr onclick="openDetail(${f.applicant_id})">
+      <td><div class="applicant-cell"><div class="avatar ${avatarClass(a?.full_name)}">${initials(a?.full_name)}</div><div class="applicant-name">${val(a?.full_name)}</div></div></td>
+      <td><span class="ref-pill">${val(a?.ref_number)}</span></td>
+      <td>${val(f.income_source)}</td>
+      <td>${val(f.monthly_income)}</td>
+      <td>${val(f.savings)}</td>
+      <td>${val(f.currency)}</td>
+      <td>${yesNo(f.has_sponsor)}</td>
+      <td style="font-size:12px;">${val(f.sponsor_name)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════
+// TRAVEL VIEW
+// ═══════════════════════
+function renderTravel() {
+  const tbody = document.getElementById('travel-tbody');
+  if (!tbody) return;
+  if (!allTravel.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--ink-muted);">No travel records yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allTravel.map(t => {
+    const a = allApplicants.find(x => x.id === t.applicant_id);
+    return `<tr onclick="openDetail(${t.applicant_id})">
+      <td><div class="applicant-cell"><div class="avatar ${avatarClass(a?.full_name)}">${initials(a?.full_name)}</div><div class="applicant-name">${val(a?.full_name)}</div></div></td>
+      <td><span class="ref-pill">${val(a?.ref_number)}</span></td>
+      <td>${val(t.country)}</td>
+      <td>${val(t.year_visited)}</td>
+      <td>${val(t.purpose)}</td>
+      <td>${val(t.visa_type)}</td>
+      <td>${val(t.duration)}</td>
+      <td>${yesNo(t.has_refusals)}</td>
+      <td>${yesNo(t.has_deportation)}</td>
+      <td>${yesNo(t.has_overstay)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════
+// EMPLOYMENT VIEW
+// ═══════════════════════
+function renderEmployment() {
+  const tbody = document.getElementById('employment-tbody');
+  if (!tbody) return;
+  if (!allEmployment.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--ink-muted);">No employment records yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allEmployment.map(e => {
+    const a = allApplicants.find(x => x.id === e.applicant_id);
+    return `<tr onclick="openDetail(${e.applicant_id})">
+      <td><div class="applicant-cell"><div class="avatar ${avatarClass(a?.full_name)}">${initials(a?.full_name)}</div><div class="applicant-name">${val(a?.full_name)}</div></div></td>
+      <td><span class="ref-pill">${val(a?.ref_number)}</span></td>
+      <td>${val(e.employer_name)}</td>
+      <td>${val(e.job_title)}</td>
+      <td>${val(e.employment_type)}</td>
+      <td style="font-size:12px;">${val(e.date_from)}</td>
+      <td style="font-size:12px;">${val(e.date_to) === '—' && e.is_current ? 'Present' : val(e.date_to)}</td>
+      <td>${val(e.monthly_salary)}</td>
+      <td>${e.is_current ? '<span class="badge b-green"><span class="badge-dot"></span>Current</span>' : '<span class="badge b-muted">Previous</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════
+// CASE DETAIL
+// ═══════════════════════
+function openDetail(id) {
+  const a        = allApplicants.find(x => x.id === id);
+  if (!a) return;
+  const intent   = getIntent(id);
+  const fin      = getFinancial(id);
+  const cr       = getCriminal(id);
+  const contact  = getContact(id);
+  const flags    = getFlags(id);
+  const pct      = completionPct(id);
+  const empRows  = getEmployment(id);
+  const trvRows  = allTravel.filter(r => r.applicant_id === id);
+
+  prevView = document.querySelector('.content-view.active')?.id?.replace('view-','') || 'cases';
+
+  const fld = (k,v) => `<div class="field-box"><div class="field-key">${k}</div><div class="field-val ${!v||v==='—'?'empty':''}">${v||'—'}</div></div>`;
+
+  document.getElementById('detail-content').innerHTML = `
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--rule);flex-wrap:wrap;">
+      <div class="avatar ${avatarClass(a.full_name)}" style="width:52px;height:52px;font-size:17px;flex-shrink:0;">${initials(a.full_name)}</div>
+      <div style="flex:1;min-width:180px;">
+        <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:600;">${val(a.full_name)}</div>
+        <div style="font-size:12px;color:var(--ink-muted);margin-top:2px;">${val(a.ref_number)} · ${val(a.nationality)} · Created ${fmtDate(a.created_at)}</div>
+        <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;">${flags.map(f=>`<span class="flag-tag">${f}</span>`).join('')||''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:11px;color:var(--ink-muted);margin-bottom:4px;">Intake completion</div>
+        <div style="font-size:20px;font-weight:300;">${pct}%</div>
+        <div class="progress-mini" style="width:120px;margin-top:4px;"><div class="progress-mini-fill ${progressColor(pct)}" style="width:${pct}%"></div></div>
+      </div>
+    </div>
+
+    <div class="detail-tabs">
+      <button class="detail-tab active" onclick="switchTab('identity')">Identity</button>
+      <button class="detail-tab" onclick="switchTab('contact')">Contact</button>
+      <button class="detail-tab" onclick="switchTab('intent')">Intent</button>
+      <button class="detail-tab" onclick="switchTab('financial')">Financial</button>
+      <button class="detail-tab" onclick="switchTab('employment')">Employment</button>
+      <button class="detail-tab" onclick="switchTab('travel')">Travel</button>
+      <button class="detail-tab" onclick="switchTab('criminal')">Criminal</button>
+    </div>
+
+    <!-- IDENTITY TAB -->
+    <div id="dtab-identity">
+      <div class="field-row">
+        ${fld('Full Name', a.full_name)}
+        ${fld('Surname', a.surname)}
+        ${fld('Given Names', a.given_names)}
+      </div>
+      <div class="field-row">
+        ${fld('Gender', a.gender)}
+        ${fld('Date of Birth', a.date_of_birth)}
+        ${fld('Marital Status', a.marital_status)}
+      </div>
+      <div class="field-row">
+        ${fld('Birth City', a.birth_city)}
+        ${fld('Birth Country', a.birth_country)}
+        ${fld('Nationality', a.nationality)}
+      </div>
+      <div class="field-row">
+        ${fld('Dual Nationality', a.dual_nationality)}
+        ${fld('Previous Names', a.previous_names)}
+      </div>
+      <div class="section-divider">Passport</div>
+      <div class="field-row">
+        ${fld('Passport Number', a.passport_number)}
+        ${fld('Issue Date', a.passport_issue)}
+        ${fld('Expiry Date', a.passport_expiry)}
+      </div>
+      <div class="field-row">
+        ${fld('Country of Issue', a.passport_country)}
+        ${fld('National ID', a.national_id)}
+      </div>
+    </div>
+
+    <!-- CONTACT TAB -->
+    <div id="dtab-contact" style="display:none;">
+      ${contact ? `
+      <div class="field-row">
+        ${fld('Phone', contact.phone)}
+        ${fld('WhatsApp', contact.whatsapp)}
+        ${fld('Email', contact.email)}
+      </div>
+      <div class="section-divider">Address</div>
+      <div class="field-row">
+        ${fld('Street', contact.address_street)}
+        ${fld('City', contact.address_city)}
+        ${fld('Province', contact.address_province)}
+      </div>
+      <div class="field-row">
+        ${fld('Postal Code', contact.postal_code)}
+        ${fld('Country', contact.address_country)}
+        ${fld('Duration at Address', contact.address_duration)}
+      </div>
+      <div class="section-divider">Emergency Contact</div>
+      <div class="field-row">
+        ${fld('Name', contact.emerg_name)}
+        ${fld('Relationship', contact.emerg_relationship)}
+        ${fld('Phone', contact.emerg_phone)}
+      </div>
+      <div class="field-row">${fld('Email', contact.emerg_email)}</div>
+      ` : '<div class="empty-state"><div class="es-icon">📭</div><p>Contact section not yet completed.</p></div>'}
+    </div>
+
+    <!-- INTENT TAB -->
+    <div id="dtab-intent" style="display:none;">
+      ${intent ? `
+      <div class="field-row">
+        ${fld('Destination Country', intent.dest_country)}
+        ${fld('Preferred City', intent.dest_city)}
+        ${fld('Primary Purpose', intent.reloc_purpose)}
+      </div>
+      <div class="field-row">
+        ${fld('Duration of Stay', intent.stay_duration)}
+        ${fld('Target Timeline', intent.reloc_timeline)}
+      </div>
+      <div class="field-row">
+        <div class="field-box"><div class="field-key">Job Offer in Destination</div><div>${yesNo(intent.has_job_offer)}</div></div>
+        <div class="field-box"><div class="field-key">Family / Sponsor in Destination</div><div>${yesNo(intent.has_family_in_dest)}</div></div>
+      </div>
+      <div class="section-divider">Relocation Reasons</div>
+      <div style="font-size:13px;line-height:1.65;background:var(--paper-warm);padding:12px 14px;border-radius:var(--r);border-left:3px solid var(--gold);">${val(intent.reloc_reasons)}</div>
+      ${intent.additional_notes ? `<div class="section-divider">Additional Notes</div><div style="font-size:13px;color:var(--ink-soft);">${intent.additional_notes}</div>` : ''}
+      ` : '<div class="empty-state"><div class="es-icon">📭</div><p>Immigration intent section not yet completed.</p></div>'}
+    </div>
+
+    <!-- FINANCIAL TAB -->
+    <div id="dtab-financial" style="display:none;">
+      ${fin ? `
+      <div class="field-row">
+        ${fld('Income Source', fin.income_source)}
+        ${fld('Monthly Net Income', fin.monthly_income)}
+        ${fld('Currency', fin.currency)}
+      </div>
+      <div class="field-row">
+        ${fld('Total Savings', fin.savings)}
+      </div>
+      ${fin.property_owned ? `<div class="section-divider">Property</div><div style="font-size:13px;color:var(--ink-soft);">${fin.property_owned}</div>` : ''}
+      ${fin.other_assets ? `<div class="section-divider">Other Assets</div><div style="font-size:13px;color:var(--ink-soft);">${fin.other_assets}</div>` : ''}
+      <div class="section-divider">Sponsorship</div>
+      <div class="field-row">
+        <div class="field-box"><div class="field-key">Has Sponsor</div><div>${yesNo(fin.has_sponsor)}</div></div>
+        ${fin.has_sponsor === 'Yes' ? fld('Sponsor Name', fin.sponsor_name) + fld('Relationship', fin.sponsor_relationship) : ''}
+      </div>
+      ${fin.has_sponsor === 'Yes' ? `<div class="field-row">${fld('Sponsor Country', fin.sponsor_country)}${fld('Sponsor Income', fin.sponsor_income)}${fld('Sponsor Contact', fin.sponsor_contact)}</div>` : ''}
+      ` : '<div class="empty-state"><div class="es-icon">📭</div><p>Financial section not yet completed.</p></div>'}
+    </div>
+
+    <!-- EMPLOYMENT TAB -->
+    <div id="dtab-employment" style="display:none;">
+      ${empRows.length ? empRows.map(e => `
+        <div class="section-card" style="margin-bottom:1rem;">
+          <div style="padding:1rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+              <div style="font-weight:500;">${val(e.employer_name)}</div>
+              ${e.is_current ? '<span class="badge b-green"><span class="badge-dot"></span>Current</span>' : '<span class="badge b-muted">Previous</span>'}
+            </div>
+            <div class="field-row">
+              ${fld('Job Title', e.job_title)}
+              ${fld('Employment Type', e.employment_type)}
+              ${fld('Monthly Salary', e.monthly_salary)}
+            </div>
+            <div class="field-row">
+              ${fld('From', e.date_from)}
+              ${fld('To', e.is_current ? 'Present' : e.date_to)}
+              ${fld('Supervisor', e.supervisor_name)}
+            </div>
+            ${e.duties ? `<div class="field-key" style="margin-top:8px;">Key Duties</div><div style="font-size:13px;color:var(--ink-soft);margin-top:3px;">${e.duties}</div>` : ''}
+            ${e.reason_for_leaving && !e.is_current ? `<div class="field-key" style="margin-top:8px;">Reason for Leaving</div><div style="font-size:13px;color:var(--ink-soft);margin-top:3px;">${e.reason_for_leaving}</div>` : ''}
+          </div>
+        </div>`).join('') : '<div class="empty-state"><div class="es-icon">📭</div><p>Employment section not yet completed.</p></div>'}
+    </div>
+
+    <!-- TRAVEL TAB -->
+    <div id="dtab-travel" style="display:none;">
+      ${trvRows.length ? `
+        <table class="data-table" style="margin-bottom:1.5rem;">
+          <thead><tr><th>Country</th><th>Year(s)</th><th>Purpose</th><th>Visa Type</th><th>Duration</th></tr></thead>
+          <tbody>${trvRows.filter(r=>r.country).map(t=>`<tr><td>${val(t.country)}</td><td>${val(t.year_visited)}</td><td>${val(t.purpose)}</td><td>${val(t.visa_type)}</td><td>${val(t.duration)}</td></tr>`).join('') || '<tr><td colspan="5" style="color:var(--ink-muted);font-style:italic;">No individual country visits recorded.</td></tr>'}</tbody>
+        </table>
+        ${trvRows.find(r=>!r.country) ? (() => { const t = trvRows.find(r=>!r.country); return `
+          <div class="section-divider">Immigration Record</div>
+          <div class="field-row">
+            <div class="field-box"><div class="field-key">Visa Refusals</div><div>${yesNo(t.has_refusals)}</div></div>
+            <div class="field-box"><div class="field-key">Deported / Removed</div><div>${yesNo(t.has_deportation)}</div></div>
+            <div class="field-box"><div class="field-key">Immigration Overstays</div><div>${yesNo(t.has_overstay)}</div></div>
+          </div>
+          ${t.has_refusals==='Yes' ? `<div class="flag-alert">🚩 <strong>Refusal detail:</strong> ${val(t.refusal_detail)}</div>` : ''}
+          ${t.has_deportation==='Yes' ? `<div class="flag-alert">🚩 <strong>Deportation detail:</strong> ${val(t.deportation_detail)}</div>` : ''}
+          ${t.has_overstay==='Yes' ? `<div class="flag-alert">🚩 <strong>Overstay detail:</strong> ${val(t.overstay_detail)}</div>` : ''}
+          ${t.prior_applications==='Yes' ? `<div class="section-divider">Prior Applications</div><div style="font-size:13px;color:var(--ink-soft);">${val(t.prior_app_detail)}</div>` : ''}
+        `; })() : ''}
+      ` : '<div class="empty-state"><div class="es-icon">📭</div><p>Travel history section not yet completed.</p></div>'}
+    </div>
+
+    <!-- CRIMINAL TAB -->
+    <div id="dtab-criminal" style="display:none;">
+      ${cr ? `
+      <div class="field-row">
+        <div class="field-box"><div class="field-key">Criminal Convictions</div><div>${yesNo(cr.has_convictions)}</div></div>
+        <div class="field-box"><div class="field-key">Pending Cases</div><div>${yesNo(cr.has_pending_cases)}</div></div>
+        <div class="field-box"><div class="field-key">Prior Arrests</div><div>${yesNo(cr.has_arrests)}</div></div>
+      </div>
+      ${cr.has_convictions==='Yes' ? `<div class="flag-alert">🚩 <strong>Conviction detail:</strong> ${val(cr.conviction_detail)}</div>` : ''}
+      ${cr.has_pending_cases==='Yes' ? `<div class="flag-alert">🚩 <strong>Pending case detail:</strong> ${val(cr.pending_detail)}</div>` : ''}
+      ${cr.has_arrests==='Yes' ? `<div class="flag-alert">🚩 <strong>Arrest detail:</strong> ${val(cr.arrest_detail)}</div>` : ''}
+      <div class="section-divider">Security Questions</div>
+      <div class="field-row">
+        <div class="field-box"><div class="field-key">Military Service</div><div>${yesNo(cr.military_service)}</div></div>
+        <div class="field-box"><div class="field-key">Terrorism / Extremism Association</div><div>${yesNo(cr.terrorism_association)}</div></div>
+        <div class="field-box"><div class="field-key">Foreign Gov / Intelligence Work</div><div>${yesNo(cr.foreign_gov_work)}</div></div>
+      </div>
+      ${cr.military_service==='Yes' ? `<div class="field-row">${fld('Branch',cr.military_branch)}${fld('Country',cr.military_country)}${fld('Period',cr.military_period)}</div>` : ''}
+      ${cr.security_notes ? `<div class="section-divider">Security Disclosures</div><div style="font-size:13px;color:var(--ink-soft);">${cr.security_notes}</div>` : ''}
+      ` : '<div class="empty-state"><div class="es-icon">📭</div><p>Criminal &amp; security section not yet completed.</p></div>'}
+    </div>
+  `;
+
+  showView('detail');
+}
+
+function switchTab(name) {
+  const tabs = ['identity','contact','intent','financial','employment','travel','criminal'];
+  tabs.forEach(t => {
+    const el = document.getElementById('dtab-'+t);
+    if (el) el.style.display = t === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.detail-tab').forEach((btn, i) => {
+    btn.classList.toggle('active', tabs[i] === name);
+  });
+}
+
+// ═══════════════════════
+// CSV EXPORT
+// ═══════════════════════
+function exportCSV() {
+  const headers = ['ref_number','full_name','surname','nationality','passport_number','date_of_birth','marital_status','created_at','dest_country','reloc_purpose','stay_duration','reloc_timeline','has_job_offer','income_source','monthly_income','savings','currency'];
+  const rows = allApplicants.map(a => {
+    const intent = getIntent(a.id);
+    const fin    = getFinancial(a.id);
+    return [
+      a.ref_number, a.full_name, a.surname, a.nationality, a.passport_number,
+      a.date_of_birth, a.marital_status, a.created_at,
+      intent?.dest_country, intent?.reloc_purpose, intent?.stay_duration, intent?.reloc_timeline, intent?.has_job_offer,
+      fin?.income_source, fin?.monthly_income, fin?.savings, fin?.currency
+    ].map(v => `"${(v||'').toString().replace(/"/g,'""')}"`);
+  });
+  const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  const a   = document.createElement('a');
+  a.href    = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `lumenos-applicants-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ═══════════════════════
+// VIEW ROUTER
+// ═══════════════════════
+function showView(name) {
+  document.querySelectorAll('.content-view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById('view-'+name);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navMap = { dashboard:0, cases:1, flagged:2, financial:3, travel:4, employment:5 };
+  const items  = document.querySelectorAll('.nav-item');
+  if (navMap[name] !== undefined) items[navMap[name]]?.classList.add('active');
+  document.querySelector('.main-content').scrollTop = 0;
+}
+
+function goBack() { showView(prevView || 'cases'); }
+
+// ═══════════════════════
+// BOOT
+// ═══════════════════════
+boot();
+</script>
+</body>
+</html>
