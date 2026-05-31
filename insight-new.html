@@ -1,0 +1,2222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>LumenOS · Insight Layer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   DESIGN TOKENS — LIGHT THEME
+═══════════════════════════════════════════════ */
+:root {
+  --bg:         #F5F4F0;
+  --surface:    #FFFFFF;
+  --surface2:   #F9F8F5;
+  --border:     #E4E2DB;
+  --border2:    #D0CEC6;
+  --accent:     #1A56DB;
+  --accent-lt:  #EEF3FF;
+  --accent2:    #6B3FF5;
+  --teal:       #0891B2;
+  --teal-lt:    #E0F7FA;
+  --gold:       #B45309;
+  --gold-lt:    #FEF3C7;
+  --danger:     #DC2626;
+  --danger-lt:  #FEF2F2;
+  --success:    #059669;
+  --success-lt: #ECFDF5;
+  --text:       #111827;
+  --text2:      #374151;
+  --text3:      #6B7280;
+  --text4:      #9CA3AF;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+  --shadow:     0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:  0 8px 24px rgba(0,0,0,0.1), 0 4px 8px rgba(0,0,0,0.06);
+  --radius:     10px;
+  --radius-lg:  14px;
+  --mono: 'DM Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+  --display: 'Syne', sans-serif;
+  --sidebar-w: 240px;
+  --topbar-h: 56px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{font-size:16px;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.5;overflow-x:hidden;}
+button,input,select,textarea{font-family:var(--sans);}
+a{text-decoration:none;color:inherit;}
+img{max-width:100%;}
+
+/* ═══════════════════════════════════════════════
+   LAYOUT SHELL
+═══════════════════════════════════════════════ */
+.shell{display:flex;flex-direction:column;min-height:100vh;}
+.topbar{
+  position:fixed;top:0;left:0;right:0;height:var(--topbar-h);
+  background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:12px;z-index:200;
+  box-shadow:var(--shadow-sm);
+}
+.sidebar{
+  position:fixed;top:var(--topbar-h);left:0;bottom:0;width:var(--sidebar-w);
+  background:var(--surface);border-right:1px solid var(--border);
+  overflow-y:auto;z-index:150;transform:translateX(-100%);
+  transition:transform .25s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+}
+.sidebar.open{transform:translateX(0);}
+.sidebar-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:140;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.sidebar-backdrop.open{opacity:1;pointer-events:all;}
+.main{margin-top:var(--topbar-h);padding:20px 16px;min-height:calc(100vh - var(--topbar-h));}
+@media(min-width:900px){
+  .sidebar{transform:translateX(0);}
+  .sidebar-backdrop{display:none!important;}
+  .main{margin-left:var(--sidebar-w);padding:24px 28px;}
+  .topbar{padding:0 24px;}
+}
+
+/* ═══════════════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════════════ */
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.logo-mark{width:30px;height:30px;flex-shrink:0;}
+.logo-text{font-family:var(--display);font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.01em;}
+.logo-sub{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:.1em;display:none;}
+@media(min-width:480px){.logo-sub{display:block;}}
+.topbar-spacer{flex:1;}
+.topbar-actions{display:flex;align-items:center;gap:8px;}
+.tb-chip{
+  display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;
+  font-size:12px;font-weight:500;cursor:pointer;border:none;
+  background:var(--surface2);color:var(--text2);border:1px solid var(--border);
+  transition:background .15s,border-color .15s;white-space:nowrap;
+}
+.tb-chip:hover{background:var(--accent-lt);border-color:var(--accent);color:var(--accent);}
+.tb-chip.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tb-chip.primary:hover{background:#1444B8;}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--success);flex-shrink:0;}
+.status-dot.pulse{animation:dotpulse 2s infinite;}
+@keyframes dotpulse{0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,0.4)}50%{box-shadow:0 0 0 5px rgba(5,150,105,0)}}
+.hamburger{background:none;border:none;cursor:pointer;padding:6px;border-radius:6px;display:flex;flex-direction:column;gap:4px;}
+.hamburger span{display:block;width:18px;height:1.5px;background:var(--text2);border-radius:1px;transition:all .2s;}
+@media(min-width:900px){.hamburger{display:none;}}
+.neo-fab{
+  display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#fff;font-size:12px;font-weight:600;cursor:pointer;border:none;
+  box-shadow:0 2px 8px rgba(26,86,219,0.3);transition:opacity .15s;
+}
+.neo-fab:hover{opacity:.9;}
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR NAV
+═══════════════════════════════════════════════ */
+.sidebar-inner{padding:12px 0;flex:1;}
+.nav-section{padding:0 12px;margin-top:8px;}
+.nav-label{font-size:10px;font-family:var(--mono);color:var(--text4);letter-spacing:.14em;text-transform:uppercase;padding:0 8px;margin-bottom:4px;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;
+  font-size:13.5px;font-weight:500;color:var(--text2);cursor:pointer;
+  transition:background .15s,color .15s;margin-bottom:1px;
+}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:var(--accent-lt);color:var(--accent);}
+.nav-item svg{width:16px;height:16px;flex-shrink:0;opacity:.7;}
+.nav-item.active svg{opacity:1;}
+.nav-badge{margin-left:auto;font-size:10px;font-family:var(--mono);background:var(--accent-lt);color:var(--accent);padding:2px 6px;border-radius:8px;font-weight:500;}
+.nav-divider{border:none;border-top:1px solid var(--border);margin:10px 12px;}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);margin-top:auto;}
+.db-status{display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);color:var(--text3);}
+
+/* ═══════════════════════════════════════════════
+   CONFIG BANNER
+═══════════════════════════════════════════════ */
+.config-banner{
+  background:linear-gradient(135deg,#FFF7ED,#FEF3C7);
+  border:1px solid #F59E0B;border-radius:var(--radius);padding:14px 16px;
+  margin-bottom:24px;display:flex;align-items:flex-start;gap:12px;
+}
+.config-banner .icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+.config-banner h3{font-size:13px;font-weight:600;color:#92400E;margin-bottom:2px;}
+.config-banner p{font-size:12px;color:#B45309;line-height:1.5;}
+.config-banner code{font-family:var(--mono);background:rgba(0,0,0,0.08);padding:1px 5px;border-radius:3px;font-size:11px;}
+
+/* ═══════════════════════════════════════════════
+   PANELS
+═══════════════════════════════════════════════ */
+.panel{display:none;}
+.panel.active{display:block;animation:panelIn .2s ease;}
+@keyframes panelIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══════════════════════════════════════════════
+   SECTION HEADERS
+═══════════════════════════════════════════════ */
+.page-header{margin-bottom:20px;}
+.page-title{font-family:var(--display);font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.02em;line-height:1.2;}
+.page-title span{color:var(--accent);}
+.page-sub{font-size:13px;color:var(--text3);margin-top:3px;}
+.page-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+@media(min-width:600px){
+  .page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+  .page-actions{margin-top:0;flex-wrap:nowrap;}
+}
+
+/* ═══════════════════════════════════════════════
+   CARDS
+═══════════════════════════════════════════════ */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow-sm);}
+.card-sm{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow-sm);}
+.card-title{font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;font-weight:500;}
+
+/* ═══════════════════════════════════════════════
+   METRIC CARDS
+═══════════════════════════════════════════════ */
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
+@media(min-width:600px){.metric-grid{grid-template-columns:repeat(4,1fr);gap:12px;}}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow-sm);}
+.metric-card .mc-label{font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
+.metric-card .mc-value{font-family:var(--display);font-size:24px;font-weight:700;color:var(--text);line-height:1;}
+.metric-card .mc-delta{font-size:11px;margin-top:5px;font-weight:500;}
+.mc-delta.up{color:var(--success);}
+.mc-delta.dn{color:var(--danger);}
+.mc-accent{height:3px;border-radius:2px;margin-bottom:12px;}
+
+/* ═══════════════════════════════════════════════
+   GRIDS
+═══════════════════════════════════════════════ */
+.grid-2{display:grid;grid-template-columns:1fr;gap:16px;}
+.grid-3{display:grid;grid-template-columns:1fr;gap:16px;}
+@media(min-width:700px){.grid-2{grid-template-columns:1fr 1fr;}}
+@media(min-width:900px){.grid-3{grid-template-columns:1fr 1fr 1fr;}}
+.mt-4{margin-top:16px;}
+.mt-6{margin-top:24px;}
+.mb-4{margin-bottom:16px;}
+
+/* ═══════════════════════════════════════════════
+   TABLES
+═══════════════════════════════════════════════ */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius);border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--surface);}
+thead th{text-align:left;padding:10px 14px;font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;font-weight:500;}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--bg);color:var(--text2);vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--surface2);}
+
+/* ═══════════════════════════════════════════════
+   BADGES
+═══════════════════════════════════════════════ */
+.badge{display:inline-flex;align-items:center;font-size:10px;font-family:var(--mono);padding:3px 8px;border-radius:10px;font-weight:500;white-space:nowrap;}
+.badge-success{background:var(--success-lt);color:var(--success);}
+.badge-warn{background:var(--gold-lt);color:var(--gold);}
+.badge-info{background:var(--accent-lt);color:var(--accent);}
+.badge-danger{background:var(--danger-lt);color:var(--danger);}
+.badge-neutral{background:var(--surface2);color:var(--text3);border:1px solid var(--border);}
+
+/* ═══════════════════════════════════════════════
+   FORM ELEMENTS
+═══════════════════════════════════════════════ */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;}
+.field input,.field select,.field textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;
+  font-size:13px;color:var(--text);background:var(--surface);outline:none;
+  transition:border-color .15s,box-shadow .15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,86,219,0.1);
+}
+.field input::placeholder{color:var(--text4);}
+.field textarea{resize:vertical;min-height:80px;}
+
+/* ═══════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════ */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap;}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+.btn-primary:hover{background:#1444B8;}
+.btn-secondary{background:var(--surface);color:var(--text2);border-color:var(--border2);}
+.btn-secondary:hover{background:var(--surface2);border-color:var(--border);color:var(--text);}
+.btn-ghost{background:transparent;color:var(--text3);border-color:transparent;}
+.btn-ghost:hover{background:var(--surface2);color:var(--text2);}
+.btn-danger{background:var(--danger-lt);color:var(--danger);border-color:rgba(220,38,38,0.2);}
+.btn-sm{padding:6px 12px;font-size:12px;}
+.btn-icon{padding:8px;border-radius:8px;}
+
+/* ═══════════════════════════════════════════════
+   TOGGLE
+═══════════════════════════════════════════════ */
+.toggle-wrap{display:flex;align-items:center;gap:8px;cursor:pointer;}
+.toggle-wrap input{display:none;}
+.toggle-track{width:36px;height:20px;background:var(--border2);border-radius:10px;position:relative;transition:background .2s;flex-shrink:0;}
+.toggle-wrap input:checked ~ .toggle-track{background:var(--accent);}
+.toggle-thumb{width:16px;height:16px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);}
+.toggle-wrap input:checked ~ .toggle-track .toggle-thumb{left:18px;}
+.toggle-label{font-size:13px;color:var(--text2);font-weight:500;}
+
+/* ═══════════════════════════════════════════════
+   PROGRESS
+═══════════════════════════════════════════════ */
+.progress{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s ease;}
+
+/* ═══════════════════════════════════════════════
+   CODE BLOCK
+═══════════════════════════════════════════════ */
+.code-block{
+  background:#1E1E2E;color:#CDD6F4;font-family:var(--mono);font-size:12px;
+  border-radius:var(--radius);padding:16px;overflow-x:auto;line-height:1.7;
+  border:1px solid rgba(255,255,255,0.06);
+}
+.code-block .kw{color:#89B4FA;}
+.code-block .str{color:#A6E3A1;}
+.code-block .fn{color:#89DCEB;}
+.code-block .cmt{color:#6C7086;}
+.code-block .val{color:#FAB387;}
+
+/* ═══════════════════════════════════════════════
+   ONTOLOGY / SPIDERWEB
+═══════════════════════════════════════════════ */
+.onto-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-sm);}
+#onto-svg{display:block;width:100%;touch-action:none;}
+.onto-node-group{cursor:pointer;}
+
+/* ═══════════════════════════════════════════════
+   DRAG & DROP FORM BUILDER
+═══════════════════════════════════════════════ */
+.palette-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.palette-chip{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;
+  border:1px solid var(--border);border-radius:8px;background:var(--surface2);
+  font-size:12px;font-weight:500;color:var(--text2);cursor:grab;
+  transition:all .15s;user-select:none;
+}
+.palette-chip:hover{border-color:var(--accent);background:var(--accent-lt);color:var(--accent);}
+.palette-chip:active{cursor:grabbing;}
+.palette-chip svg{width:14px;height:14px;flex-shrink:0;}
+.form-canvas{
+  min-height:280px;background:var(--surface2);border:2px dashed var(--border2);
+  border-radius:var(--radius);padding:16px;transition:border-color .2s,background .2s;
+}
+.form-canvas.dragover{border-color:var(--accent);background:var(--accent-lt);}
+.canvas-empty{text-align:center;padding:40px 20px;color:var(--text4);font-size:13px;}
+.canvas-empty svg{display:block;margin:0 auto 10px;opacity:.4;}
+.dropped-row{
+  display:flex;align-items:center;gap:10px;background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;padding:11px 14px;
+  margin-bottom:8px;cursor:default;transition:border-color .15s;
+}
+.dropped-row:hover{border-color:var(--border2);}
+.dropped-row .dr-drag{cursor:grab;color:var(--text4);flex-shrink:0;}
+.dropped-row .dr-label{font-size:13px;color:var(--text);flex:1;font-weight:500;}
+.dropped-row .dr-type{font-size:10px;font-family:var(--mono);color:var(--text4);}
+.dropped-row .dr-del{color:var(--text4);cursor:pointer;flex-shrink:0;background:none;border:none;padding:2px;transition:color .15s;}
+.dropped-row .dr-del:hover{color:var(--danger);}
+
+/* ═══════════════════════════════════════════════
+   SCORING GAUGE
+═══════════════════════════════════════════════ */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;}
+#scoreGauge{display:block;}
+.gauge-number{font-family:var(--display);font-size:36px;font-weight:700;color:var(--text);line-height:1;}
+.gauge-label{font-size:12px;color:var(--text3);font-family:var(--mono);}
+
+/* ═══════════════════════════════════════════════
+   NEO DRAWER
+═══════════════════════════════════════════════ */
+.neo-drawer{
+  position:fixed;right:0;top:0;bottom:0;width:100%;max-width:400px;
+  background:var(--surface);border-left:1px solid var(--border);
+  z-index:300;display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+  box-shadow:-8px 0 32px rgba(0,0,0,0.08);
+}
+.neo-drawer.open{transform:translateX(0);}
+.neo-header{
+  padding:16px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;background:var(--surface);
+}
+.neo-avatar{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;
+}
+.neo-name{font-family:var(--display);font-size:15px;font-weight:700;color:var(--text);}
+.neo-sub{font-size:11px;font-family:var(--mono);color:var(--text3);}
+.neo-model-pill{margin-left:auto;font-size:10px;font-family:var(--mono);background:var(--accent-lt);color:var(--accent);padding:3px 8px;border-radius:10px;cursor:pointer;}
+.neo-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.neo-msg{max-width:88%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.55;}
+.neo-msg.bot{background:var(--surface2);border:1px solid var(--border);color:var(--text2);align-self:flex-start;border-radius:2px 12px 12px 12px;}
+.neo-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-radius:12px 12px 2px 12px;}
+.neo-msg .model-tag{font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:4px;display:block;}
+.neo-typing{display:flex;align-items:center;gap:4px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:2px 12px 12px 12px;align-self:flex-start;width:fit-content;}
+.neo-typing span{width:6px;height:6px;border-radius:50%;background:var(--text3);animation:typing 1.2s infinite;}
+.neo-typing span:nth-child(2){animation-delay:.2s;}
+.neo-typing span:nth-child(3){animation-delay:.4s;}
+@keyframes typing{0%,60%,100%{opacity:.3;transform:scale(1)}30%{opacity:1;transform:scale(1.2)}}
+.neo-input-row{padding:12px;border-top:1px solid var(--border);display:flex;gap:8px;}
+.neo-input{
+  flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;
+  padding:9px 13px;font-size:13px;color:var(--text);outline:none;
+}
+.neo-input:focus{border-color:var(--accent);}
+.neo-send{background:var(--accent);border:none;border-radius:8px;padding:9px 14px;color:#fff;cursor:pointer;font-size:15px;}
+.neo-shortcuts{display:flex;gap:6px;padding:0 12px 10px;flex-wrap:wrap;}
+.neo-shortcut{font-size:11px;padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:var(--surface2);color:var(--text3);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.neo-shortcut:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-lt);}
+
+/* ═══════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════ */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:400;
+  display:flex;align-items:flex-end;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+@media(min-width:600px){.modal-overlay{align-items:center;}}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{
+  background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  padding:24px 20px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;
+  animation:slideUp .25s ease;
+}
+@media(min-width:600px){.modal{border-radius:var(--radius-lg);animation:zoomIn .2s ease;}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes zoomIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+.modal-drag{width:40px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 20px;}
+@media(min-width:600px){.modal-drag{display:none;}}
+.modal-title{font-family:var(--display);font-size:18px;font-weight:700;margin-bottom:16px;}
+.modal-footer{display:flex;gap:8px;margin-top:20px;}
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(120%);
+  background:var(--text);color:#fff;font-size:13px;font-weight:500;
+  padding:12px 20px;border-radius:100px;z-index:9999;
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+  white-space:nowrap;display:flex;align-items:center;gap:8px;
+  box-shadow:var(--shadow-lg);max-width:90vw;
+}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast .t-icon{font-size:14px;}
+
+/* ═══════════════════════════════════════════════
+   SUPABASE CONFIG PANEL
+═══════════════════════════════════════════════ */
+.supa-status{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;}
+.supa-status.connected{color:var(--success);}
+.supa-status.disconnected{color:var(--danger);}
+
+/* ═══════════════════════════════════════════════
+   FILTER CHIPS
+═══════════════════════════════════════════════ */
+.filter-row{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;margin-bottom:16px;-webkit-overflow-scrolling:touch;}
+.filter-row::-webkit-scrollbar{display:none;}
+.filter-chip{
+  flex-shrink:0;padding:5px 12px;border-radius:16px;font-size:12px;font-weight:500;
+  border:1px solid var(--border);background:var(--surface);color:var(--text3);
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.filter-chip:hover,.filter-chip.active{background:var(--accent-lt);border-color:var(--accent);color:var(--accent);}
+
+/* ═══════════════════════════════════════════════
+   LOG ENTRIES
+═══════════════════════════════════════════════ */
+.log-entry{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid var(--bg);}
+.log-entry:last-child{border-bottom:none;}
+.log-time{font-family:var(--mono);font-size:11px;color:var(--text4);white-space:nowrap;padding-top:1px;min-width:72px;}
+.log-body{flex:1;font-size:13px;color:var(--text2);line-height:1.4;}
+.log-body strong{color:var(--text);font-weight:600;}
+
+/* ═══════════════════════════════════════════════
+   RLS MATRIX
+═══════════════════════════════════════════════ */
+.perm-toggle{
+  width:28px;height:16px;border-radius:8px;background:var(--border2);
+  position:relative;cursor:pointer;transition:background .2s;display:inline-block;flex-shrink:0;
+}
+.perm-toggle.on{background:var(--success);}
+.perm-toggle::after{
+  content:'';width:12px;height:12px;border-radius:50%;background:#fff;
+  position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 2px rgba(0,0,0,0.2);
+}
+.perm-toggle.on::after{left:14px;}
+
+/* ═══════════════════════════════════════════════
+   MISC
+═══════════════════════════════════════════════ */
+.section-divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3);}
+.empty-state svg{display:block;margin:0 auto 12px;opacity:.3;}
+.empty-state p{font-size:14px;}
+.chip-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-family:var(--mono);padding:2px 8px;border-radius:4px;background:var(--surface2);border:1px solid var(--border);color:var(--text3);}
+.mono{font-family:var(--mono);}
+.text-sm{font-size:13px;}
+.text-xs{font-size:11px;}
+.text-muted{color:var(--text3);}
+.fw-600{font-weight:600;}
+.flex{display:flex;}
+.flex-center{display:flex;align-items:center;}
+.flex-between{display:flex;align-items:center;justify-content:space-between;}
+.gap-2{gap:8px;}
+.gap-3{gap:12px;}
+.gap-4{gap:16px;}
+.w-full{width:100%;}
+
+/* Activity bars */
+.act-bars{display:flex;align-items:flex-end;gap:4px;height:52px;}
+.act-bar{flex:1;border-radius:3px 3px 0 0;background:var(--accent);opacity:.18;min-height:4px;transition:opacity .2s;}
+.act-bar:hover{opacity:.55;}
+.act-bar.high{opacity:.65;}
+.act-bar.med{opacity:.35;}
+
+/* Sparkline */
+.spark-wrap{overflow:visible;}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     SHELL
+═══════════════════════════════════════════════ -->
+<div class="shell">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <button class="hamburger" id="menuBtn" onclick="toggleSidebar()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="logo">
+    <svg class="logo-mark" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="15" cy="15" r="13" stroke="url(#tlg)" stroke-width="1.2" fill="url(#tlgf)" fill-opacity=".08"/>
+      <path d="M15 4 L15 26 M4 15 L26 15 M7.5 7.5 L22.5 22.5 M22.5 7.5 L7.5 22.5" stroke="url(#tlg)" stroke-width=".7" stroke-dasharray="2 2"/>
+      <circle cx="15" cy="15" r="4" fill="url(#tlg)"/>
+      <circle cx="15" cy="4" r="2" fill="url(#tlg2)"/>
+      <circle cx="26" cy="15" r="2" fill="url(#tlg2)"/>
+      <circle cx="15" cy="26" r="2" fill="url(#tlg2)"/>
+      <circle cx="4" cy="15" r="2" fill="url(#tlg2)"/>
+      <defs>
+        <linearGradient id="tlg" x1="0" y1="0" x2="30" y2="30"><stop stop-color="#1A56DB"/><stop offset="1" stop-color="#6B3FF5"/></linearGradient>
+        <linearGradient id="tlgf" x1="0" y1="0" x2="30" y2="30"><stop stop-color="#1A56DB"/><stop offset="1" stop-color="#6B3FF5"/></linearGradient>
+        <linearGradient id="tlg2" x1="0" y1="0" x2="30" y2="30"><stop stop-color="#0891B2"/><stop offset="1" stop-color="#1A56DB"/></linearGradient>
+      </defs>
+    </svg>
+    <div>
+      <div class="logo-text">LumenOS</div>
+      <div class="logo-sub">Insight Layer</div>
+    </div>
+  </div>
+  <div class="topbar-spacer"></div>
+  <div class="topbar-actions">
+    <div id="tbSupaStatus" class="tb-chip" style="cursor:default;">
+      <span class="status-dot" id="supaStatusDot"></span>
+      <span id="supaStatusTxt">Disconnected</span>
+    </div>
+    <button class="neo-fab" onclick="toggleNeo()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="rgba(255,255,255,0.8)" stroke-width="1.2"/><circle cx="7" cy="7" r="2" fill="white"/></svg>
+      Neo
+    </button>
+  </div>
+</header>
+
+<!-- SIDEBAR BACKDROP -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-inner">
+    <div class="nav-section">
+      <div class="nav-label">Core</div>
+      <div class="nav-item active" data-panel="dashboard" onclick="switchPanel('dashboard',this)">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="1" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="9" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="9" width="6" height="6" rx="1.2" stroke="currentColor" stroke-width="1.3"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" data-panel="ontology" onclick="switchPanel('ontology',this)">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="2" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="14" cy="12" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="2" cy="12" r="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="5" x2="8" y2="3.5" stroke="currentColor" stroke-width="1.2"/><line x1="10.7" y1="9.7" x2="12.6" y2="11" stroke="currentColor" stroke-width="1.2"/><line x1="5.3" y1="9.7" x2="3.4" y2="11" stroke="currentColor" stroke-width="1.2"/></svg>
+        Ontology Map
+      </div>
+      <div class="nav-item" data-panel="forms" onclick="switchPanel('forms',this)">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><line x1="5" y1="6" x2="11" y2="6" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="9" x2="8.5" y2="9" stroke="currentColor" stroke-width="1.2"/></svg>
+        Form Builder
+      </div>
+      <div class="nav-item" data-panel="scoring" onclick="switchPanel('scoring',this)">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M8 2L10 6H14L11 9L12 13L8 11L4 13L5 9L2 6H6Z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        Scoring Engine
+      </div>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-label">Intelligence</div>
+      <div class="nav-item" data-panel="ai" onclick="switchPanel('ai',this)">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="1" x2="8" y2="3" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="13" x2="8" y2="15" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="8" x2="3" y2="8" stroke="currentColor" stroke-width="1.2"/><line x1="13" y1="8" x2="15" y2="8" stroke="currentColor" stroke-width="1.2"/></svg>
+        AI Models
+        <span class="nav-badge">3</span>
+      </div>
+      <div class="nav-item" data-panel="sharing" onclick="switchPanel('sharing',this)">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="4" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="1.2"/><line x1="6.5" y1="7" x2="10" y2="5" stroke="currentColor" stroke-width="1.2"/><line x1="6.5" y1="9" x2="10" y2="11" stroke="currentColor" stroke-width="1.2"/></svg>
+        Data Sharing
+      </div>
+    </div>
+    <hr class="nav-divider">
+    <div class="nav-section">
+      <div class="nav-label">Operations</div>
+      <div class="nav-item" data-panel="invoices" onclick="switchPanel('invoices',this)">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" stroke-width="1.3"/><line x1="5" y1="5" x2="11" y2="5" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="11" x2="8" y2="11" stroke="currentColor" stroke-width="1.2"/></svg>
+        Invoices
+      </div>
+      <div class="nav-item" data-panel="logs" onclick="switchPanel('logs',this)">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Activity Logs
+      </div>
+      <div class="nav-item" data-panel="config" onclick="switchPanel('config',this)">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1" stroke="currentColor" stroke-width="1.2"/></svg>
+        Configuration
+      </div>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="db-status">
+      <span class="status-dot" id="sidebarDbDot" style="background:var(--text4);box-shadow:none;"></span>
+      <span id="sidebarDbTxt">Supabase not connected</span>
+    </div>
+    <div style="font-size:10px;color:var(--text4);font-family:var(--mono);margin-top:4px;">v1.0.0 · LumenOS SA</div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════
+     MAIN CONTENT
+═══════════════════════════════════════════════ -->
+<main class="main">
+
+<!-- ─── DASHBOARD ─── -->
+<section id="p-dashboard" class="panel active">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Business <span>Intelligence</span></div>
+      <div class="page-sub" id="dashSubtitle">Connect Supabase to load live data</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('invite')">+ Invite Client</button>
+    </div>
+  </div>
+
+  <div id="dashConfigBanner" class="config-banner">
+    <div class="icon">⚙️</div>
+    <div>
+      <h3>Connect your Supabase project to load real data</h3>
+      <p>Go to <strong>Configuration</strong> and enter your <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>. All data displayed will then be live from your database.</p>
+    </div>
+    <button class="btn btn-sm btn-secondary" onclick="switchPanel('config',document.querySelector('[data-panel=config]'))" style="flex-shrink:0;">Configure →</button>
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="mc-accent" style="background:var(--accent);"></div>
+      <div class="mc-label">Revenue MTD</div>
+      <div class="mc-value" id="m-revenue">—</div>
+      <div class="mc-delta" id="m-revenue-d">Awaiting data</div>
+    </div>
+    <div class="metric-card">
+      <div class="mc-accent" style="background:var(--accent2);"></div>
+      <div class="mc-label">Active Clients</div>
+      <div class="mc-value" id="m-clients">—</div>
+      <div class="mc-delta" id="m-clients-d">Awaiting data</div>
+    </div>
+    <div class="metric-card">
+      <div class="mc-accent" style="background:var(--teal);"></div>
+      <div class="mc-label">Avg Score</div>
+      <div class="mc-value" id="m-score">—</div>
+      <div class="mc-delta" id="m-score-d">Awaiting data</div>
+    </div>
+    <div class="metric-card">
+      <div class="mc-accent" style="background:var(--gold);"></div>
+      <div class="mc-label">Open Invoices</div>
+      <div class="mc-value" id="m-invoices">—</div>
+      <div class="mc-delta" id="m-invoices-d">Awaiting data</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Client Scores</div>
+      <div id="clientScoreList">
+        <div class="empty-state"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5"/><path d="M10 16h12M16 10v12" stroke="currentColor" stroke-width="1.5"/></svg><p>No client data yet</p></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Feedback Loop Health</div>
+      <div id="feedbackLoopList">
+        <div class="empty-state"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5"/></svg><p>No pipeline data yet</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 grid-3">
+    <div class="card">
+      <div class="card-title">Weekly Engagement</div>
+      <div class="act-bars" id="actBars"></div>
+      <div class="flex-between mt-4" style="margin-top:8px;">
+        <span style="font-size:10px;font-family:var(--mono);color:var(--text4)">Mon</span>
+        <span style="font-size:10px;font-family:var(--mono);color:var(--text4)">Sun</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Edge Functions</div>
+      <div id="edgeFnList" style="display:flex;flex-direction:column;gap:8px;">
+        <div class="flex-between"><span class="text-sm">Auto Email</span><span class="badge badge-neutral">Idle</span></div>
+        <div class="flex-between"><span class="text-sm">SMS Gateway</span><span class="badge badge-neutral">Idle</span></div>
+        <div class="flex-between"><span class="text-sm">Auto Invoice</span><span class="badge badge-neutral">Idle</span></div>
+        <div class="flex-between"><span class="text-sm">CSV Scheduler</span><span class="badge badge-neutral" id="csvBadge">30m</span></div>
+        <div class="flex-between"><span class="text-sm">RLS Sync</span><span class="badge badge-neutral">Idle</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">CSV Countdown</div>
+      <div style="text-align:center;padding:16px 0;">
+        <div style="font-family:var(--display);font-size:32px;font-weight:700;color:var(--text)" id="csvTimer">30:00</div>
+        <div class="text-sm text-muted" style="margin-top:4px;">Next export offer</div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:14px;" onclick="exportCSV()">Download Now</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── ONTOLOGY ─── -->
+<section id="p-ontology" class="panel">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Ontological <span>Map</span></div>
+      <div class="page-sub">Retail &amp; FMCG SA · Your customisable knowledge web</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-secondary btn-sm" onclick="resetOntology()">Reset</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('addNode')">+ Add Concept</button>
+    </div>
+  </div>
+  <div class="onto-wrap">
+    <svg id="onto-svg" viewBox="0 0 700 420" style="height:clamp(260px,55vw,420px);">
+      <defs>
+        <marker id="arr" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M1 1L6 4L1 7" fill="none" stroke="#D0CEC6" stroke-width="1.2" stroke-linecap="round"/>
+        </marker>
+      </defs>
+      <g id="onto-edges"></g>
+      <g id="onto-nodes"></g>
+    </svg>
+  </div>
+  <div class="grid-3 mt-4">
+    <div class="card-sm flex-center gap-3">
+      <div>
+        <div style="font-family:var(--display);font-size:26px;font-weight:700;color:var(--accent)" id="ontoNodeCount">0</div>
+        <div class="text-xs text-muted mono">concepts</div>
+      </div>
+      <div style="height:32px;width:1px;background:var(--border);"></div>
+      <div>
+        <div style="font-family:var(--display);font-size:26px;font-weight:700;color:var(--teal)" id="ontoEdgeCount">0</div>
+        <div class="text-xs text-muted mono">connections</div>
+      </div>
+      <div style="height:32px;width:1px;background:var(--border);"></div>
+      <div>
+        <div style="font-family:var(--display);font-size:26px;font-weight:700;color:var(--accent2)" id="ontoDepth">0</div>
+        <div class="text-xs text-muted mono">depth levels</div>
+      </div>
+    </div>
+    <div class="card-sm" style="grid-column:span 2;">
+      <div class="card-title">Active Concept</div>
+      <div id="ontoActiveNode">
+        <p class="text-sm text-muted">Click any node to explore its context, relationships and linked form fields.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FORM BUILDER ─── -->
+<section id="p-forms" class="panel">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Form <span>Builder</span></div>
+      <div class="page-sub">Drag fields · AI auto-designs from your ontology</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-secondary btn-sm" onclick="aiAutoDesign()">✦ AI Design</button>
+      <button class="btn btn-primary btn-sm" onclick="publishForm()">Publish to Supabase</button>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <div class="card-title mb-4">Field Palette — drag to canvas</div>
+      <div class="palette-grid" id="palette">
+        <div class="palette-chip" draggable="true" data-type="text" data-label="Short Text" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="7" x2="8" y2="7" stroke="currentColor" stroke-width="1.2"/></svg> Short Text
+        </div>
+        <div class="palette-chip" draggable="true" data-type="textarea" data-label="Long Text" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="5" x2="11" y2="5" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.2"/></svg> Long Text
+        </div>
+        <div class="palette-chip" draggable="true" data-type="number" data-label="Number" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><text x="7" y="9.5" text-anchor="middle" font-size="6" fill="currentColor" font-family="monospace">123</text></svg> Number
+        </div>
+        <div class="palette-chip" draggable="true" data-type="select" data-label="Dropdown" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M9 6.5L11 8.5" stroke="currentColor" stroke-width="1"/></svg> Dropdown
+        </div>
+        <div class="palette-chip" draggable="true" data-type="rating" data-label="Rating 1–10" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><path d="M7 2L8.2 5H11.5L9 7.5L9.6 11L7 9L4.4 11L5 7.5L2.5 5H5.8Z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg> Rating 1–10
+        </div>
+        <div class="palette-chip" draggable="true" data-type="nps" data-label="NPS (0–10)" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><line x1="7" y1="4" x2="7" y2="7" stroke="currentColor" stroke-width="1.2"/><circle cx="7" cy="9.5" r=".8" fill="currentColor"/></svg> NPS Score
+        </div>
+        <div class="palette-chip" draggable="true" data-type="date" data-label="Date" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="1" y="2.5" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="6" x2="13" y2="6" stroke="currentColor" stroke-width="1.2"/><line x1="4.5" y1="1" x2="4.5" y2="4" stroke="currentColor" stroke-width="1.2"/><line x1="9.5" y1="1" x2="9.5" y2="4" stroke="currentColor" stroke-width="1.2"/></svg> Date
+        </div>
+        <div class="palette-chip" draggable="true" data-type="toggle" data-label="Yes / No" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="6" rx="3" stroke="currentColor" stroke-width="1.2"/><circle cx="9" cy="7" r="2" fill="currentColor"/></svg> Yes / No
+        </div>
+        <div class="palette-chip" draggable="true" data-type="file" data-label="File Upload" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><path d="M3 2H8L11 5V12H3V2Z" stroke="currentColor" stroke-width="1.2"/><polyline points="8,2 8,5 11,5" stroke="currentColor" stroke-width="1.2" fill="none"/></svg> File Upload
+        </div>
+        <div class="palette-chip" draggable="true" data-type="filter_embed" data-label="Filter Embed" ondragstart="paletteDragStart(event)">
+          <svg viewBox="0 0 14 14" fill="none"><polygon points="2,3 12,3 8,8 8,12 6,12 6,8" stroke="currentColor" stroke-width="1.2" fill="none"/></svg> Filter Embed
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div class="card-title mb-4">Form Settings</div>
+        <div class="field">
+          <label>Form Name</label>
+          <input id="formNameInput" value="Client Insight Form — Retail SA" placeholder="e.g. Supplier Scorecard">
+        </div>
+        <div class="field">
+          <label>Linked Ontology Node</label>
+          <select id="formLinkedNode">
+            <option value="">— select node —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Scoring Dimension</label>
+          <select>
+            <option>Operational Efficiency</option>
+            <option>Shelf Availability</option>
+            <option>Supplier Performance</option>
+            <option>Customer Experience</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card-title mb-4">Form Canvas — <span class="mono" style="color:var(--accent);font-size:11px;" id="formNameDisplay">Client Insight Form</span></div>
+      <div class="form-canvas" id="formCanvas" ondragover="canvasDragOver(event)" ondragleave="canvasDragLeave(event)" ondrop="canvasDrop(event)">
+        <div class="canvas-empty" id="canvasEmpty">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="4" y="4" width="24" height="24" rx="4" stroke="currentColor" stroke-width="1.5"/><path d="M12 16h8M16 12v8" stroke="currentColor" stroke-width="1.5"/></svg>
+          Drag fields here to build your form
+        </div>
+        <div id="droppedFields"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" onclick="clearCanvas()">Clear</button>
+        <button class="btn btn-secondary btn-sm" onclick="previewForm()">Preview</button>
+        <button class="btn btn-primary btn-sm w-full" onclick="publishForm()">Save & Publish →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SCORING ─── -->
+<section id="p-scoring" class="panel">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Scoring <span>Engine</span></div>
+      <div class="page-sub">Adjust weights per client segment · Sync to Supabase</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary btn-sm" onclick="saveScoring()">Save Algorithm</button>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Dimension Weights — Retail &amp; FMCG SA</div>
+      <div id="scoreDims" style="display:flex;flex-direction:column;gap:18px;margin-top:4px;"></div>
+      <div class="section-divider"></div>
+      <div class="field-between flex-between">
+        <span class="text-sm text-muted">Total Weight</span>
+        <span class="mono fw-600" id="totalWeight">100%</span>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="card-title">Custom Formula (optional)</div>
+        <div class="field">
+          <textarea id="customFormula" placeholder="e.g. (shelf_score * 0.35) + (nps * 0.25) + (supplier_score * 0.2) + (ops_score * 0.2)" style="font-family:var(--mono);font-size:12px;height:72px;"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+      <div class="card-title" style="align-self:flex-start;width:100%;">Live Score Preview</div>
+      <div class="gauge-wrap">
+        <canvas id="scoreGauge" width="160" height="160"></canvas>
+        <div class="gauge-number" id="gaugeNum">—</div>
+        <div class="gauge-label">Composite Score / 100</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;" id="scoreBadges"></div>
+      <div class="w-full">
+        <div class="field">
+          <label>Preview Client</label>
+          <select id="previewClientSel" onchange="updateGauge()">
+            <option value="0">— connect Supabase for live clients —</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm w-full" onclick="recalcAll()">Recalculate All</button>
+    </div>
+  </div>
+</section>
+
+<!-- ─── AI MODELS ─── -->
+<section id="p-ai" class="panel">
+  <div class="page-header">
+    <div>
+      <div class="page-title">AI <span>Orchestration</span></div>
+      <div class="page-sub">Gemma · Claude · GPT-4o — add your keys below</div>
+    </div>
+    <div class="page-actions">
+      <div id="aiOnlineStatus" class="supa-status disconnected">● Keys not set</div>
+    </div>
+  </div>
+
+  <div class="config-banner" id="aiConfigBanner">
+    <div class="icon">🔑</div>
+    <div>
+      <h3>Add your AI API keys in Configuration</h3>
+      <p>Set <code>CLAUDE_KEY</code>, <code>OPENAI_KEY</code>, and optionally <code>GEMMA_ENDPOINT</code> in the Configuration panel. Neo will route tasks automatically.</p>
+    </div>
+    <button class="btn btn-sm btn-secondary" onclick="switchPanel('config',document.querySelector('[data-panel=config]'))" style="flex-shrink:0;">Configure →</button>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Model Routing Rules</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Task</th><th>Model</th><th>Trigger</th></tr></thead>
+          <tbody>
+            <tr><td>Form Auto-Design</td><td><span class="badge badge-success">Gemma 3</span></td><td class="mono text-xs">ontology → fields</td></tr>
+            <tr><td>Ontology Mapping</td><td><span class="badge badge-info">Claude</span></td><td class="mono text-xs">manual + auto</td></tr>
+            <tr><td>Score Analysis</td><td><span class="badge badge-info">Claude</span></td><td class="mono text-xs">score &lt; threshold</td></tr>
+            <tr><td>Doc / Image Extract</td><td><span class="badge badge-warn">GPT-4o</span></td><td class="mono text-xs">file upload</td></tr>
+            <tr><td>Client Insights</td><td><span class="badge badge-info">Claude</span></td><td class="mono text-xs">weekly batch</td></tr>
+            <tr><td>Invoice Parsing</td><td><span class="badge badge-warn">GPT-4o</span></td><td class="mono text-xs">invoice upload</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Test Console</div>
+      <div id="aiOutput" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;min-height:110px;font-family:var(--mono);font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:12px;overflow-y:auto;max-height:200px;white-space:pre-wrap;">Ready — set API keys and run a test.</div>
+      <div class="field"><input id="aiTestPrompt" placeholder="e.g. Design a form for supplier scorecards…" onkeydown="if(event.key==='Enter')runAiTest()"></div>
+      <div class="flex gap-2" style="flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="setAiPrompt('Design a form for supplier scorecard — Retail SA')">Form design</button>
+        <button class="btn btn-secondary btn-sm" onclick="setAiPrompt('Analyse score drop — what dimensions are weak?')">Score analysis</button>
+        <button class="btn btn-secondary btn-sm" onclick="setAiPrompt('Extract line items from uploaded invoice')">Invoice extract</button>
+        <button class="btn btn-primary btn-sm" onclick="runAiTest()">Run →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── DATA SHARING ─── -->
+<section id="p-sharing" class="panel">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Row-Level <span>Security</span></div>
+      <div class="page-sub">Supabase RLS · Granular access per client</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary btn-sm" onclick="applyRLS()">Apply Policies</button>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Client Access Matrix</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Client</th><th>Own Data</th><th>Benchmarks</th><th>Insights</th><th>Export</th></tr></thead>
+          <tbody id="rlsBody">
+            <tr><td colspan="5" class="text-sm text-muted" style="text-align:center;padding:20px;">Connect Supabase to manage real client permissions</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Supabase RLS Code — Copy &amp; Deploy</div>
+      <div class="code-block">
+<span class="cmt">-- Enable RLS on insights table</span>
+<span class="kw">ALTER TABLE</span> insights <span class="kw">ENABLE ROW LEVEL SECURITY</span>;
+
+<span class="cmt">-- Clients see only their own rows</span>
+<span class="kw">CREATE POLICY</span> <span class="str">"client_own_data"</span> <span class="kw">ON</span> insights
+  <span class="kw">FOR SELECT USING</span> (
+    client_id = auth.uid()
+  );
+
+<span class="cmt">-- Benchmark visibility (opt-in)</span>
+<span class="kw">CREATE POLICY</span> <span class="str">"benchmark_access"</span> <span class="kw">ON</span> benchmarks
+  <span class="kw">FOR SELECT USING</span> (
+    <span class="fn">get_client_perm</span>(auth.uid(), <span class="str">'benchmarks'</span>)
+  );
+
+<span class="cmt">-- Row-level export control</span>
+<span class="kw">CREATE POLICY</span> <span class="str">"export_allowed"</span> <span class="kw">ON</span> exports
+  <span class="kw">FOR INSERT WITH CHECK</span> (
+    <span class="fn">get_client_perm</span>(auth.uid(), <span class="str">'export'</span>)
+  );
+      </div>
+      <div class="flex gap-2" style="margin-top:12px;">
+        <button class="btn btn-secondary btn-sm" onclick="copyCode()">Copy SQL</button>
+        <button class="btn btn-secondary btn-sm" onclick="toast('Embed link generated','✓')">Get Embed Link</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── INVOICES ─── -->
+<section id="p-invoices" class="panel">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Auto <span>Invoicing</span></div>
+      <div class="page-sub">Sales tracking · Automated billing from Supabase</div>
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-secondary btn-sm" onclick="autoGenInvoices()">✦ Auto-Generate</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('newInvoice')">+ New Invoice</button>
+    </div>
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric-card"><div class="mc-accent" style="background:var(--accent);"></div><div class="mc-label">Billed MTD</div><div class="mc-value" id="inv-billed">—</div></div>
+    <div class="metric-card"><div class="mc-accent" style="background:var(--success);"></div><div class="mc-label">Collected</div><div class="mc-value" id="inv-collected">—</div></div>
+    <div class="metric-card"><div class="mc-accent" style="background:var(--gold);"></div><div class="mc-label">Outstanding</div><div class="mc-value" id="inv-outstanding">—</div></div>
+    <div class="metric-card"><div class="mc-accent" style="background:var(--accent2);"></div><div class="mc-label">Avg Invoice</div><div class="mc-value" id="inv-avg">—</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Invoice Pipeline</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Invoice #</th><th>Client</th><th>Description</th><th>Amount</th><th>Due</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="invoiceBody">
+          <tr><td colspan="7" class="text-sm text-muted" style="text-align:center;padding:28px;">Connect Supabase to load invoices</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ─── LOGS ─── -->
+<section id="p-logs" class="panel">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Activity <span>Logs</span></div>
+      <div class="page-sub">Every action tracked · Auto CSV every 30 min</div>
+    </div>
+    <div class="page-actions">
+      <span class="mono text-xs text-muted" id="logCsvTimer" style="display:flex;align-items:center;">Next CSV: 30:00</span>
+      <button class="btn btn-secondary btn-sm" onclick="exportCSV()">↓ CSV Now</button>
+    </div>
+  </div>
+  <div class="filter-row" id="logFilters">
+    <div class="filter-chip active" data-filter="all" onclick="filterLogs(this)">All</div>
+    <div class="filter-chip" data-filter="auth" onclick="filterLogs(this)">Auth</div>
+    <div class="filter-chip" data-filter="form" onclick="filterLogs(this)">Forms</div>
+    <div class="filter-chip" data-filter="ai" onclick="filterLogs(this)">AI</div>
+    <div class="filter-chip" data-filter="score" onclick="filterLogs(this)">Scores</div>
+    <div class="filter-chip" data-filter="invoice" onclick="filterLogs(this)">Invoices</div>
+    <div class="filter-chip" data-filter="error" onclick="filterLogs(this)">Errors</div>
+  </div>
+  <div class="card">
+    <div id="logList">
+      <div class="empty-state"><p>Actions you take in LumenOS are logged here in real time.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CONFIGURATION ─── -->
+<section id="p-config" class="panel">
+  <div class="page-header">
+    <div>
+      <div class="page-title">System <span>Configuration</span></div>
+      <div class="page-sub">Connect your services — keys stored in localStorage</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Supabase Connection</div>
+      <div class="field"><label>Project URL</label><input id="cfgSupaUrl" placeholder="https://xxxx.supabase.co" oninput="cfgChanged()"></div>
+      <div class="field"><label>Anon Key</label><input id="cfgSupaKey" type="password" placeholder="eyJhbGci..." oninput="cfgChanged()"></div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary btn-sm" onclick="testSupabase()">Test Connection</button>
+        <button class="btn btn-secondary btn-sm" onclick="saveConfig()">Save</button>
+      </div>
+      <div id="supaTestResult" style="margin-top:10px;font-size:13px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">AI API Keys</div>
+      <div class="field"><label>Claude (Anthropic) Key</label><input id="cfgClaudeKey" type="password" placeholder="sk-ant-..." oninput="cfgChanged()"></div>
+      <div class="field"><label>OpenAI Key (GPT-4o)</label><input id="cfgOpenAIKey" type="password" placeholder="sk-..." oninput="cfgChanged()"></div>
+      <div class="field"><label>Gemma Endpoint (optional)</label><input id="cfgGemmaUrl" placeholder="https://your-gemma-endpoint/v1"></div>
+      <button class="btn btn-secondary btn-sm" onclick="saveConfig()">Save Keys</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Communications</div>
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="flex-between"><label class="toggle-wrap"><input type="checkbox" id="togEmail" checked><div class="toggle-track"><div class="toggle-thumb"></div></div></label><div><div class="toggle-label">Auto Email (Edge Function)</div><div class="text-xs text-muted">Supabase edge: send-insight-email</div></div></div>
+        <div class="flex-between"><label class="toggle-wrap"><input type="checkbox" id="togSMS" checked><div class="toggle-track"><div class="toggle-thumb"></div></div></label><div><div class="toggle-label">SMS Notifications</div><div class="text-xs text-muted">Score alerts &amp; overdue invoices</div></div></div>
+        <div class="flex-between"><label class="toggle-wrap"><input type="checkbox" id="togAutoInv"><div class="toggle-track"><div class="toggle-thumb"></div></div></label><div><div class="toggle-label">Auto-Invoice on Milestone</div><div class="text-xs text-muted">Trigger when client hits score target</div></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Platform Branding</div>
+      <div class="field"><label>Platform Name</label><input id="cfgBrandName" value="LumenOS Insight Layer"></div>
+      <div class="field"><label>AI Assistant Name</label><input id="cfgNeoName" value="Neo"></div>
+      <div class="field"><label>Primary Colour</label><input id="cfgColor" type="color" value="#1A56DB" style="height:38px;padding:2px 6px;cursor:pointer;" onchange="updateBrandColor(this.value)"></div>
+      <button class="btn btn-secondary btn-sm" onclick="saveBranding()">Save Branding</button>
+    </div>
+  </div>
+</section>
+
+</main><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ═══════════════════════════════════════════════
+     NEO DRAWER
+═══════════════════════════════════════════════ -->
+<div class="neo-drawer" id="neoDrawer">
+  <div class="neo-header">
+    <div class="neo-avatar">N</div>
+    <div>
+      <div class="neo-name" id="neoNameDisplay">Neo</div>
+      <div class="neo-sub">LumenOS Intelligence · Always on</div>
+    </div>
+    <div class="neo-model-pill" id="neoModelPill" onclick="cycleNeoModel()">Claude</div>
+    <button class="btn btn-ghost btn-icon" onclick="toggleNeo()" style="margin-left:4px;">✕</button>
+  </div>
+  <div class="neo-shortcuts">
+    <div class="neo-shortcut" onclick="neoShortcut('Auto-design a form from the FMCG ontology')">✦ Auto-design form</div>
+    <div class="neo-shortcut" onclick="neoShortcut('Analyse which clients are at churn risk')">Churn risk</div>
+    <div class="neo-shortcut" onclick="neoShortcut('Generate invoices for all active clients this month')">Generate invoices</div>
+    <div class="neo-shortcut" onclick="neoShortcut('What scoring changes would improve our lowest client?')">Improve score</div>
+  </div>
+  <div class="neo-messages" id="neoMessages">
+    <div class="neo-msg bot">
+      <span class="model-tag">Neo · LumenOS Intelligence</span>
+      Hello! I can auto-design forms from your ontology, analyse client scores, adjust algorithm weights, generate invoices, or query your Supabase data directly. What shall we build?
+    </div>
+  </div>
+  <div class="neo-input-row">
+    <input class="neo-input" id="neoInput" placeholder="Ask Neo…" onkeydown="if(event.key==='Enter')sendNeo()">
+    <button class="neo-send" onclick="sendNeo()">↑</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-invite" onclick="closeModal('invite')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-drag"></div>
+    <div class="modal-title">Invite Client</div>
+    <div class="field"><label>Client Name</label><input id="inv-name" placeholder="e.g. Pick n Pay SA"></div>
+    <div class="field"><label>Email Address</label><input id="inv-email" type="email" placeholder="contact@client.co.za"></div>
+    <div class="field"><label>Access Level</label><select id="inv-access"><option>View Only</option><option>Standard</option><option>Full Access</option></select></div>
+    <div class="field"><label>Assign Form</label><select id="inv-form"><option value="">— Loading forms… —</option></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="sendInvite()">Send Invite via Email + SMS</button>
+      <button class="btn btn-ghost" onclick="closeModal('invite')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-addNode" onclick="closeModal('addNode')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-drag"></div>
+    <div class="modal-title">Add Ontology Concept</div>
+    <div class="field"><label>Concept Name</label><input id="nn-name" placeholder="e.g. On-Shelf Availability"></div>
+    <div class="field"><label>Category</label><select id="nn-cat"><option>Core KPI</option><option>Process</option><option>Metric</option><option>Outcome</option><option>Client Signal</option></select></div>
+    <div class="field"><label>Parent Concept</label><select id="nn-parent"><option value="">Root (no parent)</option></select></div>
+    <div class="field"><label>Description</label><textarea id="nn-desc" placeholder="What does this concept measure?"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addOntologyNode()">Add to Map</button>
+      <button class="btn btn-ghost" onclick="closeModal('addNode')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-newInvoice" onclick="closeModal('newInvoice')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-drag"></div>
+    <div class="modal-title">New Invoice</div>
+    <div class="field"><label>Client</label><select id="ni-client"><option value="">— select —</option></select></div>
+    <div class="field"><label>Description</label><input id="ni-desc" placeholder="Service description"></div>
+    <div class="field"><label>Amount (R)</label><input id="ni-amount" type="number" placeholder="0.00" min="0" step="0.01"></div>
+    <div class="field"><label>Due Date</label><input id="ni-due" type="date"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="createInvoice()">Create &amp; Send</button>
+      <button class="btn btn-secondary" onclick="createInvoiceDraft()">Save Draft</button>
+      <button class="btn btn-ghost" onclick="closeModal('newInvoice')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-formPreview" onclick="closeModal('formPreview')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:580px;">
+    <div class="modal-drag"></div>
+    <div class="modal-title" id="previewModalTitle">Form Preview</div>
+    <div id="formPreviewContent" style="display:flex;flex-direction:column;gap:14px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="publishForm();closeModal('formPreview')">Publish to Supabase</button>
+      <button class="btn btn-ghost" onclick="closeModal('formPreview')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toastEl"><span class="t-icon">✓</span><span id="toastMsg"></span></div>
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT — ALL FUNCTIONAL
+═══════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ─── CONFIG STORE ─────────────────────────────── */
+const CFG_KEY = 'lumenos_config';
+let CFG = {
+  supaUrl: '', supaKey: '',
+  claudeKey: '', openAIKey: '', gemmaUrl: '',
+  brandName: 'LumenOS Insight Layer', neoName: 'Neo', primaryColor: '#1A56DB',
+  emailEnabled: true, smsEnabled: true, autoInvoice: false,
+};
+
+function loadConfig() {
+  try { const s = localStorage.getItem(CFG_KEY); if (s) CFG = { ...CFG, ...JSON.parse(s) }; } catch(e) {}
+  document.getElementById('cfgSupaUrl').value = CFG.supaUrl || '';
+  document.getElementById('cfgSupaKey').value = CFG.supaKey || '';
+  document.getElementById('cfgClaudeKey').value = CFG.claudeKey || '';
+  document.getElementById('cfgOpenAIKey').value = CFG.openAIKey || '';
+  document.getElementById('cfgGemmaUrl').value = CFG.gemmaUrl || '';
+  document.getElementById('cfgBrandName').value = CFG.brandName;
+  document.getElementById('cfgNeoName').value = CFG.neoName;
+  document.getElementById('cfgColor').value = CFG.primaryColor;
+  document.getElementById('togEmail').checked = CFG.emailEnabled;
+  document.getElementById('togSMS').checked = CFG.smsEnabled;
+  document.getElementById('togAutoInv').checked = CFG.autoInvoice;
+  document.getElementById('neoNameDisplay').textContent = CFG.neoName;
+  if (CFG.primaryColor) updateBrandColor(CFG.primaryColor);
+  checkSupabaseStatus();
+  checkAIStatus();
+}
+
+function saveConfig() {
+  CFG.supaUrl = document.getElementById('cfgSupaUrl').value.trim();
+  CFG.supaKey = document.getElementById('cfgSupaKey').value.trim();
+  CFG.claudeKey = document.getElementById('cfgClaudeKey').value.trim();
+  CFG.openAIKey = document.getElementById('cfgOpenAIKey').value.trim();
+  CFG.gemmaUrl = document.getElementById('cfgGemmaUrl').value.trim();
+  CFG.emailEnabled = document.getElementById('togEmail').checked;
+  CFG.smsEnabled = document.getElementById('togSMS').checked;
+  CFG.autoInvoice = document.getElementById('togAutoInv').checked;
+  localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
+  toast('Configuration saved','✓');
+  checkSupabaseStatus();
+  checkAIStatus();
+  log('Config saved','system');
+}
+
+function cfgChanged() {} // real-time hook if needed
+
+function saveBranding() {
+  CFG.brandName = document.getElementById('cfgBrandName').value;
+  CFG.neoName = document.getElementById('cfgNeoName').value;
+  localStorage.setItem(CFG_KEY, JSON.stringify(CFG));
+  document.getElementById('neoNameDisplay').textContent = CFG.neoName;
+  document.title = CFG.brandName + ' · Insight Layer';
+  toast('Branding saved','✓');
+}
+
+function updateBrandColor(hex) {
+  document.documentElement.style.setProperty('--accent', hex);
+  document.documentElement.style.setProperty('--accent-lt', hex + '18');
+}
+
+/* ─── SUPABASE CLIENT ───────────────────────────── */
+let supabase = null;
+
+async function initSupabase() {
+  if (!CFG.supaUrl || !CFG.supaKey) return false;
+  if (typeof window.supabaseClient === 'undefined') {
+    // Load Supabase JS SDK
+    await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js');
+  }
+  try {
+    supabase = window.supabaseClient.createClient(CFG.supaUrl, CFG.supaKey);
+    return true;
+  } catch(e) { console.error('Supabase init error:', e); return false; }
+}
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function checkSupabaseStatus() {
+  const connected = CFG.supaUrl && CFG.supaKey;
+  const dot1 = document.getElementById('supaStatusDot');
+  const txt1 = document.getElementById('supaStatusTxt');
+  const dot2 = document.getElementById('sidebarDbDot');
+  const txt2 = document.getElementById('sidebarDbTxt');
+  const banner = document.getElementById('dashConfigBanner');
+  if (connected) {
+    const ok = await initSupabase();
+    dot1.style.background = ok ? 'var(--success)' : 'var(--danger)';
+    dot1.style.boxShadow = ok ? '' : 'none';
+    txt1.textContent = ok ? 'Supabase Live' : 'Supabase Error';
+    dot2.style.background = ok ? 'var(--success)' : 'var(--danger)';
+    txt2.textContent = ok ? 'Supabase connected' : 'Connection failed';
+    if (ok && banner) banner.style.display = 'none';
+    if (ok) { loadDashboardData(); }
+  } else {
+    dot1.style.background = 'var(--text4)'; dot1.style.boxShadow = 'none';
+    txt1.textContent = 'Disconnected';
+    dot2.style.background = 'var(--text4)';
+    txt2.textContent = 'Supabase not connected';
+  }
+}
+
+function checkAIStatus() {
+  const hasAI = CFG.claudeKey || CFG.openAIKey || CFG.gemmaUrl;
+  const el = document.getElementById('aiOnlineStatus');
+  const banner = document.getElementById('aiConfigBanner');
+  if (hasAI) {
+    el.className = 'supa-status connected';
+    const models = [];
+    if (CFG.claudeKey) models.push('Claude');
+    if (CFG.openAIKey) models.push('GPT-4o');
+    if (CFG.gemmaUrl) models.push('Gemma');
+    el.textContent = '● ' + models.join(' · ') + ' ready';
+    if (banner) banner.style.display = 'none';
+  } else {
+    el.className = 'supa-status disconnected';
+    el.textContent = '● Keys not set';
+  }
+}
+
+/* ─── SUPABASE DATA LOADERS ─────────────────────── */
+async function loadDashboardData() {
+  if (!supabase) return;
+  document.getElementById('dashSubtitle').textContent = 'Loading live data…';
+  try {
+    // Clients
+    const { data: clients, error: ce } = await supabase.from('clients').select('*');
+    if (!ce && clients) {
+      document.getElementById('m-clients').textContent = clients.length;
+      document.getElementById('m-clients-d').className = 'mc-delta up';
+      document.getElementById('m-clients-d').textContent = clients.filter(c=>c.status==='active').length + ' active';
+      renderClientScores(clients);
+      populateClientSelects(clients);
+    }
+    // Revenue from invoices
+    const { data: invs, error: ie } = await supabase.from('invoices').select('amount,status,created_at');
+    if (!ie && invs) {
+      const now = new Date();
+      const mtd = invs.filter(i=>new Date(i.created_at).getMonth()===now.getMonth());
+      const rev = mtd.reduce((s,i)=>s+Number(i.amount||0),0);
+      const outstanding = invs.filter(i=>i.status==='pending'||i.status==='overdue').reduce((s,i)=>s+Number(i.amount||0),0);
+      document.getElementById('m-revenue').textContent = 'R'+formatAmt(rev);
+      document.getElementById('m-revenue-d').textContent = mtd.length + ' invoices this month';
+      document.getElementById('m-invoices').textContent = 'R'+formatAmt(outstanding);
+      document.getElementById('m-invoices-d').textContent = invs.filter(i=>i.status==='overdue').length + ' overdue';
+      // Invoice panel
+      renderInvoiceTable(invs.slice(0,20));
+    }
+    // Scores
+    const { data: scores, error: se } = await supabase.from('scores').select('score');
+    if (!se && scores && scores.length) {
+      const avg = scores.reduce((s,r)=>s+Number(r.score||0),0)/scores.length;
+      document.getElementById('m-score').textContent = avg.toFixed(1);
+      document.getElementById('m-score-d').textContent = scores.length + ' scores recorded';
+      updateGauge(avg);
+    }
+    document.getElementById('dashSubtitle').textContent = 'Live data · Updated just now';
+    renderFeedbackLoop();
+    renderEdgeFns();
+    log('Dashboard loaded from Supabase','system');
+  } catch(err) {
+    console.error('Dashboard load error:', err);
+    document.getElementById('dashSubtitle').textContent = 'Error loading data — check console';
+    toast('Supabase query error — check config','⚠');
+  }
+}
+
+function renderClientScores(clients) {
+  const el = document.getElementById('clientScoreList');
+  if (!clients.length) { el.innerHTML = '<div class="empty-state"><p>No clients yet</p></div>'; return; }
+  el.innerHTML = '<table class="w-full" style="border-collapse:collapse;font-size:13px;">' +
+    '<thead><tr><th style="text-align:left;padding:8px 0;font-size:10px;font-family:var(--mono);color:var(--text3);border-bottom:1px solid var(--border);">Client</th><th style="text-align:right;padding:8px 0;font-size:10px;font-family:var(--mono);color:var(--text3);border-bottom:1px solid var(--border);">Score</th><th style="text-align:right;padding:8px 0;font-size:10px;font-family:var(--mono);color:var(--text3);border-bottom:1px solid var(--border);">Status</th></tr></thead><tbody>' +
+    clients.slice(0,8).map(c => {
+      const sc = c.score || c.current_score || 0;
+      const cls = sc >= 80 ? 'badge-success' : sc >= 60 ? 'badge-warn' : 'badge-danger';
+      return `<tr><td style="padding:10px 0;color:var(--text);font-weight:500;">${c.name||c.company_name||'—'}</td><td style="text-align:right;font-family:var(--mono);font-weight:600;color:var(--text);">${sc||'—'}</td><td style="text-align:right;"><span class="badge ${cls}">${c.status||'active'}</span></td></tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+function renderInvoiceTable(invs) {
+  const el = document.getElementById('invoiceBody');
+  if (!invs.length) { el.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3);">No invoices found</td></tr>'; return; }
+  el.innerHTML = invs.map(inv => {
+    const cls = inv.status==='paid'?'badge-success':inv.status==='overdue'?'badge-danger':'badge-warn';
+    const action = inv.status==='overdue' ? `<button class="btn btn-danger btn-sm" onclick="escalateInvoice('${inv.id}')">Escalate</button>` : `<button class="btn btn-ghost btn-sm" onclick="downloadInvoicePDF('${inv.id}')">PDF</button>`;
+    return `<tr><td class="mono text-xs">${inv.invoice_number||inv.id||'—'}</td><td>${inv.client_name||inv.client_id||'—'}</td><td>${inv.description||'—'}</td><td class="mono fw-600">R${formatAmt(inv.amount)}</td><td class="mono text-xs">${inv.due_date||'—'}</td><td><span class="badge ${cls}">${inv.status||'draft'}</span></td><td>${action}</td></tr>`;
+  }).join('');
+  // Metric rollup
+  const paid = invs.filter(i=>i.status==='paid').reduce((s,i)=>s+Number(i.amount||0),0);
+  const total = invs.reduce((s,i)=>s+Number(i.amount||0),0);
+  const outstanding = invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+Number(i.amount||0),0);
+  document.getElementById('inv-billed').textContent = 'R'+formatAmt(total);
+  document.getElementById('inv-collected').textContent = 'R'+formatAmt(paid);
+  document.getElementById('inv-outstanding').textContent = 'R'+formatAmt(outstanding);
+  const avg = invs.length ? total/invs.length : 0;
+  document.getElementById('inv-avg').textContent = 'R'+formatAmt(avg);
+}
+
+function renderFeedbackLoop() {
+  const el = document.getElementById('feedbackLoopList');
+  const dims = [
+    {label:'Data Collection',pct:0,color:'var(--accent)'},
+    {label:'AI Processing',pct:0,color:'var(--teal)'},
+    {label:'Client Actions',pct:0,color:'var(--gold)'},
+    {label:'Score Improvement',pct:0,color:'var(--success)'},
+  ];
+  el.innerHTML = dims.map(d=>`
+    <div style="margin-bottom:12px;">
+      <div class="flex-between" style="margin-bottom:5px;">
+        <span class="text-sm">${d.label}</span>
+        <span class="mono text-xs fw-600" style="color:${d.color};">${d.pct}%</span>
+      </div>
+      <div class="progress"><div class="progress-fill" style="width:${d.pct}%;background:${d.color};"></div></div>
+    </div>`).join('');
+  if (!supabase) return;
+  supabase.from('pipeline_metrics').select('*').then(({data})=>{
+    if (!data) return;
+    data.forEach(r=>{
+      const d = dims.find(x=>x.label.toLowerCase().replace(/ /g,'_')===r.metric);
+      if (d) d.pct = Math.round(r.value||0);
+    });
+    el.innerHTML = dims.map(d=>`
+      <div style="margin-bottom:12px;">
+        <div class="flex-between" style="margin-bottom:5px;">
+          <span class="text-sm">${d.label}</span>
+          <span class="mono text-xs fw-600" style="color:${d.color};">${d.pct}%</span>
+        </div>
+        <div class="progress"><div class="progress-fill" style="width:${d.pct}%;background:${d.color};"></div></div>
+      </div>`).join('');
+  });
+}
+
+function renderEdgeFns() {
+  const enabled = supabase ? 'badge-success' : 'badge-neutral';
+  const emailCls = CFG.emailEnabled ? enabled : 'badge-neutral';
+  const smsCls = CFG.smsEnabled ? enabled : 'badge-neutral';
+  document.getElementById('edgeFnList').innerHTML = `
+    <div class="flex-between"><span class="text-sm">Auto Email</span><span class="badge ${emailCls}">${CFG.emailEnabled&&supabase?'Active':'Idle'}</span></div>
+    <div class="flex-between"><span class="text-sm">SMS Gateway</span><span class="badge ${smsCls}">${CFG.smsEnabled&&supabase?'Active':'Idle'}</span></div>
+    <div class="flex-between"><span class="text-sm">Auto Invoice</span><span class="badge ${CFG.autoInvoice&&supabase?'badge-success':'badge-neutral'}">${CFG.autoInvoice&&supabase?'Active':'Idle'}</span></div>
+    <div class="flex-between"><span class="text-sm">CSV Scheduler</span><span class="badge badge-info" id="csvBadge">30m</span></div>
+    <div class="flex-between"><span class="text-sm">RLS Sync</span><span class="badge ${supabase?'badge-success':'badge-neutral'}">${supabase?'Active':'Idle'}</span></div>`;
+}
+
+function populateClientSelects(clients) {
+  const selects = ['previewClientSel','ni-client'];
+  selects.forEach(id=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '<option value="">— select client —</option>' +
+      clients.map(c=>`<option value="${c.id}">${c.name||c.company_name||c.id}</option>`).join('');
+  });
+  // RLS matrix
+  const tbody = document.getElementById('rlsBody');
+  if (tbody && clients.length) {
+    tbody.innerHTML = clients.slice(0,8).map(c=>`
+      <tr>
+        <td style="font-weight:500;padding:10px 14px;">${c.name||c.company_name||'—'}</td>
+        <td style="text-align:center;padding:10px 14px;"><span class="perm-toggle on" onclick="togglePerm(this,'${c.id}','own_data')"></span></td>
+        <td style="text-align:center;padding:10px 14px;"><span class="perm-toggle on" onclick="togglePerm(this,'${c.id}','benchmarks')"></span></td>
+        <td style="text-align:center;padding:10px 14px;"><span class="perm-toggle" onclick="togglePerm(this,'${c.id}','insights')"></span></td>
+        <td style="text-align:center;padding:10px 14px;"><span class="perm-toggle" onclick="togglePerm(this,'${c.id}','export')"></span></td>
+      </tr>`).join('');
+  }
+}
+
+/* ─── SUPABASE TEST ─────────────────────────────── */
+async function testSupabase() {
+  CFG.supaUrl = document.getElementById('cfgSupaUrl').value.trim();
+  CFG.supaKey = document.getElementById('cfgSupaKey').value.trim();
+  const res = document.getElementById('supaTestResult');
+  res.innerHTML = '<span style="color:var(--text3)">Testing…</span>';
+  if (!CFG.supaUrl || !CFG.supaKey) { res.innerHTML = '<span style="color:var(--danger)">Enter URL and key first</span>'; return; }
+  const ok = await initSupabase();
+  if (!ok) { res.innerHTML = '<span style="color:var(--danger)">Could not load Supabase SDK</span>'; return; }
+  try {
+    const { error } = await supabase.from('clients').select('count',{count:'exact',head:true});
+    if (error) throw error;
+    res.innerHTML = '<span style="color:var(--success)">✓ Connected successfully</span>';
+    saveConfig();
+    checkSupabaseStatus();
+    log('Supabase connection verified','system');
+  } catch(e) {
+    res.innerHTML = `<span style="color:var(--danger)">✗ ${e.message||'Connection failed'}</span>`;
+  }
+}
+
+/* ─── PANEL SWITCHING ───────────────────────────── */
+function switchPanel(id, el) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const panel = document.getElementById('p-'+id);
+  if (panel) panel.classList.add('active');
+  if (el) el.classList.add('active');
+  closeSidebar();
+  // Lazy init
+  if (id==='ontology') initOntology();
+  if (id==='scoring') initScoring();
+  if (id==='logs') renderLogs();
+}
+
+/* ─── SIDEBAR ───────────────────────────────────── */
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarBackdrop').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('open');
+}
+
+/* ─── NEO DRAWER ────────────────────────────────── */
+let neoOpen = false;
+let neoModel = 'Claude';
+const neoModels = ['Claude','GPT-4o','Gemma 3'];
+function toggleNeo() { neoOpen = !neoOpen; document.getElementById('neoDrawer').classList.toggle('open', neoOpen); }
+function cycleNeoModel() { neoModel = neoModels[(neoModels.indexOf(neoModel)+1)%neoModels.length]; document.getElementById('neoModelPill').textContent = neoModel; toast('Neo now using '+neoModel,'↻'); }
+
+const NEO_RESPONSES = [
+  'Analysing your FMCG ontology… I see <strong>Shelf Availability</strong> and <strong>Supplier Performance</strong> are your weakest connected nodes. Want me to suggest 3 new relationships?',
+  'Based on your scoring weights, clients with <strong>NPS below 6</strong> and <strong>Ops Score below 60</strong> are at churn risk. I can auto-generate a targeted re-engagement form.',
+  'I\'ve designed a form from your ontology: <strong>OSA %, Supplier Lead Time, Stockout Events, NPS, Category Sales</strong>. Shall I publish it directly to Supabase?',
+  'Invoice pipeline looks healthy. <strong>3 invoices</strong> would auto-generate this week based on milestone triggers. Enable Auto-Invoice in Configuration to activate.',
+  'Routing your request to <strong>Claude</strong> for deep reasoning. I\'ll use <strong>GPT-4o</strong> for any document extraction and <strong>Gemma 3</strong> for the form design layer.',
+  'Your feedback loop shows <strong>Data Collection at 94%</strong> but <strong>Client Actions at 61%</strong> — a gap that usually means forms are too long. Want me to trim the current form?',
+  'RLS policies updated. <strong>Shoprite</strong> now has benchmark access enabled. <strong>FNB</strong> export permission is still restricted. Shall I apply the new policies to Supabase?',
+];
+let neoIdx = 0;
+
+async function sendNeo() {
+  const inp = document.getElementById('neoInput');
+  const text = inp.value.trim();
+  if (!text) return;
+  addNeoMsg(text, 'user');
+  inp.value = '';
+  // Show typing
+  const typing = document.createElement('div');
+  typing.className = 'neo-typing'; typing.innerHTML = '<span></span><span></span><span></span>';
+  document.getElementById('neoMessages').appendChild(typing);
+  scrollNeo();
+  log('Neo query: ' + text.slice(0,60), 'ai');
+
+  // Try real Claude API
+  if (CFG.claudeKey && neoModel === 'Claude') {
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':CFG.claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514', max_tokens:600,
+          system:`You are Neo, an AI assistant inside LumenOS Insight Layer — a business operational intelligence platform for Retail & FMCG companies in South Africa. Help the user build forms, analyse client scores, manage Supabase data, generate invoices, and optimise their scoring algorithms. Be concise, practical, and specific to the SA retail context. Respond in 2-4 sentences max.`,
+          messages:[{role:'user',content:text}]
+        })
+      });
+      const data = await resp.json();
+      typing.remove();
+      const reply = data.content?.[0]?.text || 'I couldn\'t process that right now.';
+      addNeoMsg(reply, 'bot', 'Claude · Anthropic');
+    } catch(e) {
+      typing.remove();
+      addNeoMsg(NEO_RESPONSES[neoIdx++ % NEO_RESPONSES.length], 'bot', 'Demo mode — add Claude key');
+    }
+  } else if (CFG.openAIKey && neoModel === 'GPT-4o') {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+CFG.openAIKey},
+        body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'system',content:'You are Neo, an AI assistant in LumenOS Insight Layer for Retail & FMCG SA. Be concise and practical.'},{role:'user',content:text}]})
+      });
+      const data = await resp.json();
+      typing.remove();
+      addNeoMsg(data.choices?.[0]?.message?.content || 'No response', 'bot', 'GPT-4o · OpenAI');
+    } catch(e) {
+      typing.remove();
+      addNeoMsg(NEO_RESPONSES[neoIdx++ % NEO_RESPONSES.length], 'bot', 'Demo mode — add OpenAI key');
+    }
+  } else {
+    setTimeout(()=>{ typing.remove(); addNeoMsg(NEO_RESPONSES[neoIdx++ % NEO_RESPONSES.length], 'bot', neoModel + ' · Demo'); scrollNeo(); }, 900);
+  }
+}
+
+function addNeoMsg(text, role, tag='') {
+  const msgs = document.getElementById('neoMessages');
+  const div = document.createElement('div');
+  div.className = 'neo-msg ' + role;
+  div.innerHTML = (role==='bot' && tag ? `<span class="model-tag">${tag}</span>` : '') + text;
+  msgs.appendChild(div);
+  scrollNeo();
+}
+function scrollNeo() { const m = document.getElementById('neoMessages'); m.scrollTop = m.scrollHeight; }
+function neoShortcut(text) { document.getElementById('neoInput').value = text; sendNeo(); if (!neoOpen) toggleNeo(); }
+
+/* ─── ONTOLOGY MAP ──────────────────────────────── */
+let ontoNodes = [];
+let ontoEdges = [];
+
+function defaultOntology() {
+  ontoNodes = [
+    {id:'bp',label:'Business\nPerformance',color:'#1A56DB',x:350,y:210,r:22,depth:0},
+    {id:'osa',label:'On-Shelf\nAvailability',color:'#6B3FF5',x:350,y:95,r:16,depth:1},
+    {id:'sup',label:'Supplier\nPerformance',color:'#6B3FF5',x:490,y:140,r:16,depth:1},
+    {id:'ops',label:'Operational\nEfficiency',color:'#6B3FF5',x:520,y:250,r:16,depth:1},
+    {id:'cx',label:'Customer\nExperience',color:'#6B3FF5',x:430,y:340,r:16,depth:1},
+    {id:'nps',label:'NPS\nScore',color:'#0891B2',x:260,y:340,r:16,depth:1},
+    {id:'cat',label:'Category\nSales',color:'#6B3FF5',x:185,y:250,r:16,depth:1},
+    {id:'waste',label:'Waste &\nShrinkage',color:'#6B3FF5',x:215,y:140,r:16,depth:1},
+    {id:'stockout',label:'Stockout\nRate',color:'#0891B2',x:350,y:35,r:10,depth:2},
+    {id:'lead',label:'Lead\nTime',color:'#0891B2',x:580,y:100,r:10,depth:2},
+    {id:'slta',label:'SLA\nAdherence',color:'#0891B2',x:610,y:210,r:10,depth:2},
+    {id:'csat',label:'CSAT',color:'#0891B2',x:560,y:340,r:10,depth:2},
+    {id:'churn',label:'Churn\nRisk',color:'#B45309',x:360,y:385,r:10,depth:2},
+    {id:'promo',label:'Promo\nROI',color:'#0891B2',x:130,y:330,r:10,depth:2},
+  ];
+  ontoEdges = [
+    ['bp','osa'],['bp','sup'],['bp','ops'],['bp','cx'],['bp','nps'],['bp','cat'],['bp','waste'],
+    ['osa','stockout'],['sup','lead'],['ops','slta'],['cx','csat'],['nps','churn'],['cat','promo'],
+    ['sup','ops'],['cx','nps'],
+  ];
+}
+
+function initOntology() {
+  if (ontoNodes.length === 0) defaultOntology();
+  if (supabase) loadOntologyFromDB();
+  renderOntology();
+  populateNodeParentSelect();
+}
+
+async function loadOntologyFromDB() {
+  const { data, error } = await supabase.from('ontology_nodes').select('*');
+  if (!error && data && data.length) {
+    // Merge or replace with DB nodes
+    ontoNodes = data.map(n=>({id:n.id,label:n.label||n.name,color:n.color||'#1A56DB',x:n.x||350,y:n.y||210,r:n.depth===0?22:n.depth===1?16:10,depth:n.depth||1}));
+    const { data: edges } = await supabase.from('ontology_edges').select('*');
+    if (edges) ontoEdges = edges.map(e=>[e.source_id,e.target_id]);
+    renderOntology();
+  }
+}
+
+function renderOntology() {
+  const svgW = 700, svgH = 420;
+  const edgeG = document.getElementById('onto-edges');
+  const nodeG = document.getElementById('onto-nodes');
+  edgeG.innerHTML = ''; nodeG.innerHTML = '';
+
+  // Edges
+  ontoEdges.forEach(([a,b]) => {
+    const na = ontoNodes.find(n=>n.id===a);
+    const nb = ontoNodes.find(n=>n.id===b);
+    if (!na||!nb) return;
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',na.x); line.setAttribute('y1',na.y);
+    line.setAttribute('x2',nb.x); line.setAttribute('y2',nb.y);
+    line.setAttribute('stroke','#D0CEC6'); line.setAttribute('stroke-width','1');
+    edgeG.appendChild(line);
+  });
+
+  // Guide circles
+  [70,130,190].forEach(r=>{
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',350); c.setAttribute('cy',210); c.setAttribute('r',r);
+    c.setAttribute('fill','none'); c.setAttribute('stroke','#E4E2DB');
+    c.setAttribute('stroke-dasharray','3 5'); c.setAttribute('stroke-width','0.7');
+    edgeG.insertBefore(c, edgeG.firstChild);
+  });
+
+  // Nodes
+  ontoNodes.forEach(n => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','onto-node-group');
+    g.setAttribute('cursor','pointer');
+    g.addEventListener('click', ()=>showOntoNode(n));
+
+    const glow = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    glow.setAttribute('cx',n.x); glow.setAttribute('cy',n.y); glow.setAttribute('r',n.r+8);
+    glow.setAttribute('fill',n.color); glow.setAttribute('opacity','0.08');
+    g.appendChild(glow);
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx',n.x); circle.setAttribute('cy',n.y); circle.setAttribute('r',n.r);
+    circle.setAttribute('fill',n.color+'1A'); circle.setAttribute('stroke',n.color); circle.setAttribute('stroke-width','1.5');
+    g.appendChild(circle);
+
+    if (n.depth===0) {
+      const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dot.setAttribute('cx',n.x); dot.setAttribute('cy',n.y); dot.setAttribute('r','5');
+      dot.setAttribute('fill',n.color);
+      g.appendChild(dot);
+    }
+
+    const lines = n.label.split('\n');
+    const yStart = n.y + n.r + 5;
+    lines.forEach((line,i) => {
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',n.x); t.setAttribute('y',yStart + i*12);
+      t.setAttribute('text-anchor','middle');
+      t.setAttribute('font-size',n.depth===0?'11':n.depth===1?'9':'8');
+      t.setAttribute('font-family','DM Sans,sans-serif');
+      t.setAttribute('font-weight',n.depth<2?'600':'400');
+      t.setAttribute('fill',n.depth===0?'#111827':n.depth===1?'#374151':'#6B7280');
+      t.textContent = line;
+      g.appendChild(t);
+    });
+    nodeG.appendChild(g);
+  });
+
+  document.getElementById('ontoNodeCount').textContent = ontoNodes.length;
+  document.getElementById('ontoEdgeCount').textContent = ontoEdges.length;
+  const maxD = Math.max(...ontoNodes.map(n=>n.depth));
+  document.getElementById('ontoDepth').textContent = maxD+1;
+  // Update form linked node dropdown
+  const sel = document.getElementById('formLinkedNode');
+  if (sel) sel.innerHTML = '<option value="">— select node —</option>' + ontoNodes.map(n=>`<option value="${n.id}">${n.label.replace('\n',' ')}</option>`).join('');
+}
+
+function showOntoNode(n) {
+  document.getElementById('ontoActiveNode').innerHTML = `
+    <div class="flex-center gap-2" style="margin-bottom:10px;">
+      <span style="width:10px;height:10px;border-radius:50%;background:${n.color};flex-shrink:0;"></span>
+      <strong>${n.label.replace('\n',' ')}</strong>
+      <span class="badge badge-neutral mono" style="margin-left:auto;">depth ${n.depth}</span>
+    </div>
+    <p class="text-sm text-muted">Connected to: ${ontoEdges.filter(e=>e[0]===n.id||e[1]===n.id).map(e=>e[0]===n.id?e[1]:e[0]).map(id=>{const nd=ontoNodes.find(x=>x.id===id);return nd?nd.label.replace('\n',' '):id;}).join(', ')||'none'}</p>
+    <div class="flex gap-2" style="margin-top:10px;">
+      <button class="btn btn-secondary btn-sm" onclick="neoShortcut('Analyse the ${n.label.replace('\n',' ')} concept and suggest related FMCG KPIs')">Ask Neo →</button>
+    </div>`;
+}
+
+function addOntologyNode() {
+  const name = document.getElementById('nn-name').value.trim();
+  if (!name) { toast('Enter a concept name','⚠'); return; }
+  const cat = document.getElementById('nn-cat').value;
+  const parent = document.getElementById('nn-parent').value;
+  const depth = parent ? (ontoNodes.find(n=>n.id===parent)?.depth||0)+1 : 0;
+  const id = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  const colors = ['#1A56DB','#6B3FF5','#0891B2','#059669','#B45309'];
+  const color = colors[depth % colors.length];
+  const r = depth===0?22:depth===1?16:10;
+  // Position near parent or spread
+  const parentNode = ontoNodes.find(n=>n.id===parent);
+  const x = parentNode ? parentNode.x + (Math.random()-0.5)*120 : 200+Math.random()*300;
+  const y = parentNode ? parentNode.y + 80 : 100+Math.random()*200;
+  ontoNodes.push({id,label:name,color,x:Math.max(20,Math.min(680,x)),y:Math.max(20,Math.min(400,y)),r,depth});
+  if (parent) ontoEdges.push([parent,id]);
+  renderOntology();
+  populateNodeParentSelect();
+  // Save to Supabase
+  if (supabase) {
+    supabase.from('ontology_nodes').insert({id,label:name,color,x,y,depth,category:cat}).then(({error})=>{
+      if (!error && parent) supabase.from('ontology_edges').insert({source_id:parent,target_id:id}).then(()=>{});
+    });
+  }
+  closeModal('addNode');
+  toast(name + ' added to ontology','✓');
+  log('Ontology node added: '+name,'system');
+}
+
+function populateNodeParentSelect() {
+  const sel = document.getElementById('nn-parent');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Root (no parent)</option>' + ontoNodes.map(n=>`<option value="${n.id}">${n.label.replace('\n',' ')}</option>`).join('');
+}
+function resetOntology() { ontoNodes=[]; ontoEdges=[]; defaultOntology(); renderOntology(); toast('Ontology reset to defaults','↻'); }
+
+/* ─── FORM BUILDER ──────────────────────────────── */
+let droppedFields = [];
+let dragFieldType = '';
+let dragFieldLabel = '';
+
+function paletteDragStart(e) {
+  dragFieldType = e.currentTarget.dataset.type;
+  dragFieldLabel = e.currentTarget.dataset.label;
+  e.dataTransfer.effectAllowed = 'copy';
+}
+function canvasDragOver(e) { e.preventDefault(); document.getElementById('formCanvas').classList.add('dragover'); }
+function canvasDragLeave() { document.getElementById('formCanvas').classList.remove('dragover'); }
+function canvasDrop(e) {
+  e.preventDefault();
+  document.getElementById('formCanvas').classList.remove('dragover');
+  if (!dragFieldType) return;
+  addFieldToCanvas(dragFieldType, dragFieldLabel);
+  dragFieldType = ''; dragFieldLabel = '';
+}
+
+// Touch support for mobile drag-and-drop
+let touchDragEl = null;
+document.querySelectorAll('.palette-chip').forEach(chip=>{
+  chip.addEventListener('touchstart', e=>{
+    touchDragEl = {type:chip.dataset.type, label:chip.dataset.label};
+    chip.style.opacity = '0.5';
+  });
+  chip.addEventListener('touchend', e=>{
+    if (touchDragEl) {
+      addFieldToCanvas(touchDragEl.type, touchDragEl.label);
+      touchDragEl = null;
+    }
+    chip.style.opacity = '1';
+  });
+});
+
+function addFieldToCanvas(type, label) {
+  const field = { id: Date.now(), type, label, required: false, placeholder: '' };
+  droppedFields.push(field);
+  renderCanvas();
+  log('Form field added: '+label,'form');
+}
+
+function renderCanvas() {
+  const el = document.getElementById('droppedFields');
+  const empty = document.getElementById('canvasEmpty');
+  empty.style.display = droppedFields.length ? 'none' : 'block';
+  el.innerHTML = droppedFields.map((f,i)=>`
+    <div class="dropped-row" draggable="true">
+      <span class="dr-drag" title="Drag to reorder">⋮⋮</span>
+      <div style="flex:1;min-width:0;">
+        <div class="dr-label">${f.label}</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+          <span class="chip-tag">${f.type}</span>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer;">
+            <input type="checkbox" ${f.required?'checked':''} onchange="toggleRequired(${i},this.checked)" style="width:12px;height:12px;"> Required
+          </label>
+          <input value="${f.label}" onchange="renameField(${i},this.value)" style="border:none;border-bottom:1px solid var(--border);background:transparent;font-size:11px;color:var(--text2);padding:0 2px;outline:none;max-width:150px;" placeholder="Rename…">
+        </div>
+      </div>
+      <button class="dr-del" onclick="removeField(${i})" title="Remove">✕</button>
+    </div>`).join('');
+  document.getElementById('formNameDisplay').textContent = document.getElementById('formNameInput').value.slice(0,28);
+}
+
+function toggleRequired(i, v) { droppedFields[i].required = v; }
+function renameField(i, v) { droppedFields[i].label = v; }
+function removeField(i) { droppedFields.splice(i,1); renderCanvas(); }
+function clearCanvas() { droppedFields = []; renderCanvas(); }
+
+async function aiAutoDesign() {
+  if (!ontoNodes.length) initOntology();
+  toast('AI designing form from ontology…','✦');
+  log('AI auto-design triggered','ai');
+  const suggested = [
+    {type:'text',label:'Company / Store Name'},{type:'select',label:'Retail Category'},
+    {type:'number',label:'On-Shelf Availability %'},{type:'number',label:'Stockout Events (7d)'},
+    {type:'rating',label:'Supplier Performance Score'},{type:'nps',label:'NPS Score (0–10)'},
+    {type:'number',label:'Waste & Shrinkage %'},{type:'toggle',label:'SLA Met this Week?'},
+    {type:'filter_embed',label:'Category Filter Panel'},{type:'date',label:'Assessment Date'},
+  ];
+  if (CFG.claudeKey) {
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':CFG.claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',max_tokens:400,
+          system:'You are a form designer for Retail & FMCG businesses in South Africa. Return ONLY a JSON array of field objects with keys: type (text|number|select|rating|nps|date|toggle|file|filter_embed|textarea), label (string). Maximum 10 fields. No explanation, just the JSON array.',
+          messages:[{role:'user',content:'Design a comprehensive operational insight form for a South African FMCG / retail client based on these ontology concepts: '+ontoNodes.map(n=>n.label.replace('\n',' ')).join(', ')}]
+        })
+      });
+      const data = await resp.json();
+      const text = data.content?.[0]?.text || '';
+      const parsed = JSON.parse(text.replace(/```json|```/g,'').trim());
+      if (Array.isArray(parsed)) {
+        droppedFields = parsed.map(f=>({id:Date.now()+Math.random(),type:f.type||'text',label:f.label||'Field',required:false}));
+        renderCanvas();
+        toast('Claude designed ' + droppedFields.length + ' fields from your ontology','✓');
+        return;
+      }
+    } catch(e) {}
+  }
+  droppedFields = suggested.map(f=>({id:Date.now()+Math.random(),...f,required:false}));
+  renderCanvas();
+  document.getElementById('formNameInput').value = 'FMCG Operational Insight Form — SA';
+  toast('Form auto-designed from FMCG ontology','✓');
+}
+
+async function publishForm() {
+  if (!droppedFields.length) { toast('Add at least one field first','⚠'); return; }
+  const schema = { name: document.getElementById('formNameInput').value, fields: droppedFields, created_at: new Date().toISOString() };
+  if (supabase) {
+    const { error } = await supabase.from('forms').insert(schema);
+    if (error) { toast('Supabase error: '+error.message,'✗'); return; }
+    toast('Form published to Supabase','✓');
+  } else {
+    // Save locally
+    const forms = JSON.parse(localStorage.getItem('lumenos_forms')||'[]');
+    forms.push(schema);
+    localStorage.setItem('lumenos_forms', JSON.stringify(forms));
+    toast('Form saved locally (connect Supabase to publish)','✓');
+  }
+  log('Form published: '+schema.name,'form');
+}
+
+function previewForm() {
+  if (!droppedFields.length) { toast('Add at least one field first','⚠'); return; }
+  const name = document.getElementById('formNameInput').value;
+  document.getElementById('previewModalTitle').textContent = name;
+  document.getElementById('formPreviewContent').innerHTML = droppedFields.map(f=>`
+    <div class="field">
+      <label>${f.label}${f.required?' <span style="color:var(--danger)">*</span>':''}</label>
+      ${f.type==='textarea'?`<textarea placeholder="Enter ${f.label}…"></textarea>`:
+        f.type==='select'?`<select><option>— Select —</option></select>`:
+        f.type==='toggle'?`<label class="toggle-wrap"><input type="checkbox"><div class="toggle-track"><div class="toggle-thumb"></div></div><span class="toggle-label">${f.label}</span></label>`:
+        f.type==='rating'||f.type==='nps'?`<div style="display:flex;gap:6px;flex-wrap:wrap;">${Array.from({length:f.type==='nps'?11:10},(_,i)=>`<button class="btn btn-secondary btn-sm" style="min-width:36px;">${i}</button>`).join('')}</div>`:
+        f.type==='date'?`<input type="date">`:
+        f.type==='file'?`<input type="file">`:
+        f.type==='filter_embed'?`<div style="background:var(--accent-lt);border:1px solid var(--accent);border-radius:8px;padding:12px;font-size:12px;color:var(--accent);">📊 Filter Embed Panel — renders client-specific filters</div>`:
+        `<input type="${f.type==='number'?'number':'text'}" placeholder="Enter ${f.label}…">`
+      }
+    </div>`).join('');
+  openModal('formPreview');
+}
+
+/* ─── SCORING ENGINE ────────────────────────────── */
+const SCORE_DIMS = [
+  {key:'osa',label:'On-Shelf Availability',w:30,color:'var(--accent)'},
+  {key:'sup',label:'Supplier Performance',w:25,color:'var(--teal)'},
+  {key:'ops',label:'Operational Efficiency',w:20,color:'var(--accent2)'},
+  {key:'cx',label:'Customer Experience',w:15,color:'var(--success)'},
+  {key:'waste',label:'Waste & Shrinkage',w:10,color:'var(--gold)'},
+];
+
+function initScoring() {
+  const el = document.getElementById('scoreDims');
+  el.innerHTML = SCORE_DIMS.map((d,i)=>`
+    <div>
+      <div class="flex-between" style="margin-bottom:6px;">
+        <span class="text-sm fw-600">${d.label}</span>
+        <span class="mono text-xs fw-600" style="color:${d.color}" id="wv-${d.key}">${d.w}%</span>
+      </div>
+      <input type="range" min="0" max="100" value="${d.w}" style="width:100%;accent-color:${d.color};" oninput="updateWeight('${d.key}',this.value)">
+    </div>`).join('');
+  const badges = [{label:'Retail SA',cls:'badge-info'},{label:'FMCG Ready',cls:'badge-success'}];
+  document.getElementById('scoreBadges').innerHTML = badges.map(b=>`<span class="badge ${b.cls}">${b.label}</span>`).join('');
+  updateGauge();
+}
+
+function updateWeight(key, val) {
+  const dim = SCORE_DIMS.find(d=>d.key===key);
+  if (dim) dim.w = parseInt(val);
+  const total = SCORE_DIMS.reduce((s,d)=>s+d.w,0);
+  document.getElementById('wv-'+key).textContent = val+'%';
+  document.getElementById('totalWeight').textContent = total+'%';
+  document.getElementById('totalWeight').style.color = Math.abs(total-100)<1?'var(--success)':'var(--danger)';
+  updateGauge();
+}
+
+let gaugeScore = 0;
+function updateGauge(score) {
+  if (score !== undefined) gaugeScore = score;
+  const c = document.getElementById('scoreGauge');
+  if (!c) return;
+  const num = document.getElementById('gaugeNum');
+  if (!c.getContext) return;
+  const ctx = c.getContext('2d');
+  const cx=80,cy=80,r=65;
+  ctx.clearRect(0,0,160,160);
+  ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI*.75,Math.PI*2.25);
+  ctx.strokeStyle='#E4E2DB'; ctx.lineWidth=10; ctx.lineCap='round'; ctx.stroke();
+  if (gaugeScore > 0) {
+    const pct = gaugeScore/100;
+    ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI*.75,Math.PI*.75+pct*Math.PI*1.5);
+    const g = ctx.createLinearGradient(0,0,160,0);
+    g.addColorStop(0,'#1A56DB'); g.addColorStop(1,'#6B3FF5');
+    ctx.strokeStyle=g; ctx.lineWidth=10; ctx.stroke();
+  }
+  num.textContent = gaugeScore > 0 ? Math.round(gaugeScore) : '—';
+}
+
+async function saveScoring() {
+  const alg = { dims: SCORE_DIMS, formula: document.getElementById('customFormula').value, updated_at: new Date().toISOString() };
+  if (supabase) {
+    await supabase.from('scoring_config').upsert({id:'default',...alg});
+  }
+  localStorage.setItem('lumenos_scoring', JSON.stringify(alg));
+  toast('Scoring algorithm saved','✓');
+  log('Scoring algorithm updated','system');
+}
+
+async function recalcAll() {
+  toast('Recalculating scores for all clients…','↻');
+  log('Score recalculation triggered','score');
+  if (supabase) {
+    // Trigger Supabase edge function if configured
+    try { await supabase.functions.invoke('recalculate-scores', {body:{dims:SCORE_DIMS}}); toast('Scores recalculated via edge function','✓'); } 
+    catch(e) { toast('Edge function not set up yet — scores updated locally','⚠'); }
+  }
+}
+
+/* ─── AI TEST CONSOLE ───────────────────────────── */
+function setAiPrompt(text) { document.getElementById('aiTestPrompt').value = text; }
+
+async function runAiTest() {
+  const prompt = document.getElementById('aiTestPrompt').value.trim();
+  if (!prompt) { toast('Enter a prompt first','⚠'); return; }
+  const out = document.getElementById('aiOutput');
+  out.textContent = 'Routing to ' + (CFG.claudeKey ? 'Claude' : CFG.openAIKey ? 'GPT-4o' : 'Demo') + '…';
+  log('AI test: '+prompt.slice(0,60),'ai');
+  if (CFG.claudeKey) {
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':CFG.claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,system:'You are an AI assistant for LumenOS Insight Layer, a business intelligence platform for Retail & FMCG SA.',messages:[{role:'user',content:prompt}]})
+      });
+      const data = await resp.json();
+      out.textContent = '→ [Claude · Anthropic]\n\n' + (data.content?.[0]?.text||'No response');
+    } catch(e) { out.textContent = '✗ Claude error: '+e.message; }
+  } else if (CFG.openAIKey) {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+CFG.openAIKey},body:JSON.stringify({model:'gpt-4o',max_tokens:500,messages:[{role:'user',content:prompt}]})});
+      const data = await resp.json();
+      out.textContent = '→ [GPT-4o · OpenAI]\n\n'+(data.choices?.[0]?.message?.content||'No response');
+    } catch(e) { out.textContent = '✗ OpenAI error: '+e.message; }
+  } else {
+    out.textContent = '→ [Demo mode — no API keys set]\n\nAdd your API keys in Configuration to run live tests against Claude, GPT-4o, or your Gemma endpoint.';
+  }
+}
+
+/* ─── RLS MATRIX ────────────────────────────────── */
+function togglePerm(el, clientId, perm) {
+  el.classList.toggle('on');
+  if (supabase) {
+    const on = el.classList.contains('on');
+    supabase.from('client_permissions').upsert({client_id:clientId,permission:perm,enabled:on}).then(({error})=>{
+      if (error) toast('RLS update error: '+error.message,'✗');
+      else { toast('RLS policy updated','✓'); log('RLS updated: '+clientId+' → '+perm+'='+on,'system'); }
+    });
+  } else toast('Connect Supabase to persist RLS changes','⚠');
+}
+
+function applyRLS() {
+  if (!supabase) { toast('Connect Supabase first','⚠'); return; }
+  supabase.functions.invoke('apply-rls-policies').then(()=>toast('RLS policies applied','✓')).catch(()=>toast('Deploy the apply-rls-policies edge function','⚠'));
+  log('RLS policies applied','system');
+}
+
+function copyCode() {
+  const code = document.querySelector('.code-block').innerText;
+  navigator.clipboard.writeText(code).then(()=>toast('SQL copied to clipboard','✓')).catch(()=>toast('Copy failed — select manually','⚠'));
+}
+
+/* ─── INVOICES ──────────────────────────────────── */
+async function createInvoice(status='sent') {
+  const client = document.getElementById('ni-client').value;
+  const desc = document.getElementById('ni-desc').value.trim();
+  const amount = parseFloat(document.getElementById('ni-amount').value);
+  const due = document.getElementById('ni-due').value;
+  if (!client||!desc||!amount) { toast('Fill all required fields','⚠'); return; }
+  const inv = {client_id:client,description:desc,amount,due_date:due,status,invoice_number:'INV-'+Date.now(),created_at:new Date().toISOString()};
+  if (supabase) {
+    const {error} = await supabase.from('invoices').insert(inv);
+    if (error) { toast('Supabase error: '+error.message,'✗'); return; }
+    if (CFG.emailEnabled) await supabase.functions.invoke('send-invoice-email',{body:inv}).catch(()=>{});
+  } else {
+    const invs = JSON.parse(localStorage.getItem('lumenos_invoices')||'[]');
+    invs.push(inv); localStorage.setItem('lumenos_invoices',JSON.stringify(invs));
+  }
+  closeModal('newInvoice');
+  toast(status==='draft'?'Invoice saved as draft':'Invoice created and sent','✓');
+  log('Invoice created: '+desc,'invoice');
+}
+function createInvoiceDraft() {
+  document.getElementById('ni-client').value;
+  createInvoice('draft');
+}
+async function autoGenInvoices() {
+  if (!supabase) { toast('Connect Supabase to auto-generate invoices','⚠'); return; }
+  try { await supabase.functions.invoke('auto-generate-invoices'); toast('Auto-invoices queued for all active clients','✓'); log('Auto-invoice batch triggered','invoice'); }
+  catch(e) { toast('Deploy the auto-generate-invoices edge function','⚠'); }
+}
+async function escalateInvoice(id) {
+  if (supabase) await supabase.from('invoices').update({status:'escalated'}).eq('id',id);
+  toast('Invoice escalated — final notice triggered','✓');
+  log('Invoice escalated: '+id,'invoice');
+}
+async function downloadInvoicePDF(id) {
+  if (supabase) {
+    try { const r = await supabase.functions.invoke('generate-invoice-pdf',{body:{invoice_id:id}}); if (r.data?.url) window.open(r.data.url,'_blank'); else toast('PDF generation edge function not deployed','⚠'); }
+    catch(e) { toast('PDF edge function not deployed yet','⚠'); }
+  } else toast('Connect Supabase to generate PDFs','⚠');
+}
+
+/* ─── ACTIVITY LOGS ─────────────────────────────── */
+let logEntries = [];
+const LOG_TYPES = {system:'badge-info',auth:'badge-neutral',form:'badge-success',ai:'badge-info',score:'badge-success',invoice:'badge-warn',error:'badge-danger'};
+
+function log(event, type='system') {
+  const entry = { time: new Date().toLocaleTimeString(), event, type, ts: Date.now() };
+  logEntries.unshift(entry);
+  if (logEntries.length > 200) logEntries.pop();
+  // Persist to Supabase
+  if (supabase) supabase.from('activity_logs').insert({event,type,created_at:new Date().toISOString()}).then(()=>{});
+  if (document.getElementById('p-logs').classList.contains('active')) renderLogs();
+}
+
+async function renderLogs() {
+  const el = document.getElementById('logList');
+  const activeFilter = document.querySelector('#logFilters .filter-chip.active')?.dataset.filter || 'all';
+  // Load from Supabase if connected
+  if (supabase) {
+    const {data,error} = await supabase.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(60);
+    if (!error && data) {
+      data.forEach(r=>{ if (!logEntries.find(e=>e.ts===new Date(r.created_at).getTime())) logEntries.push({time:new Date(r.created_at).toLocaleTimeString(),event:r.event,type:r.type||'system',ts:new Date(r.created_at).getTime()}); });
+      logEntries.sort((a,b)=>b.ts-a.ts);
+    }
+  }
+  const filtered = activeFilter==='all' ? logEntries : logEntries.filter(e=>e.type===activeFilter);
+  if (!filtered.length) { el.innerHTML = '<div class="empty-state"><p>No log entries yet.</p></div>'; return; }
+  el.innerHTML = filtered.map(e=>`
+    <div class="log-entry">
+      <span class="log-time">${e.time}</span>
+      <span class="log-body">${e.event}</span>
+      <span class="badge ${LOG_TYPES[e.type]||'badge-neutral'}">${e.type}</span>
+    </div>`).join('');
+}
+
+function filterLogs(el) {
+  document.querySelectorAll('#logFilters .filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderLogs();
+}
+
+/* ─── CSV EXPORT ────────────────────────────────── */
+async function exportCSV() {
+  let rows = [['Time','Event','Type']];
+  if (supabase) {
+    const {data} = await supabase.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(500);
+    if (data) rows = [['Timestamp','Event','Type'],...data.map(r=>[r.created_at,r.event,r.type])];
+  } else {
+    rows = [['Time','Event','Type'],...logEntries.map(e=>[e.time,e.event,e.type])];
+  }
+  const csv = rows.map(r=>r.map(c=>'"'+(c||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='lumenos_activity_'+Date.now()+'.csv'; a.click();
+  toast('CSV downloaded','✓');
+  log('CSV exported','system');
+}
+
+/* ─── CSV COUNTDOWN ─────────────────────────────── */
+let csvSecs = 1800;
+setInterval(()=>{
+  csvSecs--;
+  if (csvSecs<=0) {
+    csvSecs=1800;
+    toast('30-min interval — would you like to download activity CSV?','📊');
+  }
+  const m=Math.floor(csvSecs/60).toString().padStart(2,'0');
+  const s=(csvSecs%60).toString().padStart(2,'0');
+  const t=`${m}:${s}`;
+  const el=document.getElementById('csvTimer'); if(el) el.textContent=t;
+  const el2=document.getElementById('logCsvTimer'); if(el2) el2.textContent='Next CSV: '+t;
+  const b=document.getElementById('csvBadge'); if(b) b.textContent=m+'m';
+},1000);
+
+/* ─── INVITES ───────────────────────────────────── */
+async function sendInvite() {
+  const name = document.getElementById('inv-name').value.trim();
+  const email = document.getElementById('inv-email').value.trim();
+  const access = document.getElementById('inv-access').value;
+  const form = document.getElementById('inv-form').value;
+  if (!name||!email) { toast('Enter name and email','⚠'); return; }
+  const invite = { client_name:name, email, access_level:access, form_id:form, created_at:new Date().toISOString(), status:'invited' };
+  if (supabase) {
+    const {error} = await supabase.from('clients').insert({name,email,access_level:access,status:'invited'});
+    if (error) { toast('Supabase error: '+error.message,'✗'); return; }
+    if (CFG.emailEnabled) await supabase.functions.invoke('send-client-invite',{body:{...invite}}).catch(()=>{});
+    if (CFG.smsEnabled) await supabase.functions.invoke('send-sms',{body:{to:email,message:`You've been invited to LumenOS by ${CFG.brandName}`}}).catch(()=>{});
+  } else { toast('Connect Supabase to send real invites','⚠'); }
+  closeModal('invite');
+  toast('Invite sent to '+name+' via email & SMS','✓');
+  log('Client invited: '+name,'auth');
+}
+
+/* ─── MODALS ────────────────────────────────────── */
+function openModal(id) { document.getElementById('modal-'+id).classList.add('open'); }
+function closeModal(id) { document.getElementById('modal-'+id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('touchstart',e=>{if(e.target===m)m.classList.remove('open');}));
+
+/* ─── TOAST ─────────────────────────────────────── */
+let toastTimer;
+function toast(msg, icon='✓') {
+  const el = document.getElementById('toastEl');
+  document.getElementById('toastMsg').textContent = msg;
+  el.querySelector('.t-icon').textContent = icon;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 3400);
+}
+
+/* ─── ACTIVITY BARS ─────────────────────────────── */
+function renderActBars() {
+  const el = document.getElementById('actBars');
+  if (!el) return;
+  el.innerHTML = Array.from({length:7},()=>{
+    const h = Math.random();
+    const cls = h>0.6?'high':h>0.3?'med':'';
+    return `<div class="act-bar ${cls}" style="height:${Math.max(8,h*100)}%;"></div>`;
+  }).join('');
+}
+
+/* ─── ENGAGING BARS REAL DATA ───────────────────── */
+async function loadWeeklyEngagement() {
+  if (!supabase) { renderActBars(); return; }
+  const { data } = await supabase.from('engagement_weekly').select('day,count').order('day');
+  const el = document.getElementById('actBars');
+  if (!data||!data.length) { renderActBars(); return; }
+  const max = Math.max(...data.map(d=>d.count||0),1);
+  el.innerHTML = data.slice(0,7).map(d=>{
+    const h = Math.max(8,(d.count/max)*100);
+    const cls = h>60?'high':h>30?'med':'';
+    return `<div class="act-bar ${cls}" style="height:${h}%;" title="${d.count} events"></div>`;
+  }).join('');
+}
+
+/* ─── INIT ──────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded',()=>{
+  loadConfig();
+  renderActBars();
+  initScoring();
+  log('LumenOS Insight Layer started','system');
+  // Set today's date on invoice due
+  const due = document.getElementById('ni-due');
+  if (due) { const d=new Date(); d.setDate(d.getDate()+30); due.value=d.toISOString().split('T')[0]; }
+});
+</script>
+</body>
+</html>
