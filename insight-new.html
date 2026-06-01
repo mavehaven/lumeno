@@ -1343,6 +1343,11 @@ function defaultOnto(){
   ];
 }
 
+// ═══ ONTOLOGY DRAG STATE ═══
+let ontoDrag = null; // { node, startX, startY, svgStartX, svgStartY }
+let ontoNodeEls = {}; // id → { g, glow, circ, dot, texts }
+let ontoEdgeEls = {}; // "a_b" → line element
+
 function initOntology(){
   if(!ontoNodes.length) defaultOnto();
   if(SB) loadOntoDB();
@@ -1365,9 +1370,20 @@ async function loadOntoDB(){
   }
 }
 
+// Convert a mouse/touch event position into SVG coordinate space
+function svgPoint(svg, clientX, clientY){
+  const pt = svg.createSVGPoint();
+  pt.x = clientX; pt.y = clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
 function renderOnto(){
   const eg = document.getElementById('oe'), ng = document.getElementById('on2');
+  const svg = document.getElementById('onto-svg');
   eg.innerHTML = ''; ng.innerHTML = '';
+  ontoNodeEls = {}; ontoEdgeEls = {};
+
+  // Background rings
   [68,125,182].forEach(r=>{
     const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
     c.setAttribute('cx',350); c.setAttribute('cy',200); c.setAttribute('r',r);
@@ -1375,6 +1391,8 @@ function renderOnto(){
     c.setAttribute('stroke-dasharray','3 5'); c.setAttribute('stroke-width','0.8');
     eg.appendChild(c);
   });
+
+  // Edges — store refs by "a_b" key so we can update x1/y1/x2/y2 during drag
   ontoEdges.forEach(([a,b])=>{
     const na=ontoNodes.find(n=>n.id===a), nb=ontoNodes.find(n=>n.id===b);
     if(!na||!nb) return;
@@ -1383,22 +1401,32 @@ function renderOnto(){
     l.setAttribute('x2',nb.x); l.setAttribute('y2',nb.y);
     l.setAttribute('stroke','#C8C4B4'); l.setAttribute('stroke-width','1');
     eg.appendChild(l);
+    ontoEdgeEls[a+'_'+b] = l;
   });
+
+  // Nodes
   ontoNodes.forEach(n=>{
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.setAttribute('class','ontogrp'); g.addEventListener('click',()=>showNode(n));
+    g.setAttribute('class','ontogrp');
+    g.style.cursor = 'grab';
+
     const glow = document.createElementNS('http://www.w3.org/2000/svg','circle');
     glow.setAttribute('cx',n.x); glow.setAttribute('cy',n.y); glow.setAttribute('r',n.r+7);
     glow.setAttribute('fill',n.color); glow.setAttribute('opacity','0.07'); g.appendChild(glow);
+
     const circ = document.createElementNS('http://www.w3.org/2000/svg','circle');
     circ.setAttribute('cx',n.x); circ.setAttribute('cy',n.y); circ.setAttribute('r',n.r);
     circ.setAttribute('fill',n.color+'15'); circ.setAttribute('stroke',n.color);
     circ.setAttribute('stroke-width','1.6'); g.appendChild(circ);
+
+    let dot = null;
     if(n.depth===0){
-      const d = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      d.setAttribute('cx',n.x); d.setAttribute('cy',n.y); d.setAttribute('r','5');
-      d.setAttribute('fill',n.color); g.appendChild(d);
+      dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dot.setAttribute('cx',n.x); dot.setAttribute('cy',n.y); dot.setAttribute('r','5');
+      dot.setAttribute('fill',n.color); g.appendChild(dot);
     }
+
+    const texts = [];
     n.label.split('\n').forEach((line,i)=>{
       const t = document.createElementNS('http://www.w3.org/2000/svg','text');
       t.setAttribute('x',n.x); t.setAttribute('y',n.y+n.r+5+i*12);
@@ -1408,14 +1436,109 @@ function renderOnto(){
       t.setAttribute('font-weight',n.depth<2?'700':'500');
       t.setAttribute('fill',n.depth===0?'#111':n.depth===1?'#2D2D2D':'#595959');
       t.textContent = line; g.appendChild(t);
+      texts.push(t);
     });
+
+    // Store refs for live position updates
+    ontoNodeEls[n.id] = { g, glow, circ, dot, texts };
+
+    // ── Drag: mouse ──
+    g.addEventListener('mousedown', e=>{
+      e.preventDefault();
+      const p = svgPoint(svg, e.clientX, e.clientY);
+      ontoDrag = { node:n, svgStartX:p.x, svgStartY:p.y, nodeStartX:n.x, nodeStartY:n.y };
+      g.style.cursor = 'grabbing';
+    });
+
+    // ── Drag: touch ──
+    g.addEventListener('touchstart', e=>{
+      e.preventDefault();
+      const touch = e.touches[0];
+      const p = svgPoint(svg, touch.clientX, touch.clientY);
+      ontoDrag = { node:n, svgStartX:p.x, svgStartY:p.y, nodeStartX:n.x, nodeStartY:n.y };
+    }, {passive:false});
+
+    // Click to select (only fires if not dragged)
+    g.addEventListener('click', e=>{ if(!ontoDrag) showNode(n); });
+
     ng.appendChild(g);
   });
+
+  // ── Global move/up handlers (attached to SVG so drag works outside node) ──
+  // Remove old listeners first to avoid duplication on re-render
+  svg.onmousemove = e=>{
+    if(!ontoDrag) return;
+    const p = svgPoint(svg, e.clientX, e.clientY);
+    moveOntoDrag(p.x, p.y);
+  };
+  svg.onmouseup = e=>{
+    if(!ontoDrag) return;
+    finishOntoDrag();
+  };
+  svg.onmouseleave = e=>{
+    if(!ontoDrag) return;
+    finishOntoDrag();
+  };
+  svg.ontouchmove = e=>{
+    if(!ontoDrag) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const p = svgPoint(svg, touch.clientX, touch.clientY);
+    moveOntoDrag(p.x, p.y);
+  };
+  svg.ontouchend = e=>{
+    if(!ontoDrag) return;
+    finishOntoDrag();
+  };
+
   document.getElementById('oNC').textContent = ontoNodes.length;
   document.getElementById('oEC').textContent = ontoEdges.length;
   document.getElementById('oD').textContent = Math.max(...ontoNodes.map(n=>n.depth),0)+1;
   const sel = document.getElementById('fNode');
   if(sel) sel.innerHTML = '<option value="">— select node —</option>'+ontoNodes.map(n=>`<option value="${n.id}">${n.label.replace('\n',' ')}</option>`).join('');
+}
+
+function moveOntoDrag(px, py){
+  if(!ontoDrag) return;
+  const n = ontoDrag.node;
+  const vb = document.getElementById('onto-svg').viewBox.baseVal;
+  const nx = Math.max(n.r+2, Math.min(vb.width - n.r-2,  ontoDrag.nodeStartX + (px - ontoDrag.svgStartX)));
+  const ny = Math.max(n.r+2, Math.min(vb.height - n.r-2, ontoDrag.nodeStartY + (py - ontoDrag.svgStartY)));
+  n.x = nx; n.y = ny;
+
+  // Update node visuals in-place (no full re-render)
+  const els = ontoNodeEls[n.id];
+  if(!els) return;
+  els.glow.setAttribute('cx',nx); els.glow.setAttribute('cy',ny);
+  els.circ.setAttribute('cx',nx); els.circ.setAttribute('cy',ny);
+  if(els.dot){ els.dot.setAttribute('cx',nx); els.dot.setAttribute('cy',ny); }
+  els.texts.forEach((t,i)=>{ t.setAttribute('x',nx); t.setAttribute('y',ny+n.r+5+i*12); });
+
+  // Update all connected edges
+  ontoEdges.forEach(([a,b])=>{
+    if(a!==n.id && b!==n.id) return;
+    const key = a+'_'+b;
+    const line = ontoEdgeEls[key];
+    if(!line) return;
+    if(a===n.id){ line.setAttribute('x1',nx); line.setAttribute('y1',ny); }
+    if(b===n.id){ line.setAttribute('x2',nx); line.setAttribute('y2',ny); }
+  });
+}
+
+function finishOntoDrag(){
+  if(!ontoDrag) return;
+  const n = ontoDrag.node;
+  const els = ontoNodeEls[n.id];
+  if(els) els.g.style.cursor = 'grab';
+
+  // Persist to Supabase if connected
+  if(SB){
+    SB.from('ontology_nodes').update({x: Math.round(n.x), y: Math.round(n.y)}).eq('id',n.id).then(()=>{});
+  }
+
+  // Distinguish drag from click: clear drag state
+  // Use a tiny timeout so the click handler can check ontoDrag is now null
+  setTimeout(()=>{ ontoDrag = null; }, 10);
 }
 
 function showNode(n){
