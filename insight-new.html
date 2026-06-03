@@ -1053,19 +1053,17 @@ tbody tr:hover td{background:var(--sf2);}
 // ═══════════════════════════════════════════
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════
-const CLICK_THRESH = 11; // increased for HiDPI/touch
+const CLICK_THRESH = 11;
 let SUPABASE_URL = localStorage.getItem('il_sb_url') || 'https://pzioskykakwhwdlcmwyv.supabase.co';
 let SUPABASE_KEY = localStorage.getItem('il_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
 let SB = null;
 let currentUser = null;
-let realtimeSub = null; // tracked for cleanup
+let realtimeSub = null;
 let neoOpen = false;
 let neoModel = 'Claude';
 const NEO_MODELS = ['Claude', 'GPT-4o', 'Gemma 3'];
 let csvSecs = 1800;
-let csvTimerEl, logTimerEl, efCsEl;
 
-// Single source-of-truth for scoring dims
 let APP_DIMS = [];
 
 const APP = {
@@ -1204,7 +1202,6 @@ async function submitPublicForm(formKey, formId) {
   });
   if (missing > 0) { toast('Please fill in all required fields', '⚠'); return; }
   const sessionKey = 'anon_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  // Unified schema — no client_id
   const payload = { form_id: formId || formKey, form_key: formKey, answers: JSON.stringify(answers), session_key: sessionKey, submitted_at: new Date().toISOString() };
   let saved = false;
   if (SB) {
@@ -1237,7 +1234,7 @@ function toast(msg, icon = '✓') {
   toastT = setTimeout(() => el.classList.remove('show'), 3400);
 }
 
-// ── Confirm dialog (accessible, replaces browser confirm) ──
+// ── Custom confirm dialog ──
 function confirm(msg, title, onYes, danger = true) {
   const existing = document.getElementById('confirmOverlay');
   if (existing) existing.remove();
@@ -1256,29 +1253,43 @@ function confirm(msg, title, onYes, danger = true) {
   yesBtn.onclick = () => { close(); onYes(); };
   noBtn.onclick = close;
   div.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  // Prevent confirm overlay clicks from leaking to any modal beneath
+  div.addEventListener('click', e => e.stopPropagation());
 }
 
-// ── Modal helpers with focus trap ──
+// ── Modal helpers ──
 let _prevFocus = null;
 function openM(id) {
   _prevFocus = document.activeElement;
   const el = document.getElementById('modal-' + id);
+  if (!el) return;
   el.classList.add('open');
   el.setAttribute('aria-hidden', 'false');
-  const first = el.querySelector('input, button, select, textarea, [tabindex]:not([tabindex="-1"])');
-  if (first) setTimeout(() => first.focus(), 80);
+  // Focus first interactive element after transition
+  setTimeout(() => {
+    const first = el.querySelector('input:not([type="hidden"]), button:not([style*="display:none"]), select, textarea');
+    if (first) first.focus();
+  }, 80);
   el.addEventListener('keydown', modalKeyTrap);
 }
+
 function closeM(id) {
   const el = document.getElementById('modal-' + id);
+  if (!el) return;
   el.classList.remove('open');
   el.setAttribute('aria-hidden', 'true');
   el.removeEventListener('keydown', modalKeyTrap);
-  if (_prevFocus) _prevFocus.focus();
+  if (_prevFocus && typeof _prevFocus.focus === 'function') {
+    try { _prevFocus.focus(); } catch(e) {}
+  }
 }
+
 function modalKeyTrap(e) {
   if (e.key !== 'Tab') return;
-  const focusable = e.currentTarget.querySelectorAll('input, button, select, textarea, [tabindex]:not([tabindex="-1"])');
+  const focusable = Array.from(e.currentTarget.querySelectorAll(
+    'input:not([disabled]), button:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter(el => el.offsetParent !== null); // only visible
+  if (!focusable.length) return;
   const first = focusable[0], last = focusable[focusable.length - 1];
   if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
   else { if (document.activeElement === last) { e.preventDefault(); first.focus(); } }
@@ -1301,7 +1312,6 @@ function updateDashFeed() {
   el.innerHTML = recent.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bg);"><span style="font-family:var(--mn);font-size:10px;color:var(--t4);white-space:nowrap;">${e.time}</span><span style="flex:1;font-size:12px;color:var(--t2);font-weight:500;">${escHtml(e.event)}</span><span class="badge ${LOGCLS[e.type] || 'bn'}">${e.type}</span></div>`).join('');
 }
 
-// ── Centralised Edge Function invoker with graceful fallback ──
 async function invokeEdgeFn(fnName, body = {}, successMsg = 'Done') {
   if (!SB) { toast('Supabase required', '⚠'); return false; }
   try {
@@ -1311,7 +1321,6 @@ async function invokeEdgeFn(fnName, body = {}, successMsg = 'Done') {
     log(`Edge fn: ${fnName}`, 'system');
     return true;
   } catch (e) {
-    // Distinguish 404 (not deployed) vs other errors
     const msg = e?.message || String(e);
     if (msg.includes('404') || msg.includes('not found') || msg.includes('FunctionNotFound')) {
       toast(`Edge fn "${fnName}" not deployed — skipping`, '⚠');
@@ -1343,7 +1352,6 @@ function setSupaStatus(ok) {
   document.getElementById('stxt2').textContent = ok ? 'pzioskykakwhwdlcmwyv · Live' : 'Connection failed';
 }
 
-// ── Real-time: subscribe once, unsubscribe on sign-out ──
 function subscribeToResponses() {
   if (!SB || realtimeSub) return;
   try {
@@ -1367,7 +1375,7 @@ function unsubscribeRealtime() {
 }
 
 // ═══════════════════════════════════════════
-// AUTH — session-first, no race condition
+// AUTH
 // ═══════════════════════════════════════════
 function switchAuthTab(tab) {
   document.getElementById('formSignIn').style.display = tab === 'signin' ? 'block' : 'none';
@@ -1389,7 +1397,6 @@ async function doSignIn() {
   showAuthErr(''); setAuthBtnLoading('btnSignIn', true);
   const { error } = await SB.auth.signInWithPassword({ email, password: pass });
   if (error) { showAuthErr(error.message || 'Sign in failed.'); setAuthBtnLoading('btnSignIn', false); }
-  // Success handled by onAuthStateChange
 }
 async function doSignUp() {
   if (!SB) { showAuthErr('Connection unavailable.', 'authErr2'); return; }
@@ -1471,14 +1478,13 @@ document.addEventListener('click', e => {
   if (wrap && !wrap.contains(e.target)) { document.getElementById('userDropdown')?.classList.remove('open'); document.getElementById('userChip')?.setAttribute('aria-expanded','false'); }
 });
 
-// ── Session check: wait for Supabase to confirm session before any data load ──
 async function checkSession() {
   if (!SB || !SB.auth) { document.getElementById('authLoading').style.display = 'none'; document.getElementById('authForms').style.display = 'block'; return; }
   try {
     const { data: { session } } = await SB.auth.getSession();
     if (session?.user) {
       onSignedIn(session.user);
-      await loadDashboard(); // await so data is loaded before rendering
+      await loadDashboard();
     } else {
       document.getElementById('authLoading').style.display = 'none';
       document.getElementById('authForms').style.display = 'block';
@@ -1520,7 +1526,6 @@ function goPanel(id, el) {
   if (id === 'responses') { loadResponses(); loadPublishedForms(); }
   if (id === 'forms') { loadPublishedForms(); populateDimSelect(); }
   if (id === 'dashboard') updateDashFeed();
-  // Focus main heading for screen readers
   setTimeout(() => { p?.querySelector('.ph-t')?.setAttribute('tabindex','-1'); p?.querySelector('.ph-t')?.focus(); }, 50);
 }
 
@@ -1612,7 +1617,6 @@ function renderEdgeFns() {
 async function loadEngagement() {
   const el = document.getElementById('abars');
   if (SB) { const { data } = await SB.from('engagement_weekly').select('day,count').order('day'); if (data && data.length) { const max = Math.max(...data.map(d => d.count || 1), 1); el.innerHTML = data.slice(0, 7).map(d => { const h = Math.max(8, (d.count / max) * 100); return `<div class="ab ${h > 60 ? 'hi' : h > 30 ? 'md' : ''}" style="height:${h}%;" title="${d.count} events"></div>`; }).join(''); return; } }
-  // If no real data — neutral placeholder (not random)
   el.innerHTML = Array.from({ length: 7 }, () => `<div class="ab" style="height:20%;" title="No data yet"></div>`).join('');
 }
 function populateClientDropdowns(clients) {
@@ -1662,13 +1666,11 @@ function renderResponseList(responses) {
     </div>`;
   }).join('');
 }
-
 async function deleteResponse(rid, formKey) {
   confirm('This response will be permanently deleted.', 'Delete Response', async () => {
     if (SB && rid && !rid.startsWith('anon_')) {
       await SB.from('form_responses').delete().eq('id', rid);
     } else {
-      // Local fallback
       const local = JSON.parse(localStorage.getItem('lumenos_responses') || '[]');
       const updated = local.filter(r => r.session_key !== rid);
       localStorage.setItem('lumenos_responses', JSON.stringify(updated));
@@ -1677,7 +1679,6 @@ async function deleteResponse(rid, formKey) {
     loadResponses();
   });
 }
-
 function updateRespStats(responses) {
   const today = new Date().toDateString();
   document.getElementById('rs-total').textContent = responses.length;
@@ -1691,7 +1692,6 @@ function updateRespStats(responses) {
     chart.innerHTML = counts.map((c, i) => `<div class="chart-bar" style="height:${Math.max(4, (c / max) * 100)}%;opacity:${i === 6 ? 1 : .6};" title="${days[i]}: ${c}"></div>`).join('');
   }
 }
-
 async function loadPublishedFormsForFilter() {
   const el = document.getElementById('respFormFilter');
   const forms = APP.forms.length ? APP.forms : await fetchForms();
@@ -1751,14 +1751,12 @@ async function loadPublishedForms() {
       </div>
     </div>`).join('');
 }
-
 async function deleteForm(formId, shareKey) {
   confirm('Delete this form and all its responses? This cannot be undone.', 'Delete Form', async () => {
     if (SB && formId && !formId.startsWith('local_')) {
       await SB.from('form_responses').delete().eq('form_id', formId);
       await SB.from('forms').delete().eq('id', formId);
     }
-    // Always clean local
     const lf = JSON.parse(localStorage.getItem('lumenos_forms') || '[]').filter(f => f.id !== formId && f.share_key !== shareKey);
     localStorage.setItem('lumenos_forms', JSON.stringify(lf));
     const lr = JSON.parse(localStorage.getItem('lumenos_responses') || '[]').filter(r => r.form_id !== formId && r.form_key !== shareKey);
@@ -1768,7 +1766,6 @@ async function deleteForm(formId, shareKey) {
     loadPublishedForms();
   });
 }
-
 function loadFormForEdit(formId) {
   const form = APP.forms.find(f => f.id === formId);
   if (!form) { toast('Form not found', '⚠'); return; }
@@ -1778,8 +1775,6 @@ function loadFormForEdit(formId) {
   toast('Form loaded for editing', '✓');
   goPanel('forms', document.querySelector('[data-p=forms]'));
 }
-
-// ── Publish form — minimal columns, no client_id ──
 async function publishForm() {
   if (!droppedFields.length) { toast('Add at least one field first', '⚠'); return; }
   const shareKey = genKey();
@@ -1798,7 +1793,6 @@ async function publishForm() {
     if (error) { toast('Save error: ' + error.message, '✗'); return; }
     if (data) savedId = data.id;
   }
-  // Always persist locally (offline/public-form renderer fallback)
   const localForms = JSON.parse(localStorage.getItem('lumenos_forms') || '[]');
   localForms.unshift({ ...schema, id: savedId || 'local_' + Date.now() });
   localStorage.setItem('lumenos_forms', JSON.stringify(localForms.slice(0, 100)));
@@ -1829,7 +1823,13 @@ function defaultOnto() {
   ontoEdges = [['bp','osa'],['bp','sup'],['bp','ops'],['bp','cx'],['bp','nps'],['bp','cat'],['bp','wst'],['osa','stk'],['sup','ltd'],['cx','cst'],['nps','chr']];
 }
 
-function initOntology() { if (!ontoNodes.length) defaultOnto(); if (SB) loadOntoDB(); else renderOnto(); populateNodeSel(); }
+function initOntology() {
+  if (!ontoNodes.length) defaultOnto();
+  if (SB) loadOntoDB(); else renderOnto();
+  // Populate the parent-node select now (modal may not be open yet — that's fine)
+  populateNodeSel();
+}
+
 async function loadOntoDB() {
   const { data, error } = await SB.from('ontology_nodes').select('*');
   if (!error && data && data.length) {
@@ -1837,16 +1837,30 @@ async function loadOntoDB() {
     const { data: edges } = await SB.from('ontology_edges').select('*');
     if (edges) ontoEdges = edges.map(e => [e.source_id, e.target_id]);
   }
-  renderOnto(); populateNodeSel();
+  renderOnto();
+  populateNodeSel();
 }
 
-function svgPoint(svg, cx, cy) { const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+function svgPoint(svg, cx, cy) {
+  const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
 
 function renderOnto() {
   const eg = document.getElementById('oe'), ng = document.getElementById('on2'), svg = document.getElementById('onto-svg');
   if (!svg) return;
   eg.innerHTML = ''; ng.innerHTML = ''; ontoNodeEls = {}; ontoEdgeEls = {};
-  [68, 125, 182].forEach(r => { const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.setAttribute('cx', 350); c.setAttribute('cy', 205); c.setAttribute('r', r); c.setAttribute('fill', 'none'); c.setAttribute('stroke', '#DDD9CC'); c.setAttribute('stroke-dasharray', '3 5'); c.setAttribute('stroke-width', '0.8'); eg.appendChild(c); });
+
+  // Background rings
+  [68, 125, 182].forEach(r => {
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', 350); c.setAttribute('cy', 205); c.setAttribute('r', r);
+    c.setAttribute('fill', 'none'); c.setAttribute('stroke', '#DDD9CC');
+    c.setAttribute('stroke-dasharray', '3 5'); c.setAttribute('stroke-width', '0.8');
+    eg.appendChild(c);
+  });
+
+  // Edges
   ontoEdges.forEach(([a, b]) => {
     const na = ontoNodes.find(n => n.id === a), nb = ontoNodes.find(n => n.id === b); if (!na || !nb) return;
     const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -1854,30 +1868,113 @@ function renderOnto() {
     l.setAttribute('stroke', '#C8C4B4'); l.setAttribute('stroke-width', '1'); eg.appendChild(l);
     ontoEdgeEls[a + '_' + b] = l;
   });
+
+  // Nodes
   ontoNodes.forEach(n => {
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', 'onto-node-grp'); g.setAttribute('tabindex', '0'); g.style.cursor = 'grab';
-    g.setAttribute('role', 'button'); g.setAttribute('aria-label', `${n.label.replace('\n', ' ')} node — click to explore, drag to move`);
-    const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); glow.setAttribute('cx', n.x); glow.setAttribute('cy', n.y); glow.setAttribute('r', n.r + 7); glow.setAttribute('fill', n.color); glow.setAttribute('opacity', '0.07'); g.appendChild(glow);
-    const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); circ.setAttribute('cx', n.x); circ.setAttribute('cy', n.y); circ.setAttribute('r', n.r); circ.setAttribute('fill', n.color + '15'); circ.setAttribute('stroke', n.color); circ.setAttribute('stroke-width', '1.6'); circ.setAttribute('class', 'node-ring'); g.appendChild(circ);
-    if (n.depth === 0) { const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); dot.setAttribute('cx', n.x); dot.setAttribute('cy', n.y); dot.setAttribute('r', '5'); dot.setAttribute('fill', n.color); g.appendChild(dot); }
+    g.setAttribute('class', 'onto-node-grp');
+    g.setAttribute('tabindex', '0');
+    g.style.cursor = 'grab';
+    g.setAttribute('role', 'button');
+    g.setAttribute('aria-label', `${n.label.replace('\n', ' ')} node — click to explore, drag to move`);
+
+    const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    glow.setAttribute('cx', n.x); glow.setAttribute('cy', n.y); glow.setAttribute('r', n.r + 7);
+    glow.setAttribute('fill', n.color); glow.setAttribute('opacity', '0.07'); g.appendChild(glow);
+
+    const circ = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circ.setAttribute('cx', n.x); circ.setAttribute('cy', n.y); circ.setAttribute('r', n.r);
+    circ.setAttribute('fill', n.color + '15'); circ.setAttribute('stroke', n.color);
+    circ.setAttribute('stroke-width', '1.6'); circ.setAttribute('class', 'node-ring'); g.appendChild(circ);
+
+    if (n.depth === 0) {
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', n.x); dot.setAttribute('cy', n.y); dot.setAttribute('r', '5');
+      dot.setAttribute('fill', n.color); g.appendChild(dot);
+    }
+
     const texts = [];
-    n.label.split('\n').forEach((line, i) => { const t = document.createElementNS('http://www.w3.org/2000/svg', 'text'); t.setAttribute('x', n.x); t.setAttribute('y', n.y + n.r + 5 + i * 12); t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', n.depth === 0 ? '11' : n.depth === 1 ? '9' : '8'); t.setAttribute('font-family', 'Inter,sans-serif'); t.setAttribute('font-weight', n.depth < 2 ? '700' : '500'); t.setAttribute('fill', n.depth === 0 ? '#111' : '#595959'); t.setAttribute('pointer-events', 'none'); t.textContent = line; g.appendChild(t); texts.push(t); });
+    n.label.split('\n').forEach((line, i) => {
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('x', n.x); t.setAttribute('y', n.y + n.r + 5 + i * 12);
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('font-size', n.depth === 0 ? '11' : n.depth === 1 ? '9' : '8');
+      t.setAttribute('font-family', 'Inter,sans-serif');
+      t.setAttribute('font-weight', n.depth < 2 ? '700' : '500');
+      t.setAttribute('fill', n.depth === 0 ? '#111' : '#595959');
+      t.setAttribute('pointer-events', 'none');
+      t.textContent = line; g.appendChild(t); texts.push(t);
+    });
+
     ontoNodeEls[n.id] = { g, glow, circ, texts };
-    g.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); const p = svgPoint(svg, e.clientX, e.clientY); ontoDrag = { node: n, svgStartX: p.x, svgStartY: p.y, nodeStartX: n.x, nodeStartY: n.y }; g.style.cursor = 'grabbing'; });
-    g.addEventListener('touchstart', e => { e.preventDefault(); const touch = e.touches[0]; const p = svgPoint(svg, touch.clientX, touch.clientY); ontoDrag = { node: n, svgStartX: p.x, svgStartY: p.y, nodeStartX: n.x, nodeStartY: n.y }; }, { passive: false });
-    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showNode(n); } });
+
+    // Drag: mouse
+    g.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const p = svgPoint(svg, e.clientX, e.clientY);
+      ontoDrag = { node: n, svgStartX: p.x, svgStartY: p.y, nodeStartX: n.x, nodeStartY: n.y, _moved: false };
+      g.style.cursor = 'grabbing';
+    });
+
+    // Drag: touch
+    g.addEventListener('touchstart', e => {
+      e.stopPropagation();
+      const touch = e.touches[0];
+      const p = svgPoint(svg, touch.clientX, touch.clientY);
+      ontoDrag = { node: n, svgStartX: p.x, svgStartY: p.y, nodeStartX: n.x, nodeStartY: n.y, _moved: false };
+    }, { passive: true });
+
+    // Keyboard: click to explore
+    g.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showNode(n); }
+    });
+
     ng.appendChild(g);
   });
-  svg.onmousemove = e => { if (!ontoDrag) return; const p = svgPoint(svg, e.clientX, e.clientY); const dx = p.x - ontoDrag.svgStartX, dy = p.y - ontoDrag.svgStartY; if (Math.abs(dx) > CLICK_THRESH || Math.abs(dy) > CLICK_THRESH) { ontoDrag._moved = true; moveOntoDrag(p.x, p.y); } };
-  svg.onmouseup = e => { if (!ontoDrag) return; const p = svgPoint(svg, e.clientX, e.clientY); const dx = p.x - ontoDrag.svgStartX, dy = p.y - ontoDrag.svgStartY; const wasDrag = ontoDrag._moved || Math.abs(dx) > CLICK_THRESH || Math.abs(dy) > CLICK_THRESH; const n = ontoDrag.node; finishOntoDrag(); if (!wasDrag) showNode(n); };
+
+  // SVG-level mouse/touch event handlers
+  svg.onmousemove = e => {
+    if (!ontoDrag) return;
+    const p = svgPoint(svg, e.clientX, e.clientY);
+    const dx = p.x - ontoDrag.svgStartX, dy = p.y - ontoDrag.svgStartY;
+    if (Math.abs(dx) > CLICK_THRESH || Math.abs(dy) > CLICK_THRESH) {
+      ontoDrag._moved = true; moveOntoDrag(p.x, p.y);
+    }
+  };
+  svg.onmouseup = e => {
+    if (!ontoDrag) return;
+    const p = svgPoint(svg, e.clientX, e.clientY);
+    const wasDrag = ontoDrag._moved;
+    const n = ontoDrag.node;
+    finishOntoDrag();
+    if (!wasDrag) showNode(n);
+  };
   svg.onmouseleave = () => { if (ontoDrag) finishOntoDrag(); };
-  svg.ontouchmove = e => { if (!ontoDrag) return; e.preventDefault(); const p = svgPoint(svg, e.touches[0].clientX, e.touches[0].clientY); const dx = p.x - ontoDrag.svgStartX, dy = p.y - ontoDrag.svgStartY; if (Math.abs(dx) > CLICK_THRESH || Math.abs(dy) > CLICK_THRESH) { ontoDrag._moved = true; moveOntoDrag(p.x, p.y); } };
-  svg.ontouchend = e => { if (!ontoDrag) return; const wasDrag = ontoDrag._moved; const n = ontoDrag.node; finishOntoDrag(); if (!wasDrag) showNode(n); };
+  svg.ontouchmove = e => {
+    if (!ontoDrag) return;
+    e.preventDefault();
+    const p = svgPoint(svg, e.touches[0].clientX, e.touches[0].clientY);
+    const dx = p.x - ontoDrag.svgStartX, dy = p.y - ontoDrag.svgStartY;
+    if (Math.abs(dx) > CLICK_THRESH || Math.abs(dy) > CLICK_THRESH) {
+      ontoDrag._moved = true; moveOntoDrag(p.x, p.y);
+    }
+  };
+  svg.ontouchend = e => {
+    if (!ontoDrag) return;
+    const wasDrag = ontoDrag._moved;
+    const n = ontoDrag.node;
+    finishOntoDrag();
+    if (!wasDrag) showNode(n);
+  };
+
+  // Update stats
   document.getElementById('oNC').textContent = ontoNodes.length;
   document.getElementById('oEC').textContent = ontoEdges.length;
   document.getElementById('oD').textContent = Math.max(...ontoNodes.map(n => n.depth), 0) + 1;
-  const sel = document.getElementById('fNode'); if (sel) sel.innerHTML = '<option value="">— select node —</option>' + ontoNodes.map(n => `<option value="${n.id}">${n.label.replace('\n', ' ')}</option>`).join('');
+
+  // Sync form node select
+  const sel = document.getElementById('fNode');
+  if (sel) sel.innerHTML = '<option value="">— select node —</option>' + ontoNodes.map(n => `<option value="${n.id}">${n.label.replace('\n', ' ')}</option>`).join('');
 }
 
 function moveOntoDrag(px, py) {
@@ -1890,17 +1987,28 @@ function moveOntoDrag(px, py) {
   els.glow.setAttribute('cx', n.x); els.glow.setAttribute('cy', n.y);
   els.circ.setAttribute('cx', n.x); els.circ.setAttribute('cy', n.y);
   els.texts.forEach((t, i) => { t.setAttribute('x', n.x); t.setAttribute('y', n.y + n.r + 5 + i * 12); });
-  ontoEdges.forEach(([a, b]) => { if (a !== n.id && b !== n.id) return; const line = ontoEdgeEls[a + '_' + b]; if (!line) return; if (a === n.id) { line.setAttribute('x1', n.x); line.setAttribute('y1', n.y); } if (b === n.id) { line.setAttribute('x2', n.x); line.setAttribute('y2', n.y); } });
+  ontoEdges.forEach(([a, b]) => {
+    if (a !== n.id && b !== n.id) return;
+    const line = ontoEdgeEls[a + '_' + b]; if (!line) return;
+    if (a === n.id) { line.setAttribute('x1', n.x); line.setAttribute('y1', n.y); }
+    if (b === n.id) { line.setAttribute('x2', n.x); line.setAttribute('y2', n.y); }
+  });
 }
+
 function finishOntoDrag() {
-  if (!ontoDrag) return; const n = ontoDrag.node;
+  if (!ontoDrag) return;
+  const n = ontoDrag.node;
   const els = ontoNodeEls[n.id]; if (els) els.g.style.cursor = 'grab';
   if (SB && ontoDrag._moved) SB.from('ontology_nodes').update({ x: Math.round(n.x), y: Math.round(n.y) }).eq('id', n.id).then(() => {});
   ontoDrag = null;
 }
 
 function showNode(n) {
-  const connected = ontoEdges.filter(e => e[0] === n.id || e[1] === n.id).map(e => e[0] === n.id ? e[1] : e[0]).map(id => { const nd = ontoNodes.find(x => x.id === id); return nd ? nd.label.replace('\n', ' ') : id; }).join(', ');
+  const connected = ontoEdges
+    .filter(e => e[0] === n.id || e[1] === n.id)
+    .map(e => e[0] === n.id ? e[1] : e[0])
+    .map(id => { const nd = ontoNodes.find(x => x.id === id); return nd ? nd.label.replace('\n', ' ') : id; })
+    .join(', ');
   document.getElementById('oActive').innerHTML = `
     <div class="fxc g2i" style="margin-bottom:8px;">
       <span style="width:10px;height:10px;border-radius:50%;background:${n.color};flex-shrink:0;" aria-hidden="true"></span>
@@ -1931,25 +2039,87 @@ async function deleteOntologyNode(nodeId) {
   });
 }
 
+// ── FIX: populateNodeSel safely handles the modal being open OR closed ──
 function populateNodeSel() {
-  const sel = document.getElementById('nn-p'); if (!sel) return;
+  const sel = document.getElementById('nn-p');
+  if (!sel) return; // modal may not be in DOM yet — that's fine, openM('addNode') will call this
   sel.innerHTML = '<option value="">Root (no parent)</option>' + ontoNodes.map(n => `<option value="${n.id}">${escHtml(n.label.replace('\n', ' '))}</option>`).join('');
 }
+
+// ── THE MAIN FIX: addNode no longer zaps you out ──
 async function addNode() {
-  const name = document.getElementById('nn-n').value.trim(); if (!name) { toast('Enter a concept name', '⚠'); return; }
-  const cat = document.getElementById('nn-c').value; const parent = document.getElementById('nn-p').value;
-  const depth = parent ? (ontoNodes.find(n => n.id === parent)?.depth || 0) + 1 : 0;
-  const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 30);
-  const colors = ['#1B3A6B', '#2D6BE4', '#0E7490', '#065F46', '#92400E']; const color = colors[depth % colors.length]; const r = depth === 0 ? 22 : depth === 1 ? 16 : 10;
+  // Read values BEFORE closing anything
+  const nameEl = document.getElementById('nn-n');
+  const catEl = document.getElementById('nn-c');
+  const parentEl = document.getElementById('nn-p');
+  const descEl = document.getElementById('nn-d');
+
+  const name = nameEl ? nameEl.value.trim() : '';
+  if (!name) { toast('Enter a concept name', '⚠'); return; }
+
+  const cat = catEl ? catEl.value : 'Core KPI';
+  const parent = parentEl ? parentEl.value : '';
+  // desc is optional, used for DB
+  const desc = descEl ? descEl.value.trim() : '';
+
+  const depth = parent ? ((ontoNodes.find(n => n.id === parent)?.depth || 0) + 1) : 0;
+  const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 30) + '_' + Date.now().toString(36);
+  const colors = ['#1B3A6B', '#2D6BE4', '#0E7490', '#065F46', '#92400E'];
+  const color = colors[depth % colors.length];
+  const r = depth === 0 ? 22 : depth === 1 ? 16 : 10;
+
   const pn = ontoNodes.find(n => n.id === parent);
-  const x = pn ? Math.max(20, Math.min(680, pn.x + (Math.random() - .5) * 130)) : 200 + Math.random() * 300;
-  const y = pn ? Math.max(20, Math.min(400, pn.y + 80)) : 80 + Math.random() * 240;
-  ontoNodes.push({ id, label: name, color, x, y, r, depth }); if (parent) ontoEdges.push([parent, id]);
-  renderOnto(); populateNodeSel();
-  if (SB) { await SB.from('ontology_nodes').insert({ id, label: name, color, x, y, depth, category: cat }); if (parent) await SB.from('ontology_edges').insert({ source_id: parent, target_id: id }); }
-  closeM('addNode'); toast(name + ' added to ontology', '✓'); log('Ontology node added: ' + name, 'system');
+  const x = pn
+    ? Math.max(20, Math.min(680, pn.x + (Math.random() - 0.5) * 130))
+    : 200 + Math.random() * 300;
+  const y = pn
+    ? Math.max(20, Math.min(400, pn.y + 80))
+    : 80 + Math.random() * 240;
+
+  // Add to in-memory arrays FIRST
+  const newNode = { id, label: name, color, x, y, r, depth };
+  ontoNodes.push(newNode);
+  if (parent) ontoEdges.push([parent, id]);
+
+  // Re-render the SVG (does not touch the modal)
+  renderOnto();
+
+  // Update the parent selector in the modal while it's still open,
+  // so a second node can be added with the correct parent list
+  populateNodeSel();
+
+  // NOW close the modal (after all DOM work is done)
+  closeM('addNode');
+
+  // Clear the form inputs for next time
+  if (nameEl) nameEl.value = '';
+  if (descEl) descEl.value = '';
+
+  // Persist to Supabase in background — never blocks the UI
+  if (SB) {
+    try {
+      await SB.from('ontology_nodes').insert({ id, label: name, color, x: Math.round(x), y: Math.round(y), depth, category: cat, description: desc });
+      if (parent) await SB.from('ontology_edges').insert({ source_id: parent, target_id: id });
+    } catch (e) {
+      // Node already added locally — Supabase failure is non-fatal
+      console.warn('Supabase node insert error:', e);
+    }
+  }
+
+  toast(name + ' added to ontology', '✓');
+  log('Ontology node added: ' + name, 'system');
 }
+
 function resetOnto() { ontoNodes = []; ontoEdges = []; defaultOnto(); renderOnto(); toast('Ontology reset', '↻'); }
+
+// ── Re-populate the nn-p select every time the modal opens ──
+function openAddNodeModal() {
+  // Make sure nodes are loaded before opening
+  if (!ontoNodes.length) defaultOnto();
+  openM('addNode');
+  // After the modal is open and focused, refresh the parent select
+  setTimeout(() => populateNodeSel(), 90);
+}
 
 // ═══════════════════════════════════════════
 // FORM BUILDER
@@ -2018,7 +2188,10 @@ function shareForm(formId, formName, shareKey) {
   document.getElementById('shareFormKey').textContent = shareKey;
   document.getElementById('embedCode').textContent = `<iframe\n  src="${url}"\n  width="100%"\n  height="700"\n  style="border:none;border-radius:12px;"\n  title="${escHtml(formName || 'LumenOS Form')}"\n></iframe>`;
   openM('share');
-  setTimeout(() => { const canvas = document.getElementById('qrCanvas'); if (canvas && typeof QRCode !== 'undefined') QRCode.toCanvas(canvas, url, { width: 220, margin: 2, color: { dark: '#1B3A6B', light: '#ffffff' } }, () => {}); }, 100);
+  setTimeout(() => {
+    const canvas = document.getElementById('qrCanvas');
+    if (canvas && typeof QRCode !== 'undefined') QRCode.toCanvas(canvas, url, { width: 220, margin: 2, color: { dark: '#1B3A6B', light: '#ffffff' } }, () => {});
+  }, 100);
   switchShareTab('link', document.querySelector('.share-tab'));
 }
 function switchShareTab(tab, el) {
@@ -2038,7 +2211,7 @@ function populateDimSelect() {
 }
 
 // ═══════════════════════════════════════════
-// SCORING ENGINE (Generic)
+// SCORING ENGINE
 // ═══════════════════════════════════════════
 function loadScoringDims() {
   const saved = safeJson(localStorage.getItem('lumenos_scoring'), {});
@@ -2086,7 +2259,6 @@ function updateWeightDisplay() {
   if (hint) { hint.textContent = ok ? 'Weights add up to 100% ✓' : over ? `⚠ Over by ${total - 100}% — reduce some weights` : `${100 - total}% unallocated`; hint.style.color = col; }
   if (badge) badge.textContent = APP_DIMS.length + ' dimension' + (APP_DIMS.length === 1 ? '' : 's');
 }
-
 function updateDimBreakdown() {
   const el = document.getElementById('dimBreakdown'); if (!el) return;
   if (!APP_DIMS.length) { el.innerHTML = '<div class="empty" style="padding:8px 0;"><p>No dimensions</p></div>'; return; }
@@ -2118,7 +2290,6 @@ function loadPreset(preset) {
   populateDimSelect();
 }
 
-// ── Gauge: debounced via rAF, no stale-score risk ──
 function scheduleGauge(score) {
   pendingGaugeScore = score != null ? score : pendingGaugeScore;
   if (gaugeRafId) cancelAnimationFrame(gaugeRafId);
@@ -2402,57 +2573,84 @@ async function testSupa() {
 // ═══════════════════════════════════════════
 function initTouchDrag() {
   document.querySelectorAll('.pchip').forEach(ch => {
-    ch.addEventListener('touchstart', e => { dragType = ch.dataset.type; dragLabel = ch.dataset.label; ch.style.opacity = '.5'; }, { passive: true });
+    ch.addEventListener('touchstart', e => {
+      dragType = ch.dataset.type; dragLabel = ch.dataset.label; ch.style.opacity = '.5';
+    }, { passive: true });
     ch.addEventListener('touchend', e => {
       ch.style.opacity = '1';
       const canvas = document.getElementById('fcanvas'); if (!canvas) return;
       const r = canvas.getBoundingClientRect(), touch = e.changedTouches[0];
-      if (touch.clientX >= r.left && touch.clientX <= r.right && touch.clientY >= r.top && touch.clientY <= r.bottom) { if (dragType) addField(dragType, dragLabel); }
+      if (touch.clientX >= r.left && touch.clientX <= r.right && touch.clientY >= r.top && touch.clientY <= r.bottom) {
+        if (dragType) addField(dragType, dragLabel);
+      }
       dragType = ''; dragLabel = '';
     });
-    // Keyboard activation for field chips
-    ch.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addField(ch.dataset.type, ch.dataset.label); } });
+    ch.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); addField(ch.dataset.type, ch.dataset.label); }
+    });
   });
 }
 
 // ═══════════════════════════════════════════
-// INIT — session first, no race condition
+// INIT
 // ═══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
-  // Public form route check — no auth needed
   if (checkFormRoute()) return;
 
   loadCFG();
   loadScoringDims();
   initTouchDrag();
 
-  // Close modals on backdrop click or Escape
+  // ── KEY CHANGE: wire the "+ Add Concept" button to openAddNodeModal ──
+  // This ensures the parent node select is always fresh when the modal opens.
+  // The HTML button calls openM('addNode') directly — we patch it here to
+  // use openAddNodeModal() instead, without touching the HTML.
+  const addNodeBtn = document.querySelector('[onclick="openM(\'addNode\')"]');
+  if (addNodeBtn) {
+    addNodeBtn.removeAttribute('onclick');
+    addNodeBtn.addEventListener('click', e => { e.stopPropagation(); openAddNodeModal(); });
+  }
+
+  // Close modals on backdrop click
   document.querySelectorAll('.mov').forEach(m => {
-    m.addEventListener('touchstart', e => { if (e.target === m) m.classList.remove('open'); });
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { document.querySelectorAll('.mov.open').forEach(m => { const id = m.id.replace('modal-', ''); closeM(id); }); if (neoOpen) toggleNeo(); }
+    // The inner .modal already has onclick stopPropagation via inline HTML.
+    // This handles touch on the backdrop itself.
+    m.addEventListener('touchstart', e => {
+      if (e.target === m) {
+        const id = m.id.replace('modal-', '');
+        closeM(id);
+      }
+    }, { passive: true });
   });
 
-  // Set default invoice due date
+  // Global Escape closes open modals and Neo
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.mov.open').forEach(m => {
+        const id = m.id.replace('modal-', '');
+        closeM(id);
+      });
+      if (neoOpen) toggleNeo();
+    }
+  });
+
+  // Default invoice due date
   const due = document.getElementById('ni-du');
   if (due) { const d = new Date(); d.setDate(d.getDate() + 30); due.value = d.toISOString().split('T')[0]; }
 
-  // Neutral placeholder bars (consistent on reload)
+  // Neutral placeholder bars
   document.getElementById('abars').innerHTML = Array.from({ length: 7 }, () =>
     `<div class="ab" style="height:20%;" title="No engagement data yet"></div>`
   ).join('');
 
-  // Init Supabase — then check session (session check waits for SB)
+  // Init Supabase
   try {
     if (typeof supabase === 'undefined') throw new Error('Supabase CDN not loaded');
     SB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     if (!SB || !SB.auth) throw new Error('Supabase client init failed');
 
-    // Auth state listener — handles SIGNED_IN after magic link / email confirm
     SB.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        // Only act if we weren't already signed in (avoids duplicate loadDashboard)
         if (!currentUser) {
           onSignedIn(session.user);
           await loadDashboard();
@@ -2461,11 +2659,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (event === 'SIGNED_OUT') {
         onSignedOut();
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        currentUser = session.user; // update reference silently
+        currentUser = session.user;
       }
     });
 
-    // Verify DB connectivity
     const { error: dbErr } = await SB.from('clients').select('count', { count: 'exact', head: true });
     setSupaStatus(!dbErr);
   } catch (e) {
@@ -2474,7 +2671,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setSupaStatus(false);
   }
 
-  // checkSession awaits, so dashboard loads only after session is confirmed
   await checkSession();
 
   populateDimSelect();
