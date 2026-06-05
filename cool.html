@@ -1,0 +1,2238 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Insight Layer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ══ LIGHT THEME ══ */
+:root,[data-theme="light"]{
+  --bg:#F0EFE9;--sf:#FFF;--sf2:#F7F6F2;--sf3:#EEECD7;
+  --bd:#DDD9CC;--bd2:#C8C4B4;
+  --ac:#1B3A6B;--ac-lt:#E8EDF5;--ac2:#2D6BE4;
+  --tl:#0E7490;--tl-lt:#E0F5F8;
+  --gd:#92400E;--gd-lt:#FEF3C7;
+  --dg:#991B1B;--dg-lt:#FEF2F2;
+  --ok:#065F46;--ok-lt:#ECFDF5;
+  --wn:#B45309;--wn-lt:#FFFBEB;
+  --t1:#111;--t2:#2D2D2D;--t3:#595959;--t4:#8C8C8C;
+  --sh:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --sh2:0 4px 14px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+  --sh3:0 8px 28px rgba(0,0,0,.1),0 4px 8px rgba(0,0,0,.05);
+  --topbar-bg:#FFF;--sidebar-bg:#FFF;--input-bg:#FFF;--toggle-bg:#E5E7EB;
+  --logo-filter: none;
+}
+/* ══ DARK THEME ══ */
+[data-theme="dark"]{
+  --bg:#0F1117;--sf:#1A1D27;--sf2:#21253A;--sf3:#2A2E40;
+  --bd:#2E3347;--bd2:#3A3F5C;
+  --ac:#4A7FE0;--ac-lt:#1A2640;--ac2:#5B8FEE;
+  --tl:#0FB8D4;--tl-lt:#0A2535;
+  --gd:#D97706;--gd-lt:#2D1E06;
+  --dg:#EF4444;--dg-lt:#2D0A0A;
+  --ok:#10B981;--ok-lt:#042A1A;
+  --wn:#F59E0B;--wn-lt:#2D1E06;
+  --t1:#F0F0F8;--t2:#C8CDE0;--t3:#8A91AB;--t4:#575D78;
+  --sh:0 1px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2);
+  --sh2:0 4px 14px rgba(0,0,0,.4),0 2px 4px rgba(0,0,0,.2);
+  --sh3:0 8px 28px rgba(0,0,0,.5),0 4px 8px rgba(0,0,0,.3);
+  --topbar-bg:#13161F;--sidebar-bg:#13161F;--input-bg:#1A1D27;--toggle-bg:#2E3347;
+  --logo-filter: brightness(0) invert(1);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{font-size:15px;}
+body{background:var(--bg);color:var(--t1);font-family:'DM Sans',sans-serif;line-height:1.5;overflow:hidden;transition:background .25s,color .25s;}
+button,input,select,textarea{font-family:'DM Sans',sans-serif;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:3px;}
+code,pre,.mono{font-family:'DM Mono',monospace;}
+
+/* ══ AUTH SCREEN ══ */
+#auth-screen{
+  position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;
+}
+.auth-card{
+  background:var(--sf);border:1px solid var(--bd);border-radius:20px;padding:40px;width:100%;max-width:400px;
+  box-shadow:var(--sh3);
+}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:32px;}
+.auth-logo img{height:32px;filter:var(--logo-filter);}
+.auth-logo span{font-size:1.1rem;font-weight:600;color:var(--t1);}
+.auth-tabs{display:flex;gap:4px;background:var(--sf2);border-radius:10px;padding:4px;margin-bottom:24px;}
+.auth-tab{flex:1;padding:8px;border:none;background:transparent;border-radius:7px;font-size:.85rem;font-weight:500;color:var(--t3);cursor:pointer;transition:all .2s;}
+.auth-tab.active{background:var(--sf);color:var(--t1);box-shadow:var(--sh);}
+.auth-field{margin-bottom:14px;}
+.auth-field label{display:block;font-size:.8rem;font-weight:500;color:var(--t3);margin-bottom:6px;}
+.auth-field input{width:100%;background:var(--input-bg);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;font-size:.9rem;color:var(--t1);outline:none;transition:border-color .2s;}
+.auth-field input:focus{border-color:var(--ac);}
+.auth-btn{width:100%;padding:12px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;transition:opacity .2s;margin-top:4px;}
+.auth-btn:hover{opacity:.88;}
+.auth-err{background:var(--dg-lt);border:1px solid var(--dg);color:var(--dg);padding:10px 14px;border-radius:8px;font-size:.82rem;margin-top:12px;display:none;}
+.auth-msg{background:var(--ok-lt);border:1px solid var(--ok);color:var(--ok);padding:10px 14px;border-radius:8px;font-size:.82rem;margin-top:12px;display:none;}
+
+/* ══ APP SHELL ══ */
+#app{display:none;height:100dvh;display:none;flex-direction:column;}
+#app.ready{display:flex;}
+
+/* Topbar */
+#topbar{
+  height:52px;background:var(--topbar-bg);border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;z-index:100;
+}
+.topbar-logo{display:flex;align-items:center;gap:8px;text-decoration:none;}
+.topbar-logo .logo-img-full{height:26px;filter:var(--logo-filter);display:block;}
+.topbar-logo .logo-img-collapsed{height:28px;filter:var(--logo-filter);display:none;}
+.topbar-spacer{flex:1;}
+.topbar-btn{width:34px;height:34px;border:none;background:var(--sf2);border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t3);transition:all .15s;font-size:16px;}
+.topbar-btn:hover{background:var(--sf3);color:var(--t1);}
+.topbar-btn.active{background:var(--ac-lt);color:var(--ac);}
+#user-chip{display:flex;align-items:center;gap:7px;padding:5px 10px;background:var(--sf2);border-radius:10px;border:none;cursor:pointer;font-size:.8rem;color:var(--t2);}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff;}
+
+/* Main area */
+#main{display:flex;flex:1;overflow:hidden;}
+
+/* ══ SIDEBAR ══ */
+#sidebar{
+  width:220px;background:var(--sidebar-bg);border-right:1px solid var(--bd);
+  display:flex;flex-direction:column;flex-shrink:0;transition:width .2s;overflow:hidden;
+}
+#sidebar.collapsed{width:54px;}
+.sidebar-section{padding:10px 8px 4px;font-size:.68rem;font-weight:600;color:var(--t4);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;overflow:hidden;}
+#sidebar.collapsed .sidebar-section{opacity:0;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;
+  margin:1px 6px;transition:all .15s;color:var(--t3);font-size:.88rem;font-weight:500;white-space:nowrap;
+  border:none;background:transparent;width:calc(100% - 12px);text-align:left;
+}
+.nav-item:hover{background:var(--sf2);color:var(--t2);}
+.nav-item.active{background:var(--ac-lt);color:var(--ac);}
+.nav-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.nav-label{flex:1;overflow:hidden;text-overflow:ellipsis;}
+.nav-badge{background:var(--dg);color:#fff;border-radius:20px;padding:1px 6px;font-size:.68rem;font-weight:700;flex-shrink:0;}
+#sidebar.collapsed .nav-label,#sidebar.collapsed .nav-badge{display:none;}
+.sidebar-bottom{margin-top:auto;padding:8px;border-top:1px solid var(--bd);}
+
+/* ══ CONTENT AREA ══ */
+#content{flex:1;overflow:auto;position:relative;}
+.view{display:none;padding:24px;max-width:1400px;margin:0 auto;animation:fadeIn .2s ease;}
+.view.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══ SHARED COMPONENTS ══ */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+.page-title{font-size:1.3rem;font-weight:600;color:var(--t1);}
+.page-subtitle{font-size:.82rem;color:var(--t3);margin-top:2px;}
+.btn{padding:8px 16px;border-radius:9px;border:none;cursor:pointer;font-size:.85rem;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:var(--ac);color:#fff;}
+.btn-primary:hover{opacity:.88;}
+.btn-secondary{background:var(--sf2);color:var(--t2);border:1px solid var(--bd);}
+.btn-secondary:hover{background:var(--sf3);}
+.btn-danger{background:var(--dg-lt);color:var(--dg);border:1px solid var(--dg);}
+.btn-sm{padding:5px 11px;font-size:.78rem;}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;box-shadow:var(--sh);}
+.card-pad{padding:20px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+@media(max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr);}.grid-3{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+.stat-card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:var(--sh);}
+.stat-value{font-size:1.8rem;font-weight:700;color:var(--t1);line-height:1;}
+.stat-label{font-size:.78rem;color:var(--t3);margin-top:4px;}
+.stat-delta{font-size:.75rem;margin-top:6px;}
+.stat-delta.up{color:var(--ok);}
+.stat-delta.down{color:var(--dg);}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+.tag-ok{background:var(--ok-lt);color:var(--ok);}
+.tag-dg{background:var(--dg-lt);color:var(--dg);}
+.tag-wn{background:var(--wn-lt);color:var(--wn);}
+.tag-ac{background:var(--ac-lt);color:var(--ac);}
+.tag-tl{background:var(--tl-lt);color:var(--tl);}
+.tag-t4{background:var(--sf3);color:var(--t3);}
+.empty-state{text-align:center;padding:56px 24px;color:var(--t3);}
+.empty-icon{font-size:2.5rem;margin-bottom:12px;opacity:.5;}
+.empty-title{font-size:1rem;font-weight:600;color:var(--t2);margin-bottom:6px;}
+.empty-desc{font-size:.83rem;line-height:1.6;max-width:320px;margin:0 auto 20px;}
+.divider{height:1px;background:var(--bd);margin:16px 0;}
+.form-row{display:flex;gap:12px;flex-wrap:wrap;}
+.form-group{flex:1;min-width:160px;}
+.form-group label{display:block;font-size:.78rem;font-weight:500;color:var(--t3);margin-bottom:5px;}
+.form-control{width:100%;background:var(--input-bg);border:1px solid var(--bd);border-radius:9px;padding:8px 12px;font-size:.875rem;color:var(--t1);outline:none;transition:border-color .2s;}
+.form-control:focus{border-color:var(--ac);}
+select.form-control{cursor:pointer;}
+textarea.form-control{resize:vertical;min-height:80px;}
+.search-bar{display:flex;align-items:center;gap:8px;background:var(--input-bg);border:1px solid var(--bd);border-radius:10px;padding:7px 12px;flex:1;}
+.search-bar input{flex:1;border:none;background:transparent;color:var(--t1);font-size:.875rem;outline:none;}
+.search-bar input::placeholder{color:var(--t4);}
+
+/* ══ MODALS ══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--sf);border:1px solid var(--bd);border-radius:18px;width:100%;max-width:540px;max-height:90dvh;overflow-y:auto;box-shadow:var(--sh3);}
+.modal-header{padding:20px 20px 0;display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:1rem;font-weight:600;}
+.modal-close{width:30px;height:30px;border:none;background:var(--sf2);border-radius:7px;cursor:pointer;font-size:16px;color:var(--t3);display:flex;align-items:center;justify-content:center;}
+.modal-body{padding:20px;}
+.modal-footer{padding:0 20px 20px;display:flex;gap:8px;justify-content:flex-end;}
+
+/* ══ TOAST ══ */
+#toast-container{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px 16px;font-size:.85rem;box-shadow:var(--sh3);animation:toastIn .3s ease;display:flex;align-items:center;gap:8px;max-width:320px;}
+.toast.ok{border-color:var(--ok);background:var(--ok-lt);color:var(--ok);}
+.toast.err{border-color:var(--dg);background:var(--dg-lt);color:var(--dg);}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* ══ SCORE RING ══ */
+.score-ring{display:inline-flex;align-items:center;justify-content:center;position:relative;}
+.score-ring svg{transform:rotate(-90deg);}
+.score-ring .score-text{position:absolute;font-size:.75rem;font-weight:700;font-family:'DM Mono',monospace;}
+
+/* ══ DASHBOARD ══ */
+.activity-list{display:flex;flex-direction:column;gap:0;}
+.activity-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--bd);}
+.activity-item:last-child{border-bottom:none;}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.activity-text{flex:1;font-size:.83rem;}
+.activity-time{font-size:.75rem;color:var(--t4);}
+
+/* ══ PEOPLE / CRM ══ */
+.people-list{display:flex;flex-direction:column;gap:8px;}
+.person-row{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .15s;}
+.person-row:hover{border-color:var(--ac);box-shadow:var(--sh2);}
+.person-avatar{width:40px;height:40px;border-radius:50%;background:var(--ac);display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:#fff;flex-shrink:0;}
+.person-info{flex:1;min-width:0;}
+.person-name{font-size:.9rem;font-weight:600;color:var(--t1);}
+.person-meta{font-size:.77rem;color:var(--t3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.person-score{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+.pipeline-board{display:grid;gap:12px;overflow-x:auto;padding-bottom:8px;}
+.pipeline-col{background:var(--sf2);border:1px solid var(--bd);border-radius:12px;padding:12px;min-width:220px;}
+.pipeline-col-header{font-size:.78rem;font-weight:600;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.pipeline-card{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
+.pipeline-card:hover{border-color:var(--ac);}
+.pipeline-card-name{font-size:.85rem;font-weight:600;}
+.pipeline-card-meta{font-size:.75rem;color:var(--t3);margin-top:3px;}
+
+/* ══ PERSON DETAIL PANEL ══ */
+#person-panel{
+  position:fixed;right:0;top:0;bottom:0;width:400px;background:var(--sf);
+  border-left:1px solid var(--bd);z-index:500;transform:translateX(100%);
+  transition:transform .25s ease;overflow-y:auto;display:flex;flex-direction:column;
+}
+#person-panel.open{transform:translateX(0);}
+.panel-header{padding:18px 18px 0;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--bd);padding-bottom:16px;}
+.panel-close{margin-left:auto;width:30px;height:30px;border:none;background:var(--sf2);border-radius:7px;cursor:pointer;font-size:14px;color:var(--t3);}
+.panel-section{padding:16px 18px;border-bottom:1px solid var(--bd);}
+.panel-section-title{font-size:.75rem;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;}
+.interaction-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd);}
+.interaction-item:last-child{border-bottom:none;}
+.interaction-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.interaction-content{flex:1;min-width:0;}
+.interaction-type{font-size:.75rem;font-weight:600;color:var(--t3);}
+.interaction-note{font-size:.82rem;margin-top:2px;line-height:1.4;}
+.interaction-time{font-size:.72rem;color:var(--t4);margin-top:3px;}
+
+/* ══ ONTOLOGY MAP ══ */
+#onto-canvas-wrap{position:relative;width:100%;background:var(--sf);border:1px solid var(--bd);border-radius:14px;overflow:hidden;}
+#onto-canvas{display:block;cursor:grab;}
+#onto-canvas:active{cursor:grabbing;}
+.onto-toolbar{display:flex;gap:8px;padding:12px;border-bottom:1px solid var(--bd);flex-wrap:wrap;}
+.node-palette{display:flex;gap:6px;flex-wrap:wrap;padding:10px;background:var(--sf2);border-bottom:1px solid var(--bd);}
+.palette-node{padding:5px 10px;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--sf);color:var(--t2);display:flex;align-items:center;gap:5px;transition:all .15s;}
+.palette-node:hover{border-color:var(--ac);color:var(--ac);}
+
+/* ══ FORMS / FORMFLOW ══ */
+.field-palette{display:flex;flex-wrap:wrap;gap:6px;padding:12px;background:var(--sf2);border-bottom:1px solid var(--bd);}
+.field-type{padding:6px 12px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;font-size:.78rem;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;}
+.field-type:hover{border-color:var(--ac);color:var(--ac);}
+.form-builder-area{min-height:300px;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.builder-field{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:move;}
+.builder-field:hover{border-color:var(--bd2);}
+.builder-field-label{flex:1;font-size:.85rem;}
+.builder-field-type{font-size:.72rem;color:var(--t4);}
+.field-remove{width:24px;height:24px;border:none;background:transparent;color:var(--t4);cursor:pointer;border-radius:5px;display:flex;align-items:center;justify-content:center;}
+.field-remove:hover{background:var(--dg-lt);color:var(--dg);}
+.drop-zone{border:2px dashed var(--bd2);border-radius:10px;padding:32px;text-align:center;color:var(--t4);font-size:.85rem;}
+.drop-zone.dragover{border-color:var(--ac);background:var(--ac-lt);color:var(--ac);}
+
+/* ══ SCORING ENGINE ══ */
+.dimension-row{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+.dim-color{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.dim-name{flex:1;font-size:.875rem;font-weight:500;}
+.dim-weight{font-size:.8rem;color:var(--t3);font-family:'DM Mono',monospace;}
+.weight-slider{-webkit-appearance:none;appearance:none;width:120px;height:4px;border-radius:2px;outline:none;cursor:pointer;}
+.gauge-wrap{display:flex;align-items:center;justify-content:center;padding:24px 0;}
+.gauge-outer{position:relative;width:140px;height:140px;}
+.gauge-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.gauge-score{font-size:2rem;font-weight:700;font-family:'DM Mono',monospace;color:var(--t1);}
+.gauge-sub{font-size:.72rem;color:var(--t3);}
+
+/* ══ NEO AI CHAT ══ */
+#neo-panel{
+  position:fixed;bottom:16px;right:16px;width:360px;max-height:520px;
+  background:var(--sf);border:1px solid var(--bd);border-radius:18px;
+  box-shadow:var(--sh3);z-index:800;display:flex;flex-direction:column;
+  transform:scale(.9) translateY(20px);opacity:0;pointer-events:none;
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+#neo-panel.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all;}
+.neo-header{padding:14px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;}
+.neo-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--tl));display:flex;align-items:center;justify-content:center;font-size:14px;}
+.neo-title{flex:1;font-size:.88rem;font-weight:600;}
+.neo-model-sel{padding:3px 8px;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;font-size:.72rem;color:var(--t3);cursor:pointer;outline:none;}
+.neo-model-sel:focus{border-color:var(--ac);}
+.neo-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
+.neo-msg{max-width:85%;padding:10px 12px;border-radius:12px;font-size:.83rem;line-height:1.5;}
+.neo-msg.user{background:var(--ac);color:#fff;align-self:flex-end;border-bottom-right-radius:3px;}
+.neo-msg.assistant{background:var(--sf2);color:var(--t1);align-self:flex-start;border-bottom-left-radius:3px;}
+.neo-msg.thinking{opacity:.6;font-style:italic;}
+.neo-input-row{padding:10px;border-top:1px solid var(--bd);display:flex;gap:8px;}
+.neo-input{flex:1;background:var(--input-bg);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;font-size:.83rem;color:var(--t1);outline:none;resize:none;max-height:80px;overflow-y:auto;}
+.neo-input:focus{border-color:var(--ac);}
+.neo-send{width:34px;height:34px;border:none;background:var(--ac);border-radius:9px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;transition:opacity .15s;}
+.neo-send:hover{opacity:.85;}
+#neo-fab{
+  position:fixed;bottom:20px;right:20px;width:50px;height:50px;
+  border-radius:50%;background:linear-gradient(135deg,var(--ac),var(--tl));
+  border:none;cursor:pointer;box-shadow:var(--sh3);z-index:800;
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  transition:transform .15s;color:#fff;
+}
+#neo-fab:hover{transform:scale(1.08);}
+#neo-fab.hidden{display:none;}
+
+/* ══ INVOICE ══ */
+.invoice-table{width:100%;border-collapse:collapse;}
+.invoice-table th{padding:10px 14px;text-align:left;font-size:.75rem;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--bd);}
+.invoice-table td{padding:12px 14px;font-size:.85rem;border-bottom:1px solid var(--bd);}
+.invoice-table tr:last-child td{border-bottom:none;}
+.invoice-table tr:hover td{background:var(--sf2);}
+.status-pill{padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+.status-paid{background:var(--ok-lt);color:var(--ok);}
+.status-pending{background:var(--wn-lt);color:var(--wn);}
+.status-overdue{background:var(--dg-lt);color:var(--dg);}
+.status-draft{background:var(--sf3);color:var(--t4);}
+
+/* ══ PIPELINE STAGES ══ */
+.pipeline-stages{display:flex;gap:0;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;}
+.stage-pill{padding:4px 14px;font-size:.75rem;font-weight:600;border-radius:0;border:1px solid var(--bd);margin-right:-1px;cursor:pointer;background:var(--sf);color:var(--t3);transition:all .15s;white-space:nowrap;}
+.stage-pill:first-child{border-radius:8px 0 0 8px;}
+.stage-pill:last-child{border-radius:0 8px 8px 0;}
+.stage-pill.active{background:var(--ac);color:#fff;border-color:var(--ac);z-index:1;position:relative;}
+
+/* ══ INTERACTION MODAL ══ */
+.interaction-types{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.int-type-btn{padding:6px 14px;border:1px solid var(--bd);border-radius:8px;background:var(--sf2);color:var(--t3);cursor:pointer;font-size:.8rem;transition:all .15s;}
+.int-type-btn.active{background:var(--ac-lt);border-color:var(--ac);color:var(--ac);}
+
+/* ══ MOBILE ══ */
+#mobile-nav{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  background:var(--sidebar-bg);border-top:1px solid var(--bd);
+  padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:200;
+}
+.mobile-nav-items{display:flex;justify-content:space-around;}
+.mob-nav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 10px;border:none;background:transparent;color:var(--t4);cursor:pointer;font-size:.62rem;font-weight:500;border-radius:8px;transition:all .15s;}
+.mob-nav-btn.active{color:var(--ac);}
+.mob-nav-icon{font-size:20px;line-height:1;}
+@media(max-width:700px){
+  #sidebar{display:none;}
+  #mobile-nav{display:block;}
+  #content{padding-bottom:70px;}
+  .view{padding:14px;}
+  #neo-panel{width:calc(100vw - 16px);right:8px;bottom:76px;}
+  #neo-fab{bottom:76px;}
+  .page-header{flex-direction:column;align-items:flex-start;}
+  #topbar .topbar-logo .logo-img-full{display:none;}
+  #topbar .topbar-logo .logo-img-collapsed{display:block;}
+}
+
+/* ══ AUTOMATION RULES ══ */
+.rule-row{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.rule-toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
+.rule-toggle input{opacity:0;width:0;height:0;}
+.rule-slider{position:absolute;inset:0;background:var(--toggle-bg);border-radius:10px;cursor:pointer;transition:.2s;}
+.rule-toggle input:checked+.rule-slider{background:var(--ok);}
+.rule-slider:before{content:'';position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+.rule-toggle input:checked+.rule-slider:before{transform:translateX(16px);}
+.rule-desc{flex:1;font-size:.85rem;}
+.rule-badge{font-size:.72rem;font-family:'DM Mono',monospace;color:var(--t3);background:var(--sf2);padding:2px 7px;border-radius:5px;}
+
+/* ══ ONTOLOGY SVG NODES ══ */
+.onto-node-core{fill:var(--ac);stroke:var(--ac2);stroke-width:2;}
+.onto-node-activity{fill:var(--tl);stroke:var(--tl);stroke-width:2;}
+.onto-node-metric{fill:var(--ok);stroke:var(--ok);stroke-width:2;}
+.onto-node-automation{fill:var(--wn);stroke:var(--wn);stroke-width:2;}
+.onto-node-input{fill:var(--gd);stroke:var(--gd);stroke-width:2;}
+.onto-edge{stroke:var(--bd2);stroke-width:1.5;fill:none;marker-end:url(#arrowhead);}
+.onto-node-label{fill:var(--t1);font-size:11px;font-family:'DM Sans',sans-serif;font-weight:500;}
+
+/* ══ LOADING ══ */
+.skeleton{background:linear-gradient(90deg,var(--sf2) 25%,var(--sf3) 50%,var(--sf2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.spinner{width:20px;height:20px;border:2px solid var(--bd);border-top-color:var(--ac);border-radius:50%;animation:spin .6s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══ SETTINGS PANEL ══ */
+.settings-section{margin-bottom:28px;}
+.settings-section-title{font-size:.85rem;font-weight:600;color:var(--t2);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--bd);}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bd);}
+.settings-row:last-child{border-bottom:none;}
+.settings-label{font-size:.85rem;color:var(--t2);}
+.settings-desc{font-size:.75rem;color:var(--t4);margin-top:2px;}
+.toggle-switch{position:relative;width:42px;height:24px;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-track{position:absolute;inset:0;background:var(--toggle-bg);border-radius:12px;cursor:pointer;transition:.2s;}
+.toggle-switch input:checked+.toggle-track{background:var(--ac);}
+.toggle-track:before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;}
+.toggle-switch input:checked+.toggle-track:before{transform:translateX(18px);}
+
+/* Scrollable pipeline board */
+.pipeline-board-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;}
+.pipeline-board-scroll .pipeline-col{min-width:220px;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="Insight Layer" style="height:30px;filter:var(--logo-filter);">
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('signin')">Sign in</button>
+      <button class="auth-tab" onclick="switchAuthTab('signup')">Create account</button>
+    </div>
+    <div id="auth-signin">
+      <div class="auth-field"><label>Email</label><input type="email" id="si-email" placeholder="you@company.com"></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="si-pass" placeholder="••••••••"></div>
+      <button class="auth-btn" onclick="signIn()">Sign in</button>
+    </div>
+    <div id="auth-signup" style="display:none">
+      <div class="auth-field"><label>Full name</label><input type="text" id="su-name" placeholder="Alex Smith"></div>
+      <div class="auth-field"><label>Email</label><input type="email" id="su-email" placeholder="you@company.com"></div>
+      <div class="auth-field"><label>Password</label><input type="password" id="su-pass" placeholder="Min 6 characters"></div>
+      <button class="auth-btn" onclick="signUp()">Create account</button>
+    </div>
+    <div class="auth-err" id="auth-err"></div>
+    <div class="auth-msg" id="auth-msg"></div>
+    <div style="margin-top:16px;text-align:center;">
+      <button onclick="guestMode()" style="border:none;background:none;color:var(--t4);font-size:.8rem;cursor:pointer;text-decoration:underline;">Continue as guest</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app">
+  <!-- Topbar -->
+  <div id="topbar">
+    <a class="topbar-logo" href="#" onclick="navTo('dashboard');return false;">
+      <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="Insight Layer" class="logo-img-full">
+      <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760617575427x227577865881120960/S.png" alt="Insight Layer" class="logo-img-collapsed">
+    </a>
+    <div class="topbar-spacer"></div>
+    <button class="topbar-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+    <button class="topbar-btn" id="neo-toggle-btn" onclick="toggleNeo()" title="Neo AI">✦</button>
+    <button id="user-chip" onclick="navTo('settings')">
+      <div class="user-avatar" id="user-av">?</div>
+      <span id="user-email-chip">Guest</span>
+    </button>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div style="padding:10px 8px 6px;display:flex;align-items:center;justify-content:space-between;">
+        <span class="sidebar-section" style="padding:0;">Menu</span>
+        <button class="topbar-btn" onclick="toggleSidebar()" title="Collapse" style="width:26px;height:26px;font-size:12px;">◀</button>
+      </div>
+      <div class="sidebar-section">Core</div>
+      <button class="nav-item active" onclick="navTo('dashboard')" data-view="dashboard">
+        <div class="nav-icon">⬡</div><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" onclick="navTo('people')" data-view="people">
+        <div class="nav-icon">👥</div><span class="nav-label">People</span>
+      </button>
+      <button class="nav-item" onclick="navTo('pipeline')" data-view="pipeline">
+        <div class="nav-icon">⟶</div><span class="nav-label">Pipeline</span>
+      </button>
+      <div class="sidebar-section">Intelligence</div>
+      <button class="nav-item" onclick="navTo('ontomap')" data-view="ontomap">
+        <div class="nav-icon">🕸</div><span class="nav-label">OntoMap</span>
+      </button>
+      <button class="nav-item" onclick="navTo('scoring')" data-view="scoring">
+        <div class="nav-icon">◎</div><span class="nav-label">Scoring Engine</span>
+      </button>
+      <div class="sidebar-section">Workflows</div>
+      <button class="nav-item" onclick="navTo('forms')" data-view="forms">
+        <div class="nav-icon">📋</div><span class="nav-label">FormFlow</span>
+      </button>
+      <button class="nav-item" onclick="navTo('automate')" data-view="automate">
+        <div class="nav-icon">⚡</div><span class="nav-label">Automate</span>
+      </button>
+      <div class="sidebar-section">Finance</div>
+      <button class="nav-item" onclick="navTo('invoices')" data-view="invoices">
+        <div class="nav-icon">💳</div><span class="nav-label">Invoices</span>
+      </button>
+      <div class="sidebar-section">Platform</div>
+      <button class="nav-item" onclick="navTo('data-share')" data-view="data-share">
+        <div class="nav-icon">⇌</div><span class="nav-label">Data Share</span>
+      </button>
+      <div class="sidebar-bottom">
+        <button class="nav-item" onclick="navTo('settings')" data-view="settings">
+          <div class="nav-icon">⚙</div><span class="nav-label">Settings</span>
+        </button>
+        <button class="nav-item" onclick="signOut()" style="color:var(--dg);">
+          <div class="nav-icon">↩</div><span class="nav-label">Sign out</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div id="content">
+
+      <!-- ══ DASHBOARD ══ -->
+      <div class="view active" id="view-dashboard">
+        <div class="page-header">
+          <div><div class="page-title" id="dash-greeting">Good morning ✦</div><div class="page-subtitle">Here's what's happening in Insight Layer today.</div></div>
+          <button class="btn btn-primary" onclick="openModal('add-person-modal')">＋ Add person</button>
+        </div>
+        <div class="grid-4" id="dash-stats">
+          <div class="stat-card"><div class="stat-value" id="stat-people">—</div><div class="stat-label">Total people</div><div class="stat-delta up" id="stat-people-d"></div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-active">—</div><div class="stat-label">Active pipeline</div><div class="stat-delta" id="stat-active-d"></div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-avg-score">—</div><div class="stat-label">Avg health score</div><div class="stat-delta" id="stat-score-d"></div></div>
+          <div class="stat-card"><div class="stat-value" id="stat-invoices">—</div><div class="stat-label">Outstanding</div><div class="stat-delta" id="stat-inv-d"></div></div>
+        </div>
+        <div class="grid-2" style="margin-top:16px;">
+          <div class="card card-pad">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+              <span style="font-size:.9rem;font-weight:600;">Recent activity</span>
+              <button class="btn btn-secondary btn-sm" onclick="navTo('people')">View all</button>
+            </div>
+            <div class="activity-list" id="activity-list">
+              <div class="activity-item"><div class="activity-dot" style="background:var(--t4)"></div><div class="activity-text skeleton" style="height:14px;width:80%"></div></div>
+              <div class="activity-item"><div class="activity-dot" style="background:var(--t4)"></div><div class="activity-text skeleton" style="height:14px;width:60%"></div></div>
+              <div class="activity-item"><div class="activity-dot" style="background:var(--t4)"></div><div class="activity-text skeleton" style="height:14px;width:70%"></div></div>
+            </div>
+          </div>
+          <div class="card card-pad">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+              <span style="font-size:.9rem;font-weight:600;">People at risk</span>
+              <span class="tag tag-dg" id="at-risk-count">0 at risk</span>
+            </div>
+            <div id="at-risk-list" class="people-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ PEOPLE (CRM) ══ -->
+      <div class="view" id="view-people">
+        <div class="page-header">
+          <div><div class="page-title">People</div><div class="page-subtitle">Your relationship intelligence layer.</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <div class="search-bar" style="min-width:200px;"><span>🔍</span><input type="text" placeholder="Search people…" id="people-search" oninput="renderPeople()"></div>
+            <button class="btn btn-primary" onclick="openModal('add-person-modal')">＋ Add person</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;" id="people-filter-tags">
+          <button class="btn btn-secondary btn-sm filter-btn active" data-filter="all" onclick="setPeopleFilter('all',this)">All</button>
+          <button class="btn btn-secondary btn-sm filter-btn" data-filter="lead" onclick="setPeopleFilter('lead',this)">Leads</button>
+          <button class="btn btn-secondary btn-sm filter-btn" data-filter="prospect" onclick="setPeopleFilter('prospect',this)">Prospects</button>
+          <button class="btn btn-secondary btn-sm filter-btn" data-filter="client" onclick="setPeopleFilter('client',this)">Clients</button>
+          <button class="btn btn-secondary btn-sm filter-btn" data-filter="partner" onclick="setPeopleFilter('partner',this)">Partners</button>
+          <button class="btn btn-secondary btn-sm filter-btn" data-filter="at-risk" onclick="setPeopleFilter('at-risk',this)">⚠ At risk</button>
+        </div>
+        <div class="people-list" id="people-list"></div>
+      </div>
+
+      <!-- ══ PIPELINE ══ -->
+      <div class="view" id="view-pipeline">
+        <div class="page-header">
+          <div><div class="page-title">Pipeline</div><div class="page-subtitle">Move people through your process.</div></div>
+          <button class="btn btn-primary" onclick="openModal('add-person-modal')">＋ Add person</button>
+        </div>
+        <div class="pipeline-board-scroll" id="pipeline-board"></div>
+      </div>
+
+      <!-- ══ ONTOMAP ══ -->
+      <div class="view" id="view-ontomap">
+        <div class="page-header">
+          <div><div class="page-title">OntoMap</div><div class="page-subtitle">Your knowledge graph — people, forms, scores, and actions as connected nodes.</div></div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary" onclick="ontoFit()">Fit view</button>
+            <button class="btn btn-primary" onclick="ontoAddNode()">＋ Add node</button>
+          </div>
+        </div>
+        <div class="card" style="overflow:hidden;">
+          <div class="node-palette">
+            <span style="font-size:.75rem;color:var(--t4);align-self:center;margin-right:4px;">Drop onto canvas:</span>
+            <div class="palette-node" draggable="true" data-type="person" ondragstart="ontoPaletteDrag(event,'person')">👤 Person</div>
+            <div class="palette-node" draggable="true" data-type="organisation" ondragstart="ontoPaletteDrag(event,'organisation')">🏢 Organisation</div>
+            <div class="palette-node" draggable="true" data-type="form" ondragstart="ontoPaletteDrag(event,'form')">📋 Form</div>
+            <div class="palette-node" draggable="true" data-type="score" ondragstart="ontoPaletteDrag(event,'score')">◎ Score</div>
+            <div class="palette-node" draggable="true" data-type="interaction" ondragstart="ontoPaletteDrag(event,'interaction')">⇔ Interaction</div>
+            <div class="palette-node" draggable="true" data-type="action" ondragstart="ontoPaletteDrag(event,'action')">⚡ Action</div>
+            <div class="palette-node" draggable="true" data-type="milestone" ondragstart="ontoPaletteDrag(event,'milestone')">🏁 Milestone</div>
+          </div>
+          <div id="onto-canvas-wrap" style="height:520px;" ondragover="event.preventDefault()" ondrop="ontoCanvasDrop(event)">
+            <canvas id="onto-canvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ SCORING ENGINE ══ -->
+      <div class="view" id="view-scoring">
+        <div class="page-header">
+          <div><div class="page-title">Scoring Engine</div><div class="page-subtitle">Configure how health scores are calculated for your people.</div></div>
+          <button class="btn btn-primary" onclick="saveDimensions()">Save changes</button>
+        </div>
+        <div class="grid-2">
+          <div class="card card-pad">
+            <div style="font-size:.9rem;font-weight:600;margin-bottom:16px;">Score dimensions</div>
+            <div id="dimensions-list"></div>
+            <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="addDimension()">＋ Add dimension</button>
+          </div>
+          <div class="card card-pad" style="display:flex;flex-direction:column;align-items:center;">
+            <div style="font-size:.9rem;font-weight:600;margin-bottom:4px;">Preview score</div>
+            <div style="font-size:.78rem;color:var(--t3);margin-bottom:16px;">Adjust weights to see live preview</div>
+            <div class="gauge-wrap">
+              <div class="gauge-outer">
+                <svg viewBox="0 0 120 120" width="140" height="140">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="var(--bd)" stroke-width="10"/>
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="var(--ac)" stroke-width="10"
+                    stroke-dasharray="314" id="gauge-arc" stroke-dashoffset="157" stroke-linecap="round"
+                    style="transition:stroke-dashoffset .6s ease,stroke .3s;" transform="rotate(-90 60 60)"/>
+                </svg>
+                <div class="gauge-label">
+                  <span class="gauge-score" id="gauge-score-val">50</span>
+                  <span class="gauge-sub">/ 100</span>
+                </div>
+              </div>
+            </div>
+            <div style="width:100%;">
+              <div style="font-size:.78rem;color:var(--t3);margin-bottom:8px;text-align:center;">Per-dimension scores</div>
+              <div id="dim-score-inputs"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ FORMFLOW ══ -->
+      <div class="view" id="view-forms">
+        <div class="page-header">
+          <div><div class="page-title">FormFlow</div><div class="page-subtitle">Build forms that flow into your knowledge graph.</div></div>
+          <button class="btn btn-primary" onclick="openModal('new-form-modal')">＋ New form</button>
+        </div>
+        <div class="grid-2" id="forms-list-wrap">
+          <div id="forms-list"></div>
+          <div class="card" id="form-builder-panel" style="display:none;overflow:hidden;">
+            <div style="padding:14px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;">
+              <span style="font-size:.9rem;font-weight:600;flex:1;" id="form-builder-title">Form builder</span>
+              <button class="btn btn-secondary btn-sm" onclick="closeFormBuilder()">Close</button>
+              <button class="btn btn-primary btn-sm" onclick="saveForm()">Save form</button>
+            </div>
+            <div class="field-palette">
+              <span style="font-size:.72rem;color:var(--t4);align-self:center;">Add field:</span>
+              <div class="field-type" onclick="addField('short_text')">Aa Short text</div>
+              <div class="field-type" onclick="addField('long_text')">¶ Long text</div>
+              <div class="field-type" onclick="addField('number')">123 Number</div>
+              <div class="field-type" onclick="addField('select')">▾ Dropdown</div>
+              <div class="field-type" onclick="addField('rating')">★ Rating</div>
+              <div class="field-type" onclick="addField('yes_no')">✓ Yes/No</div>
+              <div class="field-type" onclick="addField('date')">📅 Date</div>
+            </div>
+            <div class="form-builder-area" id="form-builder-area">
+              <div class="drop-zone" id="form-drop-zone">Drop fields here, or click a type above to add</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ AUTOMATE ══ -->
+      <div class="view" id="view-automate">
+        <div class="page-header">
+          <div><div class="page-title">Automate</div><div class="page-subtitle">Rules that run on your behalf — no manual follow-up needed.</div></div>
+          <button class="btn btn-primary" onclick="openModal('new-rule-modal')">＋ New rule</button>
+        </div>
+        <div id="rules-list"></div>
+        <div style="margin-top:24px;" class="card card-pad">
+          <div style="font-size:.9rem;font-weight:600;margin-bottom:14px;">Rule templates</div>
+          <div class="grid-2" id="rule-templates"></div>
+        </div>
+      </div>
+
+      <!-- ══ INVOICES ══ -->
+      <div class="view" id="view-invoices">
+        <div class="page-header">
+          <div><div class="page-title">Invoices</div><div class="page-subtitle">Billing and payment tracking.</div></div>
+          <button class="btn btn-primary" onclick="openModal('new-invoice-modal')">＋ New invoice</button>
+        </div>
+        <div class="grid-4" style="margin-bottom:20px;">
+          <div class="stat-card"><div class="stat-value" id="inv-total">—</div><div class="stat-label">Total billed</div></div>
+          <div class="stat-card"><div class="stat-value" id="inv-paid">—</div><div class="stat-label">Paid</div></div>
+          <div class="stat-card"><div class="stat-value" id="inv-outstanding">—</div><div class="stat-label">Outstanding</div></div>
+          <div class="stat-card"><div class="stat-value" id="inv-overdue">—</div><div class="stat-label">Overdue</div></div>
+        </div>
+        <div class="card" style="overflow:hidden;">
+          <table class="invoice-table">
+            <thead><tr><th>Client</th><th>Description</th><th>Amount</th><th>Due date</th><th>Status</th><th></th></tr></thead>
+            <tbody id="invoices-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══ DATA SHARE ══ -->
+      <div class="view" id="view-data-share">
+        <div class="page-header">
+          <div><div class="page-title">Data Share</div><div class="page-subtitle">Embed live data in any external tool.</div></div>
+        </div>
+        <div class="grid-2">
+          <div class="card card-pad">
+            <div style="font-size:.9rem;font-weight:600;margin-bottom:4px;">Embed widgets</div>
+            <div style="font-size:.8rem;color:var(--t3);margin-bottom:16px;">Paste a snippet anywhere — Notion, Slack, or your website.</div>
+            <div id="embed-options"></div>
+          </div>
+          <div class="card card-pad">
+            <div style="font-size:.9rem;font-weight:600;margin-bottom:4px;">API access</div>
+            <div style="font-size:.8rem;color:var(--t3);margin-bottom:16px;">Query your data from any tool using your personal API key.</div>
+            <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:12px;font-family:'DM Mono',monospace;font-size:.78rem;color:var(--t3);word-break:break-all;" id="api-key-display">Generate a key to get started</div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button class="btn btn-secondary btn-sm" onclick="genApiKey()">Generate key</button>
+              <button class="btn btn-secondary btn-sm" onclick="copyApiKey()">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ SETTINGS ══ -->
+      <div class="view" id="view-settings">
+        <div class="page-header">
+          <div><div class="page-title">Settings</div></div>
+        </div>
+        <div style="max-width:600px;">
+          <div class="settings-section">
+            <div class="settings-section-title">Account</div>
+            <div class="settings-row">
+              <div><div class="settings-label">Email</div><div class="settings-desc" id="settings-email">—</div></div>
+            </div>
+            <div class="settings-row">
+              <div><div class="settings-label">Display name</div><div class="settings-desc" id="settings-name">—</div></div>
+              <button class="btn btn-secondary btn-sm" onclick="openModal('edit-profile-modal')">Edit</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Appearance</div>
+            <div class="settings-row">
+              <div><div class="settings-label">Dark mode</div><div class="settings-desc">Easy on the eyes</div></div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="dark-mode-toggle" onchange="toggleTheme()" checked>
+                <div class="toggle-track"></div>
+              </label>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Supabase connection</div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="settings-label">Project URL</label>
+              <input type="text" class="form-control" id="sb-url-input" value="https://pzioskykakwhwdlcmwyv.supabase.co">
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label class="settings-label">Anon key</label>
+              <input type="text" class="form-control" id="sb-key-input" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveSupabaseConfig()">Save & reconnect</button>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Danger zone</div>
+            <div class="settings-row">
+              <div><div class="settings-label">Sign out</div><div class="settings-desc">End your session</div></div>
+              <button class="btn btn-danger btn-sm" onclick="signOut()">Sign out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+
+  <!-- Mobile nav -->
+  <div id="mobile-nav">
+    <div class="mobile-nav-items">
+      <button class="mob-nav-btn active" onclick="navTo('dashboard')" data-mob="dashboard"><div class="mob-nav-icon">⬡</div>Home</button>
+      <button class="mob-nav-btn" onclick="navTo('people')" data-mob="people"><div class="mob-nav-icon">👥</div>People</button>
+      <button class="mob-nav-btn" onclick="navTo('pipeline')" data-mob="pipeline"><div class="mob-nav-icon">⟶</div>Pipeline</button>
+      <button class="mob-nav-btn" onclick="navTo('forms')" data-mob="forms"><div class="mob-nav-icon">📋</div>Forms</button>
+      <button class="mob-nav-btn" onclick="navTo('settings')" data-mob="settings"><div class="mob-nav-icon">⚙</div>More</button>
+    </div>
+  </div>
+</div><!-- /app -->
+
+<!-- NEO AI PANEL -->
+<button id="neo-fab" onclick="toggleNeo()">✦</button>
+<div id="neo-panel">
+  <div class="neo-header">
+    <div class="neo-avatar">✦</div>
+    <div class="neo-title">Neo AI</div>
+    <select class="neo-model-sel" id="neo-model-select">
+      <option value="claude">Claude</option>
+      <option value="gpt4o">GPT-4o</option>
+      <option value="gemma3">Gemma 3</option>
+    </select>
+    <button class="topbar-btn" onclick="toggleNeo()" style="margin-left:4px;">✕</button>
+  </div>
+  <div class="neo-msgs" id="neo-msgs">
+    <div class="neo-msg assistant">Hey! I'm Neo. Ask me anything about your people, scores, forms, or pipeline. I can also help you write follow-up emails or analyse trends. 👋</div>
+  </div>
+  <div class="neo-input-row">
+    <textarea class="neo-input" id="neo-input" placeholder="Ask Neo…" rows="1" onkeydown="neoKeydown(event)"></textarea>
+    <button class="neo-send" onclick="neoSend()">↑</button>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- PERSON DETAIL PANEL -->
+<div id="person-panel">
+  <div class="panel-header">
+    <div class="person-avatar" id="pp-avatar" style="width:44px;height:44px;font-size:1rem;">?</div>
+    <div>
+      <div style="font-size:1rem;font-weight:600;" id="pp-name">—</div>
+      <div style="font-size:.78rem;color:var(--t3);" id="pp-meta">—</div>
+    </div>
+    <button class="panel-close" onclick="closePersonPanel()">✕</button>
+  </div>
+  <div class="panel-section">
+    <div class="panel-section-title">Health score</div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div class="score-ring" id="pp-score-ring">
+        <svg width="60" height="60" viewBox="0 0 60 60">
+          <circle cx="30" cy="30" r="24" fill="none" stroke="var(--bd)" stroke-width="6"/>
+          <circle cx="30" cy="30" r="24" fill="none" stroke="var(--ac)" stroke-width="6"
+            stroke-dasharray="150.8" id="pp-score-arc" stroke-dashoffset="75" stroke-linecap="round"
+            transform="rotate(-90 30 30)" style="transition:all .4s;"/>
+        </svg>
+        <span class="score-text" id="pp-score-text" style="font-size:.8rem;">50</span>
+      </div>
+      <div>
+        <div style="font-size:.8rem;color:var(--t3);" id="pp-stage-label">Stage: —</div>
+        <div style="font-size:.8rem;color:var(--t3);margin-top:3px;" id="pp-last-contact">Last contact: —</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-section">
+    <div class="panel-section-title">Details</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" id="pp-details"></div>
+  </div>
+  <div class="panel-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="panel-section-title" style="margin-bottom:0;">Interactions</div>
+      <button class="btn btn-secondary btn-sm" onclick="openLogInteraction()">＋ Log</button>
+    </div>
+    <div id="pp-interactions"></div>
+  </div>
+  <div class="panel-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="panel-section-title" style="margin-bottom:0;">Assigned forms</div>
+      <button class="btn btn-secondary btn-sm" onclick="assignForm()">Assign</button>
+    </div>
+    <div id="pp-forms"></div>
+  </div>
+  <div style="padding:16px 18px;display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-secondary btn-sm" onclick="editPerson()">Edit person</button>
+    <button class="btn btn-danger btn-sm" onclick="deletePerson()">Delete</button>
+  </div>
+</div>
+
+<!-- ══ MODALS ══ -->
+
+<!-- Add person -->
+<div class="modal-overlay" id="add-person-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Add person</div><button class="modal-close" onclick="closeModal('add-person-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>First name</label><input class="form-control" id="ap-fname" placeholder="Alex"></div>
+        <div class="form-group"><label>Last name</label><input class="form-control" id="ap-lname" placeholder="Smith"></div>
+      </div>
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group"><label>Email</label><input type="email" class="form-control" id="ap-email" placeholder="alex@company.com"></div>
+        <div class="form-group"><label>Phone</label><input class="form-control" id="ap-phone" placeholder="+27 82…"></div>
+      </div>
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group"><label>Company</label><input class="form-control" id="ap-company" placeholder="Acme Corp"></div>
+        <div class="form-group"><label>Role</label><input class="form-control" id="ap-role" placeholder="CEO"></div>
+      </div>
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group"><label>Type</label>
+          <select class="form-control" id="ap-type">
+            <option value="lead">Lead</option>
+            <option value="prospect">Prospect</option>
+            <option value="client">Client</option>
+            <option value="partner">Partner</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Pipeline stage</label>
+          <select class="form-control" id="ap-stage">
+            <option value="New">New</option>
+            <option value="Contacted">Contacted</option>
+            <option value="Qualified">Qualified</option>
+            <option value="Proposal">Proposal</option>
+            <option value="Won">Won</option>
+            <option value="Lost">Lost</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:10px;"><label>Notes</label><textarea class="form-control" id="ap-notes" placeholder="Any notes about this person…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('add-person-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addPerson()">Add person</button>
+    </div>
+  </div>
+</div>
+
+<!-- Log interaction -->
+<div class="modal-overlay" id="log-interaction-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Log interaction</div><button class="modal-close" onclick="closeModal('log-interaction-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="interaction-types">
+        <button class="int-type-btn active" data-itype="call" onclick="setIntType('call',this)">📞 Call</button>
+        <button class="int-type-btn" data-itype="email" onclick="setIntType('email',this)">✉ Email</button>
+        <button class="int-type-btn" data-itype="meeting" onclick="setIntType('meeting',this)">🤝 Meeting</button>
+        <button class="int-type-btn" data-itype="note" onclick="setIntType('note',this)">📝 Note</button>
+        <button class="int-type-btn" data-itype="whatsapp" onclick="setIntType('whatsapp',this)">💬 WhatsApp</button>
+      </div>
+      <div class="form-group"><label>Notes / summary</label><textarea class="form-control" id="int-notes" rows="4" placeholder="What was discussed?"></textarea></div>
+      <div class="form-group" style="margin-top:10px;"><label>Date</label><input type="date" class="form-control" id="int-date"></div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="int-ai-summary" checked>
+        <label for="int-ai-summary" style="font-size:.82rem;color:var(--t3);">Use Neo to summarise and suggest next steps</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('log-interaction-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveInteraction()">Save interaction</button>
+    </div>
+  </div>
+</div>
+
+<!-- New form -->
+<div class="modal-overlay" id="new-form-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">New form</div><button class="modal-close" onclick="closeModal('new-form-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Form name</label><input class="form-control" id="nf-name" placeholder="NPS Survey, Onboarding Checklist…"></div>
+      <div class="form-group" style="margin-top:10px;"><label>Description</label><input class="form-control" id="nf-desc" placeholder="What is this form for?"></div>
+      <div class="form-group" style="margin-top:10px;"><label>Linked to</label>
+        <select class="form-control" id="nf-link">
+          <option value="">None (standalone)</option>
+          <option value="person">Person (health score)</option>
+          <option value="pipeline">Pipeline (stage advancement)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('new-form-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createForm()">Create form</button>
+    </div>
+  </div>
+</div>
+
+<!-- New rule -->
+<div class="modal-overlay" id="new-rule-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">New automation rule</div><button class="modal-close" onclick="closeModal('new-rule-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Rule name</label><input class="form-control" id="nr-name" placeholder="Low score alert"></div>
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group"><label>Trigger</label>
+          <select class="form-control" id="nr-trigger">
+            <option value="score_below">Score drops below</option>
+            <option value="no_contact">No contact for (days)</option>
+            <option value="stage_change">Stage changes to</option>
+            <option value="form_submitted">Form submitted</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Value</label><input class="form-control" id="nr-value" placeholder="e.g. 40 or 7"></div>
+      </div>
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group"><label>Action</label>
+          <select class="form-control" id="nr-action">
+            <option value="send_email">Send email to owner</option>
+            <option value="move_stage">Move to stage</option>
+            <option value="assign_form">Assign form</option>
+            <option value="neo_notify">Neo notification</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Action value</label><input class="form-control" id="nr-action-val" placeholder="Email subject / stage name"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('new-rule-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRule()">Save rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- New invoice -->
+<div class="modal-overlay" id="new-invoice-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">New invoice</div><button class="modal-close" onclick="closeModal('new-invoice-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Client name</label><input class="form-control" id="ni-client" placeholder="Acme Corp"></div>
+        <div class="form-group"><label>Amount (R)</label><input type="number" class="form-control" id="ni-amount" placeholder="25000"></div>
+      </div>
+      <div class="form-group" style="margin-top:10px;"><label>Description</label><input class="form-control" id="ni-desc" placeholder="Insight Layer Starter Pack – Annual"></div>
+      <div class="form-row" style="margin-top:10px;">
+        <div class="form-group"><label>Issue date</label><input type="date" class="form-control" id="ni-issue"></div>
+        <div class="form-group"><label>Due date</label><input type="date" class="form-control" id="ni-due"></div>
+      </div>
+      <div class="form-group" style="margin-top:10px;"><label>Status</label>
+        <select class="form-control" id="ni-status">
+          <option value="draft">Draft</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('new-invoice-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveInvoice()">Save invoice</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit profile -->
+<div class="modal-overlay" id="edit-profile-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Edit profile</div><button class="modal-close" onclick="closeModal('edit-profile-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Display name</label><input class="form-control" id="ep-name" placeholder="Alex Smith"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('edit-profile-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProfile()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// CONFIG & STATE
+// ══════════════════════════════════════════════
+const CLICK_THRESH = 11;
+let SUPABASE_URL = localStorage.getItem('il_sb_url') || 'https://pzioskykakwhwdlcmwyv.supabase.co';
+let SUPABASE_KEY = localStorage.getItem('il_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
+let SB = null;
+let currentUser = null;
+let neoOpen = false;
+let darkMode = localStorage.getItem('il_theme') !== 'light';
+let currentPersonId = null;
+let currentPeopleFilter = 'all';
+let currentIntType = 'call';
+let activeFormId = null;
+let droppedFields = [];
+let apiKey = localStorage.getItem('il_api_key') || '';
+
+// Local data cache
+const APP = {
+  people: [],
+  interactions: [],
+  forms: [],
+  rules: [],
+  invoices: [],
+  dimensions: [
+    { id: 1, name: 'Engagement', weight: 30, color: '#4A7FE0', score: 65 },
+    { id: 2, name: 'Satisfaction', weight: 25, color: '#10B981', score: 80 },
+    { id: 3, name: 'Risk', weight: 20, color: '#EF4444', score: 40 },
+    { id: 4, name: 'Value', weight: 25, color: '#D97706', score: 70 }
+  ]
+};
+
+// Ontology canvas state
+let ontoNodes = [], ontoEdges = [], ontoZoom = 1, ontoPan = {x:0,y:0};
+let ontoDragging = null, ontoConnecting = null, ontoLastMouse = null;
+let ontoPaletteDragType = null;
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+async function init() {
+  applyTheme();
+  try {
+    SB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data: { session } } = await SB.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      enterApp();
+    } else {
+      document.getElementById('auth-screen').style.display = 'flex';
+    }
+  } catch(e) {
+    console.warn('Supabase init failed, running in offline mode:', e);
+    document.getElementById('auth-screen').style.display = 'flex';
+  }
+}
+
+function enterApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.style.display = 'flex';
+  app.classList.add('ready');
+  updateUserChip();
+  loadAllData();
+  initOntoCanvas();
+  renderDimensions();
+  setDashGreeting();
+  setDefaultDates();
+}
+
+function setDashGreeting() {
+  const h = new Date().getHours();
+  const name = currentUser?.user_metadata?.display_name || currentUser?.email?.split('@')[0] || 'there';
+  const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('dash-greeting').textContent = `${greet}, ${name} ✦`;
+}
+
+function setDefaultDates() {
+  const today = new Date().toISOString().split('T')[0];
+  const due = new Date(Date.now() + 30*86400000).toISOString().split('T')[0];
+  const intDateEl = document.getElementById('int-date');
+  const niIssueEl = document.getElementById('ni-issue');
+  const niDueEl = document.getElementById('ni-due');
+  if(intDateEl) intDateEl.value = today;
+  if(niIssueEl) niIssueEl.value = today;
+  if(niDueEl) niDueEl.value = due;
+}
+
+function updateUserChip() {
+  const email = currentUser?.email || 'Guest';
+  const name = currentUser?.user_metadata?.display_name || email;
+  document.getElementById('user-email-chip').textContent = name.split(' ')[0] || email.split('@')[0];
+  document.getElementById('user-av').textContent = (name[0] || '?').toUpperCase();
+  document.getElementById('settings-email').textContent = email;
+  document.getElementById('settings-name').textContent = name;
+}
+
+// ══════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.auth-tab[onclick*="${tab}"]`).classList.add('active');
+  document.getElementById('auth-signin').style.display = tab === 'signin' ? '' : 'none';
+  document.getElementById('auth-signup').style.display = tab === 'signup' ? '' : 'none';
+  hideAuthMsg();
+}
+
+function showAuthErr(msg) {
+  const el = document.getElementById('auth-err');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-msg').style.display = 'none';
+}
+function showAuthMsg(msg) {
+  const el = document.getElementById('auth-msg');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-err').style.display = 'none';
+}
+function hideAuthMsg() {
+  document.getElementById('auth-err').style.display = 'none';
+  document.getElementById('auth-msg').style.display = 'none';
+}
+
+async function signIn() {
+  const email = document.getElementById('si-email').value.trim();
+  const pass = document.getElementById('si-pass').value;
+  if (!email || !pass) { showAuthErr('Please fill in all fields.'); return; }
+  try {
+    const { data, error } = await SB.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    currentUser = data.user;
+    enterApp();
+  } catch(e) { showAuthErr(e.message || 'Sign in failed.'); }
+}
+
+async function signUp() {
+  const name = document.getElementById('su-name').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const pass = document.getElementById('su-pass').value;
+  if (!name || !email || !pass) { showAuthErr('Please fill in all fields.'); return; }
+  try {
+    const { data, error } = await SB.auth.signUp({
+      email, password: pass,
+      options: { data: { display_name: name } }
+    });
+    if (error) throw error;
+    showAuthMsg('Account created! Check your email to confirm, or sign in if confirmation is disabled.');
+  } catch(e) { showAuthErr(e.message || 'Sign up failed.'); }
+}
+
+async function signOut() {
+  if (SB) await SB.auth.signOut();
+  currentUser = null;
+  APP.people = []; APP.interactions = []; APP.forms = []; APP.rules = []; APP.invoices = [];
+  document.getElementById('app').classList.remove('ready');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+function guestMode() {
+  currentUser = { email: 'guest@insightlayer.app', user_metadata: { display_name: 'Guest User' } };
+  loadSampleData();
+  enterApp();
+}
+
+// ══════════════════════════════════════════════
+// DATA LOADING
+// ══════════════════════════════════════════════
+async function loadAllData() {
+  await Promise.all([
+    loadPeople(),
+    loadForms(),
+    loadRules(),
+    loadInvoices()
+  ]);
+  renderDashboard();
+  renderPeople();
+  renderPipeline();
+  renderForms();
+  renderRules();
+  renderInvoices();
+  renderDataShare();
+}
+
+async function loadPeople() {
+  if (!SB || !currentUser?.id) return;
+  try {
+    const { data } = await SB.from('clients').select('*').order('created_at', { ascending: false });
+    if (data) APP.people = data.map(normalizePerson);
+  } catch(e) { console.warn('loadPeople:', e); }
+}
+
+async function loadForms() {
+  if (!SB || !currentUser?.id) return;
+  try {
+    const { data } = await SB.from('forms').select('*').order('created_at', { ascending: false });
+    if (data) APP.forms = data;
+  } catch(e) { console.warn('loadForms:', e); }
+}
+
+async function loadRules() {
+  try {
+    const saved = localStorage.getItem('il_rules');
+    if (saved) APP.rules = JSON.parse(saved);
+  } catch(e) {}
+}
+
+async function loadInvoices() {
+  if (!SB || !currentUser?.id) return;
+  try {
+    const { data } = await SB.from('invoices').select('*').order('created_at', { ascending: false });
+    if (data) APP.invoices = data;
+  } catch(e) { console.warn('loadInvoices:', e); }
+}
+
+function normalizePerson(p) {
+  return {
+    id: p.id,
+    name: p.name || [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown',
+    email: p.email || '',
+    phone: p.phone || '',
+    company: p.company || '',
+    role: p.role || p.position || '',
+    type: p.type || p.person_type || 'client',
+    stage: p.stage || p.pipeline_stage || 'New',
+    score: p.health_score ?? p.score ?? Math.floor(Math.random()*60+30),
+    notes: p.notes || '',
+    last_contact: p.last_contact || p.last_interaction || null,
+    created_at: p.created_at
+  };
+}
+
+function loadSampleData() {
+  APP.people = [
+    { id: 's1', name: 'Thabo Nkosi', email: 'thabo@acmecorp.co.za', phone: '+27 82 123 4567', company: 'Acme Corp', role: 'CEO', type: 'client', stage: 'Won', score: 82, notes: 'Key account, renews in Q3.', last_contact: '2025-12-01' },
+    { id: 's2', name: 'Priya Govender', email: 'priya@techbridge.co.za', phone: '+27 71 987 6543', company: 'TechBridge', role: 'CTO', type: 'prospect', stage: 'Proposal', score: 61, notes: 'Interested in Neo Automate.', last_contact: '2025-11-25' },
+    { id: 's3', name: 'James van der Berg', email: 'james@miningco.co.za', phone: '', company: 'MiningCo', role: 'Operations', type: 'lead', stage: 'Contacted', score: 38, notes: 'Cold lead from LinkedIn.', last_contact: '2025-11-10' },
+    { id: 's4', name: 'Lerato Dlamini', email: 'lerato@konsult.co.za', phone: '+27 83 555 0001', company: 'Konsult', role: 'Partner', type: 'partner', stage: 'Won', score: 91, notes: 'Referral partner, 15% commission.', last_contact: '2025-12-05' },
+    { id: 's5', name: 'Marco Ferreira', email: 'marco@retailgroup.co.za', phone: '', company: 'RetailGroup', role: 'Digital Manager', type: 'prospect', stage: 'Qualified', score: 54, notes: 'Needs CRM replacement.', last_contact: '2025-11-28' }
+  ];
+  APP.forms = [
+    { id: 'f1', name: 'NPS Survey', description: 'Net Promoter Score for clients', linked_to: 'person', fields: [] },
+    { id: 'f2', name: 'Onboarding Checklist', description: 'New client onboarding', linked_to: 'pipeline', fields: [] }
+  ];
+  APP.rules = [
+    { id: 'r1', name: 'Low score alert', trigger: 'score_below', value: '40', action: 'neo_notify', action_val: 'Score dropped', enabled: true },
+    { id: 'r2', name: 'No contact follow-up', trigger: 'no_contact', value: '14', action: 'send_email', action_val: 'Checking in', enabled: true },
+    { id: 'r3', name: 'Won deal notification', trigger: 'stage_change', value: 'Won', action: 'send_email', action_val: 'Welcome aboard!', enabled: false }
+  ];
+  APP.invoices = [
+    { id: 'i1', client: 'Acme Corp', description: 'Insight Layer Starter – Annual', amount: 25000, issue_date: '2025-11-01', due_date: '2025-11-30', status: 'paid' },
+    { id: 'i2', client: 'TechBridge', description: 'Neo Automate Add-on – Q1', amount: 8500, issue_date: '2025-12-01', due_date: '2026-01-15', status: 'pending' },
+    { id: 'i3', client: 'RetailGroup', description: 'FormFlow + PeopleFlow Pack', amount: 15000, issue_date: '2025-10-15', due_date: '2025-11-15', status: 'overdue' }
+  ];
+  APP.interactions = {
+    s1: [
+      { id: 'ia1', type: 'call', notes: 'Discussed renewal options. Happy with platform.', date: '2025-12-01' },
+      { id: 'ia2', type: 'email', notes: 'Sent Q3 report summary.', date: '2025-11-15' }
+    ],
+    s2: [
+      { id: 'ia3', type: 'meeting', notes: 'Demo of Neo Automate. Very interested, wants pricing.', date: '2025-11-25' }
+    ]
+  };
+}
+
+// ══════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════
+function navTo(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.mob-nav-btn').forEach(n => n.classList.remove('active'));
+  const viewEl = document.getElementById('view-' + view);
+  if (viewEl) viewEl.classList.add('active');
+  document.querySelectorAll(`[data-view="${view}"]`).forEach(n => n.classList.add('active'));
+  document.querySelectorAll(`[data-mob="${view}"]`).forEach(n => n.classList.add('active'));
+  // Refresh view-specific content
+  if (view === 'dashboard') renderDashboard();
+  if (view === 'people') renderPeople();
+  if (view === 'pipeline') renderPipeline();
+  if (view === 'forms') renderForms();
+  if (view === 'invoices') renderInvoices();
+  if (view === 'automate') renderRules();
+  if (view === 'ontomap') { setTimeout(drawOnto, 50); }
+}
+
+// ══════════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════════
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+  const btn = document.getElementById('theme-btn');
+  const tog = document.getElementById('dark-mode-toggle');
+  if (btn) btn.textContent = darkMode ? '☀' : '🌙';
+  if (tog) tog.checked = darkMode;
+}
+function toggleTheme() {
+  darkMode = !darkMode;
+  localStorage.setItem('il_theme', darkMode ? 'dark' : 'light');
+  applyTheme();
+  if (ontoNodes.length) drawOnto();
+}
+
+// ══════════════════════════════════════════════
+// SIDEBAR
+// ══════════════════════════════════════════════
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+// ══════════════════════════════════════════════
+// MODALS
+// ══════════════════════════════════════════════
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+function toast(msg, type = '') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ══════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════
+function renderDashboard() {
+  const people = APP.people || [];
+  const activePipeline = people.filter(p => !['Won','Lost'].includes(p.stage)).length;
+  const avgScore = people.length ? Math.round(people.reduce((s,p) => s + (p.score||50), 0) / people.length) : '—';
+  const outstanding = (APP.invoices || []).filter(i => i.status !== 'paid').reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+  const atRisk = people.filter(p => (p.score||50) < 45);
+
+  document.getElementById('stat-people').textContent = people.length;
+  document.getElementById('stat-active').textContent = activePipeline;
+  document.getElementById('stat-avg-score').textContent = avgScore;
+  document.getElementById('stat-invoices').textContent = outstanding > 0 ? 'R' + outstanding.toLocaleString() : '—';
+  document.getElementById('at-risk-count').textContent = atRisk.length + ' at risk';
+
+  // Activity list
+  const actEl = document.getElementById('activity-list');
+  const recent = [...people].sort((a,b) => (b.last_contact||'') > (a.last_contact||'') ? 1 : -1).slice(0,5);
+  if (recent.length) {
+    actEl.innerHTML = recent.map(p => `
+      <div class="activity-item">
+        <div class="activity-dot" style="background:${scoreColor(p.score)}"></div>
+        <div class="activity-text" style="font-size:.83rem;">${escH(p.name)} — <span style="color:var(--t3)">${escH(p.stage)}</span></div>
+        <div class="activity-time">${formatDate(p.last_contact)}</div>
+      </div>`).join('');
+  } else {
+    actEl.innerHTML = `<div class="empty-state" style="padding:20px;"><div class="empty-title">No activity yet</div><div class="empty-desc">Add your first person to get started.</div></div>`;
+  }
+
+  // At risk
+  const arEl = document.getElementById('at-risk-list');
+  if (atRisk.length) {
+    arEl.innerHTML = atRisk.slice(0,3).map(p => personRowHTML(p, true)).join('');
+  } else {
+    arEl.innerHTML = `<div class="empty-state" style="padding:20px;"><div class="empty-icon">✓</div><div class="empty-title">All people healthy</div></div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
+// PEOPLE
+// ══════════════════════════════════════════════
+let peopleFilter = 'all';
+function setPeopleFilter(f, el) {
+  peopleFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderPeople();
+}
+function renderPeople() {
+  const search = (document.getElementById('people-search')?.value || '').toLowerCase();
+  let list = APP.people || [];
+  if (peopleFilter === 'at-risk') list = list.filter(p => (p.score||50) < 45);
+  else if (peopleFilter !== 'all') list = list.filter(p => p.type === peopleFilter);
+  if (search) list = list.filter(p => (p.name+p.email+p.company).toLowerCase().includes(search));
+  const el = document.getElementById('people-list');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">No people found</div><div class="empty-desc">Add your first person to start building your relationship intelligence layer.</div><button class="btn btn-primary" onclick="openModal('add-person-modal')">＋ Add person</button></div>`;
+    return;
+  }
+  el.innerHTML = list.map(p => personRowHTML(p)).join('');
+}
+function personRowHTML(p, compact = false) {
+  const score = p.score ?? 50;
+  const initials = (p.name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const stageTag = stageTagHTML(p.stage);
+  const typeTag = `<span class="tag tag-t4">${escH(p.type||'')}</span>`;
+  return `<div class="person-row" onclick="openPerson('${p.id}')">
+    <div class="person-avatar" style="background:${avatarColor(p.name)}">${initials}</div>
+    <div class="person-info">
+      <div class="person-name">${escH(p.name)}</div>
+      <div class="person-meta">${escH(p.company||p.email||'—')}${p.role ? ' · ' + escH(p.role) : ''}</div>
+      ${compact ? '' : `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${typeTag}${stageTag}</div>`}
+    </div>
+    <div class="person-score">
+      <div style="font-size:1.1rem;font-weight:700;font-family:'DM Mono',monospace;color:${scoreColor(score)}">${score}</div>
+      <div style="font-size:.68rem;color:var(--t3)">score</div>
+    </div>
+  </div>`;
+}
+function stageTagHTML(stage) {
+  const map = { Won: 'tag-ok', Lost: 'tag-dg', Proposal: 'tag-ac', Qualified: 'tag-tl', New: 'tag-t4', Contacted: 'tag-t4' };
+  return `<span class="tag ${map[stage]||'tag-t4'}">${escH(stage||'—')}</span>`;
+}
+async function addPerson() {
+  const fname = document.getElementById('ap-fname').value.trim();
+  const lname = document.getElementById('ap-lname').value.trim();
+  if (!fname) { toast('First name is required.', 'err'); return; }
+  const person = {
+    id: 'local_' + Date.now(),
+    name: [fname, lname].filter(Boolean).join(' '),
+    email: document.getElementById('ap-email').value.trim(),
+    phone: document.getElementById('ap-phone').value.trim(),
+    company: document.getElementById('ap-company').value.trim(),
+    role: document.getElementById('ap-role').value.trim(),
+    type: document.getElementById('ap-type').value,
+    stage: document.getElementById('ap-stage').value,
+    score: 50,
+    notes: document.getElementById('ap-notes').value.trim(),
+    last_contact: new Date().toISOString().split('T')[0],
+    created_at: new Date().toISOString()
+  };
+  // Try Supabase
+  if (SB && currentUser?.id) {
+    try {
+      const { data, error } = await SB.from('clients').insert([{
+        name: person.name, email: person.email, phone: person.phone,
+        company: person.company, role: person.role, type: person.type,
+        stage: person.stage, notes: person.notes, health_score: 50,
+        user_id: currentUser.id
+      }]).select().single();
+      if (!error && data) person.id = data.id;
+    } catch(e) { console.warn('Supabase insert failed, using local:', e); }
+  }
+  APP.people.unshift(person);
+  closeModal('add-person-modal');
+  clearAddPersonForm();
+  toast('Person added ✓', 'ok');
+  renderPeople(); renderPipeline(); renderDashboard();
+}
+function clearAddPersonForm() {
+  ['ap-fname','ap-lname','ap-email','ap-phone','ap-company','ap-role','ap-notes'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+}
+
+// ══════════════════════════════════════════════
+// PERSON PANEL
+// ══════════════════════════════════════════════
+function openPerson(id) {
+  currentPersonId = id;
+  const p = APP.people.find(x => x.id === id);
+  if (!p) return;
+  const panel = document.getElementById('person-panel');
+  const initials = (p.name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('pp-avatar').textContent = initials;
+  document.getElementById('pp-avatar').style.background = avatarColor(p.name);
+  document.getElementById('pp-name').textContent = p.name;
+  document.getElementById('pp-meta').textContent = [p.role, p.company].filter(Boolean).join(' at ') || p.email || '—';
+  document.getElementById('pp-stage-label').textContent = 'Stage: ' + (p.stage || '—');
+  document.getElementById('pp-last-contact').textContent = 'Last contact: ' + formatDate(p.last_contact);
+  setScoreRing('pp-score-arc', 'pp-score-text', p.score ?? 50, 24, 150.8);
+  document.getElementById('pp-details').innerHTML = [
+    ['Email', p.email], ['Phone', p.phone], ['Company', p.company], ['Type', p.type]
+  ].filter(([,v]) => v).map(([k,v]) => `
+    <div><div style="font-size:.72rem;color:var(--t4);font-weight:600;">${k}</div>
+    <div style="font-size:.83rem;color:var(--t2);margin-top:1px;">${escH(v)}</div></div>`).join('');
+  // Interactions
+  const ints = (APP.interactions && APP.interactions[id]) || [];
+  document.getElementById('pp-interactions').innerHTML = ints.length
+    ? ints.map(i => interactionHTML(i)).join('')
+    : `<div style="font-size:.82rem;color:var(--t4);padding:8px 0;">No interactions logged yet.</div>`;
+  // Forms
+  const fms = (APP.forms || []).slice(0,2);
+  document.getElementById('pp-forms').innerHTML = fms.length
+    ? fms.map(f => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd);"><span style="font-size:.83rem;">📋 ${escH(f.name)}</span><span class="tag tag-t4" style="margin-left:auto">Not sent</span></div>`).join('')
+    : `<div style="font-size:.82rem;color:var(--t4);padding:8px 0;">No forms assigned.</div>`;
+  panel.classList.add('open');
+}
+function closePersonPanel() {
+  document.getElementById('person-panel').classList.remove('open');
+  currentPersonId = null;
+}
+function interactionHTML(i) {
+  const icons = { call:'📞', email:'✉', meeting:'🤝', note:'📝', whatsapp:'💬' };
+  const colors = { call:'var(--ac-lt)', email:'var(--tl-lt)', meeting:'var(--ok-lt)', note:'var(--sf3)', whatsapp:'var(--ok-lt)' };
+  return `<div class="interaction-item">
+    <div class="interaction-icon" style="background:${colors[i.type]||'var(--sf3)'}">${icons[i.type]||'•'}</div>
+    <div class="interaction-content">
+      <div class="interaction-type">${i.type?.toUpperCase()}</div>
+      <div class="interaction-note">${escH(i.notes)}</div>
+      <div class="interaction-time">${formatDate(i.date)}</div>
+    </div>
+  </div>`;
+}
+function setIntType(type, el) {
+  currentIntType = type;
+  document.querySelectorAll('.int-type-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+function openLogInteraction() {
+  document.getElementById('log-interaction-modal').classList.add('open');
+}
+async function saveInteraction() {
+  const notes = document.getElementById('int-notes').value.trim();
+  const date = document.getElementById('int-date').value;
+  if (!notes) { toast('Please add notes.', 'err'); return; }
+  const int = { id: 'int_' + Date.now(), type: currentIntType, notes, date };
+  if (!APP.interactions) APP.interactions = {};
+  if (!APP.interactions[currentPersonId]) APP.interactions[currentPersonId] = [];
+  APP.interactions[currentPersonId].unshift(int);
+  // Update last contact
+  const p = APP.people.find(x => x.id === currentPersonId);
+  if (p) { p.last_contact = date; }
+  closeModal('log-interaction-modal');
+  document.getElementById('int-notes').value = '';
+  toast('Interaction logged ✓', 'ok');
+  if (currentPersonId) openPerson(currentPersonId);
+}
+function deletePerson() {
+  if (!currentPersonId) return;
+  if (!confirm('Remove this person?')) return;
+  APP.people = APP.people.filter(p => p.id !== currentPersonId);
+  closePersonPanel();
+  toast('Person removed.', 'ok');
+  renderPeople(); renderPipeline(); renderDashboard();
+}
+function editPerson() { toast('Edit person — coming soon!'); }
+function assignForm() { toast('Assign form — coming soon!'); }
+
+// ══════════════════════════════════════════════
+// PIPELINE
+// ══════════════════════════════════════════════
+const STAGES = ['New','Contacted','Qualified','Proposal','Won','Lost'];
+function renderPipeline() {
+  const board = document.getElementById('pipeline-board');
+  board.style.gridTemplateColumns = `repeat(${STAGES.length}, 1fr)`;
+  board.innerHTML = STAGES.map(stage => {
+    const people = (APP.people || []).filter(p => p.stage === stage);
+    return `<div class="pipeline-col">
+      <div class="pipeline-col-header">
+        <span>${stage}</span><span class="tag tag-t4">${people.length}</span>
+      </div>
+      ${people.map(p => pipelineCardHTML(p)).join('')}
+      ${!people.length ? `<div style="font-size:.78rem;color:var(--t4);text-align:center;padding:12px 0;opacity:.6;">Empty</div>` : ''}
+    </div>`;
+  }).join('');
+}
+function pipelineCardHTML(p) {
+  const score = p.score ?? 50;
+  return `<div class="pipeline-card" onclick="openPerson('${p.id}')">
+    <div class="pipeline-card-name">${escH(p.name)}</div>
+    <div class="pipeline-card-meta">${escH(p.company||p.email||'—')}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+      <span class="tag tag-t4" style="font-size:.68rem;">${escH(p.type||'')}</span>
+      <span style="font-size:.78rem;font-weight:700;font-family:'DM Mono',monospace;color:${scoreColor(score)}">${score}</span>
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════
+// ONTOLOGY MAP
+// ══════════════════════════════════════════════
+let ontoCtx = null, ontoCanvas = null;
+const NODE_TYPES = {
+  person: { color: '#4A7FE0', icon: '👤', label: 'Person' },
+  organisation: { color: '#10B981', icon: '🏢', label: 'Organisation' },
+  form: { color: '#D97706', icon: '📋', label: 'Form' },
+  score: { color: '#EF4444', icon: '◎', label: 'Score' },
+  interaction: { color: '#0FB8D4', icon: '⇔', label: 'Interaction' },
+  action: { color: '#F59E0B', icon: '⚡', label: 'Action' },
+  milestone: { color: '#8B5CF6', icon: '🏁', label: 'Milestone' }
+};
+function initOntoCanvas() {
+  ontoCanvas = document.getElementById('onto-canvas');
+  if (!ontoCanvas) return;
+  const wrap = document.getElementById('onto-canvas-wrap');
+  ontoCanvas.width = wrap.offsetWidth;
+  ontoCanvas.height = wrap.offsetHeight;
+  ontoCtx = ontoCanvas.getContext('2d');
+  // Default nodes
+  if (!ontoNodes.length) {
+    ontoNodes = [
+      { id: 'n1', type: 'person', x: 200, y: 180, label: 'Person' },
+      { id: 'n2', type: 'interaction', x: 420, y: 120, label: 'Interaction' },
+      { id: 'n3', type: 'form', x: 420, y: 260, label: 'Form' },
+      { id: 'n4', type: 'score', x: 620, y: 180, label: 'Score' },
+      { id: 'n5', type: 'action', x: 820, y: 180, label: 'Action' },
+      { id: 'n6', type: 'organisation', x: 200, y: 320, label: 'Organisation' }
+    ];
+    ontoEdges = [
+      { from: 'n1', to: 'n2' }, { from: 'n1', to: 'n3' }, { from: 'n3', to: 'n4' },
+      { from: 'n4', to: 'n5' }, { from: 'n1', to: 'n6', label: 'belongs to' }
+    ];
+  }
+  drawOnto();
+  ontoCanvas.addEventListener('mousedown', ontoMouseDown);
+  ontoCanvas.addEventListener('mousemove', ontoMouseMove);
+  ontoCanvas.addEventListener('mouseup', ontoMouseUp);
+  ontoCanvas.addEventListener('touchstart', ontoTouchStart, { passive: false });
+  ontoCanvas.addEventListener('touchmove', ontoTouchMove, { passive: false });
+  ontoCanvas.addEventListener('touchend', ontoTouchEnd);
+  window.addEventListener('resize', () => {
+    if (ontoCanvas && ontoCanvas.parentElement) {
+      ontoCanvas.width = ontoCanvas.parentElement.offsetWidth;
+      ontoCanvas.height = ontoCanvas.parentElement.offsetHeight;
+      drawOnto();
+    }
+  });
+}
+function drawOnto() {
+  if (!ontoCtx || !ontoCanvas) return;
+  const ctx = ontoCtx;
+  const W = ontoCanvas.width, H = ontoCanvas.height;
+  ctx.clearRect(0, 0, W, H);
+  // Grid dots
+  ctx.fillStyle = darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+  for (let x = 0; x < W; x += 30) for (let y = 0; y < H; y += 30) {
+    ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI*2); ctx.fill();
+  }
+  // Edges
+  ontoEdges.forEach(e => {
+    const from = ontoNodes.find(n => n.id === e.from);
+    const to = ontoNodes.find(n => n.id === e.to);
+    if (!from || !to) return;
+    ctx.beginPath();
+    ctx.strokeStyle = darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    // Arrow
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    const r = 30;
+    const ax = to.x - r * Math.cos(angle), ay = to.y - r * Math.sin(angle);
+    ctx.beginPath();
+    ctx.fillStyle = darkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)';
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 10*Math.cos(angle-0.4), ay - 10*Math.sin(angle-0.4));
+    ctx.lineTo(ax - 10*Math.cos(angle+0.4), ay - 10*Math.sin(angle+0.4));
+    ctx.closePath(); ctx.fill();
+    // Edge label
+    if (e.label) {
+      ctx.font = '10px DM Sans, sans-serif';
+      ctx.fillStyle = darkMode ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+      ctx.textAlign = 'center';
+      ctx.fillText(e.label, (from.x+to.x)/2, (from.y+to.y)/2 - 6);
+    }
+  });
+  // Nodes
+  ontoNodes.forEach(n => {
+    const t = NODE_TYPES[n.type] || NODE_TYPES.person;
+    const r = 28;
+    // Shadow
+    ctx.shadowColor = darkMode ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
+    ctx.shadowBlur = 12;
+    // Circle
+    ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI*2);
+    ctx.fillStyle = t.color + '22';
+    ctx.fill();
+    ctx.strokeStyle = t.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // Icon
+    ctx.font = '16px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t.icon, n.x, n.y - 1);
+    // Label
+    ctx.font = '11px DM Sans, sans-serif';
+    ctx.fillStyle = darkMode ? 'rgba(240,240,248,0.85)' : 'rgba(17,17,17,0.8)';
+    ctx.textBaseline = 'top';
+    ctx.fillText(n.label || t.label, n.x, n.y + r + 4);
+  });
+}
+function getOntoNode(x, y) {
+  return ontoNodes.find(n => Math.hypot(n.x - x, n.y - y) < 32);
+}
+function ontoMouseDown(e) {
+  const { x, y } = canvasPos(e);
+  ontoDragging = getOntoNode(x, y);
+  ontoLastMouse = { x, y };
+}
+function ontoMouseMove(e) {
+  const { x, y } = canvasPos(e);
+  if (ontoDragging) {
+    ontoDragging.x += x - ontoLastMouse.x;
+    ontoDragging.y += y - ontoLastMouse.y;
+    drawOnto();
+  }
+  ontoLastMouse = { x, y };
+}
+function ontoMouseUp() { ontoDragging = null; }
+function ontoTouchStart(e) { e.preventDefault(); if (e.touches.length === 1) ontoMouseDown(e.touches[0]); }
+function ontoTouchMove(e) { e.preventDefault(); if (e.touches.length === 1) ontoMouseMove(e.touches[0]); }
+function ontoTouchEnd() { ontoDragging = null; }
+function canvasPos(e) {
+  const rect = ontoCanvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+function ontoPaletteDrag(e, type) { ontoPaletteDragType = type; }
+function ontoCanvasDrop(e) {
+  const rect = ontoCanvas.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  if (ontoPaletteDragType) {
+    const t = NODE_TYPES[ontoPaletteDragType];
+    ontoNodes.push({ id: 'n' + Date.now(), type: ontoPaletteDragType, x, y, label: t.label });
+    drawOnto();
+    ontoPaletteDragType = null;
+  }
+}
+function ontoAddNode() {
+  const type = Object.keys(NODE_TYPES)[Math.floor(Math.random()*Object.keys(NODE_TYPES).length)];
+  const t = NODE_TYPES[type];
+  ontoNodes.push({ id: 'n' + Date.now(), type, x: 200 + Math.random()*400, y: 100 + Math.random()*300, label: t.label });
+  drawOnto();
+}
+function ontoFit() {
+  if (!ontoNodes.length) return;
+  const xs = ontoNodes.map(n=>n.x), ys = ontoNodes.map(n=>n.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const W = ontoCanvas.width, H = ontoCanvas.height;
+  const scaleX = W / (maxX - minX + 120), scaleY = H / (maxY - minY + 120);
+  const scale = Math.min(scaleX, scaleY, 2);
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  ontoNodes.forEach(n => {
+    n.x = W/2 + (n.x - cx) * scale;
+    n.y = H/2 + (n.y - cy) * scale;
+  });
+  drawOnto();
+}
+
+// ══════════════════════════════════════════════
+// SCORING ENGINE
+// ══════════════════════════════════════════════
+function renderDimensions() {
+  const list = document.getElementById('dimensions-list');
+  if (!list) return;
+  list.innerHTML = APP.dimensions.map((d,i) => `
+    <div class="dimension-row">
+      <div class="dim-color" style="background:${d.color}"></div>
+      <div class="dim-name">${escH(d.name)}</div>
+      <input type="range" class="weight-slider" min="0" max="100" value="${d.weight}"
+        style="accent-color:${d.color}" oninput="updateDimWeight(${i},this.value)">
+      <div class="dim-weight" id="dw-${i}">${d.weight}%</div>
+      <button class="field-remove" onclick="removeDimension(${i})">✕</button>
+    </div>`).join('');
+  renderDimScoreInputs();
+  updateGauge();
+}
+function renderDimScoreInputs() {
+  const el = document.getElementById('dim-score-inputs');
+  if (!el) return;
+  el.innerHTML = APP.dimensions.map((d,i) => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+      <div class="dim-color" style="background:${d.color};width:8px;height:8px;"></div>
+      <span style="font-size:.78rem;flex:1;">${escH(d.name)}</span>
+      <input type="range" class="weight-slider" min="0" max="100" value="${d.score}"
+        style="width:90px;accent-color:${d.color}" oninput="updateDimScore(${i},this.value)">
+      <span style="font-size:.75rem;font-family:'DM Mono',monospace;width:24px;">${d.score}</span>
+    </div>`).join('');
+}
+function updateDimWeight(i, v) {
+  APP.dimensions[i].weight = parseInt(v);
+  document.getElementById('dw-' + i).textContent = v + '%';
+  updateGauge();
+}
+function updateDimScore(i, v) {
+  APP.dimensions[i].score = parseInt(v);
+  updateGauge();
+}
+function updateGauge() {
+  const total = APP.dimensions.reduce((s,d) => s + d.weight, 0) || 100;
+  const score = Math.round(APP.dimensions.reduce((s,d) => s + (d.score * d.weight / total), 0));
+  document.getElementById('gauge-score-val').textContent = score;
+  const arc = document.getElementById('gauge-arc');
+  if (arc) {
+    arc.style.strokeDashoffset = 314 - (314 * score / 100);
+    arc.style.stroke = scoreColor(score);
+  }
+}
+function addDimension() {
+  APP.dimensions.push({ id: Date.now(), name: 'New dimension', weight: 10, color: '#8B5CF6', score: 50 });
+  renderDimensions();
+}
+function removeDimension(i) {
+  APP.dimensions.splice(i, 1);
+  renderDimensions();
+}
+function saveDimensions() {
+  localStorage.setItem('il_dimensions', JSON.stringify(APP.dimensions));
+  toast('Scoring dimensions saved ✓', 'ok');
+}
+
+// ══════════════════════════════════════════════
+// FORMFLOW
+// ══════════════════════════════════════════════
+let activeBuildFormId = null;
+function renderForms() {
+  const el = document.getElementById('forms-list');
+  if (!el) return;
+  if (!APP.forms.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No forms yet</div><div class="empty-desc">Create forms that feed directly into people's health scores and pipeline stages.</div><button class="btn btn-primary" onclick="openModal('new-form-modal')">＋ New form</button></div>`;
+    return;
+  }
+  el.innerHTML = APP.forms.map(f => `
+    <div class="card card-pad" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;">
+          <div style="font-size:.9rem;font-weight:600;">${escH(f.name)}</div>
+          <div style="font-size:.78rem;color:var(--t3);margin-top:2px;">${escH(f.description||'')}</div>
+        </div>
+        <span class="tag ${f.linked_to === 'person' ? 'tag-ac' : f.linked_to === 'pipeline' ? 'tag-ok' : 'tag-t4'}">${escH(f.linked_to||'standalone')}</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-secondary btn-sm" onclick="openFormBuilder('${f.id}')">✏ Edit</button>
+        <button class="btn btn-secondary btn-sm" onclick="copyShareLink('${f.id}')">🔗 Share link</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteForm('${f.id}')">Delete</button>
+      </div>
+    </div>`).join('');
+}
+function createForm() {
+  const name = document.getElementById('nf-name').value.trim();
+  if (!name) { toast('Form name is required.', 'err'); return; }
+  const form = {
+    id: 'form_' + Date.now(),
+    name,
+    description: document.getElementById('nf-desc').value.trim(),
+    linked_to: document.getElementById('nf-link').value,
+    fields: [],
+    created_at: new Date().toISOString()
+  };
+  APP.forms.unshift(form);
+  closeModal('new-form-modal');
+  document.getElementById('nf-name').value = '';
+  document.getElementById('nf-desc').value = '';
+  toast('Form created ✓', 'ok');
+  renderForms();
+  openFormBuilder(form.id);
+}
+function openFormBuilder(id) {
+  activeBuildFormId = id;
+  const f = APP.forms.find(x => x.id === id);
+  if (!f) return;
+  droppedFields = f.fields ? [...f.fields] : [];
+  document.getElementById('form-builder-title').textContent = f.name;
+  document.getElementById('form-builder-panel').style.display = '';
+  document.getElementById('forms-list-wrap').style.gridTemplateColumns = '1fr 1fr';
+  renderBuilderFields();
+}
+function closeFormBuilder() {
+  document.getElementById('form-builder-panel').style.display = 'none';
+  activeBuildFormId = null;
+}
+function addField(type) {
+  const labels = { short_text: 'Short text', long_text: 'Long text', number: 'Number', select: 'Dropdown', rating: 'Rating', yes_no: 'Yes / No', date: 'Date' };
+  droppedFields.push({ id: 'fld_' + Date.now(), type, label: labels[type] || type });
+  renderBuilderFields();
+}
+function renderBuilderFields() {
+  const area = document.getElementById('form-builder-area');
+  if (!droppedFields.length) {
+    area.innerHTML = `<div class="drop-zone" id="form-drop-zone">Drop fields here, or click a type above to add</div>`;
+    return;
+  }
+  area.innerHTML = droppedFields.map((f,i) => `
+    <div class="builder-field">
+      <span style="color:var(--t4);cursor:grab;font-size:14px;">⣿</span>
+      <span class="builder-field-label">${escH(f.label)}</span>
+      <span class="builder-field-type">${f.type}</span>
+      <button class="field-remove" onclick="removeField(${i})">✕</button>
+    </div>`).join('');
+}
+function removeField(i) { droppedFields.splice(i, 1); renderBuilderFields(); }
+function saveForm() {
+  if (!activeBuildFormId) return;
+  const f = APP.forms.find(x => x.id === activeBuildFormId);
+  if (f) { f.fields = [...droppedFields]; }
+  toast('Form saved ✓', 'ok');
+}
+function deleteForm(id) {
+  if (!confirm('Delete this form?')) return;
+  APP.forms = APP.forms.filter(f => f.id !== id);
+  if (activeBuildFormId === id) closeFormBuilder();
+  renderForms();
+  toast('Form deleted.', 'ok');
+}
+function copyShareLink(id) {
+  const link = `${window.location.origin}?form=${id}`;
+  navigator.clipboard?.writeText(link).then(() => toast('Share link copied ✓', 'ok')).catch(() => toast(link));
+}
+
+// ══════════════════════════════════════════════
+// AUTOMATION
+// ══════════════════════════════════════════════
+const RULE_TEMPLATES = [
+  { name: 'Low score alert', trigger: 'score_below', value: '40', action: 'neo_notify', action_val: 'Score dropped below 40', icon: '⚠' },
+  { name: 'No contact follow-up', trigger: 'no_contact', value: '14', action: 'send_email', action_val: 'Checking in with you', icon: '📅' },
+  { name: 'Welcome won client', trigger: 'stage_change', value: 'Won', action: 'send_email', action_val: 'Welcome to Insight Layer!', icon: '🎉' },
+  { name: 'Assign onboarding form', trigger: 'stage_change', value: 'Won', action: 'assign_form', action_val: 'Onboarding Checklist', icon: '📋' }
+];
+function renderRules() {
+  const el = document.getElementById('rules-list');
+  if (!el) return;
+  if (!APP.rules.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚡</div><div class="empty-title">No rules yet</div><div class="empty-desc">Rules run automatically so you never miss a follow-up or let a client slip away.</div></div>`;
+  } else {
+    el.innerHTML = APP.rules.map((r,i) => `
+      <div class="rule-row">
+        <label class="rule-toggle">
+          <input type="checkbox" ${r.enabled ? 'checked' : ''} onchange="toggleRule(${i})">
+          <div class="rule-slider"></div>
+        </label>
+        <div class="rule-desc">
+          <span style="font-weight:600;">${escH(r.name)}</span>
+          <span style="color:var(--t3);font-size:.8rem;margin-left:8px;">If ${triggerLabel(r.trigger)} ${escH(r.value)} → ${actionLabel(r.action)}</span>
+        </div>
+        <span class="rule-badge">${r.enabled ? 'Active' : 'Off'}</span>
+        <button class="field-remove" onclick="deleteRule(${i})">✕</button>
+      </div>`).join('');
+  }
+  // Templates
+  const tEl = document.getElementById('rule-templates');
+  if (tEl) {
+    tEl.innerHTML = RULE_TEMPLATES.map(t => `
+      <div class="card card-pad" style="cursor:pointer;" onclick="addRuleFromTemplate(${JSON.stringify(t).replace(/"/g,'&quot;')})">
+        <div style="font-size:1.2rem;margin-bottom:8px;">${t.icon}</div>
+        <div style="font-size:.85rem;font-weight:600;">${escH(t.name)}</div>
+        <div style="font-size:.75rem;color:var(--t3);margin-top:3px;">If ${triggerLabel(t.trigger)} ${escH(t.value)} → ${actionLabel(t.action)}</div>
+      </div>`).join('');
+  }
+}
+function triggerLabel(t) { return { score_below:'score <', no_contact:'no contact >', stage_change:'stage =', form_submitted:'form submitted' }[t] || t; }
+function actionLabel(a) { return { send_email:'send email', move_stage:'move stage', assign_form:'assign form', neo_notify:'Neo alert' }[a] || a; }
+function toggleRule(i) { APP.rules[i].enabled = !APP.rules[i].enabled; saveRules(); renderRules(); }
+function deleteRule(i) { APP.rules.splice(i, 1); saveRules(); renderRules(); toast('Rule deleted.', 'ok'); }
+function saveRules() { localStorage.setItem('il_rules', JSON.stringify(APP.rules)); }
+function saveRule() {
+  const name = document.getElementById('nr-name').value.trim();
+  if (!name) { toast('Rule name is required.', 'err'); return; }
+  const rule = {
+    id: 'r_' + Date.now(), name,
+    trigger: document.getElementById('nr-trigger').value,
+    value: document.getElementById('nr-value').value.trim(),
+    action: document.getElementById('nr-action').value,
+    action_val: document.getElementById('nr-action-val').value.trim(),
+    enabled: true
+  };
+  APP.rules.push(rule);
+  saveRules();
+  closeModal('new-rule-modal');
+  document.getElementById('nr-name').value = '';
+  toast('Rule saved ✓', 'ok');
+  renderRules();
+}
+function addRuleFromTemplate(t) {
+  APP.rules.push({ id: 'r_' + Date.now(), name: t.name, trigger: t.trigger, value: t.value, action: t.action, action_val: t.action_val, enabled: true });
+  saveRules();
+  renderRules();
+  toast('Rule added from template ✓', 'ok');
+}
+
+// ══════════════════════════════════════════════
+// INVOICES
+// ══════════════════════════════════════════════
+function renderInvoices() {
+  const invs = APP.invoices || [];
+  const total = invs.reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+  const paid = invs.filter(i => i.status === 'paid').reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+  const outstanding = invs.filter(i => i.status === 'pending').reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+  const overdue = invs.filter(i => i.status === 'overdue').reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+  document.getElementById('inv-total').textContent = 'R' + total.toLocaleString();
+  document.getElementById('inv-paid').textContent = 'R' + paid.toLocaleString();
+  document.getElementById('inv-outstanding').textContent = 'R' + outstanding.toLocaleString();
+  document.getElementById('inv-overdue').textContent = 'R' + overdue.toLocaleString();
+  const tbody = document.getElementById('invoices-tbody');
+  if (!invs.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--t4);">No invoices yet. Create your first one.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = invs.map(inv => `
+    <tr>
+      <td><span style="font-weight:600;">${escH(inv.client||'—')}</span></td>
+      <td style="color:var(--t3);">${escH(inv.description||'—')}</td>
+      <td><span style="font-weight:700;font-family:'DM Mono',monospace;">R${parseFloat(inv.amount||0).toLocaleString()}</span></td>
+      <td style="color:var(--t3);">${formatDate(inv.due_date)}</td>
+      <td><span class="status-pill status-${inv.status||'draft'}">${inv.status||'draft'}</span></td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          ${inv.status !== 'paid' ? `<button class="btn btn-secondary btn-sm" onclick="markPaid('${inv.id}')">Mark paid</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteInvoice('${inv.id}')">✕</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+async function saveInvoice() {
+  const client = document.getElementById('ni-client').value.trim();
+  const amount = document.getElementById('ni-amount').value;
+  if (!client || !amount) { toast('Client and amount required.', 'err'); return; }
+  const inv = {
+    id: 'inv_' + Date.now(),
+    client, amount: parseFloat(amount),
+    description: document.getElementById('ni-desc').value.trim(),
+    issue_date: document.getElementById('ni-issue').value,
+    due_date: document.getElementById('ni-due').value,
+    status: document.getElementById('ni-status').value
+  };
+  if (SB && currentUser?.id) {
+    try {
+      const { data, error } = await SB.from('invoices').insert([{ ...inv, user_id: currentUser.id }]).select().single();
+      if (!error && data) inv.id = data.id;
+    } catch(e) {}
+  }
+  APP.invoices.unshift(inv);
+  closeModal('new-invoice-modal');
+  ['ni-client','ni-amount','ni-desc'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  toast('Invoice saved ✓', 'ok');
+  renderInvoices();
+}
+function markPaid(id) {
+  const inv = APP.invoices.find(i => i.id === id);
+  if (inv) { inv.status = 'paid'; renderInvoices(); toast('Marked as paid ✓', 'ok'); }
+}
+function deleteInvoice(id) {
+  if (!confirm('Delete this invoice?')) return;
+  APP.invoices = APP.invoices.filter(i => i.id !== id);
+  renderInvoices(); toast('Invoice deleted.', 'ok');
+}
+
+// ══════════════════════════════════════════════
+// DATA SHARE
+// ══════════════════════════════════════════════
+function renderDataShare() {
+  const el = document.getElementById('embed-options');
+  if (!el) return;
+  const options = [
+    { icon: '👤', label: 'Person health badge', desc: 'Live score for any person', code: `<iframe src="${window.location.origin}/embed/score/PERSON_ID" width="200" height="80"></iframe>` },
+    { icon: '📋', label: 'Form embed', desc: 'Embed a form on any site', code: `<iframe src="${window.location.origin}/embed/form/FORM_ID" width="100%" height="500"></iframe>` },
+    { icon: '⟶', label: 'Pipeline board', desc: 'Live kanban for your team', code: `<iframe src="${window.location.origin}/embed/pipeline" width="100%" height="400"></iframe>` }
+  ];
+  el.innerHTML = options.map(o => `
+    <div class="card card-pad" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="font-size:1.2rem;">${o.icon}</span>
+        <div><div style="font-size:.88rem;font-weight:600;">${o.label}</div><div style="font-size:.75rem;color:var(--t3);">${o.desc}</div></div>
+      </div>
+      <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:7px;padding:8px;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--t3);word-break:break-all;">${escH(o.code)}</div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="navigator.clipboard?.writeText(${JSON.stringify(o.code)}).then(()=>toast('Copied ✓','ok'))">Copy</button>
+    </div>`).join('');
+}
+function genApiKey() {
+  apiKey = 'il_' + Array.from(crypto.getRandomValues(new Uint8Array(20))).map(b=>b.toString(16).padStart(2,'0')).join('');
+  localStorage.setItem('il_api_key', apiKey);
+  document.getElementById('api-key-display').textContent = apiKey;
+  toast('API key generated ✓', 'ok');
+}
+function copyApiKey() {
+  if (!apiKey) { toast('Generate a key first.', 'err'); return; }
+  navigator.clipboard?.writeText(apiKey).then(() => toast('API key copied ✓', 'ok'));
+}
+
+// ══════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════
+function saveSupabaseConfig() {
+  const url = document.getElementById('sb-url-input').value.trim();
+  const key = document.getElementById('sb-key-input').value.trim();
+  if (!url || !key) { toast('Both URL and key required.', 'err'); return; }
+  localStorage.setItem('il_sb_url', url);
+  localStorage.setItem('il_sb_key', key);
+  SUPABASE_URL = url; SUPABASE_KEY = key;
+  try { SB = supabase.createClient(url, key); toast('Supabase reconnected ✓', 'ok'); }
+  catch(e) { toast('Connection failed: ' + e.message, 'err'); }
+}
+async function saveProfile() {
+  const name = document.getElementById('ep-name').value.trim();
+  if (!name) return;
+  if (SB && currentUser) {
+    try {
+      await SB.auth.updateUser({ data: { display_name: name } });
+      currentUser.user_metadata = { ...currentUser.user_metadata, display_name: name };
+    } catch(e) {}
+  }
+  if (currentUser) currentUser.user_metadata = { ...currentUser.user_metadata, display_name: name };
+  updateUserChip();
+  closeModal('edit-profile-modal');
+  toast('Profile updated ✓', 'ok');
+}
+
+// ══════════════════════════════════════════════
+// NEO AI
+// ══════════════════════════════════════════════
+function toggleNeo() {
+  neoOpen = !neoOpen;
+  document.getElementById('neo-panel').classList.toggle('open', neoOpen);
+  document.getElementById('neo-fab').classList.toggle('hidden', neoOpen);
+  document.getElementById('neo-toggle-btn').classList.toggle('active', neoOpen);
+  if (neoOpen) setTimeout(() => document.getElementById('neo-input').focus(), 250);
+}
+function neoKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); neoSend(); }
+}
+async function neoSend() {
+  const input = document.getElementById('neo-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  appendNeoMsg('user', msg);
+  const thinking = appendNeoMsg('assistant', '…', true);
+  try {
+    const context = buildNeoContext();
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are Neo, the AI assistant for Insight Layer — a B2B relationship intelligence platform. You help with CRM insights, people health scores, pipeline analysis, form design, and automation rules. Be concise and direct. Current data: ${context}`,
+        messages: [{ role: 'user', content: msg }]
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.find(c => c.type === 'text')?.text || 'Unable to respond right now.';
+    thinking.remove();
+    appendNeoMsg('assistant', reply);
+  } catch(e) {
+    thinking.remove();
+    appendNeoMsg('assistant', 'Network error — are you connected?');
+  }
+}
+function buildNeoContext() {
+  const p = APP.people || [];
+  const atRisk = p.filter(x => (x.score||50) < 45).map(x => x.name);
+  return JSON.stringify({
+    people_count: p.length,
+    avg_score: p.length ? Math.round(p.reduce((s,x)=>s+(x.score||50),0)/p.length) : 0,
+    at_risk: atRisk,
+    pipeline_stages: STAGES.map(s => ({ stage: s, count: p.filter(x=>x.stage===s).length })),
+    forms: (APP.forms||[]).map(f=>f.name),
+    rules: (APP.rules||[]).filter(r=>r.enabled).map(r=>r.name),
+    invoices_outstanding: (APP.invoices||[]).filter(i=>i.status!=='paid').length
+  });
+}
+function appendNeoMsg(role, text, isThinking = false) {
+  const msgs = document.getElementById('neo-msgs');
+  const div = document.createElement('div');
+  div.className = 'neo-msg ' + role + (isThinking ? ' thinking' : '');
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+function escH(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function formatDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' }); }
+  catch(e) { return d; }
+}
+function scoreColor(s) {
+  if (s >= 75) return 'var(--ok)';
+  if (s >= 50) return 'var(--wn)';
+  return 'var(--dg)';
+}
+function avatarColor(name) {
+  const colors = ['#4A7FE0','#10B981','#D97706','#EF4444','#8B5CF6','#0FB8D4','#F59E0B'];
+  let h = 0; for (let c of (name||'')) h = ((h << 5) - h + c.charCodeAt(0)) | 0;
+  return colors[Math.abs(h) % colors.length];
+}
+function setScoreRing(arcId, textId, score, r, dashTotal) {
+  const arc = document.getElementById(arcId);
+  const txt = document.getElementById(textId);
+  if (arc) { arc.style.strokeDashoffset = dashTotal - (dashTotal * score / 100); arc.style.stroke = scoreColor(score); }
+  if (txt) { txt.textContent = score; txt.style.color = scoreColor(score); }
+}
+
+// ══════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
