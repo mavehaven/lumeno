@@ -1,0 +1,2931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LumenOS · Insight Layer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════
+   DESIGN SYSTEM — LumenOS Sigma
+   Aesthetic: Refined dark-tech OS. Obsidian + amber.
+   ═══════════════════════════════════════════════════════ */
+:root {
+  --bg0: #09090b;
+  --bg1: #0f0f12;
+  --bg2: #18181c;
+  --bg3: #222228;
+  --bg4: #2c2c35;
+  --line: rgba(255,255,255,0.06);
+  --line2: rgba(255,255,255,0.11);
+  --text1: #f0f0f5;
+  --text2: #9898a8;
+  --text3: #5c5c70;
+  --amber: #f59e0b;
+  --amber2: #fbbf24;
+  --amber-dim: rgba(245,158,11,0.15);
+  --amber-glow: rgba(245,158,11,0.08);
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.12);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,0.12);
+  --blue: #60a5fa;
+  --blue-dim: rgba(96,165,250,0.12);
+  --purple: #a78bfa;
+  --purple-dim: rgba(167,139,250,0.12);
+  --teal: #2dd4bf;
+  --teal-dim: rgba(45,212,191,0.12);
+  --sidebar-w: 220px;
+  --sidebar-w-col: 60px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.5);
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+  --transition: 0.18s cubic-bezier(0.4,0,0.2,1);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: var(--bg0); color: var(--text1); font-family: var(--font-body); font-size: 14px; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ══════════════════════════════
+   LAYOUT
+   ══════════════════════════════ */
+#os-shell { display: flex; height: 100vh; }
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  height: 100vh;
+  background: var(--bg1);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--transition), min-width var(--transition);
+  overflow: hidden;
+  position: relative;
+  z-index: 50;
+}
+#sidebar.collapsed { width: var(--sidebar-w-col); min-width: var(--sidebar-w-col); }
+
+.sidebar-logo {
+  padding: 18px 16px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  height: 60px;
+  flex-shrink: 0;
+}
+.logo-img-full { height: 28px; object-fit: contain; transition: opacity var(--transition); }
+.logo-img-collapsed { height: 28px; width: 28px; object-fit: contain; display: none; }
+#sidebar.collapsed .logo-img-full { display: none; }
+#sidebar.collapsed .logo-img-collapsed { display: block; }
+
+.sidebar-toggle {
+  position: absolute;
+  right: -12px;
+  top: 20px;
+  width: 22px;
+  height: 22px;
+  background: var(--bg3);
+  border: 1px solid var(--line2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 60;
+  transition: background var(--transition);
+  color: var(--text2);
+  font-size: 10px;
+}
+.sidebar-toggle:hover { background: var(--bg4); color: var(--text1); }
+
+.sidebar-section {
+  padding: 10px 8px 4px;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+#sidebar.collapsed .sidebar-section { opacity: 0; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  margin: 1px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+  color: var(--text2);
+  font-size: 13.5px;
+  font-weight: 500;
+  position: relative;
+}
+.nav-item:hover { background: var(--bg3); color: var(--text1); }
+.nav-item.active { background: var(--amber-dim); color: var(--amber); }
+.nav-item.active .nav-icon { color: var(--amber); }
+.nav-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
+.nav-label { white-space: nowrap; overflow: hidden; transition: opacity var(--transition), max-width var(--transition); max-width: 180px; }
+#sidebar.collapsed .nav-label { opacity: 0; max-width: 0; }
+.nav-badge { margin-left: auto; background: var(--amber); color: var(--bg0); font-size: 10px; font-weight: 700; border-radius: 20px; padding: 1px 6px; font-family: var(--font-mono); flex-shrink: 0; }
+#sidebar.collapsed .nav-badge { display: none; }
+
+.nav-lock {
+  margin-left: auto;
+  color: var(--text3);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+#sidebar.collapsed .nav-lock { display: none; }
+
+.sidebar-bottom {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  padding: 8px;
+}
+
+.user-pill {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.user-pill:hover { background: var(--bg3); }
+.user-avatar {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: var(--amber-dim);
+  border: 1px solid var(--amber);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: var(--amber);
+  font-family: var(--font-head);
+  flex-shrink: 0;
+}
+.user-info { overflow: hidden; }
+.user-name { font-size: 12.5px; font-weight: 600; color: var(--text1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-role { font-size: 10.5px; color: var(--text3); }
+#sidebar.collapsed .user-info { display: none; }
+
+/* ── MAIN AREA ── */
+#main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── TOPBAR ── */
+#topbar {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--line);
+  gap: 12px;
+  flex-shrink: 0;
+}
+.topbar-title { font-family: var(--font-head); font-size: 16px; font-weight: 700; color: var(--text1); }
+.topbar-breadcrumb { color: var(--text3); font-size: 13px; }
+.topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn-ghost { background: transparent; border-color: var(--line2); color: var(--text2); }
+.btn-ghost:hover { background: var(--bg3); color: var(--text1); border-color: var(--line2); }
+.btn-amber { background: var(--amber); color: var(--bg0); border-color: var(--amber); font-weight: 700; }
+.btn-amber:hover { background: var(--amber2); }
+.btn-danger { background: var(--red-dim); color: var(--red); border-color: rgba(239,68,68,0.25); }
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-icon { padding: 7px; }
+
+/* ── APP FRAME ── */
+#app-frame { flex: 1; overflow: hidden; background: var(--bg0); }
+.app-pane { height: 100%; display: none; overflow-y: auto; padding: 24px; }
+.app-pane.active { display: block; }
+
+/* ══════════════════════════════
+   AUTH SCREEN
+   ══════════════════════════════ */
+#auth-screen {
+  position: fixed; inset: 0;
+  background: var(--bg0);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+}
+.auth-card {
+  background: var(--bg1);
+  border: 1px solid var(--line2);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  width: 360px;
+  box-shadow: var(--shadow);
+}
+.auth-logo { text-align: center; margin-bottom: 28px; }
+.auth-logo img { height: 36px; }
+.auth-title { font-family: var(--font-head); font-size: 22px; font-weight: 800; text-align: center; margin-bottom: 6px; }
+.auth-sub { color: var(--text3); text-align: center; font-size: 13px; margin-bottom: 28px; }
+.auth-tabs { display: flex; margin-bottom: 20px; gap: 2px; background: var(--bg2); border-radius: 8px; padding: 3px; }
+.auth-tab { flex: 1; text-align: center; padding: 7px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all var(--transition); }
+.auth-tab.active { background: var(--bg4); color: var(--text1); }
+
+/* ══════════════════════════════
+   FORM CONTROLS
+   ══════════════════════════════ */
+.form-group { margin-bottom: 14px; }
+.form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 5px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; }
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  color: var(--text1);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-glow);
+}
+.form-select option { background: var(--bg2); }
+.form-textarea { resize: vertical; min-height: 80px; }
+.form-input::placeholder, .form-textarea::placeholder { color: var(--text3); }
+
+/* ══════════════════════════════
+   CARDS & PANELS
+   ══════════════════════════════ */
+.card {
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: border-color var(--transition);
+}
+.card:hover { border-color: var(--line2); }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.card-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text1); }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px,1fr)); gap: 14px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before { content:''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent, var(--amber)); }
+.stat-label { font-size: 11px; color: var(--text3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+.stat-value { font-family: var(--font-head); font-size: 28px; font-weight: 800; color: var(--text1); line-height: 1; margin-bottom: 4px; }
+.stat-sub { font-size: 11.5px; color: var(--text3); }
+
+/* ══════════════════════════════
+   TABLES
+   ══════════════════════════════ */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text2);
+  vertical-align: middle;
+}
+.data-table tr:hover td { background: var(--bg2); color: var(--text1); }
+.data-table tr:last-child td { border-bottom: none; }
+
+/* ══════════════════════════════
+   BADGES / PILLS
+   ══════════════════════════════ */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 600; font-family: var(--font-mono);
+}
+.badge-green { background: var(--green-dim); color: var(--green); }
+.badge-amber { background: var(--amber-dim); color: var(--amber); }
+.badge-red { background: var(--red-dim); color: var(--red); }
+.badge-blue { background: var(--blue-dim); color: var(--blue); }
+.badge-purple { background: var(--purple-dim); color: var(--purple); }
+.badge-teal { background: var(--teal-dim); color: var(--teal); }
+.badge-gray { background: var(--bg3); color: var(--text2); }
+
+/* ══════════════════════════════
+   MODAL
+   ══════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg1);
+  border: 1px solid var(--line2);
+  border-radius: var(--radius-lg);
+  width: min(500px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+  animation: modalIn 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.modal-lg { width: min(700px, 100%); }
+.modal-xl { width: min(900px, 100%); }
+@keyframes modalIn { from { opacity:0; transform: scale(0.92) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
+.modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+.modal-title { font-family: var(--font-head); font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 18px; padding: 4px; border-radius: 6px; transition: all var(--transition); }
+.modal-close:hover { background: var(--bg3); color: var(--text1); }
+.modal-body { padding: 20px 24px; }
+.modal-footer { padding: 14px 24px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ══════════════════════════════
+   TABS
+   ══════════════════════════════ */
+.tab-bar { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+.tab-btn {
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text3);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  position: relative;
+  transition: color var(--transition);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text2); }
+.tab-btn.active { color: var(--amber); border-bottom-color: var(--amber); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ══════════════════════════════
+   NEO ASSISTANT PANEL
+   ══════════════════════════════ */
+#neo-panel {
+  position: fixed;
+  right: 0; top: 0; bottom: 0;
+  width: 380px;
+  background: var(--bg1);
+  border-left: 1px solid var(--line2);
+  display: flex; flex-direction: column;
+  z-index: 80;
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+}
+#neo-panel.open { transform: translateX(0); }
+.neo-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.neo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.neo-title { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text1); }
+.neo-model-sel { margin-left: auto; background: var(--bg3); border: 1px solid var(--line2); color: var(--text2); border-radius: 6px; padding: 4px 8px; font-size: 11.5px; font-family: var(--font-mono); cursor: pointer; outline: none; }
+.neo-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; margin-left: 6px; }
+.neo-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.neo-msg {
+  max-width: 86%;
+  padding: 10px 13px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.neo-msg.user { background: var(--amber-dim); color: var(--text1); align-self: flex-end; border-radius: 12px 12px 3px 12px; border: 1px solid rgba(245,158,11,0.2); }
+.neo-msg.ai { background: var(--bg2); color: var(--text2); align-self: flex-start; border-radius: 12px 12px 12px 3px; border: 1px solid var(--line); }
+.neo-msg.ai strong { color: var(--amber); }
+.neo-footer { padding: 12px 14px; border-top: 1px solid var(--line); flex-shrink: 0; }
+.neo-input-row { display: flex; gap: 8px; align-items: flex-end; }
+.neo-textarea {
+  flex: 1; background: var(--bg2); border: 1px solid var(--line2); border-radius: 10px;
+  color: var(--text1); font-family: var(--font-body); font-size: 13px;
+  padding: 9px 12px; resize: none; outline: none; max-height: 120px; min-height: 40px;
+  transition: border-color var(--transition);
+}
+.neo-textarea:focus { border-color: var(--amber); }
+.neo-send { background: var(--amber); color: var(--bg0); border: none; border-radius: 8px; padding: 9px 14px; font-weight: 700; cursor: pointer; font-size: 13px; flex-shrink: 0; transition: background var(--transition); }
+.neo-send:hover { background: var(--amber2); }
+
+/* ── Neo toggle float button ── */
+#neo-float {
+  position: fixed;
+  right: 20px; bottom: 20px;
+  width: 48px; height: 48px;
+  background: var(--amber);
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 4px 20px rgba(245,158,11,0.4);
+  z-index: 79;
+  transition: all var(--transition);
+}
+#neo-float:hover { transform: scale(1.08); background: var(--amber2); }
+
+/* ══════════════════════════════
+   DASHBOARD (HOME)
+   ══════════════════════════════ */
+.dash-greeting { margin-bottom: 24px; }
+.dash-greeting h1 { font-family: var(--font-head); font-size: 26px; font-weight: 800; color: var(--text1); margin-bottom: 4px; }
+.dash-greeting p { color: var(--text3); font-size: 14px; }
+
+.apps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.app-card {
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.app-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--app-color, var(--amber));
+  transform: scaleX(0);
+  transition: transform var(--transition);
+}
+.app-card:hover::before { transform: scaleX(1); }
+.app-card:hover { border-color: var(--line2); transform: translateY(-2px); box-shadow: var(--shadow); }
+.app-card.locked { opacity: 0.6; cursor: default; }
+.app-card.locked:hover { transform: none; }
+.app-card-icon { font-size: 28px; margin-bottom: 12px; }
+.app-card-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text1); margin-bottom: 5px; }
+.app-card-desc { font-size: 12.5px; color: var(--text3); line-height: 1.5; margin-bottom: 12px; }
+.app-card-status { display: flex; align-items: center; justify-content: space-between; }
+.app-card-price { font-family: var(--font-mono); font-size: 12px; color: var(--amber); font-weight: 500; }
+
+/* ══════════════════════════════
+   MARKETPLACE
+   ══════════════════════════════ */
+.market-hero {
+  background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.market-hero::after {
+  content: '';
+  position: absolute;
+  top: -50px; right: -50px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, var(--amber-dim) 0%, transparent 70%);
+  pointer-events: none;
+}
+.market-hero h2 { font-family: var(--font-head); font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.market-hero p { color: var(--text3); font-size: 14px; }
+
+.market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.market-card {
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.market-card:hover { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber-dim), var(--shadow); }
+.market-card-icon { font-size: 32px; margin-bottom: 14px; }
+.market-card-name { font-family: var(--font-head); font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.market-card-desc { color: var(--text3); font-size: 13px; line-height: 1.55; margin-bottom: 16px; }
+.market-card-features { list-style: none; margin-bottom: 20px; display: flex; flex-direction: column; gap: 5px; }
+.market-card-features li { font-size: 12.5px; color: var(--text2); display: flex; gap: 7px; }
+.market-card-features li::before { content: '✓'; color: var(--green); font-weight: 700; }
+.market-card-footer { display: flex; align-items: center; justify-content: space-between; }
+.market-price { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: var(--amber); }
+.market-price-period { font-size: 12px; color: var(--text3); font-family: var(--font-body); font-weight: 400; }
+.market-card.owned { border-color: var(--green); }
+.market-card.owned::after { content: 'ACTIVE'; position: absolute; top: 12px; right: 12px; font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--green); background: var(--green-dim); padding: 2px 8px; border-radius: 20px; letter-spacing: 0.1em; }
+
+/* ══════════════════════════════
+   FORMFLOW
+   ══════════════════════════════ */
+.form-builder-layout { display: grid; grid-template-columns: 220px 1fr 260px; gap: 16px; height: calc(100vh - 110px); }
+.palette-panel, .preview-panel, .props-panel {
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow-y: auto;
+  padding: 16px;
+}
+.palette-title { font-family: var(--font-head); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 12px; }
+.palette-item {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-bottom: 6px;
+  cursor: grab;
+  font-size: 13px;
+  color: var(--text2);
+  display: flex; align-items: center; gap: 8px;
+  transition: all var(--transition);
+  user-select: none;
+}
+.palette-item:hover { background: var(--bg3); color: var(--text1); border-color: var(--line2); }
+.palette-item:active { cursor: grabbing; }
+.form-canvas {
+  min-height: 100%;
+  border-radius: 8px;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 23px,
+    var(--line) 23px,
+    var(--line) 24px
+  );
+}
+.canvas-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  height: 200px;
+  border: 2px dashed var(--line2);
+  border-radius: 10px;
+  color: var(--text3);
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.6;
+}
+.canvas-placeholder.drag-over { border-color: var(--amber); background: var(--amber-glow); }
+.field-block {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color var(--transition);
+  position: relative;
+}
+.field-block:hover, .field-block.selected { border-color: var(--amber); }
+.field-block-label { font-size: 12px; color: var(--text3); margin-bottom: 6px; font-family: var(--font-mono); }
+.field-block-handle { font-size: 11px; color: var(--text1); }
+.field-delete { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--text3); cursor: pointer; font-size: 13px; opacity: 0; transition: opacity var(--transition); }
+.field-block:hover .field-delete { opacity: 1; }
+
+/* ══════════════════════════════
+   ONTOMAP
+   ══════════════════════════════ */
+#onto-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 160px);
+  background: var(--bg0);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+#onto-svg { width: 100%; height: 100%; }
+.onto-node {
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.onto-node:hover { filter: brightness(1.2); }
+.onto-node-rect { fill: var(--bg2); stroke: var(--line2); stroke-width: 1.5; rx: 8; }
+.onto-node-rect.selected { stroke: var(--amber); stroke-width: 2; }
+.onto-node-text { fill: var(--text1); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; }
+.onto-node-badge { fill: var(--amber); rx: 10; }
+.onto-edge { stroke: var(--bg4); stroke-width: 1.5; fill: none; }
+
+.onto-toolbar {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  background: var(--bg1); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 8px 12px;
+}
+.onto-tool-btn {
+  padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 12.5px; font-weight: 500; transition: all var(--transition);
+  background: transparent; border: 1px solid transparent; color: var(--text2);
+}
+.onto-tool-btn:hover { background: var(--bg3); color: var(--text1); }
+.onto-tool-btn.active { background: var(--amber-dim); color: var(--amber); border-color: rgba(245,158,11,0.25); }
+
+/* ══════════════════════════════
+   PEOPLEFLOW
+   ══════════════════════════════ */
+.kanban-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 16px; min-height: calc(100vh - 200px); }
+.kanban-col {
+  min-width: 240px;
+  max-width: 240px;
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  flex-shrink: 0;
+}
+.kanban-col-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.kanban-col-title { font-family: var(--font-head); font-size: 13px; font-weight: 700; }
+.kanban-col-count { background: var(--bg3); color: var(--text3); font-size: 11px; font-family: var(--font-mono); padding: 2px 8px; border-radius: 20px; }
+.kanban-card {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.kanban-card:hover { border-color: var(--amber); transform: translateX(2px); }
+.kanban-card-name { font-weight: 600; font-size: 13px; color: var(--text1); margin-bottom: 4px; }
+.kanban-card-meta { font-size: 11.5px; color: var(--text3); display: flex; align-items: center; gap: 6px; }
+.score-pill {
+  display: inline-flex; align-items: center;
+  background: var(--bg3); border-radius: 20px;
+  padding: 2px 8px; font-family: var(--font-mono); font-size: 11px;
+}
+.score-fill { width: 60px; height: 4px; background: var(--bg4); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+.score-fill-inner { height: 100%; background: var(--amber); border-radius: 4px; transition: width 0.5s ease; }
+
+/* ══════════════════════════════
+   SCORING ENGINE
+   ══════════════════════════════ */
+.gauge-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px;
+}
+#scoreGaugeSvg { max-width: 220px; }
+.dim-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dim-name { flex: 1; font-size: 13.5px; color: var(--text1); }
+.dim-weight { font-family: var(--font-mono); font-size: 12px; color: var(--amber); width: 36px; text-align: right; }
+.weight-slider { flex: 1; appearance: none; height: 4px; background: var(--bg4); border-radius: 4px; outline: none; cursor: pointer; }
+.weight-slider::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--amber); cursor: pointer; }
+
+/* ══════════════════════════════
+   NEO AUTOMATE
+   ══════════════════════════════ */
+.rule-card {
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 10px;
+  display: flex; align-items: flex-start; gap: 14px;
+  transition: border-color var(--transition);
+}
+.rule-card:hover { border-color: var(--line2); }
+.rule-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+.rule-info { flex: 1; }
+.rule-name { font-weight: 600; font-size: 14px; color: var(--text1); margin-bottom: 3px; }
+.rule-desc { font-size: 12.5px; color: var(--text3); line-height: 1.5; }
+.rule-status { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+
+.toggle-switch { position: relative; display: inline-block; width: 36px; height: 20px; cursor: pointer; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: var(--bg4); border-radius: 20px;
+  transition: background var(--transition);
+}
+.toggle-switch input:checked + .toggle-track { background: var(--amber); }
+.toggle-thumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px;
+  background: white; border-radius: 50%;
+  transition: transform var(--transition);
+}
+.toggle-switch input:checked ~ .toggle-thumb { transform: translateX(16px); }
+
+/* ══════════════════════════════
+   INVOICES / BILLING
+   ══════════════════════════════ */
+.invoice-status-bar {
+  display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 4px;
+}
+.inv-filter-btn {
+  padding: 6px 14px; border-radius: 20px;
+  font-size: 12.5px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  background: var(--bg2); border: 1px solid var(--line);
+  color: var(--text2); transition: all var(--transition);
+}
+.inv-filter-btn.active { background: var(--amber-dim); color: var(--amber); border-color: rgba(245,158,11,0.25); }
+
+/* ══════════════════════════════
+   SETTINGS
+   ══════════════════════════════ */
+.settings-grid { display: grid; grid-template-columns: 200px 1fr; gap: 20px; }
+.settings-nav { display: flex; flex-direction: column; gap: 2px; }
+.settings-nav-item { padding: 9px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text2); transition: all var(--transition); font-weight: 500; }
+.settings-nav-item:hover { background: var(--bg2); color: var(--text1); }
+.settings-nav-item.active { background: var(--amber-dim); color: var(--amber); }
+.settings-section { background: var(--bg1); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 24px; }
+.settings-section-title { font-family: var(--font-head); font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.settings-section-desc { color: var(--text3); font-size: 13px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+
+/* ══════════════════════════════
+   LOADING / EMPTY / ERROR
+   ══════════════════════════════ */
+.loading-ring {
+  width: 28px; height: 28px;
+  border: 2px solid var(--bg4);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 60px 20px; text-align: center;
+}
+.empty-icon { font-size: 40px; margin-bottom: 14px; opacity: 0.4; }
+.empty-title { font-family: var(--font-head); font-size: 16px; font-weight: 700; color: var(--text2); margin-bottom: 6px; }
+.empty-desc { font-size: 13px; color: var(--text3); max-width: 280px; line-height: 1.5; }
+.toast-container { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 300; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.toast {
+  background: var(--bg3);
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 13px;
+  color: var(--text1);
+  box-shadow: var(--shadow);
+  animation: toastIn 0.2s ease, toastOut 0.3s ease 2.5s forwards;
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast.success { border-color: rgba(34,197,94,0.3); }
+.toast.error { border-color: rgba(239,68,68,0.3); }
+@keyframes toastIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@keyframes toastOut { from { opacity:1; } to { opacity:0; pointer-events:none; } }
+
+/* ══════════════════════════════
+   ACTIVITY LOG
+   ══════════════════════════════ */
+.activity-item {
+  display: flex; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  align-items: flex-start;
+}
+.activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); margin-top: 4px; flex-shrink: 0; }
+.activity-text { flex: 1; font-size: 13px; color: var(--text2); line-height: 1.5; }
+.activity-time { font-family: var(--font-mono); font-size: 11px; color: var(--text3); white-space: nowrap; }
+
+/* ══════════════════════════════
+   PROGRESS / ONBOARDING
+   ══════════════════════════════ */
+.onboard-steps { display: flex; flex-direction: column; gap: 10px; }
+.onboard-step {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: var(--bg1); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;
+  cursor: pointer; transition: border-color var(--transition);
+}
+.onboard-step:hover { border-color: var(--line2); }
+.onboard-step.done { opacity: 0.6; }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg3); border: 1.5px solid var(--line2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--text2);
+  flex-shrink: 0;
+}
+.onboard-step.done .step-num { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+.step-info h4 { font-size: 14px; font-weight: 600; color: var(--text1); margin-bottom: 3px; }
+.step-info p { font-size: 12.5px; color: var(--text3); }
+
+/* ══════════════════════════════
+   SEARCH BAR
+   ══════════════════════════════ */
+.search-wrap { position: relative; flex: 1; max-width: 320px; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 14px; pointer-events: none; }
+.search-input { width: 100%; background: var(--bg2); border: 1px solid var(--line2); border-radius: 8px; color: var(--text1); padding: 7px 12px 7px 32px; font-size: 13px; font-family: var(--font-body); outline: none; transition: border-color var(--transition); }
+.search-input:focus { border-color: var(--amber); }
+.search-input::placeholder { color: var(--text3); }
+
+/* ══════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════ */
+@media (max-width: 768px) {
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .form-builder-layout { grid-template-columns: 1fr; }
+  .settings-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ╔══════════════════════════════════════════╗
+     ║  AUTH SCREEN                             ║
+     ╚══════════════════════════════════════════╝ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS">
+    </div>
+    <div class="auth-title">Welcome back</div>
+    <div class="auth-sub">Sign in to your Insight Layer OS</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" onclick="setAuthTab('login')">Sign in</div>
+      <div class="auth-tab" onclick="setAuthTab('signup')">Create account</div>
+    </div>
+    <div id="auth-form"></div>
+    <div id="auth-err" style="color:var(--red);font-size:12px;margin-top:8px;text-align:center;"></div>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════════════════╗
+     ║  OS SHELL                                ║
+     ╚══════════════════════════════════════════╝ -->
+<div id="os-shell" style="display:none;">
+
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760306942348x596155193204738700/klll.png" alt="LumenOS" class="logo-img-full">
+      <img src="https://3f811272e605d0fbd18ff3cfe4226002.cdn.bubble.io/f1760617575427x227577865881120960/S.png" alt="LumenOS" class="logo-img-collapsed">
+    </div>
+    <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+      <span id="sb-toggle-icon">◀</span>
+    </button>
+
+    <div class="sidebar-section">Core</div>
+    <div class="nav-item active" data-app="home" onclick="navigateTo('home')">
+      <span class="nav-icon">⬡</span>
+      <span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-item" data-app="marketplace" onclick="navigateTo('marketplace')">
+      <span class="nav-icon">🏪</span>
+      <span class="nav-label">Marketplace</span>
+    </div>
+
+    <div class="sidebar-section">Apps</div>
+    <div class="nav-item" data-app="formflow" onclick="gotoApp('formflow')">
+      <span class="nav-icon">📝</span>
+      <span class="nav-label">FormFlow</span>
+      <span class="nav-lock" id="lock-formflow">🔒</span>
+    </div>
+    <div class="nav-item" data-app="ontomap" onclick="gotoApp('ontomap')">
+      <span class="nav-icon">🗺</span>
+      <span class="nav-label">OntoMap</span>
+      <span class="nav-lock" id="lock-ontomap">🔒</span>
+    </div>
+    <div class="nav-item" data-app="peopleflow" onclick="gotoApp('peopleflow')">
+      <span class="nav-icon">👥</span>
+      <span class="nav-label">PeopleFlow</span>
+      <span class="nav-lock" id="lock-peopleflow">🔒</span>
+    </div>
+    <div class="nav-item" data-app="scoring" onclick="gotoApp('scoring')">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">Scoring Engine</span>
+      <span class="nav-lock" id="lock-scoring">🔒</span>
+    </div>
+    <div class="nav-item" data-app="neoautomate" onclick="gotoApp('neoautomate')">
+      <span class="nav-icon">🤖</span>
+      <span class="nav-label">Neo Automate</span>
+      <span class="nav-lock" id="lock-neoautomate">🔒</span>
+    </div>
+    <div class="nav-item" data-app="invoices" onclick="navigateTo('invoices')">
+      <span class="nav-icon">🧾</span>
+      <span class="nav-label">Invoices</span>
+    </div>
+
+    <div class="sidebar-section">System</div>
+    <div class="nav-item" data-app="activity" onclick="navigateTo('activity')">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Activity Log</span>
+    </div>
+    <div class="nav-item" data-app="settings" onclick="navigateTo('settings')">
+      <span class="nav-icon">⚙</span>
+      <span class="nav-label">Settings</span>
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="user-pill" onclick="navigateTo('settings')">
+        <div class="user-avatar" id="user-avatar-initials">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-display-email">Loading...</div>
+          <div class="user-role">Admin</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN AREA -->
+  <div id="main-area">
+    <!-- TOPBAR -->
+    <div id="topbar">
+      <div>
+        <div class="topbar-title" id="topbar-title">Dashboard</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" placeholder="Search..." id="global-search">
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="logOut()">Sign out</button>
+      </div>
+    </div>
+
+    <!-- APP FRAME -->
+    <div id="app-frame">
+
+      <!-- ═══════════ HOME ═══════════ -->
+      <div class="app-pane active" id="pane-home">
+        <div class="dash-greeting">
+          <h1 id="greet-text">Good morning ✦</h1>
+          <p>Here's what's happening in your workspace today.</p>
+        </div>
+
+        <div class="stat-grid" id="home-stats">
+          <div class="stat-card" style="--accent:var(--amber)">
+            <div class="stat-label">Active Clients</div>
+            <div class="stat-value" id="stat-clients">—</div>
+            <div class="stat-sub">People in PeopleFlow</div>
+          </div>
+          <div class="stat-card" style="--accent:var(--teal)">
+            <div class="stat-label">Forms Created</div>
+            <div class="stat-value" id="stat-forms">—</div>
+            <div class="stat-sub">FormFlow forms</div>
+          </div>
+          <div class="stat-card" style="--accent:var(--green)">
+            <div class="stat-label">Invoices</div>
+            <div class="stat-value" id="stat-invoices">—</div>
+            <div class="stat-sub">Total raised</div>
+          </div>
+          <div class="stat-card" style="--accent:var(--purple)">
+            <div class="stat-label">Avg Score</div>
+            <div class="stat-value" id="stat-score">—</div>
+            <div class="stat-sub">Across all clients</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Your Apps</div>
+              <button class="btn btn-ghost btn-sm" onclick="navigateTo('marketplace')">+ Explore</button>
+            </div>
+            <div class="apps-grid" id="home-apps-grid" style="grid-template-columns:1fr 1fr;gap:10px;margin:0;"></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Recent Activity</div>
+            </div>
+            <div id="home-activity"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Get Started</div>
+          </div>
+          <div class="onboard-steps" id="onboard-steps">
+            <div class="onboard-step" onclick="navigateTo('marketplace')">
+              <div class="step-num" id="step1-num">1</div>
+              <div class="step-info"><h4>Subscribe to your first app</h4><p>Unlock FormFlow, PeopleFlow, or more from the Marketplace.</p></div>
+            </div>
+            <div class="onboard-step" onclick="gotoApp('formflow')">
+              <div class="step-num" id="step2-num">2</div>
+              <div class="step-info"><h4>Build your first form</h4><p>Create an intake or survey form in FormFlow.</p></div>
+            </div>
+            <div class="onboard-step" onclick="gotoApp('peopleflow')">
+              <div class="step-num" id="step3-num">3</div>
+              <div class="step-info"><h4>Add your first client</h4><p>Start managing clients in PeopleFlow.</p></div>
+            </div>
+            <div class="onboard-step" onclick="gotoApp('neoautomate')">
+              <div class="step-num" id="step4-num">4</div>
+              <div class="step-info"><h4>Set up an automation rule</h4><p>Let Neo Automate handle follow-ups and alerts.</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ MARKETPLACE ═══════════ -->
+      <div class="app-pane" id="pane-marketplace">
+        <div class="market-hero">
+          <h2>App Marketplace</h2>
+          <p>Extend your Insight Layer OS. Each app is <strong style="color:var(--amber)">$39/month</strong>. Subscribe, cancel anytime.</p>
+        </div>
+        <div class="market-grid" id="market-grid"></div>
+      </div>
+
+      <!-- ═══════════ FORMFLOW ═══════════ -->
+      <div class="app-pane" id="pane-formflow">
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="setTab('ff','builder')">Builder</button>
+          <button class="tab-btn" onclick="setTab('ff','list')">My Forms</button>
+          <button class="tab-btn" onclick="setTab('ff','responses')">Responses</button>
+        </div>
+        <!-- Builder Tab -->
+        <div class="tab-pane active" id="ff-builder">
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+            <input class="form-input" style="max-width:320px;" id="ff-form-name" placeholder="Form name..." value="Untitled Form">
+            <button class="btn btn-amber btn-sm" onclick="saveForm()">💾 Save Form</button>
+            <button class="btn btn-ghost btn-sm" onclick="previewForm()">👁 Preview</button>
+            <button class="btn btn-ghost btn-sm" onclick="shareForm()">🔗 Share</button>
+          </div>
+          <div class="form-builder-layout">
+            <div class="palette-panel">
+              <div class="palette-title">Fields</div>
+              <div class="palette-item" draggable="true" data-type="text" data-label="Short Text" ondragstart="onPaletteDrag(event)">✏️ Short Text</div>
+              <div class="palette-item" draggable="true" data-type="textarea" data-label="Long Text" ondragstart="onPaletteDrag(event)">📄 Long Text</div>
+              <div class="palette-item" draggable="true" data-type="email" data-label="Email" ondragstart="onPaletteDrag(event)">✉️ Email</div>
+              <div class="palette-item" draggable="true" data-type="tel" data-label="Phone" ondragstart="onPaletteDrag(event)">📞 Phone</div>
+              <div class="palette-item" draggable="true" data-type="number" data-label="Number" ondragstart="onPaletteDrag(event)">🔢 Number</div>
+              <div class="palette-item" draggable="true" data-type="date" data-label="Date" ondragstart="onPaletteDrag(event)">📅 Date</div>
+              <div class="palette-item" draggable="true" data-type="select" data-label="Dropdown" ondragstart="onPaletteDrag(event)">▾ Dropdown</div>
+              <div class="palette-item" draggable="true" data-type="radio" data-label="Radio Group" ondragstart="onPaletteDrag(event)">◉ Radio Group</div>
+              <div class="palette-item" draggable="true" data-type="checkbox" data-label="Checkbox" ondragstart="onPaletteDrag(event)">☑ Checkbox</div>
+              <div class="palette-item" draggable="true" data-type="rating" data-label="Rating" ondragstart="onPaletteDrag(event)">⭐ Rating</div>
+              <div class="palette-item" draggable="true" data-type="file" data-label="File Upload" ondragstart="onPaletteDrag(event)">📎 File Upload</div>
+              <div class="palette-item" draggable="true" data-type="section" data-label="Section Break" ondragstart="onPaletteDrag(event)">── Section Break</div>
+            </div>
+            <div class="preview-panel">
+              <div id="form-canvas" class="form-canvas"
+                ondragover="event.preventDefault(); event.currentTarget.classList.add('drag-over')"
+                ondragleave="event.currentTarget.classList.remove('drag-over')"
+                ondrop="onCanvasDrop(event)">
+                <div class="canvas-placeholder" id="canvas-placeholder">
+                  Drag fields here to build your form<br>
+                  <span style="font-size:11px;color:var(--text3)">← from the palette</span>
+                </div>
+              </div>
+            </div>
+            <div class="props-panel" id="props-panel">
+              <div class="palette-title">Properties</div>
+              <div id="props-content" style="color:var(--text3);font-size:13px;">Select a field to edit its properties.</div>
+            </div>
+          </div>
+        </div>
+        <!-- List Tab -->
+        <div class="tab-pane" id="ff-list">
+          <div style="display:flex;gap:10px;margin-bottom:16px;">
+            <button class="btn btn-amber btn-sm" onclick="setTab('ff','builder'); document.getElementById('ff-form-name').value='Untitled Form'; droppedFields=[]; renderCanvas()">+ New Form</button>
+          </div>
+          <div id="ff-forms-table-wrap"></div>
+        </div>
+        <!-- Responses Tab -->
+        <div class="tab-pane" id="ff-responses">
+          <div id="ff-responses-wrap"></div>
+        </div>
+      </div>
+
+      <!-- ═══════════ ONTOMAP ═══════════ -->
+      <div class="app-pane" id="pane-ontomap">
+        <div class="onto-toolbar">
+          <button class="onto-tool-btn active" id="onto-mode-btn" onclick="toggleOntoMode()">✚ Add Node</button>
+          <button class="onto-tool-btn" onclick="deleteSelectedNode()">🗑 Delete</button>
+          <button class="onto-tool-btn" onclick="saveOntology()">💾 Save</button>
+          <button class="onto-tool-btn" onclick="loadOntology()">🔄 Reload</button>
+          <span style="margin-left:auto;font-size:12px;color:var(--text3);font-family:var(--font-mono)">
+            <span id="onto-status">Click canvas to add nodes • Drag to move</span>
+          </span>
+        </div>
+        <div id="onto-canvas-wrap">
+          <svg id="onto-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+
+      <!-- ═══════════ PEOPLEFLOW ═══════════ -->
+      <div class="app-pane" id="pane-peopleflow">
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="setTab('pf','kanban')">Pipeline</button>
+          <button class="tab-btn" onclick="setTab('pf','list')">All Clients</button>
+        </div>
+        <div class="tab-pane active" id="pf-kanban">
+          <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;">
+            <button class="btn btn-amber btn-sm" onclick="openAddClientModal()">+ Add Client</button>
+            <div class="search-wrap" style="max-width:220px;">
+              <span class="search-icon">🔍</span>
+              <input class="search-input" placeholder="Search clients..." id="pf-search" oninput="renderKanban()">
+            </div>
+          </div>
+          <div class="kanban-board" id="kanban-board"></div>
+        </div>
+        <div class="tab-pane" id="pf-list">
+          <div style="display:flex;gap:10px;margin-bottom:16px;">
+            <button class="btn btn-amber btn-sm" onclick="openAddClientModal()">+ Add Client</button>
+          </div>
+          <div class="card" style="padding:0;overflow:hidden;">
+            <table class="data-table" id="pf-table"><thead><tr><th>Name</th><th>Email</th><th>Stage</th><th>Score</th><th>Last Contact</th><th></th></tr></thead><tbody id="pf-tbody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════ SCORING ENGINE ═══════════ -->
+      <div class="app-pane" id="pane-scoring">
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:20px;">
+          <div class="card">
+            <div class="card-title" style="margin-bottom:16px;">Score Preview</div>
+            <div class="gauge-wrap">
+              <svg id="scoreGaugeSvg" viewBox="0 0 200 130" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="gGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#ef4444"/>
+                    <stop offset="50%" stop-color="#f59e0b"/>
+                    <stop offset="100%" stop-color="#22c55e"/>
+                  </linearGradient>
+                </defs>
+                <path d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="var(--bg3)" stroke-width="14" stroke-linecap="round"/>
+                <path id="gauge-arc" d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="url(#gGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="251"/>
+                <text id="gauge-val" x="100" y="95" text-anchor="middle" font-family="Syne,sans-serif" font-size="30" font-weight="800" fill="var(--text1)">0</text>
+                <text x="100" y="115" text-anchor="middle" font-family="DM Mono,monospace" font-size="10" fill="var(--text3)">SCORE / 100</text>
+              </svg>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-ghost btn-sm" style="flex:1" onclick="animateGauge(Math.floor(Math.random()*100))">🎲 Test Score</button>
+              <button class="btn btn-amber btn-sm" style="flex:1" onclick="saveDimensions()">💾 Save</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Scoring Dimensions</div>
+              <button class="btn btn-ghost btn-sm" onclick="addDimension()">+ Add</button>
+            </div>
+            <div id="dims-list"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header">
+            <div class="card-title">Client Scores</div>
+            <button class="btn btn-ghost btn-sm" onclick="recalcAllScores()">🔄 Recalculate All</button>
+          </div>
+          <table class="data-table" id="scores-table"><thead><tr><th>Client</th><th>Score</th><th>Trend</th><th>Updated</th></tr></thead><tbody id="scores-tbody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ═══════════ NEO AUTOMATE ═══════════ -->
+      <div class="app-pane" id="pane-neoautomate">
+        <div style="display:flex;gap:10px;margin-bottom:20px;">
+          <button class="btn btn-amber btn-sm" onclick="openRuleModal()">+ New Rule</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadRules()">🔄 Reload</button>
+        </div>
+        <div id="rules-list"></div>
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header">
+            <div class="card-title">Automation Log</div>
+          </div>
+          <div id="automation-log"></div>
+        </div>
+      </div>
+
+      <!-- ═══════════ INVOICES ═══════════ -->
+      <div class="app-pane" id="pane-invoices">
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+          <button class="btn btn-amber btn-sm" onclick="openInvoiceModal()">+ New Invoice</button>
+          <div class="invoice-status-bar" style="margin:0;">
+            <button class="inv-filter-btn active" onclick="setInvFilter('all',this)">All</button>
+            <button class="inv-filter-btn" onclick="setInvFilter('draft',this)">Draft</button>
+            <button class="inv-filter-btn" onclick="setInvFilter('sent',this)">Sent</button>
+            <button class="inv-filter-btn" onclick="setInvFilter('paid',this)">Paid</button>
+            <button class="inv-filter-btn" onclick="setInvFilter('overdue',this)">Overdue</button>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table class="data-table" id="inv-table">
+            <thead><tr><th>Invoice #</th><th>Client</th><th>Amount</th><th>Status</th><th>Due Date</th><th></th></tr></thead>
+            <tbody id="inv-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══════════ ACTIVITY LOG ═══════════ -->
+      <div class="app-pane" id="pane-activity">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Activity Log</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadActivity()">🔄 Refresh</button>
+          </div>
+          <div id="activity-list"></div>
+        </div>
+      </div>
+
+      <!-- ═══════════ SETTINGS ═══════════ -->
+      <div class="app-pane" id="pane-settings">
+        <div class="settings-grid">
+          <div class="settings-nav">
+            <div class="settings-nav-item active" onclick="setSettingsTab('profile')">👤 Profile</div>
+            <div class="settings-nav-item" onclick="setSettingsTab('supabase')">🔌 Supabase</div>
+            <div class="settings-nav-item" onclick="setSettingsTab('subscriptions')">💳 Subscriptions</div>
+            <div class="settings-nav-item" onclick="setSettingsTab('danger')">⚠️ Danger Zone</div>
+          </div>
+          <div id="settings-content"></div>
+        </div>
+      </div>
+
+    </div><!-- /app-frame -->
+  </div><!-- /main-area -->
+</div><!-- /os-shell -->
+
+<!-- ══════════════════════════════
+     NEO ASSISTANT PANEL
+     ══════════════════════════════ -->
+<div id="neo-panel">
+  <div class="neo-header">
+    <div class="neo-dot"></div>
+    <div class="neo-title">Neo Assistant</div>
+    <select class="neo-model-sel" id="neo-model-sel" onchange="neoModel=this.value">
+      <option>Claude</option>
+      <option>GPT-4o</option>
+      <option>Gemma 3</option>
+    </select>
+    <button class="neo-close" onclick="toggleNeo()">✕</button>
+  </div>
+  <div class="neo-messages" id="neo-messages"></div>
+  <div class="neo-footer">
+    <div class="neo-input-row">
+      <textarea class="neo-textarea" id="neo-input" rows="1" placeholder="Ask Neo anything…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendNeoMsg();}"></textarea>
+      <button class="neo-send" onclick="sendNeoMsg()">↑</button>
+    </div>
+  </div>
+</div>
+
+<button id="neo-float" onclick="toggleNeo()" title="Neo Assistant">✦</button>
+
+<!-- ══════════════════════════════
+     MODALS
+     ══════════════════════════════ -->
+<!-- Add Client Modal -->
+<div class="modal-overlay" id="modal-client">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="client-modal-title">Add Client</div>
+      <button class="modal-close" onclick="closeModal('modal-client')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Full Name *</label><input class="form-input" id="cl-name" placeholder="Jane Smith"></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="cl-email" type="email" placeholder="jane@example.com"></div>
+      <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="cl-phone" placeholder="+27 xx xxx xxxx"></div>
+      <div class="form-group"><label class="form-label">Pipeline Stage</label>
+        <select class="form-select" id="cl-stage">
+          <option value="Lead">Lead</option>
+          <option value="Prospect">Prospect</option>
+          <option value="Active">Active</option>
+          <option value="Closed">Closed</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="cl-notes" placeholder="Optional notes…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-client')">Cancel</button>
+      <button class="btn btn-amber" id="cl-save-btn" onclick="saveClient()">Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice Modal -->
+<div class="modal-overlay" id="modal-invoice">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">New Invoice</div>
+      <button class="modal-close" onclick="closeModal('modal-invoice')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label class="form-label">Client *</label>
+          <select class="form-select" id="inv-client"></select>
+        </div>
+        <div class="form-group"><label class="form-label">Status</label>
+          <select class="form-select" id="inv-status">
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="paid">Paid</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Issue Date</label><input class="form-input" id="inv-issue" type="date"></div>
+        <div class="form-group"><label class="form-label">Due Date</label><input class="form-input" id="inv-due" type="date"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Items</label>
+        <div id="inv-items"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="addInvItem()">+ Add Item</button>
+      </div>
+      <div style="text-align:right;margin-top:12px;">
+        <span style="font-family:var(--font-mono);color:var(--amber);font-size:18px;font-weight:700;">Total: $<span id="inv-total">0.00</span></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-invoice')">Cancel</button>
+      <button class="btn btn-amber" onclick="saveInvoice()">Create Invoice</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rule Modal -->
+<div class="modal-overlay" id="modal-rule">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Automation Rule</div>
+      <button class="modal-close" onclick="closeModal('modal-rule')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Rule Name *</label><input class="form-input" id="rule-name" placeholder="Low Score Alert"></div>
+      <div class="form-group"><label class="form-label">Trigger</label>
+        <select class="form-select" id="rule-trigger">
+          <option value="score_below">Score drops below threshold</option>
+          <option value="no_contact">No contact for X days</option>
+          <option value="stage_change">Stage changes to…</option>
+          <option value="form_submitted">Form submitted</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Threshold / Value</label><input class="form-input" id="rule-threshold" placeholder="e.g. 40 (for score) or 7 (days)"></div>
+      <div class="form-group"><label class="form-label">Action</label>
+        <select class="form-select" id="rule-action">
+          <option value="send_email">Send email notification</option>
+          <option value="log_activity">Log activity</option>
+          <option value="move_stage">Move to next stage</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Email Template (if applicable)</label>
+        <textarea class="form-textarea" id="rule-template" placeholder="Hi {{name}}, your score has dropped to {{score}}. Time to check in."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-rule')">Cancel</button>
+      <button class="btn btn-amber" onclick="saveRule()">Save Rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="width:min(360px,100%)">
+    <div class="modal-header">
+      <div class="modal-title" id="confirm-title">Confirm</div>
+      <button class="modal-close" onclick="closeModal('modal-confirm')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-msg" style="color:var(--text2);font-size:14px;line-height:1.6;"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Form Preview Modal -->
+<div class="modal-overlay" id="modal-form-preview">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">Form Preview</div>
+      <button class="modal-close" onclick="closeModal('modal-form-preview')">✕</button>
+    </div>
+    <div class="modal-body" id="form-preview-body"></div>
+  </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal-overlay" id="modal-share">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Share Form</div>
+      <button class="modal-close" onclick="closeModal('modal-share')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">Share Link</label>
+        <div style="display:flex;gap:8px;">
+          <input class="form-input" id="share-link-val" readonly>
+          <button class="btn btn-amber btn-sm" onclick="copyShareLink()">Copy</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:16px;"><label class="form-label">Embed Code</label>
+        <textarea class="form-textarea" id="share-embed-val" readonly style="font-family:var(--font-mono);font-size:11px;"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Paystack Upgrade Modal -->
+<div class="modal-overlay" id="modal-upgrade">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="upgrade-modal-title">Unlock App</div>
+      <button class="modal-close" onclick="closeModal('modal-upgrade')">✕</button>
+    </div>
+    <div class="modal-body" id="upgrade-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-upgrade')">Cancel</button>
+      <button class="btn btn-amber" id="upgrade-pay-btn">Pay with Paystack</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ══════════════════════════════
+     SCRIPTS
+     ══════════════════════════════ -->
+<script>
+/* ─────────────────────────────────────────
+   CONSTANTS & STATE
+───────────────────────────────────────── */
+const CLICK_THRESH = 11;
+let SUPABASE_URL = localStorage.getItem('il_sb_url') || 'https://pzioskykakwhwdlcmwyv.supabase.co';
+let SUPABASE_KEY = localStorage.getItem('il_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
+let SB = null;
+let currentUser = null;
+let realtimeSub = null;
+let neoOpen = false;
+let neoModel = 'Claude';
+let csvSecs = 1800;
+let APP_DIMS = [];
+const APP = { clients:[], scores:[], invoices:[], logs:[], forms:[], responses:[] };
+let droppedFields = [];
+let dragType = '', dragLabel = '';
+let ontoNodes = [], ontoEdges = [];
+let ontoDrag = null, ontoNodeEls = {}, ontoEdgeEls = {};
+let activeRespFormFilter = null;
+let currentShareFormId = null;
+let pendingGaugeScore = 0;
+let gaugeRafId = null;
+let darkMode = false;
+let currentApp = 'home';
+let currentEditClientId = null;
+let invFilter = 'all';
+let userSubscriptions = [];
+let APP_DEFS = [];
+
+// Paystack
+const PAYSTACK_PK = 'pk_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'; // Replace with actual key
+
+/* ─────────────────────────────────────────
+   APP DEFINITIONS
+───────────────────────────────────────── */
+function initAppDefs() {
+  APP_DEFS = [
+    { id:'formflow', name:'FormFlow', icon:'📝', color:'var(--teal)', price:39, desc:'Drag-and-drop form builder with embed links, response tracking, and scoring integration.', features:['Unlimited forms','Response viewer & export','Share links & embed codes','Scoring engine integration'] },
+    { id:'ontomap', name:'OntoMap', icon:'🗺', color:'var(--purple)', price:39, desc:'Visual ontology editor to map relationships between concepts, clients, and processes.', features:['Interactive SVG canvas','Node & edge management','Link forms to nodes','Client-node mapping'] },
+    { id:'peopleflow', name:'PeopleFlow', icon:'👥', color:'var(--blue)', price:39, desc:'Full CRM pipeline with kanban board, interaction logging, and health scores.', features:['Kanban pipeline board','Client profiles & notes','Interaction logging','AI-powered summaries'] },
+    { id:'scoring', name:'Scoring Engine', icon:'📊', color:'var(--amber)', price:39, desc:'Custom weighted scoring dimensions to quantify client health and progress.', features:['Configurable dimensions','Real-time gauge preview','Trend tracking','Score history'] },
+    { id:'neoautomate', name:'Neo Automate', icon:'🤖', color:'var(--green)', price:39, desc:'Rule-based automation engine that triggers emails, stage changes, and alerts.', features:['Visual rule builder','Email templates','Automation logs','Stage change triggers'] },
+  ];
+}
+
+/* ─────────────────────────────────────────
+   SUPABASE CLIENT
+───────────────────────────────────────── */
+async function sbFetch(path, opts={}) {
+  const headers = {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+    'Prefer': opts.prefer || 'return=representation',
+    ...opts.headers
+  };
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...opts, headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || err.hint || `HTTP ${res.status}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+async function sbAuth(action, payload) {
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/${action}`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return res.json();
+}
+
+/* ─────────────────────────────────────────
+   AUTH
+───────────────────────────────────────── */
+let authTab = 'login';
+function setAuthTab(t) {
+  authTab = t;
+  document.querySelectorAll('.auth-tab').forEach((el, i) => el.classList.toggle('active', (i===0&&t==='login')||(i===1&&t==='signup')));
+  renderAuthForm();
+}
+
+function renderAuthForm() {
+  const el = document.getElementById('auth-form');
+  if (authTab === 'login') {
+    el.innerHTML = `
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="a-email" type="email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doAuth()"></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="a-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuth()"></div>
+      <button class="btn btn-amber" style="width:100%;margin-top:4px;" onclick="doAuth()">Sign in</button>
+    `;
+  } else {
+    el.innerHTML = `
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="a-email" type="email" placeholder="you@example.com"></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="a-pass" type="password" placeholder="Min 8 characters"></div>
+      <button class="btn btn-amber" style="width:100%;margin-top:4px;" onclick="doAuth()">Create account</button>
+    `;
+  }
+}
+
+async function doAuth() {
+  const email = document.getElementById('a-email')?.value.trim();
+  const pass = document.getElementById('a-pass')?.value;
+  const errEl = document.getElementById('auth-err');
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'Please fill in all fields.'; return; }
+  const btn = document.querySelector('#auth-form .btn-amber');
+  if (btn) { btn.textContent = 'Loading…'; btn.disabled = true; }
+  const action = authTab === 'login' ? 'token?grant_type=password' : 'signup';
+  const data = await sbAuth(action, { email, password: pass });
+  if (data.error || data.error_description) {
+    errEl.textContent = data.error_description || data.msg || 'Authentication failed.';
+    if (btn) { btn.textContent = authTab === 'login' ? 'Sign in' : 'Create account'; btn.disabled = false; }
+    return;
+  }
+  if (data.access_token) {
+    SUPABASE_KEY = data.access_token;
+    currentUser = data.user || data;
+    bootApp();
+  } else if (authTab === 'signup' && data.id) {
+    errEl.style.color = 'var(--green)';
+    errEl.textContent = 'Account created! Check your email to confirm, then sign in.';
+  } else {
+    errEl.textContent = 'Unexpected response. Please try again.';
+    if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; }
+  }
+}
+
+async function logOut() {
+  SUPABASE_KEY = localStorage.getItem('il_sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6aW9za3lrYWt3aHdkbGNtd3l2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MzEwMjUsImV4cCI6MjA5MjIwNzAyNX0.oeOKDBxEzYkW9Zs7hQVkaAcHF0mJ5mhg5TV75M3nf-4';
+  currentUser = null;
+  userSubscriptions = [];
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('os-shell').style.display = 'none';
+  renderAuthForm();
+}
+
+/* ─────────────────────────────────────────
+   BOOT
+───────────────────────────────────────── */
+async function bootApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('os-shell').style.display = 'flex';
+  initAppDefs();
+  setGreeting();
+  setUserDisplay();
+  await loadSubscriptions();
+  updateSidebarLocks();
+  await Promise.all([loadClients(), loadForms(), loadInvoices(), loadActivity()]);
+  renderHomeStats();
+  renderHomeActivity();
+  renderHomeApps();
+  renderMarketplace();
+  renderKanban();
+  renderClientTable();
+  renderDimensions();
+  renderScoresTable();
+  renderRules();
+  loadOntology();
+  loadRules();
+  renderSettings('profile');
+  addNeoWelcome();
+}
+
+function setGreeting() {
+  const h = new Date().getHours();
+  const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('greet-text').textContent = `${greet} ✦`;
+}
+
+function setUserDisplay() {
+  if (!currentUser) return;
+  const email = currentUser.email || 'User';
+  document.getElementById('user-display-email').textContent = email.split('@')[0];
+  document.getElementById('user-avatar-initials').textContent = email[0].toUpperCase();
+}
+
+/* ─────────────────────────────────────────
+   SUBSCRIPTIONS
+───────────────────────────────────────── */
+async function loadSubscriptions() {
+  if (!currentUser) return;
+  try {
+    const data = await sbFetch(`user_subscriptions?user_id=eq.${currentUser.id}&select=*`, { method:'GET' });
+    userSubscriptions = (data||[]).map(s => s.app_id);
+  } catch(e) {
+    // Table may not exist yet — graceful fallback
+    userSubscriptions = [];
+  }
+}
+
+function isSubscribed(appId) {
+  return userSubscriptions.includes(appId);
+}
+
+function updateSidebarLocks() {
+  APP_DEFS.forEach(app => {
+    const lockEl = document.getElementById(`lock-${app.id}`);
+    if (lockEl) lockEl.style.display = isSubscribed(app.id) ? 'none' : '';
+  });
+}
+
+/* ─────────────────────────────────────────
+   NAVIGATION
+───────────────────────────────────────── */
+function navigateTo(appId) {
+  currentApp = appId;
+  document.querySelectorAll('.app-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pane = document.getElementById(`pane-${appId}`);
+  if (pane) pane.classList.add('active');
+  const navEl = document.querySelector(`[data-app="${appId}"]`);
+  if (navEl) navEl.classList.add('active');
+  const titles = { home:'Dashboard', marketplace:'Marketplace', formflow:'FormFlow', ontomap:'OntoMap', peopleflow:'PeopleFlow', scoring:'Scoring Engine', neoautomate:'Neo Automate', invoices:'Invoices', activity:'Activity Log', settings:'Settings' };
+  document.getElementById('topbar-title').textContent = titles[appId] || appId;
+}
+
+function gotoApp(appId) {
+  if (!isSubscribed(appId)) {
+    openUpgradeModal(appId);
+    return;
+  }
+  navigateTo(appId);
+}
+
+let sidebarCollapsed = false;
+function toggleSidebar() {
+  sidebarCollapsed = !sidebarCollapsed;
+  document.getElementById('sidebar').classList.toggle('collapsed', sidebarCollapsed);
+  document.getElementById('sb-toggle-icon').textContent = sidebarCollapsed ? '▶' : '◀';
+}
+
+/* ─────────────────────────────────────────
+   TAB HELPERS
+───────────────────────────────────────── */
+function setTab(prefix, id) {
+  const parentPane = document.getElementById(`pane-${prefix === 'ff' ? 'formflow' : 'peopleflow'}`);
+  parentPane.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const panes = parentPane.querySelectorAll('.tab-pane');
+    if (b.getAttribute('onclick').includes(id)) {
+      b.classList.add('active');
+      panes[i]?.classList.add('active');
+    } else {
+      b.classList.remove('active');
+      panes[i]?.classList.remove('active');
+    }
+  });
+}
+
+/* ─────────────────────────────────────────
+   MODALS
+───────────────────────────────────────── */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open')); });
+document.querySelectorAll('.modal-overlay').forEach(el => el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); }));
+
+function confirmAction(title, msg, cb) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  const btn = document.getElementById('confirm-ok-btn');
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  newBtn.addEventListener('click', () => { closeModal('modal-confirm'); cb(); });
+  openModal('modal-confirm');
+}
+
+/* ─────────────────────────────────────────
+   TOAST
+───────────────────────────────────────── */
+function toast(msg, type='') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `${type==='success'?'✓ ':type==='error'?'✕ ':''}${esc(msg)}`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 2900);
+}
+
+/* ─────────────────────────────────────────
+   PAYSTACK / UPGRADE
+───────────────────────────────────────── */
+function openUpgradeModal(appId) {
+  const app = APP_DEFS.find(a => a.id === appId);
+  if (!app) return;
+  document.getElementById('upgrade-modal-title').textContent = `Unlock ${app.name}`;
+  document.getElementById('upgrade-modal-body').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <span style="font-size:36px;">${app.icon}</span>
+      <div>
+        <div style="font-family:var(--font-head);font-size:18px;font-weight:800;color:var(--text1);margin-bottom:4px;">${app.name}</div>
+        <div style="font-size:13px;color:var(--text3);">${app.desc}</div>
+      </div>
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:13px;color:var(--text2);">Monthly subscription</div>
+        <div style="font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--amber);">$${app.price}<span style="font-size:13px;color:var(--text3);font-family:var(--font-body);font-weight:400;">/mo</span></div>
+      </div>
+    </div>
+    <ul style="list-style:none;display:flex;flex-direction:column;gap:7px;">
+      ${app.features.map(f => `<li style="font-size:13px;color:var(--text2);display:flex;gap:8px;"><span style="color:var(--green);font-weight:700;">✓</span>${f}</li>`).join('')}
+    </ul>
+  `;
+  const payBtn = document.getElementById('upgrade-pay-btn');
+  const newBtn = payBtn.cloneNode(true);
+  payBtn.parentNode.replaceChild(newBtn, payBtn);
+  newBtn.addEventListener('click', () => initPaystack(app));
+  openModal('modal-upgrade');
+}
+
+function initPaystack(app) {
+  const email = currentUser?.email;
+  if (!email) { toast('Please sign in to subscribe.', 'error'); return; }
+  if (typeof PaystackPop === 'undefined') {
+    toast('Paystack script not loaded. Check your internet connection.', 'error');
+    return;
+  }
+  const handler = PaystackPop.setup({
+    key: PAYSTACK_PK,
+    email: email,
+    amount: app.price * 100, // Paystack uses kobo/cents
+    currency: 'USD',
+    ref: `lumenos-${app.id}-${Date.now()}`,
+    metadata: { app_id: app.id, user_id: currentUser?.id },
+    callback: async (response) => {
+      closeModal('modal-upgrade');
+      toast('Payment successful! Activating your subscription…', 'success');
+      await grantAppAccess(app.id, response.reference);
+    },
+    onClose: () => {}
+  });
+  handler.openIframe();
+}
+
+async function grantAppAccess(appId, ref) {
+  if (!currentUser) return;
+  try {
+    await sbFetch('user_subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: currentUser.id, app_id: appId, reference: ref, subscribed_at: new Date().toISOString() }),
+      prefer: 'return=minimal'
+    });
+    userSubscriptions.push(appId);
+    updateSidebarLocks();
+    renderMarketplace();
+    renderHomeApps();
+    toast(`${APP_DEFS.find(a=>a.id===appId)?.name} is now active!`, 'success');
+    logActivity(`Subscribed to ${appId}`);
+  } catch(e) {
+    // If table doesn't exist, still grant locally for demo
+    userSubscriptions.push(appId);
+    updateSidebarLocks();
+    renderMarketplace();
+    renderHomeApps();
+    toast('Subscription activated!', 'success');
+  }
+}
+
+/* ─────────────────────────────────────────
+   HOME
+───────────────────────────────────────── */
+function renderHomeStats() {
+  document.getElementById('stat-clients').textContent = APP.clients.length;
+  document.getElementById('stat-forms').textContent = APP.forms.length;
+  document.getElementById('stat-invoices').textContent = APP.invoices.length;
+  const avg = APP.scores.length ? Math.round(APP.scores.reduce((s,x) => s + (x.score||0), 0) / APP.scores.length) : 0;
+  document.getElementById('stat-score').textContent = avg || '—';
+}
+
+function renderHomeActivity() {
+  const el = document.getElementById('home-activity');
+  if (!APP.logs.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:20px 0;">No activity yet.</div>'; return; }
+  el.innerHTML = APP.logs.slice(0,5).map(l => `
+    <div class="activity-item">
+      <div class="activity-dot"></div>
+      <div class="activity-text">${esc(l.action||l.message||JSON.stringify(l))}</div>
+      <div class="activity-time">${timeAgo(l.created_at||l.timestamp)}</div>
+    </div>
+  `).join('');
+}
+
+function renderHomeApps() {
+  const el = document.getElementById('home-apps-grid');
+  el.innerHTML = APP_DEFS.map(app => {
+    const sub = isSubscribed(app.id);
+    return `
+      <div class="app-card${sub?'':' locked'}" style="--app-color:${app.color};padding:14px;" onclick="${sub ? `navigateTo('${app.id}')` : `openUpgradeModal('${app.id}')`}">
+        <div style="font-size:22px;margin-bottom:8px;">${app.icon}</div>
+        <div style="font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--text1);margin-bottom:4px;">${app.name}</div>
+        <div class="app-card-status">
+          ${sub ? '<span class="badge badge-green">Active</span>' : `<span class="badge badge-gray">$${app.price}/mo</span>`}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────
+   MARKETPLACE
+───────────────────────────────────────── */
+function renderMarketplace() {
+  document.getElementById('market-grid').innerHTML = APP_DEFS.map(app => {
+    const sub = isSubscribed(app.id);
+    return `
+      <div class="market-card${sub?' owned':''}">
+        <div class="market-card-icon">${app.icon}</div>
+        <div class="market-card-name">${app.name}</div>
+        <div class="market-card-desc">${app.desc}</div>
+        <ul class="market-card-features">${app.features.map(f=>`<li>${f}</li>`).join('')}</ul>
+        <div class="market-card-footer">
+          <div>
+            <span class="market-price">$${app.price}</span>
+            <span class="market-price-period">/month</span>
+          </div>
+          ${sub
+            ? `<button class="btn btn-ghost btn-sm" onclick="navigateTo('${app.id}')">Open App →</button>`
+            : `<button class="btn btn-amber btn-sm" onclick="openUpgradeModal('${app.id}')">Subscribe</button>`
+          }
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────
+   CLIENTS / PEOPLEFLOW
+───────────────────────────────────────── */
+const STAGES = ['Lead', 'Prospect', 'Active', 'Closed'];
+const STAGE_COLORS = { Lead:'badge-purple', Prospect:'badge-blue', Active:'badge-green', Closed:'badge-gray' };
+
+async function loadClients() {
+  try { APP.clients = await sbFetch('clients?select=*&order=created_at.desc', { method:'GET' }) || []; }
+  catch { APP.clients = []; }
+}
+
+function renderKanban() {
+  const q = document.getElementById('pf-search')?.value.toLowerCase() || '';
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = STAGES.map(stage => {
+    const cards = APP.clients.filter(c => c.stage === stage && (c.name||'').toLowerCase().includes(q));
+    return `
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <div class="kanban-col-title">${stage}</div>
+          <div class="kanban-col-count">${cards.length}</div>
+        </div>
+        ${cards.map(c => {
+          const score = APP.scores.find(s => s.client_id === c.id)?.score || 0;
+          return `
+            <div class="kanban-card" onclick="openEditClient('${c.id}')">
+              <div class="kanban-card-name">${esc(c.name)}</div>
+              <div class="kanban-card-meta">${esc(c.email||'')} ${c.phone?'· '+esc(c.phone):''}</div>
+              <div class="score-fill"><div class="score-fill-inner" style="width:${score}%"></div></div>
+              <div style="margin-top:4px;font-family:var(--font-mono);font-size:10px;color:var(--text3);">Score: ${score}</div>
+            </div>
+          `;
+        }).join('')}
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;" onclick="openAddClientModal('${stage}')">+ Add</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderClientTable() {
+  const tbody = document.getElementById('pf-tbody');
+  if (!APP.clients.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text3);">No clients yet.</td></tr>'; return; }
+  tbody.innerHTML = APP.clients.map(c => {
+    const score = APP.scores.find(s => s.client_id === c.id)?.score || 0;
+    return `
+      <tr>
+        <td><strong style="color:var(--text1)">${esc(c.name)}</strong></td>
+        <td>${esc(c.email||'—')}</td>
+        <td><span class="badge ${STAGE_COLORS[c.stage]||'badge-gray'}">${esc(c.stage||'—')}</span></td>
+        <td><span class="badge badge-amber" style="font-family:var(--font-mono);">${score}</span></td>
+        <td style="font-family:var(--font-mono);font-size:11px;">${c.updated_at ? new Date(c.updated_at).toLocaleDateString() : '—'}</td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="openEditClient('${c.id}')">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')">Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openAddClientModal(defaultStage) {
+  currentEditClientId = null;
+  document.getElementById('client-modal-title').textContent = 'Add Client';
+  document.getElementById('cl-name').value = '';
+  document.getElementById('cl-email').value = '';
+  document.getElementById('cl-phone').value = '';
+  document.getElementById('cl-stage').value = defaultStage || 'Lead';
+  document.getElementById('cl-notes').value = '';
+  document.getElementById('cl-save-btn').textContent = 'Save Client';
+  openModal('modal-client');
+}
+
+function openEditClient(id) {
+  const c = APP.clients.find(x => x.id == id);
+  if (!c) return;
+  currentEditClientId = id;
+  document.getElementById('client-modal-title').textContent = 'Edit Client';
+  document.getElementById('cl-name').value = c.name || '';
+  document.getElementById('cl-email').value = c.email || '';
+  document.getElementById('cl-phone').value = c.phone || '';
+  document.getElementById('cl-stage').value = c.stage || 'Lead';
+  document.getElementById('cl-notes').value = c.notes || '';
+  document.getElementById('cl-save-btn').textContent = 'Update Client';
+  openModal('modal-client');
+}
+
+async function saveClient() {
+  const name = document.getElementById('cl-name').value.trim();
+  if (!name) { toast('Name is required.', 'error'); return; }
+  const payload = {
+    name,
+    email: document.getElementById('cl-email').value.trim(),
+    phone: document.getElementById('cl-phone').value.trim(),
+    stage: document.getElementById('cl-stage').value,
+    notes: document.getElementById('cl-notes').value.trim(),
+    updated_at: new Date().toISOString()
+  };
+  try {
+    if (currentEditClientId) {
+      await sbFetch(`clients?id=eq.${currentEditClientId}`, { method:'PATCH', body: JSON.stringify(payload) });
+      const idx = APP.clients.findIndex(c => c.id == currentEditClientId);
+      if (idx >= 0) APP.clients[idx] = { ...APP.clients[idx], ...payload };
+    } else {
+      payload.created_at = new Date().toISOString();
+      const res = await sbFetch('clients', { method:'POST', body: JSON.stringify(payload) });
+      APP.clients.unshift(Array.isArray(res) ? res[0] : res);
+    }
+    closeModal('modal-client');
+    renderKanban();
+    renderClientTable();
+    renderHomeStats();
+    toast('Client saved!', 'success');
+    logActivity(`Client ${name} ${currentEditClientId ? 'updated' : 'added'}`);
+  } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+async function deleteClient(id) {
+  confirmAction('Delete Client', 'This will permanently delete the client and all associated data. Continue?', async () => {
+    try {
+      await sbFetch(`clients?id=eq.${id}`, { method:'DELETE' });
+      APP.clients = APP.clients.filter(c => c.id != id);
+      renderKanban();
+      renderClientTable();
+      renderHomeStats();
+      toast('Client deleted.', 'success');
+    } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+  });
+}
+
+/* ─────────────────────────────────────────
+   FORMFLOW
+───────────────────────────────────────── */
+async function loadForms() {
+  try { APP.forms = await sbFetch('forms?select=*&order=created_at.desc', { method:'GET' }) || []; }
+  catch { APP.forms = []; }
+  try { APP.responses = await sbFetch('form_responses?select=*&order=created_at.desc', { method:'GET' }) || []; }
+  catch { APP.responses = []; }
+  renderFormsList();
+  renderResponsesView();
+}
+
+function onPaletteDrag(e) {
+  dragType = e.currentTarget.dataset.type;
+  dragLabel = e.currentTarget.dataset.label;
+  e.dataTransfer.effectAllowed = 'copy';
+}
+
+function onCanvasDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!dragType) return;
+  droppedFields.push({ id: 'f_' + Date.now(), type: dragType, label: dragLabel, required: false, placeholder: '', options: dragType==='select'||dragType==='radio' ? 'Option 1\nOption 2\nOption 3' : '' });
+  dragType = '';
+  renderCanvas();
+}
+
+function renderCanvas() {
+  const canvas = document.getElementById('form-canvas');
+  const placeholder = document.getElementById('canvas-placeholder');
+  if (!droppedFields.length) {
+    placeholder.style.display = 'flex';
+    canvas.querySelectorAll('.field-block').forEach(el => el.remove());
+    return;
+  }
+  placeholder.style.display = 'none';
+  canvas.querySelectorAll('.field-block').forEach(el => el.remove());
+  droppedFields.forEach((f, idx) => {
+    const div = document.createElement('div');
+    div.className = 'field-block';
+    div.dataset.idx = idx;
+    div.innerHTML = `
+      <div class="field-block-label">${esc(f.label)} ${f.required ? '<span style="color:var(--red)">*</span>' : ''}</div>
+      <div class="field-block-handle">${fieldPreview(f)}</div>
+      <button class="field-delete" onclick="removeField(${idx},event)" title="Remove">✕</button>
+    `;
+    div.addEventListener('click', () => selectField(idx));
+    canvas.appendChild(div);
+  });
+}
+
+function fieldPreview(f) {
+  const s = `style="pointer-events:none;width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:6px;padding:6px 10px;color:var(--text3);font-size:12px;"`;
+  switch(f.type) {
+    case 'text': case 'email': case 'tel': case 'number': case 'date': return `<input type="${f.type}" ${s} placeholder="${esc(f.placeholder||f.label)}" readonly>`;
+    case 'textarea': return `<textarea ${s} rows="2" readonly placeholder="${esc(f.placeholder||f.label)}"></textarea>`;
+    case 'select': return `<select ${s}>${(f.options||'').split('\n').map(o=>`<option>${esc(o.trim())}</option>`).join('')}</select>`;
+    case 'radio': return `<div>${(f.options||'').split('\n').map(o=>`<label style="font-size:12px;color:var(--text2);display:block;margin:2px 0;"><input type="radio" readonly disabled> ${esc(o.trim())}</label>`).join('')}</div>`;
+    case 'checkbox': return `<label style="font-size:12px;color:var(--text2)"><input type="checkbox" disabled> ${esc(f.label)}</label>`;
+    case 'rating': return `<div style="font-size:20px">⭐⭐⭐⭐⭐</div>`;
+    case 'file': return `<button ${s} disabled>📎 Choose file</button>`;
+    case 'section': return `<hr style="border:none;border-top:2px solid var(--line);margin:4px 0;">`;
+    default: return `<div style="color:var(--text3);font-size:12px;">[${f.type}]</div>`;
+  }
+}
+
+let selectedFieldIdx = null;
+function selectField(idx) {
+  selectedFieldIdx = idx;
+  document.querySelectorAll('.field-block').forEach((el, i) => el.classList.toggle('selected', i === idx));
+  renderPropsPanel(idx);
+}
+
+function renderPropsPanel(idx) {
+  const f = droppedFields[idx];
+  const el = document.getElementById('props-content');
+  el.innerHTML = `
+    <div class="form-group"><label class="form-label">Label</label><input class="form-input" id="prop-label" value="${esc(f.label)}" oninput="updateFieldProp('label',this.value)"></div>
+    <div class="form-group"><label class="form-label">Placeholder</label><input class="form-input" id="prop-placeholder" value="${esc(f.placeholder||'')}" oninput="updateFieldProp('placeholder',this.value)"></div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <label class="toggle-switch">
+          <input type="checkbox" ${f.required?'checked':''} onchange="updateFieldProp('required',this.checked)">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+        <span class="form-label" style="margin:0;">Required</span>
+      </label>
+    </div>
+    ${(f.type==='select'||f.type==='radio') ? `<div class="form-group"><label class="form-label">Options (one per line)</label><textarea class="form-textarea" oninput="updateFieldProp('options',this.value)">${esc(f.options||'')}</textarea></div>` : ''}
+    <button class="btn btn-danger btn-sm" style="width:100%;margin-top:8px;" onclick="removeField(${idx},null)">Remove Field</button>
+  `;
+}
+
+function updateFieldProp(key, val) {
+  if (selectedFieldIdx === null) return;
+  droppedFields[selectedFieldIdx][key] = val;
+  renderCanvas();
+  selectField(selectedFieldIdx);
+}
+
+function removeField(idx, e) {
+  if (e) e.stopPropagation();
+  droppedFields.splice(idx, 1);
+  selectedFieldIdx = null;
+  document.getElementById('props-content').textContent = 'Select a field to edit its properties.';
+  renderCanvas();
+}
+
+async function saveForm() {
+  const name = document.getElementById('ff-form-name').value.trim() || 'Untitled Form';
+  if (!droppedFields.length) { toast('Add at least one field.', 'error'); return; }
+  const payload = { name, schema: JSON.stringify(droppedFields), created_at: new Date().toISOString(), user_id: currentUser?.id };
+  try {
+    const res = await sbFetch('forms', { method:'POST', body: JSON.stringify(payload) });
+    APP.forms.unshift(Array.isArray(res) ? res[0] : res);
+    renderFormsList();
+    renderHomeStats();
+    toast('Form saved!', 'success');
+    logActivity(`Form "${name}" created`);
+  } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+function previewForm() {
+  if (!droppedFields.length) { toast('Add some fields first.', 'error'); return; }
+  const name = document.getElementById('ff-form-name').value || 'Form Preview';
+  document.getElementById('form-preview-body').innerHTML = `
+    <h3 style="font-family:var(--font-head);margin-bottom:20px;">${esc(name)}</h3>
+    ${droppedFields.map(f => `
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">${esc(f.label)}${f.required?'<span style="color:var(--red)"> *</span>':''}</label>
+        ${liveFieldRender(f)}
+      </div>
+    `).join('')}
+    <button class="btn btn-amber" style="width:100%;margin-top:12px;">Submit →</button>
+  `;
+  openModal('modal-form-preview');
+}
+
+function liveFieldRender(f) {
+  const style = `style="width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:8px;color:var(--text1);padding:9px 12px;font-size:13px;font-family:var(--font-body);"`;
+  switch(f.type) {
+    case 'text': case 'email': case 'tel': case 'number': case 'date': return `<input type="${f.type}" ${style} placeholder="${esc(f.placeholder||'')}">`;
+    case 'textarea': return `<textarea ${style} rows="3" placeholder="${esc(f.placeholder||'')}"></textarea>`;
+    case 'select': return `<select ${style}><option value="">Choose…</option>${(f.options||'').split('\n').map(o=>`<option>${esc(o.trim())}</option>`).join('')}</select>`;
+    case 'radio': return `<div>${(f.options||'').split('\n').map(o=>`<label style="display:block;margin:4px 0;font-size:13px;color:var(--text2);cursor:pointer;"><input type="radio" name="${f.id}"> ${esc(o.trim())}</label>`).join('')}</div>`;
+    case 'checkbox': return `<label style="font-size:13px;color:var(--text2);cursor:pointer;"><input type="checkbox"> ${esc(f.label)}</label>`;
+    case 'rating': return `<div id="rating-${f.id}" style="font-size:28px;cursor:pointer;">⭐⭐⭐⭐⭐</div>`;
+    case 'section': return `<hr style="border:none;border-top:1px solid var(--line);margin:8px 0;">`;
+    default: return '';
+  }
+}
+
+function shareForm() {
+  if (!droppedFields.length) { toast('Build your form first.', 'error'); return; }
+  const formId = currentShareFormId || 'current';
+  const link = `${window.location.href.split('?')[0]}?form=${formId}`;
+  const embed = `<iframe src="${link}&embed=1" width="100%" height="600" frameborder="0"></iframe>`;
+  document.getElementById('share-link-val').value = link;
+  document.getElementById('share-embed-val').value = embed;
+  openModal('modal-share');
+}
+
+function copyShareLink() {
+  navigator.clipboard.writeText(document.getElementById('share-link-val').value);
+  toast('Link copied!', 'success');
+}
+
+function renderFormsList() {
+  const wrap = document.getElementById('ff-forms-table-wrap');
+  if (!APP.forms.length) { wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-title">No forms yet</div><div class="empty-desc">Build your first form using the Builder tab.</div></div>'; return; }
+  wrap.innerHTML = `<div class="card" style="padding:0;overflow:hidden;"><table class="data-table"><thead><tr><th>Name</th><th>Fields</th><th>Responses</th><th>Created</th><th></th></tr></thead><tbody>
+    ${APP.forms.map(f => {
+      const schema = safeJson(f.schema, []);
+      const respCount = APP.responses.filter(r => r.form_id === f.id).length;
+      return `<tr>
+        <td><strong style="color:var(--text1)">${esc(f.name)}</strong></td>
+        <td style="font-family:var(--font-mono)">${schema.length}</td>
+        <td style="font-family:var(--font-mono)">${respCount}</td>
+        <td style="font-family:var(--font-mono);font-size:11px;">${new Date(f.created_at).toLocaleDateString()}</td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="loadFormIntoBuilder('${f.id}')">Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="shareFormById('${f.id}')">Share</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteForm('${f.id}')">Delete</button>
+        </td>
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>`;
+}
+
+function loadFormIntoBuilder(id) {
+  const form = APP.forms.find(f => f.id == id);
+  if (!form) return;
+  document.getElementById('ff-form-name').value = form.name;
+  droppedFields = safeJson(form.schema, []);
+  currentShareFormId = id;
+  renderCanvas();
+  setTab('ff', 'builder');
+}
+
+function shareFormById(id) {
+  currentShareFormId = id;
+  const link = `${window.location.href.split('?')[0]}?form=${id}`;
+  const embed = `<iframe src="${link}&embed=1" width="100%" height="600" frameborder="0"></iframe>`;
+  document.getElementById('share-link-val').value = link;
+  document.getElementById('share-embed-val').value = embed;
+  openModal('modal-share');
+}
+
+async function deleteForm(id) {
+  confirmAction('Delete Form', 'This will delete the form and all its responses. Continue?', async () => {
+    try {
+      await sbFetch(`forms?id=eq.${id}`, { method:'DELETE' });
+      APP.forms = APP.forms.filter(f => f.id != id);
+      renderFormsList();
+      toast('Form deleted.', 'success');
+    } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+  });
+}
+
+function renderResponsesView() {
+  const wrap = document.getElementById('ff-responses-wrap');
+  if (!APP.responses.length) { wrap.innerHTML = '<div class="empty-state"><div class="empty-icon">📨</div><div class="empty-title">No responses yet</div><div class="empty-desc">Share your forms to start collecting responses.</div></div>'; return; }
+  const grouped = {};
+  APP.responses.forEach(r => { (grouped[r.form_id] = grouped[r.form_id]||[]).push(r); });
+  wrap.innerHTML = Object.entries(grouped).map(([fid, resps]) => {
+    const form = APP.forms.find(f => f.id == fid);
+    return `<div class="card" style="margin-bottom:14px;">
+      <div class="card-header"><div class="card-title">${form ? esc(form.name) : 'Unknown Form'} <span class="badge badge-amber" style="margin-left:8px">${resps.length}</span></div></div>
+      <table class="data-table"><thead><tr><th>Submitted</th><th>Data</th></tr></thead><tbody>
+        ${resps.slice(0,5).map(r => `<tr><td style="font-family:var(--font-mono);font-size:11px;">${new Date(r.created_at).toLocaleString()}</td><td style="font-size:12px;color:var(--text3);max-width:400px;overflow:hidden;text-overflow:ellipsis;">${JSON.stringify(safeJson(r.data,r.data)).substring(0,120)}</td></tr>`).join('')}
+      </tbody></table>
+    </div>`;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────
+   ONTOMAP
+───────────────────────────────────────── */
+let ontoMode = 'add'; // 'add' | 'select'
+let selectedNode = null;
+let svgPanZoom = { x: 0, y: 0, scale: 1 };
+
+function toggleOntoMode() {
+  ontoMode = ontoMode === 'add' ? 'select' : 'add';
+  const btn = document.getElementById('onto-mode-btn');
+  if (ontoMode === 'add') { btn.textContent = '✚ Add Node'; btn.classList.add('active'); }
+  else { btn.textContent = '↖ Select Mode'; btn.classList.remove('active'); }
+  document.getElementById('onto-status').textContent = ontoMode === 'add' ? 'Click canvas to add nodes • Drag to move' : 'Click to select • Drag to move';
+}
+
+async function loadOntology() {
+  try {
+    ontoNodes = await sbFetch('ontology_nodes?select=*', { method:'GET' }) || [];
+    ontoEdges = await sbFetch('ontology_edges?select=*', { method:'GET' }) || [];
+  } catch { ontoNodes = []; ontoEdges = []; }
+  renderOntology();
+}
+
+async function saveOntology() {
+  try {
+    for (const n of ontoNodes.filter(n => n._dirty)) {
+      const { _dirty, ...data } = n;
+      if (n._new) {
+        const { _new, id, ...ndata } = data;
+        const res = await sbFetch('ontology_nodes', { method:'POST', body: JSON.stringify(ndata) });
+        n.id = (Array.isArray(res)?res[0]:res).id;
+        n._new = false;
+      } else {
+        await sbFetch(`ontology_nodes?id=eq.${n.id}`, { method:'PATCH', body: JSON.stringify({ label: n.label, x: n.x, y: n.y }) });
+      }
+      n._dirty = false;
+    }
+    toast('Ontology saved!', 'success');
+  } catch(e) { toast(`Save failed: ${e.message}`, 'error'); }
+}
+
+function renderOntology() {
+  const svg = document.getElementById('onto-svg');
+  const wrap = document.getElementById('onto-canvas-wrap');
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  svg.innerHTML = `<g id="onto-group" transform="translate(${svgPanZoom.x},${svgPanZoom.y}) scale(${svgPanZoom.scale})"></g>`;
+  const g = svg.querySelector('#onto-group');
+
+  // Edges
+  ontoEdges.forEach(e => {
+    const from = ontoNodes.find(n => n.id == e.from_node || n.id == e.source_id);
+    const to = ontoNodes.find(n => n.id == e.to_node || n.id == e.target_id);
+    if (!from || !to) return;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', from.x + 60); line.setAttribute('y1', from.y + 20);
+    line.setAttribute('x2', to.x + 60);   line.setAttribute('y2', to.y + 20);
+    line.setAttribute('class', 'onto-edge');
+    g.appendChild(line);
+  });
+
+  // Nodes
+  ontoNodes.forEach(n => {
+    const ng = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    ng.setAttribute('class', 'onto-node');
+    ng.setAttribute('transform', `translate(${n.x},${n.y})`);
+    ng.setAttribute('data-id', n.id);
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('width', '120'); rect.setAttribute('height', '40');
+    rect.setAttribute('rx', '8');
+    rect.setAttribute('fill', 'var(--bg2)');
+    rect.setAttribute('stroke', selectedNode===n.id ? 'var(--amber)' : 'var(--line2)');
+    rect.setAttribute('stroke-width', selectedNode===n.id ? '2' : '1.5');
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', '60'); text.setAttribute('y', '25');
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('fill', 'var(--text1)');
+    text.setAttribute('font-family', 'DM Sans,sans-serif');
+    text.setAttribute('font-size', '12');
+    text.textContent = (n.label || 'Node').substring(0, 16);
+
+    ng.appendChild(rect); ng.appendChild(text);
+    g.appendChild(ng);
+
+    // Drag & click
+    let mx=0, my=0, ox=0, oy=0, moved=false;
+    ng.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      mx=e.clientX; my=e.clientY; ox=n.x; oy=n.y; moved=false;
+      function mm(e2) {
+        const dx=e2.clientX-mx, dy=e2.clientY-my;
+        if (Math.abs(dx)+Math.abs(dy) > 3) moved=true;
+        n.x = ox + dx; n.y = oy + dy; n._dirty=true;
+        ng.setAttribute('transform', `translate(${n.x},${n.y})`);
+        renderOntologyEdgesOnly(g);
+      }
+      function mu() {
+        document.removeEventListener('mousemove',mm);
+        document.removeEventListener('mouseup',mu);
+        if (!moved) { selectedNode = n.id; renderOntology(); }
+      }
+      document.addEventListener('mousemove',mm);
+      document.addEventListener('mouseup',mu);
+    });
+  });
+
+  // Canvas click to add
+  svg.onclick = (e) => {
+    if (ontoMode !== 'add') return;
+    const rect = svg.getBoundingClientRect();
+    const x = (e.clientX - rect.left - svgPanZoom.x) / svgPanZoom.scale;
+    const y = (e.clientY - rect.top - svgPanZoom.y) / svgPanZoom.scale;
+    if (e.target.closest('.onto-node')) return;
+    const label = prompt('Node label:');
+    if (!label) return;
+    const node = { id: 'n_' + Date.now(), label, x: x-60, y: y-20, _dirty:true, _new:true };
+    ontoNodes.push(node);
+    renderOntology();
+  };
+}
+
+function renderOntologyEdgesOnly(g) {
+  g.querySelectorAll('.onto-edge').forEach(el => el.remove());
+  ontoEdges.forEach(e => {
+    const from = ontoNodes.find(n => n.id == e.from_node || n.id == e.source_id);
+    const to = ontoNodes.find(n => n.id == e.to_node || n.id == e.target_id);
+    if (!from || !to) return;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', from.x+60); line.setAttribute('y1', from.y+20);
+    line.setAttribute('x2', to.x+60);   line.setAttribute('y2', to.y+20);
+    line.setAttribute('class', 'onto-edge');
+    g.insertBefore(line, g.firstChild);
+  });
+}
+
+function deleteSelectedNode() {
+  if (!selectedNode) { toast('Select a node first.', 'error'); return; }
+  confirmAction('Delete Node', 'Remove this node from the ontology?', async () => {
+    try {
+      await sbFetch(`ontology_nodes?id=eq.${selectedNode}`, { method:'DELETE' });
+    } catch {}
+    ontoNodes = ontoNodes.filter(n => n.id !== selectedNode);
+    ontoEdges = ontoEdges.filter(e => e.from_node !== selectedNode && e.to_node !== selectedNode);
+    selectedNode = null;
+    renderOntology();
+  });
+}
+
+/* ─────────────────────────────────────────
+   SCORING ENGINE
+───────────────────────────────────────── */
+const DEFAULT_DIMS = [
+  { id:'d1', name:'Engagement', weight: 30 },
+  { id:'d2', name:'Progress', weight: 25 },
+  { id:'d3', name:'Compliance', weight: 25 },
+  { id:'d4', name:'Communication', weight: 20 },
+];
+
+async function loadDimensions() {
+  try {
+    const data = await sbFetch('score_dimensions?select=*', { method:'GET' });
+    APP_DIMS = data && data.length ? data : DEFAULT_DIMS;
+  } catch { APP_DIMS = DEFAULT_DIMS; }
+}
+
+function renderDimensions() {
+  if (!APP_DIMS.length) APP_DIMS = [...DEFAULT_DIMS];
+  const el = document.getElementById('dims-list');
+  el.innerHTML = APP_DIMS.map((d, i) => `
+    <div class="dim-row">
+      <input class="form-input" style="max-width:140px;margin:0;" value="${esc(d.name)}" oninput="APP_DIMS[${i}].name=this.value">
+      <input type="range" class="weight-slider" min="0" max="100" value="${d.weight}" oninput="APP_DIMS[${i}].weight=parseInt(this.value);updateDimWeightDisplay(${i},this.value);recalcPreview()">
+      <div class="dim-weight" id="dw-${i}">${d.weight}%</div>
+      <button class="btn btn-danger btn-sm btn-icon" onclick="removeDimension(${i})">✕</button>
+    </div>
+  `).join('');
+  recalcPreview();
+}
+
+function updateDimWeightDisplay(i, v) {
+  const el = document.getElementById(`dw-${i}`);
+  if (el) el.textContent = v + '%';
+}
+
+function addDimension() {
+  APP_DIMS.push({ id: 'd_'+Date.now(), name: 'New Dimension', weight: 10 });
+  renderDimensions();
+}
+
+function removeDimension(i) {
+  APP_DIMS.splice(i, 1);
+  renderDimensions();
+}
+
+function recalcPreview() {
+  const total = APP_DIMS.reduce((s, d) => s + (d.weight||0), 0);
+  const score = total > 0 ? Math.min(100, Math.round((total / APP_DIMS.length / 100) * 100)) : 0;
+  animateGauge(Math.min(100, Math.round(total / Math.max(1, APP_DIMS.length))));
+}
+
+async function saveDimensions() {
+  try {
+    for (const d of APP_DIMS) {
+      try { await sbFetch(`score_dimensions?id=eq.${d.id}`, { method:'PATCH', body: JSON.stringify({ name: d.name, weight: d.weight }) }); }
+      catch { await sbFetch('score_dimensions', { method:'POST', body: JSON.stringify(d) }); }
+    }
+    toast('Dimensions saved!', 'success');
+  } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+function animateGauge(target) {
+  const arc = document.getElementById('gauge-arc');
+  const val = document.getElementById('gauge-val');
+  const len = 251;
+  if (!arc) return;
+  const start = pendingGaugeScore;
+  pendingGaugeScore = target;
+  let frame = 0;
+  const total = 30;
+  if (gaugeRafId) cancelAnimationFrame(gaugeRafId);
+  function step() {
+    frame++;
+    const t = frame / total;
+    const cur = Math.round(start + (target - start) * (1 - Math.pow(1-t, 3)));
+    arc.setAttribute('stroke-dashoffset', String(len - (len * cur / 100)));
+    val.textContent = cur;
+    if (frame < total) gaugeRafId = requestAnimationFrame(step);
+  }
+  gaugeRafId = requestAnimationFrame(step);
+}
+
+async function loadScores() {
+  try { APP.scores = await sbFetch('client_scores?select=*', { method:'GET' }) || []; }
+  catch { APP.scores = []; }
+}
+
+function renderScoresTable() {
+  const tbody = document.getElementById('scores-tbody');
+  if (!APP.clients.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--text3);">Add clients to see scores.</td></tr>'; return; }
+  tbody.innerHTML = APP.clients.map(c => {
+    const scoreRec = APP.scores.find(s => s.client_id === c.id);
+    const score = scoreRec?.score || Math.floor(Math.random() * 100);
+    const color = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--red)';
+    return `<tr>
+      <td><strong style="color:var(--text1)">${esc(c.name)}</strong></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="flex:1;height:6px;background:var(--bg4);border-radius:4px;overflow:hidden;">
+            <div style="width:${score}%;height:100%;background:${color};border-radius:4px;transition:width 0.5s;"></div>
+          </div>
+          <span style="font-family:var(--font-mono);font-size:12px;color:${color};width:28px;text-align:right;">${score}</span>
+        </div>
+      </td>
+      <td>${score >= 70 ? '↑' : score >= 40 ? '→' : '↓'}</td>
+      <td style="font-family:var(--font-mono);font-size:11px;">${new Date().toLocaleDateString()}</td>
+    </tr>`;
+  }).join('');
+}
+
+function recalcAllScores() {
+  toast('Recalculating scores…', '');
+  setTimeout(() => { renderScoresTable(); toast('Scores updated!', 'success'); }, 800);
+}
+
+/* ─────────────────────────────────────────
+   NEO AUTOMATE (RULES)
+───────────────────────────────────────── */
+let rules = [];
+
+async function loadRules() {
+  try { rules = await sbFetch('automation_rules?select=*&order=created_at.desc', { method:'GET' }) || []; }
+  catch { rules = []; }
+  renderRules();
+}
+
+function renderRules() {
+  const el = document.getElementById('rules-list');
+  if (!rules.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🤖</div><div class="empty-title">No rules yet</div><div class="empty-desc">Create automation rules to send emails, move clients, and trigger alerts.</div></div>`;
+    return;
+  }
+  const triggerLabel = { score_below:'Score below threshold', no_contact:'No contact for X days', stage_change:'Stage changes', form_submitted:'Form submitted' };
+  const actionLabel = { send_email:'Send email', log_activity:'Log activity', move_stage:'Move stage' };
+  el.innerHTML = rules.map(r => `
+    <div class="rule-card">
+      <div class="rule-icon">⚡</div>
+      <div class="rule-info">
+        <div class="rule-name">${esc(r.name)}</div>
+        <div class="rule-desc">Trigger: ${triggerLabel[r.trigger]||r.trigger} → Action: ${actionLabel[r.action]||r.action}${r.threshold ? ` (${r.threshold})` : ''}</div>
+        <div class="rule-status">
+          <span class="badge ${r.enabled ? 'badge-green' : 'badge-gray'}">${r.enabled ? 'Active' : 'Inactive'}</span>
+          <label class="toggle-switch">
+            <input type="checkbox" ${r.enabled?'checked':''} onchange="toggleRule('${r.id}',this.checked)">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="deleteRule('${r.id}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Automation log
+  const logEl = document.getElementById('automation-log');
+  logEl.innerHTML = APP.logs.filter(l => l.type === 'automation').slice(0,5).map(l => `
+    <div class="activity-item"><div class="activity-dot"></div><div class="activity-text">${esc(l.action||l.message||'')}</div><div class="activity-time">${timeAgo(l.created_at)}</div></div>
+  `).join('') || '<div style="color:var(--text3);font-size:13px;padding:20px 0;">No automation actions yet.</div>';
+}
+
+function openRuleModal() { openModal('modal-rule'); }
+
+async function saveRule() {
+  const name = document.getElementById('rule-name').value.trim();
+  if (!name) { toast('Rule name is required.', 'error'); return; }
+  const payload = {
+    name,
+    trigger: document.getElementById('rule-trigger').value,
+    threshold: document.getElementById('rule-threshold').value.trim(),
+    action: document.getElementById('rule-action').value,
+    template: document.getElementById('rule-template').value.trim(),
+    enabled: true,
+    created_at: new Date().toISOString(),
+    user_id: currentUser?.id
+  };
+  try {
+    const res = await sbFetch('automation_rules', { method:'POST', body: JSON.stringify(payload) });
+    rules.unshift(Array.isArray(res)?res[0]:res);
+    closeModal('modal-rule');
+    renderRules();
+    toast('Rule created!', 'success');
+    logActivity(`Automation rule "${name}" created`);
+  } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+async function toggleRule(id, enabled) {
+  try {
+    await sbFetch(`automation_rules?id=eq.${id}`, { method:'PATCH', body: JSON.stringify({ enabled }) });
+    const rule = rules.find(r => r.id == id);
+    if (rule) rule.enabled = enabled;
+    toast(`Rule ${enabled ? 'enabled' : 'disabled'}.`, 'success');
+  } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+async function deleteRule(id) {
+  confirmAction('Delete Rule', 'Remove this automation rule?', async () => {
+    try {
+      await sbFetch(`automation_rules?id=eq.${id}`, { method:'DELETE' });
+      rules = rules.filter(r => r.id != id);
+      renderRules();
+      toast('Rule deleted.', 'success');
+    } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+  });
+}
+
+/* ─────────────────────────────────────────
+   INVOICES
+───────────────────────────────────────── */
+let invItems = [{ desc:'', qty:1, rate:0 }];
+
+async function loadInvoices() {
+  try { APP.invoices = await sbFetch('invoices?select=*&order=created_at.desc', { method:'GET' }) || []; }
+  catch { APP.invoices = []; }
+  renderInvoicesTable();
+}
+
+function openInvoiceModal() {
+  // Populate clients dropdown
+  const sel = document.getElementById('inv-client');
+  sel.innerHTML = '<option value="">Select client…</option>' + APP.clients.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  document.getElementById('inv-issue').value = new Date().toISOString().split('T')[0];
+  const due = new Date(); due.setDate(due.getDate()+30);
+  document.getElementById('inv-due').value = due.toISOString().split('T')[0];
+  invItems = [{ desc:'', qty:1, rate:0 }];
+  renderInvItems();
+  openModal('modal-invoice');
+}
+
+function renderInvItems() {
+  const el = document.getElementById('inv-items');
+  el.innerHTML = invItems.map((item, i) => `
+    <div style="display:grid;grid-template-columns:1fr 60px 90px 30px;gap:6px;margin-bottom:6px;align-items:center;">
+      <input class="form-input" placeholder="Description" value="${esc(item.desc)}" oninput="invItems[${i}].desc=this.value;calcInvTotal()">
+      <input class="form-input" type="number" value="${item.qty}" min="1" oninput="invItems[${i}].qty=parseFloat(this.value)||1;calcInvTotal()">
+      <input class="form-input" type="number" value="${item.rate}" step="0.01" oninput="invItems[${i}].rate=parseFloat(this.value)||0;calcInvTotal()">
+      <button class="btn btn-danger btn-sm btn-icon" onclick="invItems.splice(${i},1);renderInvItems()">✕</button>
+    </div>
+  `).join('');
+  calcInvTotal();
+}
+
+function addInvItem() { invItems.push({ desc:'', qty:1, rate:0 }); renderInvItems(); }
+function calcInvTotal() {
+  const total = invItems.reduce((s,i) => s + (i.qty||0)*(i.rate||0), 0);
+  document.getElementById('inv-total').textContent = total.toFixed(2);
+}
+
+async function saveInvoice() {
+  const clientId = document.getElementById('inv-client').value;
+  if (!clientId) { toast('Select a client.', 'error'); return; }
+  const total = invItems.reduce((s,i) => s+(i.qty||0)*(i.rate||0), 0);
+  const invNum = `INV-${Date.now().toString().slice(-6)}`;
+  const payload = {
+    invoice_number: invNum,
+    client_id: clientId,
+    status: document.getElementById('inv-status').value,
+    issue_date: document.getElementById('inv-issue').value,
+    due_date: document.getElementById('inv-due').value,
+    items: JSON.stringify(invItems),
+    total,
+    created_at: new Date().toISOString(),
+    user_id: currentUser?.id
+  };
+  try {
+    const res = await sbFetch('invoices', { method:'POST', body: JSON.stringify(payload) });
+    APP.invoices.unshift(Array.isArray(res)?res[0]:res);
+    closeModal('modal-invoice');
+    renderInvoicesTable();
+    renderHomeStats();
+    toast(`Invoice ${invNum} created!`, 'success');
+    logActivity(`Invoice ${invNum} created`);
+  } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+function setInvFilter(filter, btn) {
+  invFilter = filter;
+  document.querySelectorAll('.inv-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderInvoicesTable();
+}
+
+function renderInvoicesTable() {
+  const tbody = document.getElementById('inv-tbody');
+  let invoices = APP.invoices;
+  if (invFilter !== 'all') invoices = invoices.filter(inv => inv.status === invFilter);
+  if (!invoices.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text3);">No invoices${invFilter!=='all'?' with status '+invFilter:''}.</td></tr>`;
+    return;
+  }
+  const statusColors = { draft:'badge-gray', sent:'badge-blue', paid:'badge-green', overdue:'badge-red' };
+  tbody.innerHTML = invoices.map(inv => {
+    const client = APP.clients.find(c => c.id == inv.client_id);
+    return `<tr>
+      <td style="font-family:var(--font-mono);color:var(--amber);">${esc(inv.invoice_number||inv.id)}</td>
+      <td>${esc(client?.name||'—')}</td>
+      <td style="font-family:var(--font-mono);font-weight:700;">$${Number(inv.total||0).toFixed(2)}</td>
+      <td><span class="badge ${statusColors[inv.status]||'badge-gray'}">${esc(inv.status||'draft')}</span></td>
+      <td style="font-family:var(--font-mono);font-size:11px;">${inv.due_date||'—'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="updateInvoiceStatus('${inv.id}','paid')">Mark Paid</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteInvoice('${inv.id}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function updateInvoiceStatus(id, status) {
+  try {
+    await sbFetch(`invoices?id=eq.${id}`, { method:'PATCH', body: JSON.stringify({ status }) });
+    const inv = APP.invoices.find(i => i.id == id);
+    if (inv) inv.status = status;
+    renderInvoicesTable();
+    toast('Invoice updated.', 'success');
+  } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+}
+
+async function deleteInvoice(id) {
+  confirmAction('Delete Invoice', 'Permanently delete this invoice?', async () => {
+    try {
+      await sbFetch(`invoices?id=eq.${id}`, { method:'DELETE' });
+      APP.invoices = APP.invoices.filter(i => i.id != id);
+      renderInvoicesTable();
+      toast('Invoice deleted.', 'success');
+    } catch(e) { toast(`Error: ${e.message}`, 'error'); }
+  });
+}
+
+/* ─────────────────────────────────────────
+   ACTIVITY LOG
+───────────────────────────────────────── */
+async function loadActivity() {
+  try { APP.logs = await sbFetch('activity_logs?select=*&order=created_at.desc&limit=100', { method:'GET' }) || []; }
+  catch { APP.logs = []; }
+  renderActivityLog();
+}
+
+function renderActivityLog() {
+  const el = document.getElementById('activity-list');
+  if (!APP.logs.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center;">No activity recorded.</div>';
+    return;
+  }
+  el.innerHTML = APP.logs.slice(0,50).map(l => `
+    <div class="activity-item">
+      <div class="activity-dot"></div>
+      <div class="activity-text">${esc(l.action||l.message||JSON.stringify(l))}</div>
+      <div class="activity-time">${timeAgo(l.created_at||l.timestamp)}</div>
+    </div>
+  `).join('');
+}
+
+async function logActivity(msg) {
+  APP.logs.unshift({ action: msg, created_at: new Date().toISOString() });
+  renderActivityLog();
+  renderHomeActivity();
+  try {
+    await sbFetch('activity_logs', { method:'POST', body: JSON.stringify({ action: msg, user_id: currentUser?.id, created_at: new Date().toISOString() }), prefer:'return=minimal' });
+  } catch {}
+}
+
+/* ─────────────────────────────────────────
+   SETTINGS
+───────────────────────────────────────── */
+function setSettingsTab(tab) {
+  document.querySelectorAll('.settings-nav-item').forEach(el => el.classList.remove('active'));
+  event?.target?.classList.add('active');
+  renderSettings(tab);
+}
+
+function renderSettings(tab) {
+  const el = document.getElementById('settings-content');
+  if (tab === 'profile') {
+    el.innerHTML = `<div class="settings-section">
+      <div class="settings-section-title">Profile</div>
+      <div class="settings-section-desc">Manage your account information.</div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" value="${esc(currentUser?.email||'')}" readonly></div>
+      <div class="form-group"><label class="form-label">User ID</label><input class="form-input" value="${esc(currentUser?.id||'')}" readonly style="font-family:var(--font-mono);font-size:11px;"></div>
+      <button class="btn btn-danger btn-sm" onclick="logOut()">Sign out</button>
+    </div>`;
+  } else if (tab === 'supabase') {
+    el.innerHTML = `<div class="settings-section">
+      <div class="settings-section-title">Supabase Connection</div>
+      <div class="settings-section-desc">Configure your Supabase project credentials.</div>
+      <div class="form-group"><label class="form-label">Project URL</label><input class="form-input" id="sb-url-input" value="${esc(localStorage.getItem('il_sb_url')||SUPABASE_URL)}"></div>
+      <div class="form-group"><label class="form-label">Anon Key</label><input class="form-input" id="sb-key-input" value="${esc(localStorage.getItem('il_sb_key')||'')}"></div>
+      <button class="btn btn-amber btn-sm" onclick="saveSbConfig()">Save & Reload</button>
+    </div>`;
+  } else if (tab === 'subscriptions') {
+    el.innerHTML = `<div class="settings-section">
+      <div class="settings-section-title">My Subscriptions</div>
+      <div class="settings-section-desc">Apps you're currently subscribed to.</div>
+      ${APP_DEFS.map(app => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:20px">${app.icon}</span>
+            <div>
+              <div style="font-weight:600;color:var(--text1);">${app.name}</div>
+              <div style="font-size:12px;color:var(--text3);">$${app.price}/month</div>
+            </div>
+          </div>
+          ${isSubscribed(app.id)
+            ? '<span class="badge badge-green">Active</span>'
+            : `<button class="btn btn-amber btn-sm" onclick="openUpgradeModal('${app.id}')">Subscribe</button>`
+          }
+        </div>
+      `).join('')}
+    </div>`;
+  } else if (tab === 'danger') {
+    el.innerHTML = `<div class="settings-section">
+      <div class="settings-section-title" style="color:var(--red)">Danger Zone</div>
+      <div class="settings-section-desc">Irreversible actions. Proceed with caution.</div>
+      <button class="btn btn-danger" onclick="confirmAction('Clear All Data','This will delete all clients, forms, and invoices from memory. The database is unaffected.',()=>{ for(const k in APP) APP[k]=[];renderKanban();renderClientTable();renderFormsList();renderInvoicesTable();renderHomeStats();toast('Local data cleared.'); })">Clear local data</button>
+    </div>`;
+  }
+}
+
+function saveSbConfig() {
+  const url = document.getElementById('sb-url-input').value.trim();
+  const key = document.getElementById('sb-key-input').value.trim();
+  if (url) localStorage.setItem('il_sb_url', url);
+  if (key) localStorage.setItem('il_sb_key', key);
+  toast('Saved. Reloading…', 'success');
+  setTimeout(() => location.reload(), 900);
+}
+
+/* ─────────────────────────────────────────
+   NEO ASSISTANT
+───────────────────────────────────────── */
+function toggleNeo() {
+  neoOpen = !neoOpen;
+  document.getElementById('neo-panel').classList.toggle('open', neoOpen);
+}
+
+function addNeoWelcome() {
+  addNeoMsg('ai', "I'm **Neo**, your AI assistant. I can help you analyze client data, draft emails, explain scoring logic, or answer any questions about your workspace. How can I help?");
+}
+
+function addNeoMsg(role, text) {
+  const el = document.getElementById('neo-messages');
+  const div = document.createElement('div');
+  div.className = `neo-msg ${role}`;
+  div.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendNeoMsg() {
+  const input = document.getElementById('neo-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addNeoMsg('user', msg);
+
+  // Build context summary
+  const ctx = `You are Neo, an AI assistant embedded in LumenOS Insight Layer — a client intelligence OS. The workspace has ${APP.clients.length} clients, ${APP.forms.length} forms, and ${APP.invoices.length} invoices. Active apps: ${userSubscriptions.join(', ')||'none yet'}. Answer questions about the workspace, help draft content, and give smart recommendations. Be concise and professional.`;
+
+  const thinkingDiv = document.createElement('div');
+  thinkingDiv.className = 'neo-msg ai';
+  thinkingDiv.innerHTML = '<span style="opacity:0.5">Thinking…</span>';
+  document.getElementById('neo-messages').appendChild(thinkingDiv);
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: ctx,
+        messages: [{ role: 'user', content: msg }]
+      })
+    });
+    const data = await response.json();
+    const reply = data?.content?.[0]?.text || "I couldn't get a response right now.";
+    thinkingDiv.innerHTML = reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  } catch(e) {
+    thinkingDiv.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+  document.getElementById('neo-messages').scrollTop = 99999;
+}
+
+/* ─────────────────────────────────────────
+   UTILITIES
+───────────────────────────────────────── */
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function safeJson(str, fallback) {
+  if (typeof str !== 'string') return str ?? fallback;
+  try { return JSON.parse(str); } catch { return fallback; }
+}
+
+function timeAgo(date) {
+  if (!date) return '—';
+  const diff = (Date.now() - new Date(date).getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+  return new Date(date).toLocaleDateString();
+}
+
+/* ─────────────────────────────────────────
+   INIT
+───────────────────────────────────────── */
+(function init() {
+  renderAuthForm();
+  initAppDefs();
+  loadDimensions();
+})();
+</script>
+</body>
+</html>
