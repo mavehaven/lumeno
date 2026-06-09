@@ -966,6 +966,38 @@ tbody tr:hover td{background:var(--sf2);}
     <div class="field"><label for="nn-p">Parent Concept</label><select id="nn-p"><option value="">Root (no parent)</option></select></div>
     <div class="field"><label for="nn-d">Description</label><textarea id="nn-d" placeholder="What does this concept measure?"></textarea></div>
     <div class="mft"><button class="btn bp" onclick="addNode()">Add to Map</button><button class="btn bg" onclick="closeM('addNode')">Cancel</button></div>
+    <!-- EDIT ONTOLOGY CONCEPT MODAL -->
+<div class="mov" id="modal-editNode" role="dialog" aria-modal="true" aria-label="Edit Ontology Concept">
+  <div class="modal" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" style="max-width:480px;">
+    <div class="mdrag"></div>
+    <div class="mtit">Edit Concept</div>
+    <input type="hidden" id="en-id">
+    <div class="field">
+      <label for="en-label">Concept Name</label>
+      <input id="en-label" placeholder="e.g. Customer Satisfaction">
+    </div>
+    <div class="field">
+      <label for="en-cat">Category</label>
+      <select id="en-cat">
+        <option>Core KPI</option>
+        <option>Process</option>
+        <option>Metric</option>
+        <option>Outcome</option>
+        <option>Client Signal</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="en-desc">Description</label>
+      <textarea id="en-desc" rows="3" placeholder="What does this concept measure?"></textarea>
+    </div>
+    <div class="field">
+      <label for="en-color">Node Colour</label>
+      <input id="en-color" type="color" value="#1B3A6B" style="height:38px; width:100%;">
+    </div>
+    <div class="mft">
+      <button class="btn bp" onclick="saveEditNode()">Save Changes</button>
+      <button class="btn bg" onclick="closeM('editNode')">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -1058,8 +1090,8 @@ const APP = { clients:[], scores:[], invoices:[], logs:[], forms:[], responses:[
 // ── Form Builder state ──
 let droppedFields = [];
 let dragType = '', dragLabel = '';
-let fbDragSrc = null;   // index being dragged for reorder
-let fbDragOver = null;  // index being hovered
+let fbDragSrc = null;
+let fbDragOver = null;
 
 // ── Ontology state ──
 let ontoNodes = [], ontoEdges = [];
@@ -1891,64 +1923,92 @@ async function publishForm() {
 }
 
 // ═══════════════════════════════════════════
-// ── FIX 1: ONTOLOGY — no forced demo data ──
+// ONTOLOGY — with category + description
 // ═══════════════════════════════════════════
+
+// Category options used across add + edit modals
+const ONTO_CATEGORIES = ['Core KPI','Process','Metric','Outcome','Client Signal'];
+
 function defaultOnto() {
   ontoNodes = [
-    {id:'bp',label:'Business\nPerformance',color:'#1B3A6B',x:350,y:205,r:22,depth:0},
-    {id:'osa',label:'On-Shelf\nAvailability',color:'#2D6BE4',x:350,y:90,r:16,depth:1},
-    {id:'sup',label:'Supplier\nPerformance',color:'#2D6BE4',x:485,y:130,r:16,depth:1},
-    {id:'ops',label:'Operational\nEfficiency',color:'#2D6BE4',x:510,y:245,r:16,depth:1},
-    {id:'cx',label:'Customer\nExperience',color:'#2D6BE4',x:420,y:335,r:16,depth:1},
-    {id:'nps',label:'NPS\nScore',color:'#0E7490',x:265,y:335,r:16,depth:1},
-    {id:'cat',label:'Category\nSales',color:'#2D6BE4',x:185,y:245,r:16,depth:1},
-    {id:'wst',label:'Waste &\nShrinkage',color:'#2D6BE4',x:218,y:130,r:16,depth:1},
-    {id:'stk',label:'Stockout\nRate',color:'#0E7490',x:350,y:30,r:10,depth:2},
-    {id:'ltd',label:'Lead\nTime',color:'#0E7490',x:575,y:88,r:10,depth:2},
-    {id:'cst',label:'CSAT',color:'#0E7490',x:548,y:340,r:10,depth:2},
-    {id:'chr',label:'Churn\nRisk',color:'#92400E',x:358,y:385,r:10,depth:2}
+    {id:'bp',  label:'Business\nPerformance', color:'#1B3A6B',x:350,y:205,r:22,depth:0, category:'Core KPI',    description:'Top-level composite measure of overall business health across all tracked dimensions.'},
+    {id:'osa', label:'On-Shelf\nAvailability',color:'#2D6BE4',x:350,y:90, r:16,depth:1, category:'Metric',      description:'Percentage of time products are available on shelf when customers seek them.'},
+    {id:'sup', label:'Supplier\nPerformance', color:'#2D6BE4',x:485,y:130,r:16,depth:1, category:'Process',     description:'Composite rating of supplier reliability, lead time adherence, and quality consistency.'},
+    {id:'ops', label:'Operational\nEfficiency',color:'#2D6BE4',x:510,y:245,r:16,depth:1,category:'Metric',      description:'Ratio of value-added activities to total operational cost and time.'},
+    {id:'cx',  label:'Customer\nExperience',  color:'#2D6BE4',x:420,y:335,r:16,depth:1, category:'Client Signal',description:'Aggregated measure of customer satisfaction, effort score, and loyalty indicators.'},
+    {id:'nps', label:'NPS\nScore',            color:'#0E7490',x:265,y:335,r:16,depth:1, category:'Metric',      description:'Net Promoter Score — likelihood of customers recommending the brand (0–10 scale).'},
+    {id:'cat', label:'Category\nSales',       color:'#2D6BE4',x:185,y:245,r:16,depth:1, category:'Outcome',     description:'Revenue and volume performance within a defined product category.'},
+    {id:'wst', label:'Waste &\nShrinkage',    color:'#2D6BE4',x:218,y:130,r:16,depth:1, category:'Metric',      description:'Inventory loss from expiry, damage, theft, or administrative error.'},
+    {id:'stk', label:'Stockout\nRate',        color:'#0E7490',x:350,y:30, r:10,depth:2, category:'Metric',      description:'Frequency at which a SKU is completely unavailable at point of sale.'},
+    {id:'ltd', label:'Lead\nTime',            color:'#0E7490',x:575,y:88, r:10,depth:2, category:'Process',     description:'Elapsed time from purchase order to confirmed goods receipt at warehouse.'},
+    {id:'cst', label:'CSAT',                  color:'#0E7490',x:548,y:340,r:10,depth:2, category:'Client Signal',description:'Customer Satisfaction Score collected via post-interaction surveys (1–5 scale).'},
+    {id:'chr', label:'Churn\nRisk',           color:'#92400E',x:358,y:385,r:10,depth:2, category:'Outcome',     description:'Probability score indicating likelihood of a client reducing or ending engagement.'}
   ];
   ontoEdges = [['bp','osa'],['bp','sup'],['bp','ops'],['bp','cx'],['bp','nps'],['bp','cat'],['bp','wst'],['osa','stk'],['sup','ltd'],['cx','cst'],['nps','chr']];
 }
 
-// KEY CHANGE: does NOT call defaultOnto() — starts from saved state or empty
-function initOntology() {
-  if (SB) { loadOntoDB(); return; }
-  const saved = safeJson(localStorage.getItem('lumenos_onto'), null);
-  if (saved && saved.nodes && saved.nodes.length) { ontoNodes = saved.nodes; ontoEdges = saved.edges || []; }
-  renderOnto(); populateNodeSel();
-}
-
+// Persists all fields including category + description
 function saveOntoLocal() {
   localStorage.setItem('lumenos_onto', JSON.stringify({ nodes: ontoNodes, edges: ontoEdges }));
 }
 
-// Only loads from DB — no fallback to demo
+// Fetches category + description from Supabase
 async function loadOntoDB() {
   const { data, error } = await SB.from('ontology_nodes').select('*');
   if (!error && data && data.length) {
-    ontoNodes = data.map(n => ({ id:n.id, label:n.label||n.name, color:n.color||'#1B3A6B', x:n.x||350, y:n.y||200, r:n.depth===0?22:n.depth===1?16:10, depth:n.depth||1 }));
-    const { data:edges } = await SB.from('ontology_edges').select('*');
-    if (edges) ontoEdges = edges.map(e=>[e.source_id,e.target_id]);
+    ontoNodes = data.map(n => ({
+      id:          n.id,
+      label:       n.label || n.name,
+      color:       n.color || '#1B3A6B',
+      x:           n.x    || 350,
+      y:           n.y    || 200,
+      r:           n.depth === 0 ? 22 : n.depth === 1 ? 16 : 10,
+      depth:       n.depth       || 1,
+      category:    n.category    || 'Core KPI',
+      description: n.description || ''
+    }));
+    const { data: edges } = await SB.from('ontology_edges').select('*');
+    if (edges) ontoEdges = edges.map(e => [e.source_id, e.target_id]);
   }
-  renderOnto(); populateNodeSel();
+  renderOnto();
+  populateNodeSel();
 }
 
-// "Reset Default" now prompts before overwriting, and is labelled "Load Demo Template"
+function initOntology() {
+  if (SB) { loadOntoDB(); return; }
+  const saved = safeJson(localStorage.getItem('lumenos_onto'), null);
+  if (saved && saved.nodes && saved.nodes.length) {
+    ontoNodes = saved.nodes;
+    ontoEdges = saved.edges || [];
+  }
+  renderOnto();
+  populateNodeSel();
+}
+
 function resetOnto() {
-  const doIt = () => { ontoNodes=[]; ontoEdges=[]; defaultOnto(); saveOntoLocal(); renderOnto(); toast('FMCG demo ontology loaded','↻'); };
+  const doIt = () => {
+    ontoNodes = []; ontoEdges = [];
+    defaultOnto(); saveOntoLocal(); renderOnto();
+    toast('FMCG demo ontology loaded', '↻');
+  };
   if (ontoNodes.length > 0) {
     confirm('Replace your current ontology with the FMCG demo template? Your custom nodes will be lost.', 'Load Demo Template', doIt, false);
   } else { doIt(); }
 }
 
-function svgPoint(svg, cx, cy) { const pt=svg.createSVGPoint(); pt.x=cx; pt.y=cy; return pt.matrixTransform(svg.getScreenCTM().inverse()); }
+function svgPoint(svg, cx, cy) {
+  const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
 
 function renderOnto() {
-  const eg=document.getElementById('oe'), ng=document.getElementById('on2'), svg=document.getElementById('onto-svg'); if (!svg) return;
-  eg.innerHTML=''; ng.innerHTML=''; ontoNodeEls={}; ontoEdgeEls={};
+  const eg  = document.getElementById('oe');
+  const ng  = document.getElementById('on2');
+  const svg = document.getElementById('onto-svg');
+  if (!svg) return;
+  eg.innerHTML = ''; ng.innerHTML = ''; ontoNodeEls = {}; ontoEdgeEls = {};
 
-  // Empty state — shown when no nodes exist yet
+  // Empty state
   if (!ontoNodes.length) {
     const fo = document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
     fo.setAttribute('x','0'); fo.setAttribute('y','0'); fo.setAttribute('width','700'); fo.setAttribute('height','420');
@@ -1964,147 +2024,326 @@ function renderOnto() {
     return;
   }
 
+  // Guide rings
   [68,125,182].forEach(r => {
-    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
     c.setAttribute('cx',350); c.setAttribute('cy',205); c.setAttribute('r',r);
-    c.setAttribute('fill','none'); c.setAttribute('stroke','#DDD9CC'); c.setAttribute('stroke-dasharray','3 5'); c.setAttribute('stroke-width','0.8');
+    c.setAttribute('fill','none'); c.setAttribute('stroke','#DDD9CC');
+    c.setAttribute('stroke-dasharray','3 5'); c.setAttribute('stroke-width','0.8');
     eg.appendChild(c);
   });
+
+  // Edges
   ontoEdges.forEach(([a,b]) => {
-    const na=ontoNodes.find(n=>n.id===a), nb=ontoNodes.find(n=>n.id===b); if (!na||!nb) return;
-    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    const na = ontoNodes.find(n=>n.id===a), nb = ontoNodes.find(n=>n.id===b); if (!na||!nb) return;
+    const l = document.createElementNS('http://www.w3.org/2000/svg','line');
     l.setAttribute('x1',na.x); l.setAttribute('y1',na.y); l.setAttribute('x2',nb.x); l.setAttribute('y2',nb.y);
-    l.setAttribute('stroke','#C8C4B4'); l.setAttribute('stroke-width','1'); eg.appendChild(l); ontoEdgeEls[a+'_'+b]=l;
+    l.setAttribute('stroke','#C8C4B4'); l.setAttribute('stroke-width','1');
+    eg.appendChild(l); ontoEdgeEls[a+'_'+b] = l;
   });
+
+  // Nodes
   ontoNodes.forEach(n => {
-    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.setAttribute('class','onto-node-grp'); g.setAttribute('tabindex','0'); g.style.cursor='grab';
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','onto-node-grp'); g.setAttribute('tabindex','0'); g.style.cursor = 'grab';
     g.setAttribute('role','button'); g.setAttribute('aria-label',`${n.label.replace('\n',' ')} node`);
-    const glow=document.createElementNS('http://www.w3.org/2000/svg','circle'); glow.setAttribute('cx',n.x); glow.setAttribute('cy',n.y); glow.setAttribute('r',n.r+7); glow.setAttribute('fill',n.color); glow.setAttribute('opacity','0.07'); g.appendChild(glow);
-    const circ=document.createElementNS('http://www.w3.org/2000/svg','circle'); circ.setAttribute('cx',n.x); circ.setAttribute('cy',n.y); circ.setAttribute('r',n.r); circ.setAttribute('fill',n.color+'15'); circ.setAttribute('stroke',n.color); circ.setAttribute('stroke-width','1.6'); circ.setAttribute('class','node-ring'); g.appendChild(circ);
-    if (n.depth===0) { const dot=document.createElementNS('http://www.w3.org/2000/svg','circle'); dot.setAttribute('cx',n.x); dot.setAttribute('cy',n.y); dot.setAttribute('r','5'); dot.setAttribute('fill',n.color); g.appendChild(dot); }
-    const texts=[]; n.label.split('\n').forEach((line,i) => { const t=document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',n.x); t.setAttribute('y',n.y+n.r+5+i*12); t.setAttribute('text-anchor','middle'); t.setAttribute('font-size',n.depth===0?'11':n.depth===1?'9':'8'); t.setAttribute('font-family','Inter,sans-serif'); t.setAttribute('font-weight',n.depth<2?'700':'500'); t.setAttribute('fill',n.depth===0?'#111':'#595959'); t.setAttribute('pointer-events','none'); t.textContent=line; g.appendChild(t); texts.push(t); });
+
+    const glow = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    glow.setAttribute('cx',n.x); glow.setAttribute('cy',n.y); glow.setAttribute('r',n.r+7);
+    glow.setAttribute('fill',n.color); glow.setAttribute('opacity','0.07'); g.appendChild(glow);
+
+    const circ = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circ.setAttribute('cx',n.x); circ.setAttribute('cy',n.y); circ.setAttribute('r',n.r);
+    circ.setAttribute('fill',n.color+'15'); circ.setAttribute('stroke',n.color);
+    circ.setAttribute('stroke-width','1.6'); circ.setAttribute('class','node-ring'); g.appendChild(circ);
+
+    if (n.depth === 0) {
+      const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dot.setAttribute('cx',n.x); dot.setAttribute('cy',n.y); dot.setAttribute('r','5');
+      dot.setAttribute('fill',n.color); g.appendChild(dot);
+    }
+
+    const texts = [];
+    n.label.split('\n').forEach((line,i) => {
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x',n.x); t.setAttribute('y',n.y+n.r+5+i*12);
+      t.setAttribute('text-anchor','middle');
+      t.setAttribute('font-size',  n.depth===0?'11':n.depth===1?'9':'8');
+      t.setAttribute('font-family','Inter,sans-serif');
+      t.setAttribute('font-weight', n.depth<2?'700':'500');
+      t.setAttribute('fill',        n.depth===0?'#111':'#595959');
+      t.setAttribute('pointer-events','none');
+      t.textContent = line; g.appendChild(t); texts.push(t);
+    });
+
     ontoNodeEls[n.id] = { g, glow, circ, texts };
-    g.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); const p=svgPoint(svg,e.clientX,e.clientY); ontoDrag={node:n,svgStartX:p.x,svgStartY:p.y,nodeStartX:n.x,nodeStartY:n.y,_moved:false}; g.style.cursor='grabbing'; });
-    g.addEventListener('touchstart', e => { e.stopPropagation(); const touch=e.touches[0]; const p=svgPoint(svg,touch.clientX,touch.clientY); ontoDrag={node:n,svgStartX:p.x,svgStartY:p.y,nodeStartX:n.x,nodeStartY:n.y,_moved:false}; }, {passive:true});
+
+    g.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      const p = svgPoint(svg,e.clientX,e.clientY);
+      ontoDrag = { node:n, svgStartX:p.x, svgStartY:p.y, nodeStartX:n.x, nodeStartY:n.y, _moved:false };
+      g.style.cursor = 'grabbing';
+    });
+    g.addEventListener('touchstart', e => {
+      e.stopPropagation();
+      const touch = e.touches[0], p = svgPoint(svg,touch.clientX,touch.clientY);
+      ontoDrag = { node:n, svgStartX:p.x, svgStartY:p.y, nodeStartX:n.x, nodeStartY:n.y, _moved:false };
+    }, {passive:true});
     g.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); showNode(n); } });
+
     ng.appendChild(g);
   });
-  svg.onmousemove = e => { if (!ontoDrag) return; const p=svgPoint(svg,e.clientX,e.clientY); if (Math.abs(p.x-ontoDrag.svgStartX)>CLICK_THRESH||Math.abs(p.y-ontoDrag.svgStartY)>CLICK_THRESH) { ontoDrag._moved=true; moveOntoDrag(p.x,p.y); } };
-  svg.onmouseup   = e => { if (!ontoDrag) return; const wasDrag=ontoDrag._moved,n=ontoDrag.node; finishOntoDrag(); if (!wasDrag) showNode(n); };
+
+  svg.onmousemove = e => {
+    if (!ontoDrag) return;
+    const p = svgPoint(svg,e.clientX,e.clientY);
+    if (Math.abs(p.x-ontoDrag.svgStartX)>CLICK_THRESH || Math.abs(p.y-ontoDrag.svgStartY)>CLICK_THRESH) { ontoDrag._moved=true; moveOntoDrag(p.x,p.y); }
+  };
+  svg.onmouseup   = e => { if (!ontoDrag) return; const wasDrag=ontoDrag._moved, n=ontoDrag.node; finishOntoDrag(); if (!wasDrag) showNode(n); };
   svg.onmouseleave = () => { if (ontoDrag) finishOntoDrag(); };
-  svg.ontouchmove  = e => { if (!ontoDrag) return; e.preventDefault(); const p=svgPoint(svg,e.touches[0].clientX,e.touches[0].clientY); if (Math.abs(p.x-ontoDrag.svgStartX)>CLICK_THRESH||Math.abs(p.y-ontoDrag.svgStartY)>CLICK_THRESH) { ontoDrag._moved=true; moveOntoDrag(p.x,p.y); } };
-  svg.ontouchend   = e => { if (!ontoDrag) return; const wasDrag=ontoDrag._moved,n=ontoDrag.node; finishOntoDrag(); if (!wasDrag) showNode(n); };
+  svg.ontouchmove  = e => {
+    if (!ontoDrag) return; e.preventDefault();
+    const p = svgPoint(svg,e.touches[0].clientX,e.touches[0].clientY);
+    if (Math.abs(p.x-ontoDrag.svgStartX)>CLICK_THRESH || Math.abs(p.y-ontoDrag.svgStartY)>CLICK_THRESH) { ontoDrag._moved=true; moveOntoDrag(p.x,p.y); }
+  };
+  svg.ontouchend = e => { if (!ontoDrag) return; const wasDrag=ontoDrag._moved, n=ontoDrag.node; finishOntoDrag(); if (!wasDrag) showNode(n); };
+
   document.getElementById('oNC').textContent = ontoNodes.length;
   document.getElementById('oEC').textContent = ontoEdges.length;
   document.getElementById('oD').textContent  = Math.max(...ontoNodes.map(n=>n.depth),0)+1;
+
+  // Sync linked node dropdown in Form Builder
   const fNodeSel = document.getElementById('fNode');
-  if (fNodeSel) fNodeSel.innerHTML='<option value="">— select node —</option>'+ontoNodes.map(n=>`<option value="${n.id}">${n.label.replace('\n',' ')}</option>`).join('');
+  if (fNodeSel) fNodeSel.innerHTML = '<option value="">— select node —</option>'+ontoNodes.map(n=>`<option value="${n.id}">${escHtml(n.label.replace('\n',' '))}</option>`).join('');
 }
+
 function moveOntoDrag(px, py) {
   if (!ontoDrag) return;
-  const n=ontoDrag.node, vb=document.getElementById('onto-svg').viewBox.baseVal;
-  n.x = Math.max(n.r+2, Math.min(vb.width-n.r-2,  ontoDrag.nodeStartX+(px-ontoDrag.svgStartX)));
+  const n = ontoDrag.node, vb = document.getElementById('onto-svg').viewBox.baseVal;
+  n.x = Math.max(n.r+2, Math.min(vb.width -n.r-2, ontoDrag.nodeStartX+(px-ontoDrag.svgStartX)));
   n.y = Math.max(n.r+2, Math.min(vb.height-n.r-2, ontoDrag.nodeStartY+(py-ontoDrag.svgStartY)));
   const els = ontoNodeEls[n.id]; if (!els) return;
   els.glow.setAttribute('cx',n.x); els.glow.setAttribute('cy',n.y);
   els.circ.setAttribute('cx',n.x); els.circ.setAttribute('cy',n.y);
   els.texts.forEach((t,i) => { t.setAttribute('x',n.x); t.setAttribute('y',n.y+n.r+5+i*12); });
-  ontoEdges.forEach(([a,b]) => { if (a!==n.id&&b!==n.id) return; const line=ontoEdgeEls[a+'_'+b]; if (!line) return; if (a===n.id){line.setAttribute('x1',n.x);line.setAttribute('y1',n.y);} if (b===n.id){line.setAttribute('x2',n.x);line.setAttribute('y2',n.y);} });
+  ontoEdges.forEach(([a,b]) => {
+    if (a!==n.id && b!==n.id) return;
+    const line = ontoEdgeEls[a+'_'+b]; if (!line) return;
+    if (a===n.id) { line.setAttribute('x1',n.x); line.setAttribute('y1',n.y); }
+    if (b===n.id) { line.setAttribute('x2',n.x); line.setAttribute('y2',n.y); }
+  });
 }
+
 function finishOntoDrag() {
   if (!ontoDrag) return;
-  const n=ontoDrag.node, els=ontoNodeEls[n.id]; if (els) els.g.style.cursor='grab';
+  const n = ontoDrag.node, els = ontoNodeEls[n.id]; if (els) els.g.style.cursor = 'grab';
   if (ontoDrag._moved) {
     saveOntoLocal();
     if (SB) SB.from('ontology_nodes').update({x:Math.round(n.x),y:Math.round(n.y)}).eq('id',n.id).then(()=>{});
   }
   ontoDrag = null;
 }
+
+// showNode — displays category + description + Edit button
 function showNode(n) {
-  const connected = ontoEdges.filter(e=>e[0]===n.id||e[1]===n.id).map(e=>e[0]===n.id?e[1]:e[0]).map(id=>{ const nd=ontoNodes.find(x=>x.id===id); return nd?nd.label.replace('\n',' '):id; }).join(', ');
-  document.getElementById('oActive').innerHTML = `<div class="fxc g2i" style="margin-bottom:8px;"><span style="width:10px;height:10px;border-radius:50%;background:${n.color};flex-shrink:0;"></span><strong class="fw7">${escHtml(n.label.replace('\n',' '))}</strong><span class="badge bn mono" style="margin-left:auto;">depth ${n.depth}</span></div><p class="sm muted fw6" style="margin-bottom:10px;">Connected to: ${escHtml(connected||'none')}</p><div class="fx g2i" style="flex-wrap:wrap;"><button class="btn bs2 bsm" onclick="nsc('Analyse the ${escHtml(n.label.replace('\n',' '))} concept and suggest KPIs')">Ask Neo →</button><button class="btn bg bsm" onclick="goPanel('forms',document.querySelector('[data-p=forms]'))">Use in form</button><button class="btn bdng bsm" onclick="deleteOntologyNode('${n.id}')">Delete node</button></div>`;
+  const connected = ontoEdges
+    .filter(e => e[0]===n.id || e[1]===n.id)
+    .map(e => e[0]===n.id ? e[1] : e[0])
+    .map(id => { const nd = ontoNodes.find(x=>x.id===id); return nd ? nd.label.replace('\n',' ') : id; })
+    .join(', ');
+
+  const catBadge = n.category
+    ? `<span class="badge bn mono" style="margin-left:6px;">${escHtml(n.category)}</span>`
+    : '';
+
+  const descHtml = n.description
+    ? `<p class="sm fw6" style="color:var(--t2);margin-bottom:8px;line-height:1.6;">${escHtml(n.description)}</p>`
+    : `<p class="sm muted" style="margin-bottom:8px;font-style:italic;">No description — click Edit to add one.</p>`;
+
+  document.getElementById('oActive').innerHTML = `
+    <div class="fxc g2i" style="margin-bottom:8px;flex-wrap:wrap;">
+      <span style="width:10px;height:10px;border-radius:50%;background:${n.color};flex-shrink:0;"></span>
+      <strong class="fw7">${escHtml(n.label.replace('\n',' '))}</strong>
+      ${catBadge}
+      <span class="badge bn mono" style="margin-left:auto;">depth ${n.depth}</span>
+    </div>
+    ${descHtml}
+    <p class="xs muted mono" style="margin-bottom:10px;">Connected to: ${escHtml(connected||'none')}</p>
+    <div class="fx g2i" style="flex-wrap:wrap;">
+      <button class="btn bp bsm" onclick="openEditNode('${escHtml(n.id)}')">✎ Edit</button>
+      <button class="btn bs2 bsm" onclick="nsc('Analyse the ${escHtml(n.label.replace('\n',' '))} concept and suggest KPIs')">Ask Neo →</button>
+      <button class="btn bg bsm" onclick="goPanel('forms',document.querySelector('[data-p=forms]'))">Use in form</button>
+      <button class="btn bdng bsm" onclick="deleteOntologyNode('${escHtml(n.id)}')">Delete</button>
+    </div>`;
 }
+
+// Opens the edit-node modal pre-filled with the node's current data
+function openEditNode(nodeId) {
+  const n = ontoNodes.find(x => x.id === nodeId);
+  if (!n) return;
+
+  const modal = document.getElementById('modal-editNode');
+  if (!modal) { console.warn('modal-editNode not found in DOM'); return; }
+
+  document.getElementById('en-id').value          = n.id;
+  document.getElementById('en-label').value        = n.label.replace('\n',' ');
+  document.getElementById('en-desc').value         = n.description || '';
+  document.getElementById('en-color').value        = n.color || '#1B3A6B';
+
+  // Populate category select and pre-select current value
+  const catSel = document.getElementById('en-cat');
+  catSel.innerHTML = ONTO_CATEGORIES.map(c => `<option value="${escHtml(c)}"${c===n.category?' selected':''}>${escHtml(c)}</option>`).join('');
+
+  openM('editNode');
+}
+
+// Saves edits back to the node in memory, local storage, and Supabase
+async function saveEditNode() {
+  const nodeId = document.getElementById('en-id').value;
+  const n = ontoNodes.find(x => x.id === nodeId);
+  if (!n) { closeM('editNode'); return; }
+
+  const rawLabel = document.getElementById('en-label').value.trim() || n.label.replace('\n',' ');
+  // Preserve newline structure: if original had a newline at a word boundary, re-insert it
+  // Simple heuristic: split on first space that falls after 40% of total string length
+  const words = rawLabel.split(' ');
+  let newLabel = rawLabel;
+  if (words.length >= 2) {
+    const mid = Math.ceil(words.length / 2);
+    newLabel = words.slice(0, mid).join(' ') + '\n' + words.slice(mid).join(' ');
+  }
+
+  n.label       = newLabel;
+  n.description = document.getElementById('en-desc').value.trim();
+  n.color       = document.getElementById('en-color').value;
+  n.category    = document.getElementById('en-cat').value;
+
+  saveOntoLocal();
+  renderOnto();
+  showNode(n); // refresh the active concept panel
+
+  if (SB) {
+    await SB.from('ontology_nodes').update({
+      label:       n.label,
+      description: n.description,
+      color:       n.color,
+      category:    n.category
+    }).eq('id', nodeId);
+  }
+
+  closeM('editNode');
+  toast('Concept updated', '✓');
+  log('Ontology node edited: ' + rawLabel, 'system');
+}
+
 async function deleteOntologyNode(nodeId) {
-  const node = ontoNodes.find(n=>n.id===nodeId); if (!node) return;
+  const node = ontoNodes.find(n => n.id===nodeId); if (!node) return;
   confirm(`Delete "${node.label.replace('\n',' ')}" and all its connections?`, 'Delete Node', async () => {
-    if (SB) { await SB.from('ontology_edges').delete().or(`source_id.eq.${nodeId},target_id.eq.${nodeId}`); await SB.from('ontology_nodes').delete().eq('id',nodeId); }
-    ontoNodes = ontoNodes.filter(n=>n.id!==nodeId); ontoEdges = ontoEdges.filter(([a,b])=>a!==nodeId&&b!==nodeId);
+    if (SB) {
+      await SB.from('ontology_edges').delete().or(`source_id.eq.${nodeId},target_id.eq.${nodeId}`);
+      await SB.from('ontology_nodes').delete().eq('id',nodeId);
+    }
+    ontoNodes = ontoNodes.filter(n => n.id!==nodeId);
+    ontoEdges = ontoEdges.filter(([a,b]) => a!==nodeId && b!==nodeId);
     saveOntoLocal(); renderOnto();
     document.getElementById('oActive').innerHTML = '<p class="sm muted fw6">Node deleted. Click another to explore.</p>';
     toast('Node deleted','✓'); log('Ontology node deleted: '+nodeId,'system');
   });
 }
+
 function populateNodeSel() {
-  const sel=document.getElementById('nn-p'); if (!sel) return;
-  sel.innerHTML='<option value="">Root (no parent)</option>'+ontoNodes.map(n=>`<option value="${n.id}">${escHtml(n.label.replace('\n',' '))}</option>`).join('');
+  const sel = document.getElementById('nn-p'); if (!sel) return;
+  sel.innerHTML = '<option value="">Root (no parent)</option>' +
+    ontoNodes.map(n => `<option value="${n.id}">${escHtml(n.label.replace('\n',' '))}</option>`).join('');
 }
+
 function openAddNodeModal() { openM('addNode'); setTimeout(populateNodeSel, 90); }
+
 async function addNode() {
-  const nameEl=document.getElementById('nn-n'), catEl=document.getElementById('nn-c'), parentEl=document.getElementById('nn-p'), descEl=document.getElementById('nn-d');
-  const name=nameEl?nameEl.value.trim():'', cat=catEl?catEl.value:'Core KPI', parent=parentEl?parentEl.value:'', desc=descEl?descEl.value.trim():'';
+  const nameEl   = document.getElementById('nn-n');
+  const catEl    = document.getElementById('nn-c');
+  const parentEl = document.getElementById('nn-p');
+  const descEl   = document.getElementById('nn-d');
+
+  const name   = nameEl   ? nameEl.value.trim()   : '';
+  const cat    = catEl    ? catEl.value            : 'Core KPI';
+  const parent = parentEl ? parentEl.value         : '';
+  const desc   = descEl   ? descEl.value.trim()    : '';
+
   if (!name) { toast('Enter a concept name','⚠'); return; }
+
   const depth  = parent ? ((ontoNodes.find(n=>n.id===parent)?.depth||0)+1) : 0;
-  const id     = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,28)+'_'+Date.now().toString(36);
-  const colors = ['#1B3A6B','#2D6BE4','#0E7490','#065F46','#92400E'], color=colors[depth%colors.length], r=depth===0?22:depth===1?16:10;
-  const pn = ontoNodes.find(n=>n.id===parent);
-  const x  = pn ? Math.max(20,Math.min(680,pn.x+(Math.random()-0.5)*130)) : 200+Math.random()*300;
-  const y  = pn ? Math.max(20,Math.min(400,pn.y+80)) : 80+Math.random()*240;
-  ontoNodes.push({ id, label:name, color, x, y, r, depth }); if (parent) ontoEdges.push([parent,id]);
-  saveOntoLocal(); renderOnto(); populateNodeSel(); closeM('addNode');
-  if (nameEl) nameEl.value=''; if (descEl) descEl.value='';
-  if (SB) {
-    SB.from('ontology_nodes').insert({ id, label:name, color, x:Math.round(x), y:Math.round(y), depth, category:cat, description:desc }).then(({error})=>{ if(error) console.warn('Node insert:',error.message); });
-    if (parent) SB.from('ontology_edges').insert({ source_id:parent, target_id:id }).then(({error})=>{ if(error) console.warn('Edge insert:',error.message); });
+  const id     = name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,28) + '_' + Date.now().toString(36);
+  const colors = ['#1B3A6B','#2D6BE4','#0E7490','#065F46','#92400E'];
+  const color  = colors[depth % colors.length];
+  const r      = depth===0 ? 22 : depth===1 ? 16 : 10;
+
+  const pn = ontoNodes.find(n => n.id===parent);
+  const x  = pn ? Math.max(20, Math.min(680, pn.x+(Math.random()-0.5)*130)) : 200+Math.random()*300;
+  const y  = pn ? Math.max(20, Math.min(400, pn.y+80))                      : 80+Math.random()*240;
+
+  // Store name with natural newline for multi-word labels
+  const words = name.split(' ');
+  let storedLabel = name;
+  if (words.length >= 2) {
+    const mid = Math.ceil(words.length / 2);
+    storedLabel = words.slice(0,mid).join(' ') + '\n' + words.slice(mid).join(' ');
   }
-  toast(name+' added to ontology','✓'); log('Ontology node added: '+name,'system');
+
+  ontoNodes.push({ id, label:storedLabel, color, x, y, r, depth, category:cat, description:desc });
+  if (parent) ontoEdges.push([parent, id]);
+
+  saveOntoLocal(); renderOnto(); populateNodeSel(); closeM('addNode');
+  if (nameEl) nameEl.value = ''; if (descEl) descEl.value = '';
+
+  if (SB) {
+    SB.from('ontology_nodes').insert({
+      id, label:storedLabel, color,
+      x: Math.round(x), y: Math.round(y),
+      depth, category: cat, description: desc
+    }).then(({error}) => { if (error) console.warn('Node insert:', error.message); });
+    if (parent) {
+      SB.from('ontology_edges').insert({ source_id:parent, target_id:id })
+        .then(({error}) => { if (error) console.warn('Edge insert:', error.message); });
+    }
+  }
+
+  toast(name + ' added to ontology', '✓');
+  log('Ontology node added: ' + name, 'system');
 }
 
 // ═══════════════════════════════════════════
-// ── FIX 2: SCORING ENGINE — real algorithm ──
+// SCORING ENGINE — real algorithm
 // ═══════════════════════════════════════════
-
-// Maps a client's form responses to dimension scores using fuzzy key matching
 function computeClientScore(clientId, responsesForClient) {
   if (!APP_DIMS.length) return { total: 0, breakdown: [] };
-
-  // Normalize weights so they always sum to 100 regardless of what user entered
-  const totalW = APP_DIMS.reduce((s, d) => s + (parseInt(d.w) || 0), 0) || 100;
-
-  // Collect all answers across all of this client's responses (latest value wins per key)
+  const totalW = APP_DIMS.reduce((s,d) => s+(parseInt(d.w)||0), 0) || 100;
   const allAnswers = {};
   responsesForClient.forEach(r => {
-    Object.entries(safeJson(r.answers, {})).forEach(([k, v]) => {
-      allAnswers[k.toLowerCase().replace(/[^a-z0-9]/g, '')] = { raw: v, label: k };
+    Object.entries(safeJson(r.answers,{})).forEach(([k,v]) => {
+      allAnswers[k.toLowerCase().replace(/[^a-z0-9]/g,'')] = { raw:v, label:k };
     });
   });
-
   let weightedScore = 0;
   const breakdown = [];
-
   APP_DIMS.forEach(dim => {
-    const dimKey   = (dim.key   || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const dimLabel = (dim.label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const w        = parseInt(dim.w) || 0;
-    const wNorm    = (w / totalW) * 100;
-
-    // Fuzzy match: find an answer whose normalised key contains or overlaps the dimension key/label
+    const dimKey   = (dim.key  ||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const dimLabel = (dim.label||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const w        = parseInt(dim.w)||0;
+    const wNorm    = (w/totalW)*100;
     let rawValue = null, matched = false;
-    for (const [ansKey, ansObj] of Object.entries(allAnswers)) {
-      if (ansKey.includes(dimKey) || dimKey.includes(ansKey) ||
-          ansKey.includes(dimLabel) || dimLabel.includes(ansKey)) {
+    for (const [ansKey,ansObj] of Object.entries(allAnswers)) {
+      if (ansKey.includes(dimKey)||dimKey.includes(ansKey)||ansKey.includes(dimLabel)||dimLabel.includes(ansKey)) {
         rawValue = ansObj.raw; matched = true; break;
       }
     }
-
-    // Convert raw value to 0–100
     let dimScore = 0;
     if (matched && rawValue !== null && rawValue !== '') {
       const num = parseFloat(rawValue);
       if (!isNaN(num)) {
-        if      (num >= 0 && num <= 10)  dimScore = num * 10;  // NPS / rating scale
-        else if (num >= 0 && num <= 100) dimScore = num;       // percentage already
-        else dimScore = Math.min(100, Math.max(0, num));
+        if      (num>=0 && num<=10)  dimScore = num*10;
+        else if (num>=0 && num<=100) dimScore = num;
+        else dimScore = Math.min(100,Math.max(0,num));
       } else {
         const lower = String(rawValue).toLowerCase();
         if (['yes','true','good','excellent','met','achieved','always'].includes(lower)) dimScore = 85;
@@ -2112,50 +2351,32 @@ function computeClientScore(clientId, responsesForClient) {
         else dimScore = 50;
       }
     }
-
-    weightedScore += (dimScore * wNorm) / 100;
-    breakdown.push({ key: dim.key, label: dim.label, score: Math.round(dimScore), weight: Math.round(wNorm), col: dim.col, matched });
+    weightedScore += (dimScore*wNorm)/100;
+    breakdown.push({ key:dim.key, label:dim.label, score:Math.round(dimScore), weight:Math.round(wNorm), col:dim.col, matched });
   });
-
-  return { total: Math.round(weightedScore * 10) / 10, breakdown };
+  return { total: Math.round(weightedScore*10)/10, breakdown };
 }
 
 async function recalcAll() {
   if (!APP_DIMS.length) { toast('Add scoring dimensions first','⚠'); return; }
   toast('Recalculating all client scores…','↻'); log('Score recalculation started','score');
-
   let allResponses = APP.responses.length ? APP.responses : [];
-  if (SB && !allResponses.length) {
-    const { data } = await SB.from('form_responses').select('*');
-    if (data) allResponses = data;
-  }
+  if (SB && !allResponses.length) { const{data}=await SB.from('form_responses').select('*'); if(data)allResponses=data; }
   if (!allResponses.length) allResponses = JSON.parse(localStorage.getItem('lumenos_responses')||'[]');
-
   let updated = 0;
   const newScores = [];
-
   for (const client of APP.clients) {
     const clientResps = allResponses.filter(r =>
-      r.client_id === client.id ||
-      (safeJson(r.answers,{})['Client Name']||'').toLowerCase() === (client.name||'').toLowerCase()
+      r.client_id===client.id ||
+      (safeJson(r.answers,{})['Client Name']||'').toLowerCase()===(client.name||'').toLowerCase()
     );
     if (!clientResps.length) continue;
-
     const result = computeClientScore(client.id, clientResps);
     newScores.push({ client_id:client.id, score:result.total, breakdown:result.breakdown, updated_at:new Date().toISOString() });
-
-    if (SB) {
-      await SB.from('scores').upsert({ client_id:client.id, score:result.total, breakdown:JSON.stringify(result.breakdown), updated_at:new Date().toISOString() });
-    }
+    if (SB) await SB.from('scores').upsert({ client_id:client.id, score:result.total, breakdown:JSON.stringify(result.breakdown), updated_at:new Date().toISOString() });
     updated++;
   }
-
-  // Merge into APP.scores
-  newScores.forEach(ns => {
-    const idx = APP.scores.findIndex(s => s.client_id === ns.client_id);
-    if (idx >= 0) APP.scores[idx] = ns; else APP.scores.push(ns);
-  });
-
+  newScores.forEach(ns => { const idx=APP.scores.findIndex(s=>s.client_id===ns.client_id); if(idx>=0)APP.scores[idx]=ns; else APP.scores.push(ns); });
   toast(`${updated} client score${updated!==1?'s':''} recalculated`,'✓');
   log(`Scores recalculated: ${updated} clients`,'score');
   renderScoreChart(APP.scores, APP.clients);
@@ -2165,41 +2386,32 @@ async function recalcAll() {
 
 function previewClientScore() {
   const id = document.getElementById('pClientSel').value;
-  if (!id) {
-    scheduleGauge(0);
-    document.getElementById('dimBreakdown').innerHTML = '<div class="empty" style="padding:8px 0;"><p>Select a client to preview their score</p></div>';
-    return;
-  }
-
-  const client = APP.clients.find(c => c.id === id);
+  if (!id) { scheduleGauge(0); document.getElementById('dimBreakdown').innerHTML='<div class="empty" style="padding:8px 0;"><p>Select a client to preview their score</p></div>'; return; }
+  const client = APP.clients.find(c=>c.id===id);
   const clientResps = APP.responses.filter(r =>
-    r.client_id === id ||
-    (safeJson(r.answers,{})['Client Name']||'').toLowerCase() === (client?.name||'').toLowerCase()
+    r.client_id===id ||
+    (safeJson(r.answers,{})['Client Name']||'').toLowerCase()===(client?.name||'').toLowerCase()
   );
-
-  if (clientResps.length > 0) {
+  if (clientResps.length>0) {
     const result = computeClientScore(id, clientResps);
-    scheduleGauge(result.total);
-    renderDimBreakdownDetailed(result.breakdown);
+    scheduleGauge(result.total); renderDimBreakdownDetailed(result.breakdown);
   } else {
-    const savedScore = APP.scores.find(s => s.client_id === id);
+    const savedScore = APP.scores.find(s=>s.client_id===id);
     if (savedScore) {
       scheduleGauge(Number(savedScore.score));
-      const bd = safeJson(savedScore.breakdown, []);
+      const bd = safeJson(savedScore.breakdown,[]);
       if (bd.length) { renderDimBreakdownDetailed(bd); return; }
-    } else {
-      scheduleGauge(0);
-    }
-    document.getElementById('dimBreakdown').innerHTML = '<div class="empty" style="padding:8px 0;"><p>No form responses found for this client</p></div>';
+    } else { scheduleGauge(0); }
+    document.getElementById('dimBreakdown').innerHTML='<div class="empty" style="padding:8px 0;"><p>No form responses found for this client</p></div>';
   }
 }
 
 function renderDimBreakdownDetailed(breakdown) {
   const el = document.getElementById('dimBreakdown'); if (!el) return;
-  if (!breakdown || !breakdown.length) { updateDimBreakdown(); return; }
+  if (!breakdown||!breakdown.length) { updateDimBreakdown(); return; }
   el.innerHTML = breakdown.map(d => {
-    const sc  = Math.round(d.score || 0);
-    const col = sc >= 80 ? 'var(--ok)' : sc >= 60 ? 'var(--wn)' : 'var(--dg)';
+    const sc  = Math.round(d.score||0);
+    const col = sc>=80?'var(--ok)':sc>=60?'var(--wn)':'var(--dg)';
     const noData = !d.matched ? ' <span style="color:var(--t4);font-size:9px;font-family:\'JetBrains Mono\',monospace;">(no match)</span>' : '';
     return `<div><div class="fxb" style="margin-bottom:3px;">
       <span style="font-size:12px;font-weight:700;color:var(--t1);">${escHtml(d.label)}${noData}</span>
@@ -2210,267 +2422,139 @@ function renderDimBreakdownDetailed(breakdown) {
 }
 
 // ═══════════════════════════════════════════
-// ── FIX 3: FORM BUILDER — fixed drag + full field editing ──
+// FORM BUILDER
 // ═══════════════════════════════════════════
-
-// HTML5 drag API for palette (desktop)
 function pds(e) { dragType = e.currentTarget.dataset.type; dragLabel = e.currentTarget.dataset.label; e.dataTransfer.effectAllowed = 'copy'; }
 function cdo(e) { e.preventDefault(); document.getElementById('fcanvas').classList.add('dov'); }
 function cdl()  { document.getElementById('fcanvas').classList.remove('dov'); }
-function cdrop(e) { e.preventDefault(); cdl(); if (dragType) { addField(dragType, dragLabel); dragType = ''; dragLabel = ''; } }
+function cdrop(e) { e.preventDefault(); cdl(); if (dragType) { addField(dragType, dragLabel); dragType=''; dragLabel=''; } }
 
-// Click-to-add AND touch-to-canvas support
 function initTouchDrag() {
   document.querySelectorAll('.pchip').forEach(ch => {
-    // Desktop: click always adds
     ch.addEventListener('click', () => addField(ch.dataset.type, ch.dataset.label));
-
-    // Touch: track if finger moved to canvas
     let touchStartY = 0;
     ch.addEventListener('touchstart', e => {
-      dragType  = ch.dataset.type;
-      dragLabel = ch.dataset.label;
-      touchStartY = e.touches[0].clientY;
-      ch.style.opacity = '.6';
-    }, { passive: true });
+      dragType=ch.dataset.type; dragLabel=ch.dataset.label;
+      touchStartY=e.touches[0].clientY; ch.style.opacity='.6';
+    }, {passive:true});
     ch.addEventListener('touchend', e => {
-      ch.style.opacity = '1';
-      const canvas = document.getElementById('fcanvas');
-      if (!canvas) { dragType=''; dragLabel=''; return; }
-      const r = canvas.getBoundingClientRect(), touch = e.changedTouches[0];
-      // If finger ended over canvas, add field; else if barely moved, also add (tap)
-      const overCanvas = touch.clientX >= r.left && touch.clientX <= r.right && touch.clientY >= r.top && touch.clientY <= r.bottom;
-      const wasTap     = Math.abs(touch.clientY - touchStartY) < 12;
-      if (overCanvas || wasTap) { if (dragType) addField(dragType, dragLabel); }
+      ch.style.opacity='1';
+      const canvas=document.getElementById('fcanvas'); if(!canvas){dragType='';dragLabel='';return;}
+      const r=canvas.getBoundingClientRect(), touch=e.changedTouches[0];
+      const overCanvas=touch.clientX>=r.left&&touch.clientX<=r.right&&touch.clientY>=r.top&&touch.clientY<=r.bottom;
+      const wasTap=Math.abs(touch.clientY-touchStartY)<12;
+      if (overCanvas||wasTap) { if(dragType)addField(dragType,dragLabel); }
       dragType=''; dragLabel='';
     });
-    ch.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); addField(ch.dataset.type, ch.dataset.label); } });
+    ch.addEventListener('keydown', e => { if(e.key==='Enter'||e.key===' '){e.preventDefault();addField(ch.dataset.type,ch.dataset.label);} });
   });
 }
 
 function addField(type, label) {
-  const field = {
-    id:          Date.now() + (Math.random() * 999 | 0),
-    type,
-    label,
-    required:    false,
-    placeholder: '',
-    options:     (type === 'select' || type === 'multi') ? ['Option A', 'Option B', 'Option C'] : [],
-    yesLabel:    'Yes',
-    noLabel:     'No',
-    _expanded:   true   // start open so user sees the edit panel immediately
-  };
-  droppedFields.push(field);
-  renderCanvas();
-  log('Field added: ' + label, 'form');
+  const field = { id:Date.now()+(Math.random()*999|0), type, label, required:false, placeholder:'', options:(type==='select'||type==='multi')?['Option A','Option B','Option C']:[], yesLabel:'Yes', noLabel:'No', _expanded:true };
+  droppedFields.push(field); renderCanvas(); log('Field added: '+label,'form');
 }
 
 function renderCanvas() {
-  const dfEl    = document.getElementById('df');
-  const emptyEl = document.getElementById('ce');
+  const dfEl=document.getElementById('df'), emptyEl=document.getElementById('ce');
   emptyEl.style.display = droppedFields.length ? 'none' : 'block';
-  dfEl.innerHTML = droppedFields.map((f, i) => buildFieldRow(f, i)).join('');
-
-  // Wire reorder drag handles
+  dfEl.innerHTML = droppedFields.map((f,i) => buildFieldRow(f,i)).join('');
   dfEl.querySelectorAll('.fb-handle').forEach(h => {
-    const i = parseInt(h.dataset.i);
-    h.addEventListener('mousedown',  e => startReorder(e, i));
-    h.addEventListener('touchstart', e => startReorder(e, i), { passive: false });
+    const i=parseInt(h.dataset.i);
+    h.addEventListener('mousedown',  e => startReorder(e,i));
+    h.addEventListener('touchstart', e => startReorder(e,i), {passive:false});
   });
-
-  const nd = document.getElementById('fND');
-  if (nd) nd.textContent = (document.getElementById('fName')?.value || 'Form').slice(0, 28);
+  const nd=document.getElementById('fND'); if(nd)nd.textContent=(document.getElementById('fName')?.value||'Form').slice(0,28);
 }
 
-function buildFieldRow(f, i) {
+function buildFieldRow(f,i) {
   const expanded = f._expanded;
-
-  // Options list (select / multi)
-  let optionsHtml = '';
-  if (f.type === 'select' || f.type === 'multi') {
-    optionsHtml = `
-      <div style="margin-top:10px;">
-        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;font-weight:500;">OPTIONS</div>
-        <div id="fopts_${i}">
-          ${(f.options || []).map((opt, oi) => `
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;">
-              <input value="${escHtml(opt)}"
-                onchange="droppedFields[${i}].options[${oi}]=this.value"
-                style="flex:1;padding:6px 9px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;font-weight:500;color:var(--t1);background:var(--input-bg);outline:none;"
-                onfocus="this.style.borderColor='var(--ac2)'" onblur="this.style.borderColor='var(--bd2)'">
-              <button class="btn bdng bsm" style="padding:4px 8px;font-size:11px;" onclick="fbRemoveOption(${i},${oi})">✕</button>
-            </div>`).join('')}
-        </div>
-        <button class="btn bs2 bsm" style="margin-top:4px;" onclick="fbAddOption(${i})">+ Add option</button>
-      </div>`;
+  let optionsHtml='';
+  if (f.type==='select'||f.type==='multi') {
+    optionsHtml=`<div style="margin-top:10px;"><div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;font-weight:500;">OPTIONS</div><div id="fopts_${i}">${(f.options||[]).map((opt,oi)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;"><input value="${escHtml(opt)}" onchange="droppedFields[${i}].options[${oi}]=this.value" style="flex:1;padding:6px 9px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;font-weight:500;color:var(--t1);background:var(--input-bg);outline:none;" onfocus="this.style.borderColor='var(--ac2)'" onblur="this.style.borderColor='var(--bd2)'"><button class="btn bdng bsm" style="padding:4px 8px;font-size:11px;" onclick="fbRemoveOption(${i},${oi})">✕</button></div>`).join('')}</div><button class="btn bs2 bsm" style="margin-top:4px;" onclick="fbAddOption(${i})">+ Add option</button></div>`;
   }
-
-  // Yes/No label editor
-  let toggleHtml = '';
-  if (f.type === 'toggle') {
-    toggleHtml = `
-      <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:100px;">
-          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;font-weight:500;">POSITIVE</div>
-          <input value="${escHtml(f.yesLabel||'Yes')}" onchange="droppedFields[${i}].yesLabel=this.value"
-            style="width:100%;padding:6px 9px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;font-weight:500;color:var(--t1);background:var(--input-bg);outline:none;">
-        </div>
-        <div style="flex:1;min-width:100px;">
-          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;font-weight:500;">NEGATIVE</div>
-          <input value="${escHtml(f.noLabel||'No')}" onchange="droppedFields[${i}].noLabel=this.value"
-            style="width:100%;padding:6px 9px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;font-weight:500;color:var(--t1);background:var(--input-bg);outline:none;">
-        </div>
-      </div>`;
+  let toggleHtml='';
+  if (f.type==='toggle') {
+    toggleHtml=`<div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;"><div style="flex:1;min-width:100px;"><div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;font-weight:500;">POSITIVE</div><input value="${escHtml(f.yesLabel||'Yes')}" onchange="droppedFields[${i}].yesLabel=this.value" style="width:100%;padding:6px 9px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;font-weight:500;color:var(--t1);background:var(--input-bg);outline:none;"></div><div style="flex:1;min-width:100px;"><div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;font-weight:500;">NEGATIVE</div><input value="${escHtml(f.noLabel||'No')}" onchange="droppedFields[${i}].noLabel=this.value" style="width:100%;padding:6px 9px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;font-weight:500;color:var(--t1);background:var(--input-bg);outline:none;"></div></div>`;
   }
-
-  // Placeholder editor for text types
-  let placeholderHtml = '';
+  let placeholderHtml='';
   if (['text','textarea','number'].includes(f.type)) {
-    placeholderHtml = `
-      <div style="margin-top:10px;">
-        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;font-weight:500;">PLACEHOLDER TEXT</div>
-        <input value="${escHtml(f.placeholder||'')}" placeholder="e.g. Enter your answer…"
-          onchange="droppedFields[${i}].placeholder=this.value"
-          style="width:100%;padding:6px 9px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;font-weight:500;color:var(--t1);background:var(--input-bg);outline:none;">
-      </div>`;
+    placeholderHtml=`<div style="margin-top:10px;"><div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;font-weight:500;">PLACEHOLDER TEXT</div><input value="${escHtml(f.placeholder||'')}" placeholder="e.g. Enter your answer…" onchange="droppedFields[${i}].placeholder=this.value" style="width:100%;padding:6px 9px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;font-weight:500;color:var(--t1);background:var(--input-bg);outline:none;"></div>`;
   }
-
-  return `
-    <div class="drow" id="fbrow_${i}" style="flex-direction:column;padding:0;margin-bottom:8px;">
-      <!-- Header row -->
-      <div style="display:flex;align-items:center;gap:9px;padding:10px 13px;">
-        <span class="fb-handle" data-i="${i}"
-          style="color:var(--t4);font-size:15px;cursor:grab;flex-shrink:0;user-select:none;touch-action:none;padding:2px 4px;"
-          title="Drag to reorder">⋮⋮</span>
-        <input value="${escHtml(f.label)}"
-          onchange="droppedFields[${i}].label=this.value"
-          style="flex:1;border:none;border-bottom:1px solid transparent;background:transparent;font-size:13px;font-weight:700;color:var(--t1);padding:1px 3px;outline:none;min-width:0;"
-          onfocus="this.style.borderBottomColor='var(--ac2)'"
-          onblur="this.style.borderBottomColor='transparent'"
-          placeholder="Field label">
-        <span class="badge bn mono" style="flex-shrink:0;">${f.type}</span>
-        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t3);cursor:pointer;font-weight:600;flex-shrink:0;white-space:nowrap;">
-          <input type="checkbox" ${f.required?'checked':''} onchange="droppedFields[${i}].required=this.checked"> Req
-        </label>
-        <button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--t4);padding:3px 5px;border-radius:4px;transition:background .12s;"
-          onmouseenter="this.style.background='var(--sf2)'" onmouseleave="this.style.background='none'"
-          onclick="droppedFields[${i}]._expanded=!droppedFields[${i}]._expanded;renderCanvas()"
-          title="${expanded?'Collapse':'Expand'} settings">${expanded ? '▲' : '▼'}</button>
-        <button style="background:none;border:none;cursor:pointer;color:var(--t4);font-size:15px;padding:2px 5px;transition:color .12s;"
-          onmouseenter="this.style.color='var(--dg)'" onmouseleave="this.style.color='var(--t4)'"
-          onclick="droppedFields.splice(${i},1);renderCanvas()" title="Remove field">✕</button>
-      </div>
-      <!-- Edit panel -->
-      ${expanded ? `<div style="padding:0 13px 13px;border-top:1px solid var(--bg);">
-        ${optionsHtml}${toggleHtml}${placeholderHtml}
-        <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;">
-          <button class="btn bg bsm" onclick="fbMove(${i},-1)" ${i===0?'disabled':''}>↑ Up</button>
-          <button class="btn bg bsm" onclick="fbMove(${i},1)"  ${i===droppedFields.length-1?'disabled':''}>↓ Down</button>
-          <button class="btn bdng bsm" onclick="droppedFields.splice(${i},1);renderCanvas()">Remove</button>
-        </div>
-      </div>` : ''}
-    </div>`;
+  return `<div class="drow" id="fbrow_${i}" style="flex-direction:column;padding:0;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;gap:9px;padding:10px 13px;">
+      <span class="fb-handle" data-i="${i}" style="color:var(--t4);font-size:15px;cursor:grab;flex-shrink:0;user-select:none;touch-action:none;padding:2px 4px;" title="Drag to reorder">⋮⋮</span>
+      <input value="${escHtml(f.label)}" onchange="droppedFields[${i}].label=this.value" style="flex:1;border:none;border-bottom:1px solid transparent;background:transparent;font-size:13px;font-weight:700;color:var(--t1);padding:1px 3px;outline:none;min-width:0;" onfocus="this.style.borderBottomColor='var(--ac2)'" onblur="this.style.borderBottomColor='transparent'" placeholder="Field label">
+      <span class="badge bn mono" style="flex-shrink:0;">${f.type}</span>
+      <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t3);cursor:pointer;font-weight:600;flex-shrink:0;white-space:nowrap;"><input type="checkbox" ${f.required?'checked':''} onchange="droppedFields[${i}].required=this.checked"> Req</label>
+      <button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--t4);padding:3px 5px;border-radius:4px;transition:background .12s;" onmouseenter="this.style.background='var(--sf2)'" onmouseleave="this.style.background='none'" onclick="droppedFields[${i}]._expanded=!droppedFields[${i}]._expanded;renderCanvas()" title="${expanded?'Collapse':'Expand'} settings">${expanded?'▲':'▼'}</button>
+      <button style="background:none;border:none;cursor:pointer;color:var(--t4);font-size:15px;padding:2px 5px;transition:color .12s;" onmouseenter="this.style.color='var(--dg)'" onmouseleave="this.style.color='var(--t4)'" onclick="droppedFields.splice(${i},1);renderCanvas()" title="Remove field">✕</button>
+    </div>
+    ${expanded?`<div style="padding:0 13px 13px;border-top:1px solid var(--bg);">${optionsHtml}${toggleHtml}${placeholderHtml}<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;"><button class="btn bg bsm" onclick="fbMove(${i},-1)" ${i===0?'disabled':''}>↑ Up</button><button class="btn bg bsm" onclick="fbMove(${i},1)" ${i===droppedFields.length-1?'disabled':''}>↓ Down</button><button class="btn bdng bsm" onclick="droppedFields.splice(${i},1);renderCanvas()">Remove</button></div></div>`:''}
+  </div>`;
 }
 
-function fbAddOption(fieldIdx) {
-  if (!droppedFields[fieldIdx].options) droppedFields[fieldIdx].options = [];
-  droppedFields[fieldIdx].options.push('Option ' + (droppedFields[fieldIdx].options.length + 1));
-  renderCanvas();
-}
-function fbRemoveOption(fieldIdx, optIdx) {
-  droppedFields[fieldIdx].options.splice(optIdx, 1);
-  renderCanvas();
-}
-function fbMove(i, dir) {
-  const t = i + dir;
-  if (t < 0 || t >= droppedFields.length) return;
-  [droppedFields[i], droppedFields[t]] = [droppedFields[t], droppedFields[i]];
-  renderCanvas();
-}
+function fbAddOption(fieldIdx) { if(!droppedFields[fieldIdx].options)droppedFields[fieldIdx].options=[]; droppedFields[fieldIdx].options.push('Option '+(droppedFields[fieldIdx].options.length+1)); renderCanvas(); }
+function fbRemoveOption(fieldIdx,optIdx) { droppedFields[fieldIdx].options.splice(optIdx,1); renderCanvas(); }
+function fbMove(i,dir) { const t=i+dir; if(t<0||t>=droppedFields.length)return; [droppedFields[i],droppedFields[t]]=[droppedFields[t],droppedFields[i]]; renderCanvas(); }
 
-// ── Reorder drag (handle ⋮⋮) ──
-let reorderState = null;
-function startReorder(e, idx) {
+let reorderState=null;
+function startReorder(e,idx) {
   e.stopPropagation();
-  const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
-  reorderState = { idx, startY: clientY };
-  const row = document.getElementById('fbrow_' + idx);
-  if (row) row.style.opacity = '.4';
-  document.addEventListener('mousemove',  onReorderMove);
-  document.addEventListener('mouseup',    onReorderEnd);
-  document.addEventListener('touchmove',  onReorderMove, { passive: false });
-  document.addEventListener('touchend',   onReorderEnd);
+  const clientY=e.type.startsWith('touch')?e.touches[0].clientY:e.clientY;
+  reorderState={idx,startY:clientY};
+  const row=document.getElementById('fbrow_'+idx); if(row)row.style.opacity='.4';
+  document.addEventListener('mousemove', onReorderMove);
+  document.addEventListener('mouseup',   onReorderEnd);
+  document.addEventListener('touchmove', onReorderMove,{passive:false});
+  document.addEventListener('touchend',  onReorderEnd);
 }
 function onReorderMove(e) {
-  if (!reorderState) return;
-  e.preventDefault?.();
-  const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
-  // Highlight the row we're hovering over
-  document.querySelectorAll('#df .drow').forEach((row, i) => {
-    const rect = row.getBoundingClientRect();
-    const isOver = clientY >= rect.top && clientY <= rect.bottom;
-    row.style.borderTop    = (isOver && i !== reorderState.idx && clientY < rect.top + rect.height/2) ? '2px solid var(--ac2)' : '';
-    row.style.borderBottom = (isOver && i !== reorderState.idx && clientY >= rect.top + rect.height/2) ? '2px solid var(--ac2)' : '';
-    if (isOver) fbDragOver = i;
+  if (!reorderState) return; e.preventDefault?.();
+  const clientY=e.type.startsWith('touch')?e.touches[0].clientY:e.clientY;
+  document.querySelectorAll('#df .drow').forEach((row,i) => {
+    const rect=row.getBoundingClientRect(), isOver=clientY>=rect.top&&clientY<=rect.bottom;
+    row.style.borderTop    =(isOver&&i!==reorderState.idx&&clientY<rect.top+rect.height/2)?'2px solid var(--ac2)':'';
+    row.style.borderBottom =(isOver&&i!==reorderState.idx&&clientY>=rect.top+rect.height/2)?'2px solid var(--ac2)':'';
+    if(isOver)fbDragOver=i;
   });
 }
 function onReorderEnd(e) {
-  document.removeEventListener('mousemove',  onReorderMove);
-  document.removeEventListener('mouseup',    onReorderEnd);
-  document.removeEventListener('touchmove',  onReorderMove);
-  document.removeEventListener('touchend',   onReorderEnd);
-  if (reorderState !== null && fbDragOver !== null && fbDragOver !== reorderState.idx) {
-    const clientY  = e.type.startsWith('touch') ? e.changedTouches[0].clientY : e.clientY;
-    const rows     = document.querySelectorAll('#df .drow');
-    let insertIdx  = fbDragOver;
-    if (rows[fbDragOver]) {
-      const rect = rows[fbDragOver].getBoundingClientRect();
-      if (clientY >= rect.top + rect.height/2) insertIdx = fbDragOver + 1;
-    }
-    const [removed] = droppedFields.splice(reorderState.idx, 1);
-    const adjustedIdx = insertIdx > reorderState.idx ? insertIdx - 1 : insertIdx;
-    droppedFields.splice(adjustedIdx, 0, removed);
+  document.removeEventListener('mousemove', onReorderMove);
+  document.removeEventListener('mouseup',   onReorderEnd);
+  document.removeEventListener('touchmove', onReorderMove);
+  document.removeEventListener('touchend',  onReorderEnd);
+  if (reorderState!==null&&fbDragOver!==null&&fbDragOver!==reorderState.idx) {
+    const clientY=e.type.startsWith('touch')?e.changedTouches[0].clientY:e.clientY;
+    const rows=document.querySelectorAll('#df .drow'); let insertIdx=fbDragOver;
+    if(rows[fbDragOver]){const rect=rows[fbDragOver].getBoundingClientRect();if(clientY>=rect.top+rect.height/2)insertIdx=fbDragOver+1;}
+    const [removed]=droppedFields.splice(reorderState.idx,1);
+    const adjustedIdx=insertIdx>reorderState.idx?insertIdx-1:insertIdx;
+    droppedFields.splice(adjustedIdx,0,removed);
   }
-  reorderState = null; fbDragOver = null;
-  renderCanvas();
+  reorderState=null; fbDragOver=null; renderCanvas();
 }
 
-function clearCanvas() { droppedFields = []; renderCanvas(); }
+function clearCanvas() { droppedFields=[]; renderCanvas(); }
 async function aiDesign() {
-  if (!ontoNodes.length && !SB) initOntology();
+  if (!ontoNodes.length&&!SB) initOntology();
   toast('AI designing form from ontology…','✦'); log('AI auto-design triggered','ai');
-  const fallback = [{type:'text',label:'Organisation / Client Name'},{type:'select',label:'Category',options:['FMCG','Retail','Services','Other']},{type:'number',label:'Score (0–100)'},{type:'rating',label:'Performance Rating'},{type:'nps',label:'NPS Score (0–10)'},{type:'textarea',label:'Key Observations'},{type:'toggle',label:'Target Met?',yesLabel:'Yes',noLabel:'No'},{type:'date',label:'Assessment Date'}];
-  const CFG = safeJson(localStorage.getItem('lumenos_cfg'),{}), ck = CFG.claudeKey||localStorage.getItem('lumenos_claude');
+  const fallback=[{type:'text',label:'Organisation / Client Name'},{type:'select',label:'Category',options:['FMCG','Retail','Services','Other']},{type:'number',label:'Score (0–100)'},{type:'rating',label:'Performance Rating'},{type:'nps',label:'NPS Score (0–10)'},{type:'textarea',label:'Key Observations'},{type:'toggle',label:'Target Met?',yesLabel:'Yes',noLabel:'No'},{type:'date',label:'Assessment Date'}];
+  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}), ck=CFG.claudeKey||localStorage.getItem('lumenos_claude');
   if (ck) {
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages',{ method:'POST', headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'}, body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:'Return ONLY a JSON array, no markdown or backticks. Each item must have: {type:"text|number|select|rating|nps|date|toggle|file|textarea|multi",label:"string",options?:["..."],yesLabel?:"",noLabel?:"",placeholder?:""}. Max 10 items.',messages:[{role:'user',content:'Design a client insight form for: '+ontoNodes.map(n=>n.label.replace('\n',' ')).join(', ')}]}) });
-      const data = await resp.json();
-      const raw = data.content?.[0]?.text?.replace(/```json|```/g,'').trim() || '';
-      const parsed = safeJson(raw, []);
-      if (Array.isArray(parsed) && parsed.length) {
-        droppedFields = parsed.map(f=>({options:[],yesLabel:'Yes',noLabel:'No',placeholder:'',...f,id:Date.now()+(Math.random()*999|0),required:false,_expanded:false}));
-        renderCanvas(); toast('Claude designed '+droppedFields.length+' fields','✓'); return;
-      }
-    } catch(e) {}
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:'Return ONLY a JSON array, no markdown or backticks. Each item must have: {type:"text|number|select|rating|nps|date|toggle|file|textarea|multi",label:"string",options?:["..."],yesLabel?:"",noLabel?:"",placeholder?:""}. Max 10 items.',messages:[{role:'user',content:'Design a client insight form for: '+ontoNodes.map(n=>n.label.replace('\n',' ')).join(', ')}]})});
+      const data=await resp.json(); const raw=data.content?.[0]?.text?.replace(/```json|```/g,'').trim()||''; const parsed=safeJson(raw,[]);
+      if (Array.isArray(parsed)&&parsed.length) { droppedFields=parsed.map(f=>({options:[],yesLabel:'Yes',noLabel:'No',placeholder:'',...f,id:Date.now()+(Math.random()*999|0),required:false,_expanded:false})); renderCanvas(); toast('Claude designed '+droppedFields.length+' fields','✓'); return; }
+    } catch(e){}
   }
-  droppedFields = fallback.map(f=>({options:[],yesLabel:'Yes',noLabel:'No',placeholder:'',...f,id:Date.now()+(Math.random()*999|0),required:false,_expanded:false}));
-  document.getElementById('fName').value='Client Insight Form';
-  renderCanvas(); toast('Form designed from ontology','✓');
+  droppedFields=fallback.map(f=>({options:[],yesLabel:'Yes',noLabel:'No',placeholder:'',...f,id:Date.now()+(Math.random()*999|0),required:false,_expanded:false}));
+  document.getElementById('fName').value='Client Insight Form'; renderCanvas(); toast('Form designed from ontology','✓');
 }
 function previewF() {
-  if (!droppedFields.length) { toast('Add fields first','⚠'); return; }
-  document.getElementById('prevT').textContent = document.getElementById('fName').value;
-  document.getElementById('prevC').innerHTML = droppedFields.map(f=>`<div class="field"><label>${escHtml(f.label)}${f.required?'<span style="color:var(--dg);margin-left:2px;">*</span>':''}</label>${
-    f.type==='textarea'  ? `<textarea placeholder="${escHtml(f.placeholder||'Enter…')}"></textarea>` :
-    f.type==='select'    ? `<select><option>— Select —</option>${(f.options||[]).map(o=>`<option>${escHtml(o)}</option>`).join('')}</select>` :
-    f.type==='multi'     ? `<div>${(f.options||[]).map(o=>`<label style="display:inline-flex;align-items:center;gap:5px;margin:3px 6px 3px 0;"><input type="checkbox"> ${escHtml(o)}</label>`).join('')}</div>` :
-    f.type==='toggle'    ? `<label class="tog"><input type="checkbox"><div class="tog-tr"><div class="tog-th"></div></div><span class="tog-l">${escHtml(f.yesLabel||'Yes')}</span></label>` :
-    f.type==='rating'    ? `<div class="rating-btns">${Array.from({length:10},(_,j)=>`<button class="rating-btn" type="button">${j+1}</button>`).join('')}</div>` :
-    f.type==='nps'       ? `<div class="rating-btns">${Array.from({length:11},(_,j)=>`<button class="rating-btn" type="button">${j}</button>`).join('')}</div>` :
-    f.type==='date'      ? `<input type="date">` :
-    f.type==='file'      ? `<input type="file">` :
-                           `<input type="${f.type==='number'?'number':'text'}" placeholder="${escHtml(f.placeholder||'Enter…')}">`
-  }</div>`).join('');
+  if (!droppedFields.length){toast('Add fields first','⚠');return;}
+  document.getElementById('prevT').textContent=document.getElementById('fName').value;
+  document.getElementById('prevC').innerHTML=droppedFields.map(f=>`<div class="field"><label>${escHtml(f.label)}${f.required?'<span style="color:var(--dg);margin-left:2px;">*</span>':''}</label>${f.type==='textarea'?`<textarea placeholder="${escHtml(f.placeholder||'Enter…')}"></textarea>`:f.type==='select'?`<select><option>— Select —</option>${(f.options||[]).map(o=>`<option>${escHtml(o)}</option>`).join('')}</select>`:f.type==='multi'?`<div>${(f.options||[]).map(o=>`<label style="display:inline-flex;align-items:center;gap:5px;margin:3px 6px 3px 0;"><input type="checkbox"> ${escHtml(o)}</label>`).join('')}</div>`:f.type==='toggle'?`<label class="tog"><input type="checkbox"><div class="tog-tr"><div class="tog-th"></div></div><span class="tog-l">${escHtml(f.yesLabel||'Yes')}</span></label>`:f.type==='rating'?`<div class="rating-btns">${Array.from({length:10},(_,j)=>`<button class="rating-btn" type="button">${j+1}</button>`).join('')}</div>`:f.type==='nps'?`<div class="rating-btns">${Array.from({length:11},(_,j)=>`<button class="rating-btn" type="button">${j}</button>`).join('')}</div>`:f.type==='date'?`<input type="date">`:f.type==='file'?`<input type="file">`:`<input type="${f.type==='number'?'number':'text'}" placeholder="${escHtml(f.placeholder||'Enter…')}">`}</div>`).join('');
   openM('prev');
 }
 function populateDimSelect() {
@@ -2481,58 +2565,44 @@ function populateDimSelect() {
 // ═══════════════════════════════════════════
 // SHARE
 // ═══════════════════════════════════════════
-function shareForm(formId, formName, shareKey) {
-  currentShareFormId = formId;
-  const baseUrl = window.location.href.split('?')[0], url = baseUrl+'?form='+encodeURIComponent(shareKey);
-  document.getElementById('shareUrlInp').value = url;
-  document.getElementById('shareFormKey').textContent = shareKey;
-  document.getElementById('embedCode').textContent = `<iframe\n  src="${url}"\n  width="100%"\n  height="700"\n  style="border:none;border-radius:12px;"\n  title="${escHtml(formName||'LumenOS Form')}"\n></iframe>`;
+function shareForm(formId,formName,shareKey) {
+  currentShareFormId=formId;
+  const baseUrl=window.location.href.split('?')[0], url=baseUrl+'?form='+encodeURIComponent(shareKey);
+  document.getElementById('shareUrlInp').value=url;
+  document.getElementById('shareFormKey').textContent=shareKey;
+  document.getElementById('embedCode').textContent=`<iframe\n  src="${url}"\n  width="100%"\n  height="700"\n  style="border:none;border-radius:12px;"\n  title="${escHtml(formName||'LumenOS Form')}"\n></iframe>`;
   openM('share');
-  setTimeout(() => { const canvas=document.getElementById('qrCanvas'); if(canvas&&typeof QRCode!=='undefined') QRCode.toCanvas(canvas,url,{width:220,margin:2,color:{dark:'#1B3A6B',light:'#ffffff'}},()=>{}); }, 100);
-  switchShareTab('link', document.querySelector('.share-tab'));
+  setTimeout(()=>{const canvas=document.getElementById('qrCanvas');if(canvas&&typeof QRCode!=='undefined')QRCode.toCanvas(canvas,url,{width:220,margin:2,color:{dark:'#1B3A6B',light:'#ffffff'}},()=>{});},100);
+  switchShareTab('link',document.querySelector('.share-tab'));
 }
-function switchShareTab(tab, el) {
-  document.querySelectorAll('.share-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
-  document.querySelectorAll('.share-tab-pane').forEach(p => p.classList.remove('active'));
-  if (el) { el.classList.add('active'); el.setAttribute('aria-selected','true'); }
+function switchShareTab(tab,el) {
+  document.querySelectorAll('.share-tab').forEach(t=>{t.classList.remove('active');t.setAttribute('aria-selected','false');});
+  document.querySelectorAll('.share-tab-pane').forEach(p=>p.classList.remove('active'));
+  if(el){el.classList.add('active');el.setAttribute('aria-selected','true');}
   document.getElementById('stab-'+tab)?.classList.add('active');
 }
-function copyShareLink() { navigator.clipboard.writeText(document.getElementById('shareUrlInp').value).then(()=>toast('Link copied!','✓')).catch(()=>toast('Copy manually','⚠')); }
-function openShareLink()  { window.open(document.getElementById('shareUrlInp').value,'_blank'); }
-function sendShareEmail() { toast('Email triggered via edge function','✉'); }
-function downloadQR()     { const c=document.getElementById('qrCanvas'); if(!c)return; const a=document.createElement('a'); a.download='form-qr.png'; a.href=c.toDataURL(); a.click(); toast('QR downloaded','✓'); }
-function copyEmbed()      { navigator.clipboard.writeText(document.getElementById('embedCode').textContent).then(()=>toast('Embed code copied!','✓')).catch(()=>toast('Copy manually','⚠')); }
+function copyShareLink(){navigator.clipboard.writeText(document.getElementById('shareUrlInp').value).then(()=>toast('Link copied!','✓')).catch(()=>toast('Copy manually','⚠'));}
+function openShareLink(){window.open(document.getElementById('shareUrlInp').value,'_blank');}
+function sendShareEmail(){toast('Email triggered via edge function','✉');}
+function downloadQR(){const c=document.getElementById('qrCanvas');if(!c)return;const a=document.createElement('a');a.download='form-qr.png';a.href=c.toDataURL();a.click();toast('QR downloaded','✓');}
+function copyEmbed(){navigator.clipboard.writeText(document.getElementById('embedCode').textContent).then(()=>toast('Embed code copied!','✓')).catch(()=>toast('Copy manually','⚠'));}
 
 // ═══════════════════════════════════════════
 // SCORING ENGINE UI
 // ═══════════════════════════════════════════
-function loadScoringDims() {
-  const saved = safeJson(localStorage.getItem('lumenos_scoring'),{});
-  if (saved.dims && saved.dims.length) APP_DIMS = saved.dims;
-  else APP_DIMS = [{key:'quality',label:'Quality Score',w:40,col:'#1B3A6B'},{key:'delivery',label:'Delivery / Speed',w:35,col:'#0E7490'},{key:'value',label:'Value for Money',w:25,col:'#065F46'}];
-}
+function loadScoringDims() { const saved=safeJson(localStorage.getItem('lumenos_scoring'),{}); if(saved.dims&&saved.dims.length)APP_DIMS=saved.dims; else APP_DIMS=[{key:'quality',label:'Quality Score',w:40,col:'#1B3A6B'},{key:'delivery',label:'Delivery / Speed',w:35,col:'#0E7490'},{key:'value',label:'Value for Money',w:25,col:'#065F46'}]; }
 function saveScoringDims() { localStorage.setItem('lumenos_scoring',JSON.stringify({dims:APP_DIMS})); }
 function initScoring() { loadScoringDims(); renderScoringDims(); scheduleGauge(pendingGaugeScore||0); populateDimSelect(); if(APP.clients.length)populateClientDropdowns(APP.clients); }
 function renderScoringDims() {
   const el=document.getElementById('sDims'); if(!el)return;
-  if (!APP_DIMS.length) { el.innerHTML='<div class="empty" style="padding:16px 0;"><p>No dimensions — add one or pick a preset</p></div>'; updateWeightDisplay(); updateDimBreakdown(); return; }
-  el.innerHTML = APP_DIMS.map((d,i)=>`<div class="dim-card">
-    <div class="dim-card-header">
-      <div class="dim-color-dot" style="background:${d.col}" onclick="cycleDimColor(${i})" role="button" tabindex="0" title="Click to change colour"></div>
-      <input class="dim-name-input" value="${escHtml(d.label)}" onchange="APP_DIMS[${i}].label=this.value;updateDimBreakdown()" placeholder="Dimension name">
-      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t4);padding:2px 6px;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;margin-left:4px;" title="Field key — matches form fields containing this text">key: ${escHtml(d.key)}</span>
-      <span class="dim-weight-badge" style="color:${d.col}" id="dwb-${i}">${d.w}%</span>
-      <button class="dim-remove" onclick="removeDimension(${i})">✕</button>
-    </div>
-    <input type="range" min="0" max="100" value="${d.w}" style="width:100%;accent-color:${d.col};"
-      oninput="APP_DIMS[${i}].w=parseInt(this.value);document.getElementById('dwb-${i}').textContent=this.value+'%';updateWeightDisplay();scheduleGauge(pendingGaugeScore);updateDimBreakdown();">
-  </div>`).join('');
+  if(!APP_DIMS.length){el.innerHTML='<div class="empty" style="padding:16px 0;"><p>No dimensions — add one or pick a preset</p></div>';updateWeightDisplay();updateDimBreakdown();return;}
+  el.innerHTML=APP_DIMS.map((d,i)=>`<div class="dim-card"><div class="dim-card-header"><div class="dim-color-dot" style="background:${d.col}" onclick="cycleDimColor(${i})" role="button" tabindex="0" title="Click to change colour"></div><input class="dim-name-input" value="${escHtml(d.label)}" onchange="APP_DIMS[${i}].label=this.value;updateDimBreakdown()" placeholder="Dimension name"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t4);padding:2px 6px;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;margin-left:4px;" title="Field key">key: ${escHtml(d.key)}</span><span class="dim-weight-badge" style="color:${d.col}" id="dwb-${i}">${d.w}%</span><button class="dim-remove" onclick="removeDimension(${i})">✕</button></div><input type="range" min="0" max="100" value="${d.w}" style="width:100%;accent-color:${d.col};" oninput="APP_DIMS[${i}].w=parseInt(this.value);document.getElementById('dwb-${i}').textContent=this.value+'%';updateWeightDisplay();scheduleGauge(pendingGaugeScore);updateDimBreakdown();"></div>`).join('');
   updateWeightDisplay(); updateDimBreakdown();
 }
 function updateWeightDisplay() {
   const total=APP_DIMS.reduce((s,d)=>s+(parseInt(d.w)||0),0);
-  const tw=document.getElementById('totW'), fill=document.getElementById('weightFill'), hint=document.getElementById('weightHint'), badge=document.getElementById('dimCountBadge');
-  const ok=Math.abs(total-100)<1, over=total>100, col=ok?'var(--ok)':over?'var(--dg)':'var(--wn)';
+  const tw=document.getElementById('totW'),fill=document.getElementById('weightFill'),hint=document.getElementById('weightHint'),badge=document.getElementById('dimCountBadge');
+  const ok=Math.abs(total-100)<1,over=total>100,col=ok?'var(--ok)':over?'var(--dg)':'var(--wn)';
   if(tw){tw.textContent=total+'%';tw.style.color=col;}
   if(fill){fill.style.width=Math.min(100,total)+'%';fill.style.background=col;}
   if(hint){hint.textContent=ok?'Weights add up to 100% ✓ (scores auto-normalized)':over?`Over by ${total-100}% — weights will be normalized when scoring`:`${100-total}% unallocated — weights will be normalized when scoring`;hint.style.color=col;}
@@ -2540,68 +2610,56 @@ function updateWeightDisplay() {
 }
 function updateDimBreakdown() {
   const el=document.getElementById('dimBreakdown'); if(!el)return;
-  if (!APP_DIMS.length) { el.innerHTML='<div class="empty" style="padding:8px 0;"><p>No dimensions configured</p></div>'; return; }
+  if(!APP_DIMS.length){el.innerHTML='<div class="empty" style="padding:8px 0;"><p>No dimensions configured</p></div>';return;}
   const total=APP_DIMS.reduce((s,d)=>s+(parseInt(d.w)||0),0)||1;
-  el.innerHTML = APP_DIMS.map(d=>`<div><div class="fxb" style="margin-bottom:3px;">
-    <span style="font-size:12px;font-weight:700;color:var(--t1);">${escHtml(d.label)}</span>
-    <span style="font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${d.col};">${d.w}%</span>
-  </div><div class="prog"><div class="pf" style="width:${Math.round((d.w/total)*100)}%;background:${d.col};"></div></div></div>`).join('');
+  el.innerHTML=APP_DIMS.map(d=>`<div><div class="fxb" style="margin-bottom:3px;"><span style="font-size:12px;font-weight:700;color:var(--t1);">${escHtml(d.label)}</span><span style="font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;color:${d.col};">${d.w}%</span></div><div class="prog"><div class="pf" style="width:${Math.round((d.w/total)*100)}%;background:${d.col};"></div></div></div>`).join('');
 }
-const DIM_COLOR_CYCLE = ['#1B3A6B','#2D6BE4','#0E7490','#065F46','#92400E','#6B3FF5','#B45309','#991B1B','#059669','#D97706'];
-function cycleDimColor(idx) { const d=APP_DIMS[idx]; const ci=DIM_COLOR_CYCLE.indexOf(d.col); d.col=DIM_COLOR_CYCLE[(ci+1)%DIM_COLOR_CYCLE.length]; renderScoringDims(); }
-function removeDimension(idx) { APP_DIMS.splice(idx,1); renderScoringDims(); }
+const DIM_COLOR_CYCLE=['#1B3A6B','#2D6BE4','#0E7490','#065F46','#92400E','#6B3FF5','#B45309','#991B1B','#059669','#D97706'];
+function cycleDimColor(idx){const d=APP_DIMS[idx];const ci=DIM_COLOR_CYCLE.indexOf(d.col);d.col=DIM_COLOR_CYCLE[(ci+1)%DIM_COLOR_CYCLE.length];renderScoringDims();}
+function removeDimension(idx){APP_DIMS.splice(idx,1);renderScoringDims();}
 function confirmAddDimension() {
-  const nameEl=document.getElementById('dimName'), keyEl=document.getElementById('dimKey');
+  const nameEl=document.getElementById('dimName'),keyEl=document.getElementById('dimKey');
   const name=nameEl?nameEl.value.trim():''; if(!name){toast('Enter a dimension name','⚠');return;}
-  const key   = (keyEl?.value?.trim() || name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')).slice(0,24);
-  const w     = parseInt(document.getElementById('dimWeight').value)||20;
-  const col   = document.getElementById('dimColor').value;
+  const key=(keyEl?.value?.trim()||name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')).slice(0,24);
+  const w=parseInt(document.getElementById('dimWeight').value)||20;
+  const col=document.getElementById('dimColor').value;
   APP_DIMS.push({key,label:name,w,col}); closeM('addDim'); renderScoringDims(); scheduleGauge(pendingGaugeScore);
   log('Scoring dimension added: '+name,'score'); toast('Dimension "'+name+'" added','✓');
 }
 function loadPreset(preset) {
   const p=SCORING_PRESETS[preset]; if(!p)return;
-  APP_DIMS = p.map(d=>({...d})); renderScoringDims(); scheduleGauge(pendingGaugeScore);
+  APP_DIMS=p.map(d=>({...d})); renderScoringDims(); scheduleGauge(pendingGaugeScore);
   const names={fmcg:'FMCG / Retail',saas:'SaaS / Tech',services:'Professional Services',nps:'NPS + CSAT',ops:'Operations'};
   toast('Loaded '+(names[preset]||preset)+' preset','✓'); log('Scoring preset loaded: '+preset,'score'); populateDimSelect();
 }
-function scheduleGauge(score) { pendingGaugeScore=score!=null?score:pendingGaugeScore; if(gaugeRafId)cancelAnimationFrame(gaugeRafId); gaugeRafId=requestAnimationFrame(drawGauge); }
+function scheduleGauge(score){pendingGaugeScore=score!=null?score:pendingGaugeScore;if(gaugeRafId)cancelAnimationFrame(gaugeRafId);gaugeRafId=requestAnimationFrame(drawGauge);}
 function drawGauge() {
   gaugeRafId=null; const c=document.getElementById('sGauge'); if(!c||!c.getContext)return;
   const ctx=c.getContext('2d'),cx=80,cy=80,r=65;
   ctx.clearRect(0,0,160,160);
-  ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI*.75,Math.PI*2.25); ctx.strokeStyle='#DDD9CC'; ctx.lineWidth=10; ctx.lineCap='round'; ctx.stroke();
-  if (pendingGaugeScore>0) {
-    ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI*.75,Math.PI*.75+(pendingGaugeScore/100)*Math.PI*1.5);
-    const g=ctx.createLinearGradient(0,0,160,0);
-    g.addColorStop(0,APP_DIMS[0]?.col||'#1B3A6B'); g.addColorStop(1,APP_DIMS[APP_DIMS.length-1]?.col||'#2D6BE4');
-    ctx.strokeStyle=g; ctx.lineWidth=10; ctx.stroke();
-  }
-  const gn=document.getElementById('gNum'); if(gn) gn.textContent=pendingGaugeScore>0?Math.round(pendingGaugeScore):'—';
+  ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*.75,Math.PI*2.25);ctx.strokeStyle='#DDD9CC';ctx.lineWidth=10;ctx.lineCap='round';ctx.stroke();
+  if(pendingGaugeScore>0){ctx.beginPath();ctx.arc(cx,cy,r,Math.PI*.75,Math.PI*.75+(pendingGaugeScore/100)*Math.PI*1.5);const g=ctx.createLinearGradient(0,0,160,0);g.addColorStop(0,APP_DIMS[0]?.col||'#1B3A6B');g.addColorStop(1,APP_DIMS[APP_DIMS.length-1]?.col||'#2D6BE4');ctx.strokeStyle=g;ctx.lineWidth=10;ctx.stroke();}
+  const gn=document.getElementById('gNum'); if(gn)gn.textContent=pendingGaugeScore>0?Math.round(pendingGaugeScore):'—';
 }
-async function saveScoring() {
-  saveScoringDims();
-  if(SB) await SB.from('scoring_config').upsert({id:'default',dims:APP_DIMS,updated_at:new Date().toISOString()});
-  toast('Scoring algorithm saved','✓'); log('Scoring algorithm updated','score');
-}
+async function saveScoring(){saveScoringDims();if(SB)await SB.from('scoring_config').upsert({id:'default',dims:APP_DIMS,updated_at:new Date().toISOString()});toast('Scoring algorithm saved','✓');log('Scoring algorithm updated','score');}
 
 // ═══════════════════════════════════════════
 // AI CONSOLE
 // ═══════════════════════════════════════════
-function setAP(p) { document.getElementById('aiP').value=p; }
+function setAP(p){document.getElementById('aiP').value=p;}
 function checkAIKeys() {
-  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}), ck=document.getElementById('cfgC')?.value?.trim()||CFG.claudeKey, ok=document.getElementById('cfgO')?.value?.trim()||CFG.openAIKey;
-  const el=document.getElementById('aiSt'), banner=document.getElementById('aiKeyBanner');
-  if (ck||ok) { const ms=[]; if(ck)ms.push('Claude'); if(ok)ms.push('GPT-4o'); el.style.color='var(--ok)'; el.textContent='● '+ms.join(' · ')+' ready'; if(banner)banner.style.display='none'; }
-  else { el.style.color='var(--t3)'; el.textContent='● Keys not set'; }
+  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}),ck=document.getElementById('cfgC')?.value?.trim()||CFG.claudeKey,ok=document.getElementById('cfgO')?.value?.trim()||CFG.openAIKey;
+  const el=document.getElementById('aiSt'),banner=document.getElementById('aiKeyBanner');
+  if(ck||ok){const ms=[];if(ck)ms.push('Claude');if(ok)ms.push('GPT-4o');el.style.color='var(--ok)';el.textContent='● '+ms.join(' · ')+' ready';if(banner)banner.style.display='none';}
+  else{el.style.color='var(--t3)';el.textContent='● Keys not set';}
 }
 async function runAI() {
-  const prompt=document.getElementById('aiP').value.trim(); if(!prompt){toast('Enter a prompt first','⚠');return;}
-  const out=document.getElementById('aiOut'), CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}), ck=CFG.claudeKey||localStorage.getItem('lumenos_claude'), ok=CFG.openAIKey||localStorage.getItem('lumenos_openai');
-  out.textContent='Routing to '+(ck?'Claude':ok?'GPT-4o':'Demo')+'…'; log('AI test: '+prompt.slice(0,60),'ai');
-  if (ck) { try { const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:'AI assistant for LumenOS Insight Layer. Be concise.',messages:[{role:'user',content:prompt}]})}); const data=await resp.json(); out.textContent='→ [Claude]\n\n'+(data.content?.[0]?.text||'No response'); } catch(e){out.textContent='✗ Claude error: '+e.message;} }
-  else if (ok) { try { const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ok},body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'user',content:prompt}]})}); const data=await resp.json(); out.textContent='→ [GPT-4o]\n\n'+(data.choices?.[0]?.message?.content||'No response'); } catch(e){out.textContent='✗ OpenAI error: '+e.message;} }
-  else { out.textContent='→ [Demo — add API keys in Configuration for live responses]'; }
+  const prompt=document.getElementById('aiP').value.trim();if(!prompt){toast('Enter a prompt first','⚠');return;}
+  const out=document.getElementById('aiOut'),CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}),ck=CFG.claudeKey||localStorage.getItem('lumenos_claude'),ok=CFG.openAIKey||localStorage.getItem('lumenos_openai');
+  out.textContent='Routing to '+(ck?'Claude':ok?'GPT-4o':'Demo')+'…';log('AI test: '+prompt.slice(0,60),'ai');
+  if(ck){try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:'AI assistant for LumenOS Insight Layer. Be concise.',messages:[{role:'user',content:prompt}]})});const data=await resp.json();out.textContent='→ [Claude]\n\n'+(data.content?.[0]?.text||'No response');}catch(e){out.textContent='✗ Claude error: '+e.message;}}
+  else if(ok){try{const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ok},body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'user',content:prompt}]})});const data=await resp.json();out.textContent='→ [GPT-4o]\n\n'+(data.choices?.[0]?.message?.content||'No response');}catch(e){out.textContent='✗ OpenAI error: '+e.message;}}
+  else{out.textContent='→ [Demo — add API keys in Configuration for live responses]';}
 }
 
 // ═══════════════════════════════════════════
@@ -2609,196 +2667,157 @@ async function runAI() {
 // ═══════════════════════════════════════════
 async function loadRLS() {
   const el=document.getElementById('rlsBody');
-  if (!APP.clients.length && SB) { const{data}=await SB.from('clients').select('*'); if(data)APP.clients=data; }
-  if (!APP.clients.length) { el.innerHTML='<tr><td colspan="5" style="text-align:center;padding:22px;" class="sm muted fw6">No clients found</td></tr>'; return; }
-  el.innerHTML = APP.clients.slice(0,12).map(c=>`<tr><td class="fw6" style="padding:10px 14px;">${escHtml(c.name||c.company_name||'—')}</td><td style="text-align:center;padding:10px 14px;"><span class="pt on" onclick="togglePerm(this,'${c.id}','own_data')" role="checkbox" aria-checked="true" tabindex="0"></span></td><td style="text-align:center;padding:10px 14px;"><span class="pt on" onclick="togglePerm(this,'${c.id}','benchmarks')" role="checkbox" aria-checked="true" tabindex="0"></span></td><td style="text-align:center;padding:10px 14px;"><span class="pt" onclick="togglePerm(this,'${c.id}','insights')" role="checkbox" aria-checked="false" tabindex="0"></span></td><td style="text-align:center;padding:10px 14px;"><span class="pt" onclick="togglePerm(this,'${c.id}','export')" role="checkbox" aria-checked="false" tabindex="0"></span></td></tr>`).join('');
+  if(!APP.clients.length&&SB){const{data}=await SB.from('clients').select('*');if(data)APP.clients=data;}
+  if(!APP.clients.length){el.innerHTML='<tr><td colspan="5" style="text-align:center;padding:22px;" class="sm muted fw6">No clients found</td></tr>';return;}
+  el.innerHTML=APP.clients.slice(0,12).map(c=>`<tr><td class="fw6" style="padding:10px 14px;">${escHtml(c.name||c.company_name||'—')}</td><td style="text-align:center;padding:10px 14px;"><span class="pt on" onclick="togglePerm(this,'${c.id}','own_data')" role="checkbox" aria-checked="true" tabindex="0"></span></td><td style="text-align:center;padding:10px 14px;"><span class="pt on" onclick="togglePerm(this,'${c.id}','benchmarks')" role="checkbox" aria-checked="true" tabindex="0"></span></td><td style="text-align:center;padding:10px 14px;"><span class="pt" onclick="togglePerm(this,'${c.id}','insights')" role="checkbox" aria-checked="false" tabindex="0"></span></td><td style="text-align:center;padding:10px 14px;"><span class="pt" onclick="togglePerm(this,'${c.id}','export')" role="checkbox" aria-checked="false" tabindex="0"></span></td></tr>`).join('');
 }
-async function togglePerm(el, clientId, perm) { el.classList.toggle('on'); const on=el.classList.contains('on'); el.setAttribute('aria-checked',String(on)); if(!SB){toast('Supabase required','⚠');return;} const{error}=await SB.from('client_permissions').upsert({client_id:clientId,permission:perm,enabled:on}); if(error)toast('RLS error: '+error.message,'✗'); else{toast('RLS policy updated','✓');log('RLS: '+clientId+' '+perm+'='+on,'system');} }
-async function applyRLS() { await invokeEdgeFn('apply-rls-policies',{},'RLS policies applied'); log('RLS policies applied','system'); }
-function copySQL() { const code=document.querySelector('.cb').innerText; navigator.clipboard.writeText(code).then(()=>toast('SQL copied','✓')).catch(()=>toast('Select & copy manually','⚠')); }
+async function togglePerm(el,clientId,perm){el.classList.toggle('on');const on=el.classList.contains('on');el.setAttribute('aria-checked',String(on));if(!SB){toast('Supabase required','⚠');return;}const{error}=await SB.from('client_permissions').upsert({client_id:clientId,permission:perm,enabled:on});if(error)toast('RLS error: '+error.message,'✗');else{toast('RLS policy updated','✓');log('RLS: '+clientId+' '+perm+'='+on,'system');}}
+async function applyRLS(){await invokeEdgeFn('apply-rls-policies',{},'RLS policies applied');log('RLS policies applied','system');}
+function copySQL(){const code=document.querySelector('.cb').innerText;navigator.clipboard.writeText(code).then(()=>toast('SQL copied','✓')).catch(()=>toast('Select & copy manually','⚠'));}
 
 // ═══════════════════════════════════════════
 // INVOICES
 // ═══════════════════════════════════════════
 async function loadInvoices() {
   const el=document.getElementById('invBody');
-  if (!SB) { el.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px;" class="sm muted fw6">Connect Supabase first</td></tr>'; return; }
+  if(!SB){el.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px;" class="sm muted fw6">Connect Supabase first</td></tr>';return;}
   el.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;" class="sm muted fw6">Loading…</td></tr>';
   const{data:invs,error}=await SB.from('invoices').select('*').order('created_at',{ascending:false}).limit(50);
-  if (error||!invs) { el.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;" class="sm muted fw6">Error loading</td></tr>'; return; }
+  if(error||!invs){el.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;" class="sm muted fw6">Error loading</td></tr>';return;}
   APP.invoices=invs;
-  if (!invs.length) { el.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;" class="sm muted fw6">No invoices yet</td></tr>'; return; }
-  const total=invs.reduce((s,i)=>s+Number(i.amount||0),0), paid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+Number(i.amount||0),0), out=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+Number(i.amount||0),0);
-  document.getElementById('ib').textContent=fmt(total); document.getElementById('ic').textContent=fmt(paid); document.getElementById('io').textContent=fmt(out); document.getElementById('ia').textContent=fmt(total/invs.length);
-  document.getElementById('ib-d').textContent=invs.length+' invoices'; document.getElementById('ic-d').textContent=invs.filter(i=>i.status==='paid').length+' paid'; document.getElementById('io-d').textContent=invs.filter(i=>i.status==='overdue').length+' overdue';
-  el.innerHTML = invs.map(inv => { const cls=inv.status==='paid'?'bs':inv.status==='overdue'?'bd2':'bw'; return `<tr><td class="mono xs">${escHtml(inv.invoice_number||inv.id||'—')}</td><td class="fw6">${escHtml(inv.client_name||inv.client_id||'—')}</td><td>${escHtml(inv.description||'—')}</td><td class="mono fw7">${fmt(inv.amount)}</td><td class="mono xs">${escHtml(inv.due_date||'—')}</td><td><span class="badge ${cls}">${escHtml(inv.status||'draft')}</span></td><td><button class="btn bg bsm" onclick="dlPDF('${inv.id}')">PDF</button>${inv.status==='overdue'?`<button class="btn bdng bsm" onclick="escalateInv('${inv.id}')">Escalate</button>`:''}<button class="btn bdng bsm" onclick="deleteInvoice('${inv.id}')">✕</button></td></tr>`; }).join('');
+  if(!invs.length){el.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;" class="sm muted fw6">No invoices yet</td></tr>';return;}
+  const total=invs.reduce((s,i)=>s+Number(i.amount||0),0),paid=invs.filter(i=>i.status==='paid').reduce((s,i)=>s+Number(i.amount||0),0),out=invs.filter(i=>i.status!=='paid').reduce((s,i)=>s+Number(i.amount||0),0);
+  document.getElementById('ib').textContent=fmt(total);document.getElementById('ic').textContent=fmt(paid);document.getElementById('io').textContent=fmt(out);document.getElementById('ia').textContent=fmt(total/invs.length);
+  document.getElementById('ib-d').textContent=invs.length+' invoices';document.getElementById('ic-d').textContent=invs.filter(i=>i.status==='paid').length+' paid';document.getElementById('io-d').textContent=invs.filter(i=>i.status==='overdue').length+' overdue';
+  el.innerHTML=invs.map(inv=>{const cls=inv.status==='paid'?'bs':inv.status==='overdue'?'bd2':'bw';return `<tr><td class="mono xs">${escHtml(inv.invoice_number||inv.id||'—')}</td><td class="fw6">${escHtml(inv.client_name||inv.client_id||'—')}</td><td>${escHtml(inv.description||'—')}</td><td class="mono fw7">${fmt(inv.amount)}</td><td class="mono xs">${escHtml(inv.due_date||'—')}</td><td><span class="badge ${cls}">${escHtml(inv.status||'draft')}</span></td><td><button class="btn bg bsm" onclick="dlPDF('${inv.id}')">PDF</button>${inv.status==='overdue'?`<button class="btn bdng bsm" onclick="escalateInv('${inv.id}')">Escalate</button>`:''}<button class="btn bdng bsm" onclick="deleteInvoice('${inv.id}')">✕</button></td></tr>`;}).join('');
 }
-async function createInv(status) { const clientId=document.getElementById('ni-c').value,desc=document.getElementById('ni-d').value.trim(),amount=parseFloat(document.getElementById('ni-a').value),due=document.getElementById('ni-du').value; if(!clientId||!desc||!amount){toast('Fill all required fields','⚠');return;} const client=APP.clients.find(c=>c.id==clientId); const inv={client_id:clientId,client_name:client?.name||client?.company_name||'',description:desc,amount,due_date:due,status,invoice_number:'INV-'+Date.now(),created_at:new Date().toISOString()}; if(SB){const{error}=await SB.from('invoices').insert(inv);if(error){toast('Error: '+error.message,'✗');return;}} closeM('inv'); toast(status==='draft'?'Invoice saved as draft':'Invoice created','✓'); log('Invoice created: '+desc,'invoice'); loadInvoices(); }
-async function escalateInv(id) { if(SB)await SB.from('invoices').update({status:'escalated'}).eq('id',id); toast('Invoice escalated','✓'); log('Invoice escalated: '+id,'invoice'); loadInvoices(); }
-async function deleteInvoice(id) { confirm('Delete this invoice permanently?','Delete Invoice',async()=>{ if(SB)await SB.from('invoices').delete().eq('id',id); toast('Invoice deleted','✓'); log('Invoice deleted: '+id,'invoice'); loadInvoices(); }); }
-async function dlPDF(id) { await invokeEdgeFn('generate-invoice-pdf',{invoice_id:id},'PDF generating…'); }
+async function createInv(status){const clientId=document.getElementById('ni-c').value,desc=document.getElementById('ni-d').value.trim(),amount=parseFloat(document.getElementById('ni-a').value),due=document.getElementById('ni-du').value;if(!clientId||!desc||!amount){toast('Fill all required fields','⚠');return;}const client=APP.clients.find(c=>c.id==clientId);const inv={client_id:clientId,client_name:client?.name||client?.company_name||'',description:desc,amount,due_date:due,status,invoice_number:'INV-'+Date.now(),created_at:new Date().toISOString()};if(SB){const{error}=await SB.from('invoices').insert(inv);if(error){toast('Error: '+error.message,'✗');return;}}closeM('inv');toast(status==='draft'?'Invoice saved as draft':'Invoice created','✓');log('Invoice created: '+desc,'invoice');loadInvoices();}
+async function escalateInv(id){if(SB)await SB.from('invoices').update({status:'escalated'}).eq('id',id);toast('Invoice escalated','✓');log('Invoice escalated: '+id,'invoice');loadInvoices();}
+async function deleteInvoice(id){confirm('Delete this invoice permanently?','Delete Invoice',async()=>{if(SB)await SB.from('invoices').delete().eq('id',id);toast('Invoice deleted','✓');log('Invoice deleted: '+id,'invoice');loadInvoices();});}
+async function dlPDF(id){await invokeEdgeFn('generate-invoice-pdf',{invoice_id:id},'PDF generating…');}
 
 // ═══════════════════════════════════════════
 // INVITE
 // ═══════════════════════════════════════════
 async function sendInvite() {
-  const name=document.getElementById('inv-n').value.trim(), email=document.getElementById('inv-e').value.trim(), access=document.getElementById('inv-a').value;
-  if (!name||!email) { toast('Enter name and email','⚠'); return; }
-  if (!SB) { toast('Supabase required','⚠'); return; }
-  const { error } = await SB.from('clients').insert({ name, email, access_level:access, status:'invited', created_at:new Date().toISOString() });
-  if (error) { toast('Error: '+error.message,'✗'); return; }
+  const name=document.getElementById('inv-n').value.trim(),email=document.getElementById('inv-e').value.trim(),access=document.getElementById('inv-a').value;
+  if(!name||!email){toast('Enter name and email','⚠');return;}
+  if(!SB){toast('Supabase required','⚠');return;}
+  const{error}=await SB.from('clients').insert({name,email,access_level:access,status:'invited',created_at:new Date().toISOString()});
+  if(error){toast('Error: '+error.message,'✗');return;}
   const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
-  if (CFG.email!==false) await invokeEdgeFn('send-client-invite',{name,email,access},'Invite email sent');
-  closeM('invite'); toast('Invite sent to '+name,'✓'); log('Client invited: '+name,'auth');
-  if (!APP.clients.find(c=>c.email===email)) {
-    const newC = { id:'local_inv_'+Date.now(), name, email, access_level:access, status:'invited', created_at:new Date().toISOString() };
-    APP.clients.push(newC); localStorage.setItem('lumenos_clients',JSON.stringify(APP.clients));
-    updateClientStats();
-  }
+  if(CFG.email!==false)await invokeEdgeFn('send-client-invite',{name,email,access},'Invite email sent');
+  closeM('invite');toast('Invite sent to '+name,'✓');log('Client invited: '+name,'auth');
+  if(!APP.clients.find(c=>c.email===email)){const newC={id:'local_inv_'+Date.now(),name,email,access_level:access,status:'invited',created_at:new Date().toISOString()};APP.clients.push(newC);localStorage.setItem('lumenos_clients',JSON.stringify(APP.clients));updateClientStats();}
 }
 
 // ═══════════════════════════════════════════
 // LOGS
 // ═══════════════════════════════════════════
 async function renderLogs() {
-  const el=document.getElementById('logList'), f=document.querySelector('#lfRow .fc.active')?.dataset.f||'all';
-  if (SB) { const{data}=await SB.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(80); if(data){data.forEach(r=>{if(!APP.logs.find(e=>e.ts===new Date(r.created_at).getTime()))APP.logs.push({time:new Date(r.created_at).toLocaleTimeString(),event:r.event,type:r.type||'system',ts:new Date(r.created_at).getTime()});});APP.logs.sort((a,b)=>b.ts-a.ts);} }
-  const filtered = f==='all' ? APP.logs : APP.logs.filter(e=>e.type===f);
-  if (!filtered.length) { el.innerHTML='<div class="empty"><p>No log entries yet.</p></div>'; return; }
-  el.innerHTML = filtered.map(e=>`<div class="le"><span class="lt">${e.time}</span><span class="lb">${escHtml(e.event)}</span><span class="badge ${LOGCLS[e.type]||'bn'}">${e.type}</span></div>`).join('');
+  const el=document.getElementById('logList'),f=document.querySelector('#lfRow .fc.active')?.dataset.f||'all';
+  if(SB){const{data}=await SB.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(80);if(data){data.forEach(r=>{if(!APP.logs.find(e=>e.ts===new Date(r.created_at).getTime()))APP.logs.push({time:new Date(r.created_at).toLocaleTimeString(),event:r.event,type:r.type||'system',ts:new Date(r.created_at).getTime()});});APP.logs.sort((a,b)=>b.ts-a.ts);}}
+  const filtered=f==='all'?APP.logs:APP.logs.filter(e=>e.type===f);
+  if(!filtered.length){el.innerHTML='<div class="empty"><p>No log entries yet.</p></div>';return;}
+  el.innerHTML=filtered.map(e=>`<div class="le"><span class="lt">${e.time}</span><span class="lb">${escHtml(e.event)}</span><span class="badge ${LOGCLS[e.type]||'bn'}">${e.type}</span></div>`).join('');
 }
-function filterLogs(el) { document.querySelectorAll('#lfRow .fc').forEach(c=>c.classList.remove('active')); el.classList.add('active'); renderLogs(); }
-async function exportCSV() { let rows=[['Timestamp','Event','Type']]; if(SB){const{data}=await SB.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(500);if(data)rows=[...rows,...data.map(r=>[r.created_at,r.event,r.type])];} else rows=[...rows,...APP.logs.map(e=>[e.time,e.event,e.type])]; dlCSV(rows,'lumenos_activity'); log('CSV exported','system'); }
+function filterLogs(el){document.querySelectorAll('#lfRow .fc').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderLogs();}
+async function exportCSV(){let rows=[['Timestamp','Event','Type']];if(SB){const{data}=await SB.from('activity_logs').select('*').order('created_at',{ascending:false}).limit(500);if(data)rows=[...rows,...data.map(r=>[r.created_at,r.event,r.type])];}else rows=[...rows,...APP.logs.map(e=>[e.time,e.event,e.type])];dlCSV(rows,'lumenos_activity');log('CSV exported','system');}
 
 // ═══════════════════════════════════════════
 // CSV COUNTDOWN
 // ═══════════════════════════════════════════
-setInterval(() => {
-  csvSecs--; if(csvSecs<=0){csvSecs=1800;toast('30-min mark — download activity CSV?','📊');}
+setInterval(()=>{
+  csvSecs--;if(csvSecs<=0){csvSecs=1800;toast('30-min mark — download activity CSV?','📊');}
   const m=String(Math.floor(csvSecs/60)).padStart(2,'0'),s=String(csvSecs%60).padStart(2,'0'),t=m+':'+s;
   const e1=document.getElementById('csvT'),e2=document.getElementById('logT'),e3=document.getElementById('ef-cs');
-  if(e1)e1.textContent=t; if(e2)e2.textContent='Next CSV: '+t; if(e3)e3.textContent=m+'m';
+  if(e1)e1.textContent=t;if(e2)e2.textContent='Next CSV: '+t;if(e3)e3.textContent=m+'m';
 },1000);
 
 // ═══════════════════════════════════════════
 // NEO DRAWER
 // ═══════════════════════════════════════════
-const NEO_FALLBACKS = [
+const NEO_FALLBACKS=[
   'I can analyse your ontology, design forms, review scores, or query Supabase. Try asking something specific about your data.',
   'To get live AI responses, add a Claude or OpenAI key in Configuration → AI API Keys.',
   "I can auto-generate a form from your ontology concepts — just say \"design a form\" when you're on the Form Builder panel.",
   'Your scoring engine is fully configurable — add any dimensions that matter to your business, not just preset ones.'
 ];
-let neoFbIdx = 0;
-function toggleNeo() {
-  neoOpen = !neoOpen;
-  const dr=document.getElementById('ndr'), btn=document.getElementById('neoBtn');
-  dr.classList.toggle('open', neoOpen); dr.setAttribute('aria-hidden',String(!neoOpen)); btn.setAttribute('aria-expanded',String(neoOpen));
-  if (neoOpen) setTimeout(()=>document.getElementById('niInp')?.focus(), 200);
-}
-function cycleM() { neoModel=NEO_MODELS[(NEO_MODELS.indexOf(neoModel)+1)%NEO_MODELS.length]; document.getElementById('nMP').textContent=neoModel; toast('Neo using '+neoModel,'↻'); }
+let neoFbIdx=0;
+function toggleNeo(){neoOpen=!neoOpen;const dr=document.getElementById('ndr'),btn=document.getElementById('neoBtn');dr.classList.toggle('open',neoOpen);dr.setAttribute('aria-hidden',String(!neoOpen));btn.setAttribute('aria-expanded',String(neoOpen));if(neoOpen)setTimeout(()=>document.getElementById('niInp')?.focus(),200);}
+function cycleM(){neoModel=NEO_MODELS[(NEO_MODELS.indexOf(neoModel)+1)%NEO_MODELS.length];document.getElementById('nMP').textContent=neoModel;toast('Neo using '+neoModel,'↻');}
 async function sendNeo() {
-  const inp=document.getElementById('niInp'), text=inp.value.trim(); if (!text) return;
-  addNeoMsg(text,'user'); inp.value='';
-  const typing=document.createElement('div'); typing.className='ntyp'; typing.innerHTML='<span></span><span></span><span></span>'; typing.setAttribute('aria-label','Neo is typing'); document.getElementById('nmsgs').appendChild(typing); scrollNeo();
+  const inp=document.getElementById('niInp'),text=inp.value.trim();if(!text)return;
+  addNeoMsg(text,'user');inp.value='';
+  const typing=document.createElement('div');typing.className='ntyp';typing.innerHTML='<span></span><span></span><span></span>';typing.setAttribute('aria-label','Neo is typing');document.getElementById('nmsgs').appendChild(typing);scrollNeo();
   log('Neo: '+text.slice(0,60),'ai');
-  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}), ck=CFG.claudeKey||localStorage.getItem('lumenos_claude'), ok=CFG.openAIKey||localStorage.getItem('lumenos_openai');
-  if (ck && neoModel==='Claude') {
-    try {
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:`You are Neo, AI assistant inside LumenOS Insight Layer. Responses: 2-4 sentences, practical, no fluff. Context: ${APP.responses.length} responses, ${APP.clients.length} clients, ${APP_DIMS.length} scoring dimensions, ${ontoNodes.length} ontology concepts.`,messages:[{role:'user',content:text}]})});
-      const data=await resp.json(); typing.remove(); addNeoMsg(data.content?.[0]?.text||"Couldn't process that.",'bot','Claude · Anthropic');
-    } catch(e) { typing.remove(); addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Claude · error'); }
-  } else if (ok && neoModel==='GPT-4o') {
-    try {
-      const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ok},body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'system',content:'You are Neo, AI in LumenOS. Be concise.'},{role:'user',content:text}]})});
-      const data=await resp.json(); typing.remove(); addNeoMsg(data.choices?.[0]?.message?.content||'No response','bot','GPT-4o · OpenAI');
-    } catch(e) { typing.remove(); addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','GPT-4o · error'); }
-  } else {
-    setTimeout(() => { typing.remove(); addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Demo — add API keys'); scrollNeo(); }, 600);
-  }
+  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}),ck=CFG.claudeKey||localStorage.getItem('lumenos_claude'),ok=CFG.openAIKey||localStorage.getItem('lumenos_openai');
+  if(ck&&neoModel==='Claude'){
+    try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:`You are Neo, AI assistant inside LumenOS Insight Layer. Responses: 2-4 sentences, practical, no fluff. Context: ${APP.responses.length} responses, ${APP.clients.length} clients, ${APP_DIMS.length} scoring dimensions, ${ontoNodes.length} ontology concepts.`,messages:[{role:'user',content:text}]})});const data=await resp.json();typing.remove();addNeoMsg(data.content?.[0]?.text||"Couldn't process that.",'bot','Claude · Anthropic');}
+    catch(e){typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Claude · error');}
+  }else if(ok&&neoModel==='GPT-4o'){
+    try{const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ok},body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'system',content:'You are Neo, AI in LumenOS. Be concise.'},{role:'user',content:text}]})});const data=await resp.json();typing.remove();addNeoMsg(data.choices?.[0]?.message?.content||'No response','bot','GPT-4o · OpenAI');}
+    catch(e){typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','GPT-4o · error');}
+  }else{setTimeout(()=>{typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Demo — add API keys');scrollNeo();},600);}
 }
-function addNeoMsg(text, role, tag='') { const msgs=document.getElementById('nmsgs'); const div=document.createElement('div'); div.className='nmsg '+role; div.innerHTML=(role==='bot'&&tag?`<span class="mtag">${escHtml(tag)}</span>`:'')+escHtml(text).replace(/\n/g,'<br>'); msgs.appendChild(div); scrollNeo(); }
-function scrollNeo() { const m=document.getElementById('nmsgs'); m.scrollTop=m.scrollHeight; }
-function nsc(text) { document.getElementById('niInp').value=text; sendNeo(); if (!neoOpen) toggleNeo(); }
+function addNeoMsg(text,role,tag=''){const msgs=document.getElementById('nmsgs');const div=document.createElement('div');div.className='nmsg '+role;div.innerHTML=(role==='bot'&&tag?`<span class="mtag">${escHtml(tag)}</span>`:'')+escHtml(text).replace(/\n/g,'<br>');msgs.appendChild(div);scrollNeo();}
+function scrollNeo(){const m=document.getElementById('nmsgs');m.scrollTop=m.scrollHeight;}
+function nsc(text){document.getElementById('niInp').value=text;sendNeo();if(!neoOpen)toggleNeo();}
 
 // ═══════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════
 function loadCFG() {
-  const CFG = safeJson(localStorage.getItem('lumenos_cfg'), {});
-  const ck = CFG.claudeKey||localStorage.getItem('lumenos_claude')||'';
-  const ok = CFG.openAIKey||localStorage.getItem('lumenos_openai')||'';
-  const el_c=document.getElementById('cfgC'); if(el_c)el_c.value=ck;
-  const el_o=document.getElementById('cfgO'); if(el_o)el_o.value=ok;
-  const el_g=document.getElementById('cfgG'); if(el_g)el_g.value=CFG.gemmaUrl||'';
-  const bn=document.getElementById('cfgBrand');   if(bn)bn.value=CFG.brand||'LumenOS Insight Layer';
-  const nn=document.getElementById('cfgNN');      if(nn)nn.value=CFG.neoName||'Neo';
-  const col=document.getElementById('cfgCol');    if(col)col.value=CFG.color||'#1B3A6B';
-  const hex=document.getElementById('cfgColHex'); if(hex)hex.value=CFG.color||'#1B3A6B';
-  if (CFG.color) applyCol(CFG.color);
-  const em=document.getElementById('tEm');        if(em)em.checked=CFG.email!==false;
-  const sm=document.getElementById('tSm');        if(sm)sm.checked=CFG.sms!==false;
-  const ai=document.getElementById('tAi');        if(ai)ai.checked=!!CFG.autoInv;
-  const nr=document.getElementById('tNotifResp'); if(nr)nr.checked=CFG.notifResp!==false;
-  if (CFG.darkMode) applyDarkMode(true);
-  if (CFG.logoDataUrl) {
-    applyLogoEverywhere(CFG.logoDataUrl);
-    const zone=document.getElementById('logoUploadZone'); if(zone)zone.classList.add('has-logo');
-  }
-  const wlName=document.getElementById('wlPreviewName'); if(wlName)wlName.textContent=CFG.brand||'LumenOS Insight Layer';
-  const sub1=document.getElementById('authSubtitle');  if(sub1)sub1.textContent='Sign in to '+(CFG.brand||'LumenOS Insight Layer');
-  const sub2=document.getElementById('authSubtitle2'); if(sub2)sub2.textContent='Join '+(CFG.brand||'LumenOS Insight Layer');
-  if (ck||ok) {
-    const ms=[]; if(ck)ms.push('Claude'); if(ok)ms.push('GPT-4o');
-    const aiSt=document.getElementById('aiSt'); if(aiSt){aiSt.style.color='var(--ok)';aiSt.textContent='● '+ms.join(' · ')+' ready';}
-    const b=document.getElementById('aiKeyBanner'); if(b)b.style.display='none';
-  }
+  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
+  const ck=CFG.claudeKey||localStorage.getItem('lumenos_claude')||'';
+  const ok=CFG.openAIKey||localStorage.getItem('lumenos_openai')||'';
+  const el_c=document.getElementById('cfgC');if(el_c)el_c.value=ck;
+  const el_o=document.getElementById('cfgO');if(el_o)el_o.value=ok;
+  const el_g=document.getElementById('cfgG');if(el_g)el_g.value=CFG.gemmaUrl||'';
+  const bn=document.getElementById('cfgBrand');if(bn)bn.value=CFG.brand||'LumenOS Insight Layer';
+  const nn=document.getElementById('cfgNN');if(nn)nn.value=CFG.neoName||'Neo';
+  const col=document.getElementById('cfgCol');if(col)col.value=CFG.color||'#1B3A6B';
+  const hex=document.getElementById('cfgColHex');if(hex)hex.value=CFG.color||'#1B3A6B';
+  if(CFG.color)applyCol(CFG.color);
+  const em=document.getElementById('tEm');if(em)em.checked=CFG.email!==false;
+  const sm=document.getElementById('tSm');if(sm)sm.checked=CFG.sms!==false;
+  const ai=document.getElementById('tAi');if(ai)ai.checked=!!CFG.autoInv;
+  const nr=document.getElementById('tNotifResp');if(nr)nr.checked=CFG.notifResp!==false;
+  if(CFG.darkMode)applyDarkMode(true);
+  if(CFG.logoDataUrl){applyLogoEverywhere(CFG.logoDataUrl);const zone=document.getElementById('logoUploadZone');if(zone)zone.classList.add('has-logo');}
+  const wlName=document.getElementById('wlPreviewName');if(wlName)wlName.textContent=CFG.brand||'LumenOS Insight Layer';
+  const sub1=document.getElementById('authSubtitle');if(sub1)sub1.textContent='Sign in to '+(CFG.brand||'LumenOS Insight Layer');
+  const sub2=document.getElementById('authSubtitle2');if(sub2)sub2.textContent='Join '+(CFG.brand||'LumenOS Insight Layer');
+  if(ck||ok){const ms=[];if(ck)ms.push('Claude');if(ok)ms.push('GPT-4o');const aiSt=document.getElementById('aiSt');if(aiSt){aiSt.style.color='var(--ok)';aiSt.textContent='● '+ms.join(' · ')+' ready';}const b=document.getElementById('aiKeyBanner');if(b)b.style.display='none';}
 }
 function saveAIKeys() {
-  const ck=document.getElementById('cfgC').value.trim(), ok=document.getElementById('cfgO').value.trim();
+  const ck=document.getElementById('cfgC').value.trim(),ok=document.getElementById('cfgO').value.trim();
   const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
-  CFG.claudeKey=ck; CFG.openAIKey=ok; CFG.gemmaUrl=document.getElementById('cfgG').value.trim();
-  CFG.email=document.getElementById('tEm').checked; CFG.sms=document.getElementById('tSm').checked;
-  CFG.autoInv=document.getElementById('tAi').checked; CFG.notifResp=document.getElementById('tNotifResp').checked;
+  CFG.claudeKey=ck;CFG.openAIKey=ok;CFG.gemmaUrl=document.getElementById('cfgG').value.trim();
+  CFG.email=document.getElementById('tEm').checked;CFG.sms=document.getElementById('tSm').checked;
+  CFG.autoInv=document.getElementById('tAi').checked;CFG.notifResp=document.getElementById('tNotifResp').checked;
   localStorage.setItem('lumenos_cfg',JSON.stringify(CFG));
-  localStorage.setItem('lumenos_claude',ck); localStorage.setItem('lumenos_openai',ok);
-  toast('AI keys saved','✓'); log('AI keys updated','system'); checkAIKeys(); renderEdgeFns();
+  localStorage.setItem('lumenos_claude',ck);localStorage.setItem('lumenos_openai',ok);
+  toast('AI keys saved','✓');log('AI keys updated','system');checkAIKeys();renderEdgeFns();
 }
 function saveBrand() {
-  const CFG = safeJson(localStorage.getItem('lumenos_cfg'), {});
-  const brand   = document.getElementById('cfgBrand').value;
-  const neoName = document.getElementById('cfgNN').value;
-  const color   = document.getElementById('cfgCol').value;
-  const darkVal = document.getElementById('dmToggle')?.checked ?? darkMode;
-  CFG.brand = brand; CFG.neoName = neoName; CFG.color = color; CFG.darkMode = darkVal;
-  localStorage.setItem('lumenos_cfg', JSON.stringify(CFG));
-  document.title = brand + ' · Insight Layer';
-  const nnt=document.getElementById('nNT'); if(nnt)nnt.textContent=neoName;
-  const nav2=document.getElementById('nAv'); if(nav2)nav2.textContent=neoName.charAt(0).toUpperCase();
-  const wlName=document.getElementById('wlPreviewName'); if(wlName)wlName.textContent=brand;
-  const pfBrand=document.getElementById('pfBrandName'); if(pfBrand)pfBrand.textContent=brand;
-  const sub1=document.getElementById('authSubtitle');  if(sub1)sub1.textContent='Sign in to '+brand;
-  const sub2=document.getElementById('authSubtitle2'); if(sub2)sub2.textContent='Join '+brand;
-  updateTopbarLogoDisplay(); applyCol(color); applyDarkMode(darkVal);
-  toast('Branding saved','✓'); log('Branding updated','system');
+  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
+  const brand=document.getElementById('cfgBrand').value,neoName=document.getElementById('cfgNN').value,color=document.getElementById('cfgCol').value,darkVal=document.getElementById('dmToggle')?.checked??darkMode;
+  CFG.brand=brand;CFG.neoName=neoName;CFG.color=color;CFG.darkMode=darkVal;
+  localStorage.setItem('lumenos_cfg',JSON.stringify(CFG));
+  document.title=brand+' · Insight Layer';
+  const nnt=document.getElementById('nNT');if(nnt)nnt.textContent=neoName;
+  const nav2=document.getElementById('nAv');if(nav2)nav2.textContent=neoName.charAt(0).toUpperCase();
+  const wlName=document.getElementById('wlPreviewName');if(wlName)wlName.textContent=brand;
+  const pfBrand=document.getElementById('pfBrandName');if(pfBrand)pfBrand.textContent=brand;
+  const sub1=document.getElementById('authSubtitle');if(sub1)sub1.textContent='Sign in to '+brand;
+  const sub2=document.getElementById('authSubtitle2');if(sub2)sub2.textContent='Join '+brand;
+  updateTopbarLogoDisplay();applyCol(color);applyDarkMode(darkVal);
+  toast('Branding saved','✓');log('Branding updated','system');
 }
-function applyCol(hex) {
-  document.documentElement.style.setProperty('--ac', hex);
-  const bar=document.querySelector('.wl-preview-bar'); if(bar)bar.style.background=hex;
-  const hexInp=document.getElementById('cfgColHex'); if(hexInp)hexInp.value=hex;
-}
-function saveCfg() {
-  const url=document.getElementById('cfgUrl').value.trim(), key=document.getElementById('cfgKey').value.trim();
-  if (url) { SUPABASE_URL=url; localStorage.setItem('il_sb_url',url); }
-  if (key) { SUPABASE_KEY=key; localStorage.setItem('il_sb_key',key); }
-  toast('Config saved — reconnecting…','✓'); initSupabase().then(ok=>{ if(ok)loadDashboard(); });
-}
-async function testSupa() {
-  const res=document.getElementById('supaRes'); res.textContent='Testing…'; res.style.color='var(--t3)';
-  if (!SB) { res.textContent='✗ Not initialised'; res.style.color='var(--dg)'; return; }
-  try { const{error}=await SB.from('clients').select('count',{count:'exact',head:true}); if(error)throw error; res.textContent='✓ Connected'; res.style.color='var(--ok)'; toast('Supabase connected','✓'); }
-  catch(e) { res.textContent='✗ '+e.message; res.style.color='var(--dg)'; }
-}
+function applyCol(hex){document.documentElement.style.setProperty('--ac',hex);const bar=document.querySelector('.wl-preview-bar');if(bar)bar.style.background=hex;const hexInp=document.getElementById('cfgColHex');if(hexInp)hexInp.value=hex;}
+function saveCfg(){const url=document.getElementById('cfgUrl').value.trim(),key=document.getElementById('cfgKey').value.trim();if(url){SUPABASE_URL=url;localStorage.setItem('il_sb_url',url);}if(key){SUPABASE_KEY=key;localStorage.setItem('il_sb_key',key);}toast('Config saved — reconnecting…','✓');initSupabase().then(ok=>{if(ok)loadDashboard();});}
+async function testSupa(){const res=document.getElementById('supaRes');res.textContent='Testing…';res.style.color='var(--t3)';if(!SB){res.textContent='✗ Not initialised';res.style.color='var(--dg)';return;}try{const{error}=await SB.from('clients').select('count',{count:'exact',head:true});if(error)throw error;res.textContent='✓ Connected';res.style.color='var(--ok)';toast('Supabase connected','✓');}catch(e){res.textContent='✗ '+e.message;res.style.color='var(--dg)';}}
 
 // ═══════════════════════════════════════════
 // INIT
@@ -2811,49 +2830,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   initModalBackdrops();
   initTouchDrag();
 
-  // Wire "+ Add Concept" button
   const btnAddNode = document.getElementById('btnAddNode');
   if (btnAddNode) btnAddNode.addEventListener('click', e => { e.stopPropagation(); openAddNodeModal(); });
 
-  // Global Escape key
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
+    if (e.key==='Escape') {
       document.querySelectorAll('.mov.open').forEach(m => closeM(m.id.replace('modal-','')));
       if (neoOpen) toggleNeo();
     }
   });
 
-  // Default invoice due date
   const due = document.getElementById('ni-du');
   if (due) { const d=new Date(); d.setDate(d.getDate()+30); due.value=d.toISOString().split('T')[0]; }
 
-  // Neutral placeholder engagement bars
-  document.getElementById('abars').innerHTML = Array.from({length:7}, () => `<div class="ab" style="height:20%;"></div>`).join('');
+  document.getElementById('abars').innerHTML = Array.from({length:7},()=>`<div class="ab" style="height:20%;"></div>`).join('');
 
-  // Supabase + auth
   try {
     if (typeof supabase === 'undefined') throw new Error('Supabase CDN not loaded');
     SB = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     if (!SB || !SB.auth) throw new Error('Supabase client init failed');
     SB.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        if (!currentUser) { onSignedIn(session.user); await loadDashboard(); log('Session: '+event,'auth'); }
-      } else if (event === 'SIGNED_OUT') {
-        onSignedOut();
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        currentUser = session.user;
-      }
+      if (event==='SIGNED_IN' && session?.user) { if(!currentUser){onSignedIn(session.user);await loadDashboard();log('Session: '+event,'auth');} }
+      else if (event==='SIGNED_OUT') { onSignedOut(); }
+      else if (event==='TOKEN_REFRESHED' && session?.user) { currentUser=session.user; }
     });
-    const { error:dbErr } = await SB.from('clients').select('count',{count:'exact',head:true});
+    const{error:dbErr}=await SB.from('clients').select('count',{count:'exact',head:true});
     setConnStatus(!dbErr);
-  } catch(e) {
-    console.warn('Supabase init:', e.message);
-    SB = null;
-    setConnStatus(false);
-  }
+  } catch(e) { console.warn('Supabase init:', e.message); SB=null; setConnStatus(false); }
 
   await checkSession();
   populateDimSelect();
-  log('LumenOS Insight Layer v1.5 started', 'system');
+  log('LumenOS Insight Layer v1.5 started','system');
 });
 </script>
