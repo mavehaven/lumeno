@@ -1070,7 +1070,7 @@ tbody tr:hover td{background:var(--sf2);}
 <div class="toast" id="toastEl" role="status" aria-live="assertive"><span id="tIcon">✓</span><span id="tMsg"></span></div>
 
 <script>
- 'use strict';
+'use strict';
 // ═══════════════════════════════════════════
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════
@@ -1447,7 +1447,7 @@ async function callGemini(prompt, systemPrompt='', maxTokens=600) {
   if (systemPrompt) messages.push({ role:'user', parts:[{ text: systemPrompt }] }, { role:'model', parts:[{ text:'Understood.' }] });
   messages.push({ role:'user', parts:[{ text: prompt }] });
   const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${gk}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview-customtools:generateContent?key=${gk}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2558,7 +2558,6 @@ async function aiDesign() {
   const ck=CFG.claudeKey||localStorage.getItem('lumenos_claude');
   const gk=CFG.geminiKey||localStorage.getItem('lumenos_gemini');
 
-  // Try Claude first, then Gemini, then fallback
   if (ck) {
     try {
       const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:'Return ONLY a JSON array, no markdown or backticks. Each item must have: {type:"text|number|select|rating|nps|date|toggle|file|textarea|multi",label:"string",options?:["..."],yesLabel?:"",noLabel?:"",placeholder?:""}. Max 10 items.',messages:[{role:'user',content:'Design a client insight form for: '+ontoNodes.map(n=>n.label.replace('\n',' ')).join(', ')}]})});
@@ -2710,7 +2709,7 @@ async function runAI() {
     try{const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ok},body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'user',content:prompt}]})});const data=await resp.json();out.textContent='→ [GPT-4o]\n\n'+(data.choices?.[0]?.message?.content||'No response');}
     catch(e){out.textContent='✗ OpenAI error: '+e.message;}
   } else if(gk){
-    try{const text=await callGemini(prompt,'You are an AI assistant for LumenOS Insight Layer. Be concise.',600);out.textContent='→ [Gemini 3.1 Pro]\n\n'+(text||'No response');}
+    try{const text=await callGemini(prompt,'You are an AI assistant for LumenOS Insight Layer. Be concise.',600);out.textContent='→ [Gemini 3.1 Pro Preview Custom Tools]\n\n'+(text||'No response');}
     catch(e){out.textContent='✗ Gemini error: '+e.message;}
   } else {
     out.textContent='→ [Demo — add API keys in Configuration for live responses]';
@@ -2825,7 +2824,7 @@ async function sendNeo() {
     try{
       const sysPrompt=`You are Neo, AI assistant inside LumenOS Insight Layer. Responses: 2-4 sentences, practical, no fluff. Context: ${APP.responses.length} responses, ${APP.clients.length} clients, ${APP_DIMS.length} scoring dimensions, ${ontoNodes.length} ontology concepts.`;
       const result=await callGemini(text,sysPrompt,600);
-      typing.remove();addNeoMsg(result||"Couldn't process that.",'bot','Gemini 3.1 Pro · Google');
+      typing.remove();addNeoMsg(result||"Couldn't process that.",'bot','Gemini 3.1 Pro Preview Custom Tools · Google');
     } catch(e){typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Gemini · error');}
   } else {
     setTimeout(()=>{typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Demo — add API keys');scrollNeo();},600);
