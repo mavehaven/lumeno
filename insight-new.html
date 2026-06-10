@@ -974,7 +974,7 @@ tbody tr:hover td{background:var(--sf2);}
   </div>
 </div>
 
-<!-- EDIT ONTOLOGY NODE -->
+<!-- ==================== MODIFIED EDIT NODE MODAL ==================== -->
 <div class="mov" id="modal-editNode" role="dialog" aria-modal="true" aria-label="Edit Ontology Concept">
   <div class="modal" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" style="max-width:480px;">
     <div class="mdrag"></div>
@@ -995,6 +995,12 @@ tbody tr:hover td{background:var(--sf2);}
       </select>
     </div>
     <div class="field">
+      <label for="en-parent">Parent Concept</label>
+      <select id="en-parent">
+        <option value="">Root (no parent)</option>
+      </select>
+    </div>
+    <div class="field">
       <label for="en-desc">Description</label>
       <textarea id="en-desc" rows="3" placeholder="What does this concept measure?"></textarea>
     </div>
@@ -1008,6 +1014,7 @@ tbody tr:hover td{background:var(--sf2);}
     </div>
   </div>
 </div>
+
 
 <!-- NEW INVOICE -->
 <div class="mov" id="modal-inv" role="dialog" aria-modal="true" aria-label="New Invoice">
@@ -2177,20 +2184,33 @@ function finishOntoDrag() {
   ontoDrag = null;
 }
 
+// ==================== ENHANCED ONTOLOGY FUNCTIONS ====================
+
 function showNode(n) {
-  const connected = ontoEdges
-    .filter(e => e[0]===n.id || e[1]===n.id)
-    .map(e => e[0]===n.id ? e[1] : e[0])
-    .map(id => { const nd = ontoNodes.find(x=>x.id===id); return nd ? nd.label.replace('\n',' ') : id; })
-    .join(', ');
+  const parents = ontoEdges.filter(e => e[1] === n.id).map(e => e[0]);
+  const children = ontoEdges.filter(e => e[0] === n.id).map(e => e[1]);
 
-  const catBadge = n.category
-    ? `<span class="badge bn mono" style="margin-left:6px;">${escHtml(n.category)}</span>`
-    : '';
+  const parentNodes = parents.map(id => ontoNodes.find(x => x.id === id)).filter(p => p);
+  const childNodes = children.map(id => ontoNodes.find(x => x.id === id)).filter(c => c);
 
+  const catBadge = n.category ? `<span class="badge bn mono" style="margin-left:6px;">${escHtml(n.category)}</span>` : '';
   const descHtml = n.description
     ? `<p class="sm fw6" style="color:var(--t2);margin-bottom:8px;line-height:1.6;">${escHtml(n.description)}</p>`
     : `<p class="sm muted" style="margin-bottom:8px;font-style:italic;">No description — click Edit to add one.</p>`;
+
+  let parentsHtml = '';
+  if (parentNodes.length) {
+    parentsHtml = `<div style="margin-bottom:8px;"><span class="muted xs mono">Parent(s):</span> ${parentNodes.map(p => `<strong style="color:${p.color};">${escHtml(p.label.replace('\n',' '))}</strong>`).join(', ')}</div>`;
+  } else {
+    parentsHtml = `<div class="muted xs mono" style="margin-bottom:8px;">Root concept (no parent)</div>`;
+  }
+
+  let childrenHtml = '';
+  if (childNodes.length) {
+    childrenHtml = `<div style="margin-bottom:12px;"><span class="muted xs mono">Children (${childNodes.length}):</span><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;">${childNodes.map(c => `<span class="badge bi" style="cursor:pointer;background:${c.color}15;color:${c.color};border-color:${c.color}30;" onclick="showNode(ontoNodes.find(x=>x.id==='${c.id}'))">${escHtml(c.label.replace('\n',' '))}</span>`).join('')}</div></div>`;
+  } else {
+    childrenHtml = `<div class="muted xs mono" style="margin-bottom:12px;">No children – add one using the button below.</div>`;
+  }
 
   document.getElementById('oActive').innerHTML = `
     <div class="fxc g2i" style="margin-bottom:8px;flex-wrap:wrap;">
@@ -2200,9 +2220,11 @@ function showNode(n) {
       <span class="badge bn mono" style="margin-left:auto;">depth ${n.depth}</span>
     </div>
     ${descHtml}
-    <p class="xs muted mono" style="margin-bottom:10px;">Connected to: ${escHtml(connected||'none')}</p>
-    <div class="fx g2i" style="flex-wrap:wrap;">
+    ${parentsHtml}
+    ${childrenHtml}
+    <div class="fx g2i" style="flex-wrap:wrap;margin-top:6px;">
       <button class="btn bp bsm" onclick="openEditNode('${escHtml(n.id)}')">✎ Edit</button>
+      <button class="btn bs2 bsm" onclick="addChildNode('${escHtml(n.id)}','${escHtml(n.label.replace('\n',' '))}')">+ Add Child Node</button>
       <button class="btn bs2 bsm" onclick="nsc('Analyse the ${escHtml(n.label.replace('\n',' '))} concept and suggest KPIs')">Ask Neo →</button>
       <button class="btn bg bsm" onclick="goPanel('forms',document.querySelector('[data-p=forms]'))">Use in form</button>
       <button class="btn bdng bsm" onclick="deleteOntologyNode('${escHtml(n.id)}')">Delete</button>
@@ -2216,15 +2238,33 @@ function openEditNode(nodeId) {
   const modal = document.getElementById('modal-editNode');
   if (!modal) { console.warn('modal-editNode not found in DOM'); return; }
 
-  document.getElementById('en-id').value          = n.id;
-  document.getElementById('en-label').value        = n.label.replace('\n',' ');
-  document.getElementById('en-desc').value         = n.description || '';
-  document.getElementById('en-color').value        = n.color || '#1B3A6B';
+  document.getElementById('en-id').value = n.id;
+  document.getElementById('en-label').value = n.label.replace('\n',' ');
+  document.getElementById('en-desc').value = n.description || '';
+  document.getElementById('en-color').value = n.color || '#1B3A6B';
 
   const catSel = document.getElementById('en-cat');
   catSel.innerHTML = ONTO_CATEGORIES.map(c => `<option value="${escHtml(c)}"${c===n.category?' selected':''}>${escHtml(c)}</option>`).join('');
 
+  // Populate parent dropdown (excluding self)
+  const parentSel = document.getElementById('en-parent');
+  if (parentSel) {
+    parentSel.innerHTML = '<option value="">Root (no parent)</option>' +
+      ontoNodes.filter(other => other.id !== n.id).map(other =>
+        `<option value="${other.id}" ${(ontoEdges.find(e => e[1]===n.id && e[0]===other.id) ? 'selected' : '')}>${escHtml(other.label.replace('\n',' '))}</option>`
+      ).join('');
+  }
+
   openM('editNode');
+}
+
+function updateNodeDepthAndDescendants(nodeId, newDepth) {
+  const node = ontoNodes.find(n => n.id === nodeId);
+  if (!node) return;
+  node.depth = newDepth;
+  // Find all direct children
+  const children = ontoEdges.filter(e => e[0] === nodeId).map(e => e[1]);
+  children.forEach(childId => updateNodeDepthAndDescendants(childId, newDepth + 1));
 }
 
 async function saveEditNode() {
@@ -2240,24 +2280,51 @@ async function saveEditNode() {
     newLabel = words.slice(0, mid).join(' ') + '\n' + words.slice(mid).join(' ');
   }
 
-  n.label       = newLabel;
+  n.label = newLabel;
   n.description = document.getElementById('en-desc').value.trim();
-  n.color       = document.getElementById('en-color').value;
-  n.category    = document.getElementById('en-cat').value;
+  n.color = document.getElementById('en-color').value;
+  n.category = document.getElementById('en-cat').value;
+
+  // --- Parent management ---
+  const newParentId = document.getElementById('en-parent').value;
+  const currentParentEdge = ontoEdges.find(e => e[1] === nodeId);
+  const currentParentId = currentParentEdge ? currentParentEdge[0] : null;
+
+  if (newParentId !== currentParentId) {
+    // Remove old parent edge if exists
+    if (currentParentEdge) {
+      const idx = ontoEdges.findIndex(e => e[0] === currentParentId && e[1] === nodeId);
+      if (idx !== -1) ontoEdges.splice(idx, 1);
+      if (SB) await SB.from('ontology_edges').delete().eq('source_id', currentParentId).eq('target_id', nodeId);
+    }
+    // Add new parent edge
+    if (newParentId) {
+      ontoEdges.push([newParentId, nodeId]);
+      if (SB) await SB.from('ontology_edges').insert({ source_id: newParentId, target_id: nodeId });
+      // Update depth based on new parent
+      const parentNode = ontoNodes.find(p => p.id === newParentId);
+      const newDepth = parentNode ? parentNode.depth + 1 : 0;
+      updateNodeDepthAndDescendants(nodeId, newDepth);
+    } else {
+      // Root node
+      updateNodeDepthAndDescendants(nodeId, 0);
+    }
+    saveOntoLocal();
+  }
+
+  if (SB) {
+    await SB.from('ontology_nodes').update({
+      label: n.label,
+      description: n.description,
+      color: n.color,
+      category: n.category,
+      depth: n.depth
+    }).eq('id', nodeId);
+  }
 
   saveOntoLocal();
   renderOnto();
   showNode(n);
-
-  if (SB) {
-    await SB.from('ontology_nodes').update({
-      label:       n.label,
-      description: n.description,
-      color:       n.color,
-      category:    n.category
-    }).eq('id', nodeId);
-  }
-
   closeM('editNode');
   toast('Concept updated', '✓');
   log('Ontology node edited: ' + rawLabel, 'system');
@@ -2286,6 +2353,7 @@ function populateNodeSel() {
 
 function openAddNodeModal() { openM('addNode'); setTimeout(populateNodeSel, 90); }
 
+// Original addNode function (keep as is)
 async function addNode() {
   const nameEl   = document.getElementById('nn-n');
   const catEl    = document.getElementById('nn-c');
@@ -2336,6 +2404,34 @@ async function addNode() {
 
   toast(name + ' added to ontology', '✓');
   log('Ontology node added: ' + name, 'system');
+}
+
+// Wrap addNode to also refresh parent dropdown in edit modal after adding
+const originalAddNode = addNode;
+addNode = async function() {
+  await originalAddNode();
+  populateNodeSel();
+  const editParent = document.getElementById('en-parent');
+  if (editParent && getComputedStyle(document.getElementById('modal-editNode')).transform !== 'translateX(100%)') {
+    const currentNodeId = document.getElementById('en-id').value;
+    editParent.innerHTML = '<option value="">Root (no parent)</option>' +
+      ontoNodes.filter(other => other.id !== currentNodeId).map(other =>
+        `<option value="${other.id}" ${(ontoEdges.find(e => e[1]===currentNodeId && e[0]===other.id) ? 'selected' : '')}>${escHtml(other.label.replace('\n',' '))}</option>`
+      ).join('');
+  }
+};
+
+function addChildNode(parentId, parentLabel) {
+  const nameInput = document.getElementById('nn-n');
+  if (nameInput) nameInput.value = '';
+  const parentSelect = document.getElementById('nn-p');
+  if (parentSelect) {
+    parentSelect.value = parentId;
+    parentSelect.dispatchEvent(new Event('change'));
+  }
+  openM('addNode');
+  setTimeout(() => document.getElementById('nn-n')?.focus(), 200);
+  toast(`Adding child node under "${parentLabel}"`, '↻');
 }
 
 // ═══════════════════════════════════════════
