@@ -1070,7 +1070,7 @@ tbody tr:hover td{background:var(--sf2);}
 <div class="toast" id="toastEl" role="status" aria-live="assertive"><span id="tIcon">✓</span><span id="tMsg"></span></div>
 
 <script>
-  'use strict';
+ 'use strict';
 // ═══════════════════════════════════════════
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════
@@ -1082,7 +1082,7 @@ let currentUser = null;
 let realtimeSub = null;
 let neoOpen = false;
 let neoModel = 'Claude';
-const NEO_MODELS = ['Claude', 'GPT-4o', 'Gemma 3'];
+const NEO_MODELS = ['Claude', 'GPT-4o', 'Gemini'];
 let csvSecs = 1800;
 let APP_DIMS = [];
 const APP = { clients:[], scores:[], invoices:[], logs:[], forms:[], responses:[] };
@@ -1434,6 +1434,35 @@ async function invokeEdgeFn(fnName, body={}, successMsg='Done') {
     else toast(`${fnName}: ${msg.slice(0,60)}`,'✗');
     return false;
   }
+}
+
+// ═══════════════════════════════════════════
+// GEMINI API HELPER
+// ═══════════════════════════════════════════
+async function callGemini(prompt, systemPrompt='', maxTokens=600) {
+  const CFG = safeJson(localStorage.getItem('lumenos_cfg'), {});
+  const gk = CFG.geminiKey || localStorage.getItem('lumenos_gemini') || '';
+  if (!gk) throw new Error('No Gemini API key set — add it in Configuration → AI API Keys');
+  const messages = [];
+  if (systemPrompt) messages.push({ role:'user', parts:[{ text: systemPrompt }] }, { role:'model', parts:[{ text:'Understood.' }] });
+  messages.push({ role:'user', parts:[{ text: prompt }] });
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${gk}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: messages,
+        generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 }
+      })
+    }
+  );
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Gemini API error ${resp.status}`);
+  }
+  const data = await resp.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 // ═══════════════════════════════════════════
@@ -1925,8 +1954,6 @@ async function publishForm() {
 // ═══════════════════════════════════════════
 // ONTOLOGY — with category + description
 // ═══════════════════════════════════════════
-
-// Category options used across add + edit modals
 const ONTO_CATEGORIES = ['Core KPI','Process','Metric','Outcome','Client Signal'];
 
 function defaultOnto() {
@@ -1947,12 +1974,10 @@ function defaultOnto() {
   ontoEdges = [['bp','osa'],['bp','sup'],['bp','ops'],['bp','cx'],['bp','nps'],['bp','cat'],['bp','wst'],['osa','stk'],['sup','ltd'],['cx','cst'],['nps','chr']];
 }
 
-// Persists all fields including category + description
 function saveOntoLocal() {
   localStorage.setItem('lumenos_onto', JSON.stringify({ nodes: ontoNodes, edges: ontoEdges }));
 }
 
-// Fetches category + description from Supabase
 async function loadOntoDB() {
   const { data, error } = await SB.from('ontology_nodes').select('*');
   if (!error && data && data.length) {
@@ -2008,7 +2033,6 @@ function renderOnto() {
   if (!svg) return;
   eg.innerHTML = ''; ng.innerHTML = ''; ontoNodeEls = {}; ontoEdgeEls = {};
 
-  // Empty state
   if (!ontoNodes.length) {
     const fo = document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
     fo.setAttribute('x','0'); fo.setAttribute('y','0'); fo.setAttribute('width','700'); fo.setAttribute('height','420');
@@ -2024,7 +2048,6 @@ function renderOnto() {
     return;
   }
 
-  // Guide rings
   [68,125,182].forEach(r => {
     const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
     c.setAttribute('cx',350); c.setAttribute('cy',205); c.setAttribute('r',r);
@@ -2033,7 +2056,6 @@ function renderOnto() {
     eg.appendChild(c);
   });
 
-  // Edges
   ontoEdges.forEach(([a,b]) => {
     const na = ontoNodes.find(n=>n.id===a), nb = ontoNodes.find(n=>n.id===b); if (!na||!nb) return;
     const l = document.createElementNS('http://www.w3.org/2000/svg','line');
@@ -2042,7 +2064,6 @@ function renderOnto() {
     eg.appendChild(l); ontoEdgeEls[a+'_'+b] = l;
   });
 
-  // Nodes
   ontoNodes.forEach(n => {
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
     g.setAttribute('class','onto-node-grp'); g.setAttribute('tabindex','0'); g.style.cursor = 'grab';
@@ -2112,7 +2133,6 @@ function renderOnto() {
   document.getElementById('oEC').textContent = ontoEdges.length;
   document.getElementById('oD').textContent  = Math.max(...ontoNodes.map(n=>n.depth),0)+1;
 
-  // Sync linked node dropdown in Form Builder
   const fNodeSel = document.getElementById('fNode');
   if (fNodeSel) fNodeSel.innerHTML = '<option value="">— select node —</option>'+ontoNodes.map(n=>`<option value="${n.id}">${escHtml(n.label.replace('\n',' '))}</option>`).join('');
 }
@@ -2144,7 +2164,6 @@ function finishOntoDrag() {
   ontoDrag = null;
 }
 
-// showNode — displays category + description + Edit button
 function showNode(n) {
   const connected = ontoEdges
     .filter(e => e[0]===n.id || e[1]===n.id)
@@ -2177,7 +2196,6 @@ function showNode(n) {
     </div>`;
 }
 
-// Opens the edit-node modal pre-filled with the node's current data
 function openEditNode(nodeId) {
   const n = ontoNodes.find(x => x.id === nodeId);
   if (!n) return;
@@ -2190,22 +2208,18 @@ function openEditNode(nodeId) {
   document.getElementById('en-desc').value         = n.description || '';
   document.getElementById('en-color').value        = n.color || '#1B3A6B';
 
-  // Populate category select and pre-select current value
   const catSel = document.getElementById('en-cat');
   catSel.innerHTML = ONTO_CATEGORIES.map(c => `<option value="${escHtml(c)}"${c===n.category?' selected':''}>${escHtml(c)}</option>`).join('');
 
   openM('editNode');
 }
 
-// Saves edits back to the node in memory, local storage, and Supabase
 async function saveEditNode() {
   const nodeId = document.getElementById('en-id').value;
   const n = ontoNodes.find(x => x.id === nodeId);
   if (!n) { closeM('editNode'); return; }
 
   const rawLabel = document.getElementById('en-label').value.trim() || n.label.replace('\n',' ');
-  // Preserve newline structure: if original had a newline at a word boundary, re-insert it
-  // Simple heuristic: split on first space that falls after 40% of total string length
   const words = rawLabel.split(' ');
   let newLabel = rawLabel;
   if (words.length >= 2) {
@@ -2220,7 +2234,7 @@ async function saveEditNode() {
 
   saveOntoLocal();
   renderOnto();
-  showNode(n); // refresh the active concept panel
+  showNode(n);
 
   if (SB) {
     await SB.from('ontology_nodes').update({
@@ -2282,7 +2296,6 @@ async function addNode() {
   const x  = pn ? Math.max(20, Math.min(680, pn.x+(Math.random()-0.5)*130)) : 200+Math.random()*300;
   const y  = pn ? Math.max(20, Math.min(400, pn.y+80))                      : 80+Math.random()*240;
 
-  // Store name with natural newline for multi-word labels
   const words = name.split(' ');
   let storedLabel = name;
   if (words.length >= 2) {
@@ -2536,11 +2549,16 @@ function onReorderEnd(e) {
 }
 
 function clearCanvas() { droppedFields=[]; renderCanvas(); }
+
 async function aiDesign() {
   if (!ontoNodes.length&&!SB) initOntology();
   toast('AI designing form from ontology…','✦'); log('AI auto-design triggered','ai');
   const fallback=[{type:'text',label:'Organisation / Client Name'},{type:'select',label:'Category',options:['FMCG','Retail','Services','Other']},{type:'number',label:'Score (0–100)'},{type:'rating',label:'Performance Rating'},{type:'nps',label:'NPS Score (0–10)'},{type:'textarea',label:'Key Observations'},{type:'toggle',label:'Target Met?',yesLabel:'Yes',noLabel:'No'},{type:'date',label:'Assessment Date'}];
-  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}), ck=CFG.claudeKey||localStorage.getItem('lumenos_claude');
+  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
+  const ck=CFG.claudeKey||localStorage.getItem('lumenos_claude');
+  const gk=CFG.geminiKey||localStorage.getItem('lumenos_gemini');
+
+  // Try Claude first, then Gemini, then fallback
   if (ck) {
     try {
       const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:'Return ONLY a JSON array, no markdown or backticks. Each item must have: {type:"text|number|select|rating|nps|date|toggle|file|textarea|multi",label:"string",options?:["..."],yesLabel?:"",noLabel?:"",placeholder?:""}. Max 10 items.',messages:[{role:'user',content:'Design a client insight form for: '+ontoNodes.map(n=>n.label.replace('\n',' ')).join(', ')}]})});
@@ -2548,9 +2566,24 @@ async function aiDesign() {
       if (Array.isArray(parsed)&&parsed.length) { droppedFields=parsed.map(f=>({options:[],yesLabel:'Yes',noLabel:'No',placeholder:'',...f,id:Date.now()+(Math.random()*999|0),required:false,_expanded:false})); renderCanvas(); toast('Claude designed '+droppedFields.length+' fields','✓'); return; }
     } catch(e){}
   }
+
+  if (gk) {
+    try {
+      const systemPrompt = 'Return ONLY a JSON array, no markdown or backticks. Each item must have: {type:"text|number|select|rating|nps|date|toggle|file|textarea|multi",label:"string",options?:["..."],yesLabel?:"",noLabel?:"",placeholder?:""}. Max 10 items.';
+      const prompt = 'Design a client insight form for: ' + ontoNodes.map(n=>n.label.replace('\n',' ')).join(', ');
+      const raw = await callGemini(prompt, systemPrompt, 600);
+      const parsed = safeJson(raw.replace(/```json|```/g,'').trim(), []);
+      if (Array.isArray(parsed)&&parsed.length) {
+        droppedFields=parsed.map(f=>({options:[],yesLabel:'Yes',noLabel:'No',placeholder:'',...f,id:Date.now()+(Math.random()*999|0),required:false,_expanded:false}));
+        renderCanvas(); toast('Gemini designed '+droppedFields.length+' fields','✓'); return;
+      }
+    } catch(e) { console.warn('Gemini aiDesign error:', e.message); }
+  }
+
   droppedFields=fallback.map(f=>({options:[],yesLabel:'Yes',noLabel:'No',placeholder:'',...f,id:Date.now()+(Math.random()*999|0),required:false,_expanded:false}));
   document.getElementById('fName').value='Client Insight Form'; renderCanvas(); toast('Form designed from ontology','✓');
 }
+
 function previewF() {
   if (!droppedFields.length){toast('Add fields first','⚠');return;}
   document.getElementById('prevT').textContent=document.getElementById('fName').value;
@@ -2648,18 +2681,40 @@ async function saveScoring(){saveScoringDims();if(SB)await SB.from('scoring_conf
 // ═══════════════════════════════════════════
 function setAP(p){document.getElementById('aiP').value=p;}
 function checkAIKeys() {
-  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}),ck=document.getElementById('cfgC')?.value?.trim()||CFG.claudeKey,ok=document.getElementById('cfgO')?.value?.trim()||CFG.openAIKey;
+  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
+  const ck=document.getElementById('cfgC')?.value?.trim()||CFG.claudeKey;
+  const ok=document.getElementById('cfgO')?.value?.trim()||CFG.openAIKey;
+  const gk=document.getElementById('cfgG')?.value?.trim()||CFG.geminiKey;
   const el=document.getElementById('aiSt'),banner=document.getElementById('aiKeyBanner');
-  if(ck||ok){const ms=[];if(ck)ms.push('Claude');if(ok)ms.push('GPT-4o');el.style.color='var(--ok)';el.textContent='● '+ms.join(' · ')+' ready';if(banner)banner.style.display='none';}
-  else{el.style.color='var(--t3)';el.textContent='● Keys not set';}
+  if(ck||ok||gk){
+    const ms=[];if(ck)ms.push('Claude');if(ok)ms.push('GPT-4o');if(gk)ms.push('Gemini');
+    el.style.color='var(--ok)';el.textContent='● '+ms.join(' · ')+' ready';
+    if(banner)banner.style.display='none';
+  } else {
+    el.style.color='var(--t3)';el.textContent='● Keys not set';
+  }
 }
 async function runAI() {
   const prompt=document.getElementById('aiP').value.trim();if(!prompt){toast('Enter a prompt first','⚠');return;}
-  const out=document.getElementById('aiOut'),CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}),ck=CFG.claudeKey||localStorage.getItem('lumenos_claude'),ok=CFG.openAIKey||localStorage.getItem('lumenos_openai');
-  out.textContent='Routing to '+(ck?'Claude':ok?'GPT-4o':'Demo')+'…';log('AI test: '+prompt.slice(0,60),'ai');
-  if(ck){try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:'AI assistant for LumenOS Insight Layer. Be concise.',messages:[{role:'user',content:prompt}]})});const data=await resp.json();out.textContent='→ [Claude]\n\n'+(data.content?.[0]?.text||'No response');}catch(e){out.textContent='✗ Claude error: '+e.message;}}
-  else if(ok){try{const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ok},body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'user',content:prompt}]})});const data=await resp.json();out.textContent='→ [GPT-4o]\n\n'+(data.choices?.[0]?.message?.content||'No response');}catch(e){out.textContent='✗ OpenAI error: '+e.message;}}
-  else{out.textContent='→ [Demo — add API keys in Configuration for live responses]';}
+  const out=document.getElementById('aiOut');
+  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
+  const ck=CFG.claudeKey||localStorage.getItem('lumenos_claude');
+  const ok=CFG.openAIKey||localStorage.getItem('lumenos_openai');
+  const gk=CFG.geminiKey||localStorage.getItem('lumenos_gemini');
+  out.textContent='Routing to '+(ck?'Claude':ok?'GPT-4o':gk?'Gemini':'Demo')+'…';
+  log('AI test: '+prompt.slice(0,60),'ai');
+  if(ck){
+    try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:'AI assistant for LumenOS Insight Layer. Be concise.',messages:[{role:'user',content:prompt}]})});const data=await resp.json();out.textContent='→ [Claude]\n\n'+(data.content?.[0]?.text||'No response');}
+    catch(e){out.textContent='✗ Claude error: '+e.message;}
+  } else if(ok){
+    try{const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ok},body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'user',content:prompt}]})});const data=await resp.json();out.textContent='→ [GPT-4o]\n\n'+(data.choices?.[0]?.message?.content||'No response');}
+    catch(e){out.textContent='✗ OpenAI error: '+e.message;}
+  } else if(gk){
+    try{const text=await callGemini(prompt,'You are an AI assistant for LumenOS Insight Layer. Be concise.',600);out.textContent='→ [Gemini 3.1 Pro]\n\n'+(text||'No response');}
+    catch(e){out.textContent='✗ Gemini error: '+e.message;}
+  } else {
+    out.textContent='→ [Demo — add API keys in Configuration for live responses]';
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -2739,7 +2794,7 @@ setInterval(()=>{
 // ═══════════════════════════════════════════
 const NEO_FALLBACKS=[
   'I can analyse your ontology, design forms, review scores, or query Supabase. Try asking something specific about your data.',
-  'To get live AI responses, add a Claude or OpenAI key in Configuration → AI API Keys.',
+  'To get live AI responses, add a Claude, OpenAI, or Gemini key in Configuration → AI API Keys.',
   "I can auto-generate a form from your ontology concepts — just say \"design a form\" when you're on the Form Builder panel.",
   'Your scoring engine is fully configurable — add any dimensions that matter to your business, not just preset ones.'
 ];
@@ -2751,14 +2806,30 @@ async function sendNeo() {
   addNeoMsg(text,'user');inp.value='';
   const typing=document.createElement('div');typing.className='ntyp';typing.innerHTML='<span></span><span></span><span></span>';typing.setAttribute('aria-label','Neo is typing');document.getElementById('nmsgs').appendChild(typing);scrollNeo();
   log('Neo: '+text.slice(0,60),'ai');
-  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{}),ck=CFG.claudeKey||localStorage.getItem('lumenos_claude'),ok=CFG.openAIKey||localStorage.getItem('lumenos_openai');
+  const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
+  const ck=CFG.claudeKey||localStorage.getItem('lumenos_claude');
+  const ok=CFG.openAIKey||localStorage.getItem('lumenos_openai');
+  const gk=CFG.geminiKey||localStorage.getItem('lumenos_gemini');
+
   if(ck&&neoModel==='Claude'){
-    try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:`You are Neo, AI assistant inside LumenOS Insight Layer. Responses: 2-4 sentences, practical, no fluff. Context: ${APP.responses.length} responses, ${APP.clients.length} clients, ${APP_DIMS.length} scoring dimensions, ${ontoNodes.length} ontology concepts.`,messages:[{role:'user',content:text}]})});const data=await resp.json();typing.remove();addNeoMsg(data.content?.[0]?.text||"Couldn't process that.",'bot','Claude · Anthropic');}
-    catch(e){typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Claude · error');}
-  }else if(ok&&neoModel==='GPT-4o'){
-    try{const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ok},body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'system',content:'You are Neo, AI in LumenOS. Be concise.'},{role:'user',content:text}]})});const data=await resp.json();typing.remove();addNeoMsg(data.choices?.[0]?.message?.content||'No response','bot','GPT-4o · OpenAI');}
-    catch(e){typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','GPT-4o · error');}
-  }else{setTimeout(()=>{typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Demo — add API keys');scrollNeo();},600);}
+    try{
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':ck,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,system:`You are Neo, AI assistant inside LumenOS Insight Layer. Responses: 2-4 sentences, practical, no fluff. Context: ${APP.responses.length} responses, ${APP.clients.length} clients, ${APP_DIMS.length} scoring dimensions, ${ontoNodes.length} ontology concepts.`,messages:[{role:'user',content:text}]})});
+      const data=await resp.json();typing.remove();addNeoMsg(data.content?.[0]?.text||"Couldn't process that.",'bot','Claude · Anthropic');
+    } catch(e){typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Claude · error');}
+  } else if(ok&&neoModel==='GPT-4o'){
+    try{
+      const resp=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+ok},body:JSON.stringify({model:'gpt-4o',max_tokens:600,messages:[{role:'system',content:'You are Neo, AI in LumenOS. Be concise.'},{role:'user',content:text}]})});
+      const data=await resp.json();typing.remove();addNeoMsg(data.choices?.[0]?.message?.content||'No response','bot','GPT-4o · OpenAI');
+    } catch(e){typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','GPT-4o · error');}
+  } else if(gk&&neoModel==='Gemini'){
+    try{
+      const sysPrompt=`You are Neo, AI assistant inside LumenOS Insight Layer. Responses: 2-4 sentences, practical, no fluff. Context: ${APP.responses.length} responses, ${APP.clients.length} clients, ${APP_DIMS.length} scoring dimensions, ${ontoNodes.length} ontology concepts.`;
+      const result=await callGemini(text,sysPrompt,600);
+      typing.remove();addNeoMsg(result||"Couldn't process that.",'bot','Gemini 3.1 Pro · Google');
+    } catch(e){typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Gemini · error');}
+  } else {
+    setTimeout(()=>{typing.remove();addNeoMsg(NEO_FALLBACKS[neoFbIdx++%NEO_FALLBACKS.length],'bot','Demo — add API keys');scrollNeo();},600);
+  }
 }
 function addNeoMsg(text,role,tag=''){const msgs=document.getElementById('nmsgs');const div=document.createElement('div');div.className='nmsg '+role;div.innerHTML=(role==='bot'&&tag?`<span class="mtag">${escHtml(tag)}</span>`:'')+escHtml(text).replace(/\n/g,'<br>');msgs.appendChild(div);scrollNeo();}
 function scrollNeo(){const m=document.getElementById('nmsgs');m.scrollTop=m.scrollHeight;}
@@ -2771,9 +2842,10 @@ function loadCFG() {
   const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
   const ck=CFG.claudeKey||localStorage.getItem('lumenos_claude')||'';
   const ok=CFG.openAIKey||localStorage.getItem('lumenos_openai')||'';
+  const gk=CFG.geminiKey||localStorage.getItem('lumenos_gemini')||'';
   const el_c=document.getElementById('cfgC');if(el_c)el_c.value=ck;
   const el_o=document.getElementById('cfgO');if(el_o)el_o.value=ok;
-  const el_g=document.getElementById('cfgG');if(el_g)el_g.value=CFG.gemmaUrl||'';
+  const el_g=document.getElementById('cfgG');if(el_g)el_g.value=gk;
   const bn=document.getElementById('cfgBrand');if(bn)bn.value=CFG.brand||'LumenOS Insight Layer';
   const nn=document.getElementById('cfgNN');if(nn)nn.value=CFG.neoName||'Neo';
   const col=document.getElementById('cfgCol');if(col)col.value=CFG.color||'#1B3A6B';
@@ -2788,17 +2860,28 @@ function loadCFG() {
   const wlName=document.getElementById('wlPreviewName');if(wlName)wlName.textContent=CFG.brand||'LumenOS Insight Layer';
   const sub1=document.getElementById('authSubtitle');if(sub1)sub1.textContent='Sign in to '+(CFG.brand||'LumenOS Insight Layer');
   const sub2=document.getElementById('authSubtitle2');if(sub2)sub2.textContent='Join '+(CFG.brand||'LumenOS Insight Layer');
-  if(ck||ok){const ms=[];if(ck)ms.push('Claude');if(ok)ms.push('GPT-4o');const aiSt=document.getElementById('aiSt');if(aiSt){aiSt.style.color='var(--ok)';aiSt.textContent='● '+ms.join(' · ')+' ready';}const b=document.getElementById('aiKeyBanner');if(b)b.style.display='none';}
+  if(ck||ok||gk){
+    const ms=[];if(ck)ms.push('Claude');if(ok)ms.push('GPT-4o');if(gk)ms.push('Gemini');
+    const aiSt=document.getElementById('aiSt');
+    if(aiSt){aiSt.style.color='var(--ok)';aiSt.textContent='● '+ms.join(' · ')+' ready';}
+    const b=document.getElementById('aiKeyBanner');if(b)b.style.display='none';
+  }
 }
 function saveAIKeys() {
-  const ck=document.getElementById('cfgC').value.trim(),ok=document.getElementById('cfgO').value.trim();
+  const ck=document.getElementById('cfgC').value.trim();
+  const ok=document.getElementById('cfgO').value.trim();
+  const gk=document.getElementById('cfgG').value.trim();
   const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
-  CFG.claudeKey=ck;CFG.openAIKey=ok;CFG.gemmaUrl=document.getElementById('cfgG').value.trim();
-  CFG.email=document.getElementById('tEm').checked;CFG.sms=document.getElementById('tSm').checked;
-  CFG.autoInv=document.getElementById('tAi').checked;CFG.notifResp=document.getElementById('tNotifResp').checked;
+  CFG.claudeKey=ck; CFG.openAIKey=ok; CFG.geminiKey=gk;
+  CFG.email=document.getElementById('tEm').checked;
+  CFG.sms=document.getElementById('tSm').checked;
+  CFG.autoInv=document.getElementById('tAi').checked;
+  CFG.notifResp=document.getElementById('tNotifResp').checked;
   localStorage.setItem('lumenos_cfg',JSON.stringify(CFG));
-  localStorage.setItem('lumenos_claude',ck);localStorage.setItem('lumenos_openai',ok);
-  toast('AI keys saved','✓');log('AI keys updated','system');checkAIKeys();renderEdgeFns();
+  localStorage.setItem('lumenos_claude',ck);
+  localStorage.setItem('lumenos_openai',ok);
+  localStorage.setItem('lumenos_gemini',gk);
+  toast('AI keys saved','✓'); log('AI keys updated','system'); checkAIKeys(); renderEdgeFns();
 }
 function saveBrand() {
   const CFG=safeJson(localStorage.getItem('lumenos_cfg'),{});
