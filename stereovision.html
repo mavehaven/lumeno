@@ -6,6 +6,9 @@
 <title>LumenOS · StereoVision Security</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- TensorFlow.js + COCO-SSD for local on-device Vision AI inference -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 <style>
 :root {
   --ink:#07090b;--ink2:#0c1118;--ink3:#101820;--ink4:#151f28;
@@ -139,6 +142,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .conn-tag.connecting{background:rgba(0,212,255,.07);color:var(--lumen);border:1px solid rgba(0,212,255,.2);animation:blinkop 1s infinite}
 @keyframes blinkop{0%,100%{opacity:1}50%{opacity:.45}}
 .conn-tag i{font-size:6px}
+
+/* MODEL LOADING OVERLAY */
+.model-loading-bar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.15);border-radius:var(--radius);margin-bottom:8px}
+.ml-spinner{width:10px;height:10px;border:1.5px solid rgba(0,212,255,.2);border-top-color:var(--lumen);border-radius:50%;flex-shrink:0;animation:spin .7s linear infinite}
+.ml-text{font-family:var(--mono);font-size:8px;color:var(--lumen);letter-spacing:.09em}
 
 /* MULTI-CAMERA GRID */
 .multicam-toolbar{display:flex;align-items:center;gap:5px;padding:5px 8px;background:var(--ink2);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;flex-wrap:wrap}
@@ -435,6 +443,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .ms-status{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7px;padding:2px 5px;border-radius:2px;margin-top:6px}
 .ms-status.stub{background:rgba(255,255,255,.04);color:var(--slate);border:1px solid var(--border)}
 .ms-status.ai-on{background:rgba(0,212,255,.08);color:var(--lumen);border:1px solid rgba(0,212,255,.25)}
+.ms-status.loading{background:rgba(0,212,255,.05);color:var(--lumen2);border:1px solid rgba(0,212,255,.18);animation:blinkop 1.2s infinite}
 
 /* Lumen Vision AI banner */
 .lumen-ai-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.18);border-radius:var(--radius);margin-bottom:9px}
@@ -451,11 +460,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .dash-right{display:flex;flex-direction:column;gap:9px}
 .cam-count-badge{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:2px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.22);color:var(--lumen)}
 
-/* Tooltip for AI powered indicator */
 .ai-powered-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:2px;font-family:var(--mono);font-size:7px;letter-spacing:.09em;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);color:var(--lumen);white-space:nowrap}
 .ai-powered-tag i{font-size:7px;animation:lumenPulse 2s ease infinite}
 @keyframes lumenPulse{0%,100%{opacity:1}50%{opacity:.5}}
-
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
@@ -523,7 +530,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 
     <div class="content">
 
-      <!-- ══ DASHBOARD ══ -->
+      <!-- DASHBOARD -->
       <div class="section active" id="s-dashboard">
         <div class="smeta">
           <div>
@@ -538,7 +545,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 
         <div class="dash-grid">
           <div class="dash-left">
-            <!-- Multi-cam grid -->
             <div>
               <div class="multicam-toolbar">
                 <div style="font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;gap:5px;"><i class="fas fa-th" style="color:var(--lumen);font-size:8px;"></i> CAMERA GRID</div>
@@ -651,7 +657,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
                       <div class="tpill" data-ait="manual">Manual</div>
                     </div>
                   </div>
-                  <div style="font-family:var(--mono);font-size:7.5px;color:var(--slate);margin-top:6px;line-height:1.6;">Powered by <span style="color:var(--lumen);">LumenOS Vision AI</span> — per-camera inference.</div>
+                  <div style="font-family:var(--mono);font-size:7.5px;color:var(--slate);margin-top:6px;line-height:1.6;">Powered by <span style="color:var(--lumen);">COCO-SSD</span> — on-device inference, no API required.</div>
                 </div>
               </div>
             </div>
@@ -665,7 +671,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
                   <div class="stat-card ok"><div class="sc-lbl">System</div><div class="sc-val md">ONLINE</div><div class="sc-sub">Nominal</div></div>
                   <div class="stat-card" id="sc-obj"><div class="sc-lbl">Objects</div><div class="sc-val" id="sv-objects">0</div><div class="sc-sub">All Cams</div></div>
                   <div class="stat-card" id="sc-alerts"><div class="sc-lbl">Alerts</div><div class="sc-val" id="sv-alerts">0</div><div class="sc-sub">Total</div></div>
-                  <div class="stat-card ai"><div class="sc-lbl">Vision AI</div><div class="sc-val sm" id="sv-ai">IDLE</div><div class="sc-sub" id="sv-ai-sub">LumenOS V-AI</div></div>
+                  <div class="stat-card ai"><div class="sc-lbl">Vision AI</div><div class="sc-val sm" id="sv-ai">IDLE</div><div class="sc-sub" id="sv-ai-sub">Loading model…</div></div>
                 </div>
                 <div style="margin-top:8px;">
                   <div class="ctrl-lbl">AVG PROXIMITY <span class="cv" id="depthGaugeVal">—</span></div>
@@ -675,7 +681,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
               </div>
             </div>
 
-            <!-- Camera list -->
             <div class="panel">
               <div class="ph">
                 <div class="ptitle"><i class="fas fa-video"></i> Cameras</div>
@@ -703,7 +708,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
               <div class="ph">
                 <div class="ptitle"><i class="fas fa-eye"></i> Vision AI Analysis</div>
                 <div style="display:flex;align-items:center;gap:5px;">
-                  <span class="ai-powered-tag"><i class="fas fa-circle"></i> LUMEN V-AI</span>
+                  <span class="ai-powered-tag"><i class="fas fa-circle"></i> COCO-SSD LOCAL</span>
                   <button class="btn btn-sm btn-a" id="manualScanBtn" disabled><i class="fas fa-search"></i> Scan</button>
                 </div>
               </div>
@@ -733,7 +738,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
         </div>
       </div>
 
-      <!-- ══ ANALYTICS ══ -->
+      <!-- ANALYTICS -->
       <div class="section" id="s-analytics">
         <div class="smeta"><div class="smeta-title">Analytics</div><div class="smeta-sub">HISTORICAL DATA — ALL CAMERAS</div></div>
         <div id="anaCamGrid" class="ana-cam-grid"></div>
@@ -749,7 +754,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
         </div>
       </div>
 
-      <!-- ══ ZONES ══ -->
+      <!-- ZONES -->
       <div class="section" id="s-zones">
         <div class="smeta">
           <div class="smeta-title">Detection Zones</div>
@@ -837,35 +842,34 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
         </div>
       </div>
 
-      <!-- ══ AI MODELS ══ -->
+      <!-- VISION AI MODELS -->
       <div class="section" id="s-models">
-        <div class="smeta"><div class="smeta-title">Vision AI Pipeline</div><div class="smeta-sub">LUMEN INFERENCE MODULES</div></div>
+        <div class="smeta"><div class="smeta-title">Vision AI Pipeline</div><div class="smeta-sub">LUMEN INFERENCE MODULES — ON-DEVICE</div></div>
 
-        <!-- LumenOS Vision AI banner -->
         <div class="lumen-ai-banner">
           <div>
             <div class="lumen-ai-logo">LUMEN<span>OS</span> VISION AI</div>
-            <div style="font-family:var(--mono);font-size:7.5px;color:var(--muted);margin-top:2px;letter-spacing:.1em;">PROPRIETARY INFERENCE ENGINE · v3.1.0</div>
+            <div style="font-family:var(--mono);font-size:7.5px;color:var(--muted);margin-top:2px;letter-spacing:.1em;">ON-DEVICE INFERENCE · COCO-SSD + TENSORFLOW.JS · NO API REQUIRED</div>
           </div>
           <div class="lumen-ai-desc">
-            LumenOS Vision AI is StereoVision Security's proprietary multi-camera object recognition engine. It performs real-time scene analysis across all connected feeds using the Lumen Inference Engine — identifying people, vehicles, packages, and anomalies with per-object confidence scoring and adaptive threat classification.
+            LumenOS Vision AI uses on-device TensorFlow.js + COCO-SSD inference — zero API calls, zero latency overhead, works fully offline. The model runs in your browser's GPU context, identifying people, vehicles, animals, and common objects with per-detection confidence scores and adaptive threat classification. Model status: <span id="modelStatusInline" style="color:var(--lumen);">Loading…</span>
           </div>
           <div>
-            <div class="lumen-ai-badge"><i class="fas fa-circle"></i> ENGINE ACTIVE</div>
+            <div class="lumen-ai-badge" id="modelBadge"><i class="fas fa-circle" style="animation:lumenPulse 1s infinite;"></i> <span id="modelBadgeText">LOADING</span></div>
           </div>
         </div>
 
         <div class="panel" style="margin-bottom:9px;">
-          <div class="ph"><div class="ptitle"><i class="fas fa-eye"></i> LumenOS Vision AI — Multi-Camera Scene Analysis</div><span class="ms-status ai-on"><i class="fas fa-circle"></i> ACTIVE</span></div>
-          <div class="pb" style="font-size:11px;color:var(--text);line-height:1.7;">The <span style="color:var(--lumen);">LumenOS Vision AI engine</span> runs real-time object recognition across all connected camera feeds. AI scanning can be enabled globally or per-camera via the camera grid toolbar. Each camera operates its own inference queue with adaptive rate management to maintain consistent throughput even under high load. The Lumen Inference Engine uses a combination of motion-triggered pre-screening and deep scene analysis for energy-efficient continuous monitoring.</div>
+          <div class="ph"><div class="ptitle"><i class="fas fa-eye"></i> LumenOS Vision AI — On-Device Scene Analysis</div><span class="ms-status ai-on" id="cocoStatus"><i class="fas fa-circle"></i> LOADING</span></div>
+          <div class="pb" style="font-size:11px;color:var(--text);line-height:1.7;">The <span style="color:var(--lumen);">LumenOS Vision AI engine</span> runs real-time object recognition directly in your browser using <span style="color:var(--lumen);">COCO-SSD via TensorFlow.js</span>. No API keys required — all inference happens on-device using your GPU/CPU. The model detects 80 COCO object classes (people, vehicles, animals, common objects) with bounding-box coordinates and confidence scores. Threat levels are derived from object class and detection confidence. AI scanning can be enabled globally or per-camera.</div>
         </div>
 
         <div class="model-grid">
-          <div class="model-slot ai-active">
+          <div class="model-slot ai-active" id="cocoSlot">
             <div class="ms-icon"><i class="fas fa-eye"></i></div>
             <div class="ms-title">Object Recognition</div>
-            <div class="ms-desc">Lumen Vision AI identifies people, vehicles, animals, packages, and environmental objects with confidence scores and multi-tier threat levels across all feeds.</div>
-            <div class="ms-status ai-on"><i class="fas fa-check"></i> LUMEN VISION AI — ACTIVE</div>
+            <div class="ms-desc">COCO-SSD detects 80 object classes — people, vehicles, animals, packages — with confidence scores and bounding boxes. Runs entirely on-device via TensorFlow.js WebGL backend.</div>
+            <div class="ms-status loading" id="cocoSlotStatus"><i class="fas fa-spinner fa-spin"></i> LOADING MODEL</div>
           </div>
           <div class="model-slot">
             <div class="ms-icon"><i class="fas fa-layer-group"></i></div>
@@ -876,13 +880,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
           <div class="model-slot">
             <div class="ms-icon"><i class="fas fa-comments"></i></div>
             <div class="ms-title">Scene Narrator</div>
-            <div class="ms-desc">Natural language scene summaries and alert reasoning across all camera feeds. Generates operator-readable incident reports on demand.</div>
-            <div class="ms-status stub"><i class="fas fa-plug"></i> STUB — NOT ACTIVE</div>
+            <div class="ms-desc">Natural language scene summaries from detection results. Generates human-readable incident reports from COCO-SSD outputs.</div>
+            <div class="ms-status stub"><i class="fas fa-plug"></i> COMING SOON</div>
           </div>
           <div class="model-slot">
             <div class="ms-icon"><i class="fas fa-random"></i></div>
             <div class="ms-title">Behaviour Analytics</div>
-            <div class="ms-desc">Cross-camera person re-identification and anomalous behaviour detection using trajectory analysis.</div>
+            <div class="ms-desc">Cross-camera person re-identification and anomalous behaviour detection using trajectory analysis of COCO detections.</div>
             <div class="ms-status stub"><i class="fas fa-plug"></i> COMING SOON</div>
           </div>
           <div class="model-slot">
@@ -900,7 +904,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
         </div>
       </div>
 
-      <!-- ══ EXPORT ══ -->
+      <!-- EXPORT -->
       <div class="section" id="s-export">
         <div class="smeta"><div class="smeta-title">Data Export</div><div class="smeta-sub">REPORTS & SESSION DATA — ALL CAMERAS</div></div>
         <div class="exp-grid">
@@ -996,6 +1000,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 const ZONE_COLORS=['#3d8ef0','#d99018','#30b060','#d44040','#00bca0','#7c4dff','#f05c3d','#e0c020'];
 const SNAP_THRESHOLD=12;
 const CAM_COLORS=['#00d4ff','#d99018','#30b060','#d44040','#00bca0','#7c4dff','#f05c3d','#e0c020'];
+
+// ── COCO-SSD threat classification ─────────────────────────────────────────
+// Maps COCO class label → baseline threat level (before confidence weighting)
+const COCO_THREAT_MAP = {
+  person:'medium', car:'medium', truck:'medium', bus:'medium', motorcycle:'medium',
+  bicycle:'low', dog:'low', cat:'low', bird:'low',
+  knife:'high', scissors:'high',
+  backpack:'low', handbag:'low', suitcase:'low',
+  bottle:'low', chair:'low', couch:'low', laptop:'low', cell_phone:'low',
+  default:'low'
+};
+
+// Returns {threat:'low'|'medium'|'high'} based on class + confidence
+function cocoThreat(label, confidence){
+  const base = COCO_THREAT_MAP[label] || COCO_THREAT_MAP.default;
+  if(confidence >= 0.80){
+    if(base==='medium') return 'high';
+    if(base==='low') return 'medium';
+  }
+  return base;
+}
+
 let _camIdCtr=0;
 
 class CameraFeed {
@@ -1041,6 +1067,11 @@ class LumenOS {
     this.data={alerts:[],eventLog:[],motionData:[],depthHistory:[],savedFeeds:JSON.parse(localStorage.getItem('lm_feeds')||'[]'),zones:[]};
     this._zoneMode='draw';this._zoneSelected=null;this._zoneDrawing=null;this._zoneDragState=null;
     this._snapEnabled=false;this._zoneCamFilter='global';
+    // ── Local model state ──────────────────────────────────────────────────
+    this.localModel=null;         // cocoSsd model instance
+    this.modelReady=false;        // true once loaded
+    this.modelLoading=false;
+    // ──────────────────────────────────────────────────────────────────────
     this.$=id=>document.getElementById(id);
     this._initAll();window.LumenOS=this;
   }
@@ -1054,7 +1085,197 @@ class LumenOS {
     this._startClock();this._startIdleChartLoop();
     this._resizeZoneCanvas();this._renderZoneCanvas();this._renderZonesList();
     this._addAlert('LumenOS Vision AI system initialised','info');
+    // Start loading COCO-SSD in background
+    this._loadLocalModel();
   }
+
+  // ── COCO-SSD LOCAL MODEL ──────────────────────────────────────────────────
+
+  async _loadLocalModel(){
+    if(this.modelLoading||this.modelReady)return;
+    this.modelLoading=true;
+    this._setModelStatus('loading');
+    this._addAlert('Loading COCO-SSD model (first load ~10–30s)…','info');
+    try{
+      // cocoSsd is provided by the @tensorflow-models/coco-ssd script tag
+      this.localModel = await cocoSsd.load({base:'lite_mobilenet_v2'});
+      this.modelReady=true;
+      this.modelLoading=false;
+      this._setModelStatus('ready');
+      this._addAlert('COCO-SSD model ready — on-device Vision AI active','ai');
+      // Enable manual scan button if a cam is active
+      const cam=this._getActiveCam();
+      if(cam&&cam.connected)this.$('manualScanBtn').disabled=false;
+    }catch(err){
+      this.modelLoading=false;
+      this._setModelStatus('error');
+      this._addAlert('COCO-SSD load failed: '+err.message,'crit');
+      console.error('COCO-SSD load error:',err);
+    }
+  }
+
+  _setModelStatus(s){
+    const statusMap={
+      loading:{badge:'LOADING',badgeClass:'loading',slot:'LOADING MODEL',slotIcon:'fa-spinner fa-spin',subText:'Loading model…',cocoText:'LOADING'},
+      ready:  {badge:'ON-DEVICE',badgeClass:'ai-on', slot:'COCO-SSD READY',slotIcon:'fa-check',     subText:'On-device COCO-SSD',cocoText:'ACTIVE'},
+      error:  {badge:'ERROR',   badgeClass:'stub',   slot:'LOAD ERROR',   slotIcon:'fa-times',      subText:'Model error',cocoText:'ERROR'}
+    };
+    const m=statusMap[s]||statusMap.loading;
+    const badge=this.$('modelBadge');const badgeText=this.$('modelBadgeText');
+    const slotStatus=this.$('cocoSlotStatus');const cocoStatus=this.$('cocoStatus');
+    const svAiSub=this.$('sv-ai-sub');const modelStatusInline=this.$('modelStatusInline');
+    if(badge){badge.className='lumen-ai-badge';}
+    if(badgeText)badgeText.textContent=m.badge;
+    if(slotStatus){slotStatus.className='ms-status '+m.badgeClass;slotStatus.innerHTML=`<i class="fas ${m.slotIcon}"></i> ${m.slot}`;}
+    if(cocoStatus){cocoStatus.className='ms-status '+m.badgeClass;cocoStatus.innerHTML=`<i class="fas ${m.slotIcon}"></i> ${m.cocoText}`;}
+    if(svAiSub)svAiSub.textContent=m.subText;
+    if(modelStatusInline){modelStatusInline.textContent=s==='ready'?'Ready — COCO-SSD loaded':s==='loading'?'Loading…':'Load error';}
+  }
+
+  // ── MAIN AI SCAN (replaces old Anthropic fetch) ───────────────────────────
+
+  async _doAIScan(cam){
+    if(!cam||cam.aiScanning)return;
+    if(!this.modelReady){
+      // Model not ready yet — try loading, show status
+      if(!this.modelLoading)this._loadLocalModel();
+      this.$('sv-ai').textContent='WAIT';
+      this.$('sv-ai-sub').textContent='Model loading…';
+      return;
+    }
+    const src = cam.sourceType==='img' ? cam.srcImg : cam.srcVideo;
+    if(!src)return;
+
+    cam.aiScanning=true;
+    cam.lastAiScan=Date.now();
+    this.$('sv-ai').textContent='SCAN';
+    this.$('sv-ai-sub').textContent=`${cam.name}…`;
+
+    try{
+      // Run COCO-SSD detection on the live source element
+      // (works directly on HTMLVideoElement or HTMLImageElement)
+      const predictions = await this.localModel.detect(src);
+      this._handleCocoDetections(cam, predictions, src);
+    }catch(err){
+      this._handleAiError(cam, err.message||'Inference error');
+    }finally{
+      cam.aiScanning=false;
+      this.$('sv-ai').textContent='ON';
+      this.$('sv-ai-sub').textContent='Last: '+new Date().toLocaleTimeString('en-US',{hour12:false});
+    }
+  }
+
+  _handleCocoDetections(cam, predictions, src){
+    if(!predictions||!predictions.length){
+      cam.aiDetections=[];
+      if(cam.id===this.activeCamId){
+        this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-eye"></i> ${cam.name} · COCO-SSD · 0 OBJ</div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">No objects detected</div></div>`;
+      }
+      return;
+    }
+
+    // Source dimensions for coordinate mapping to canvas
+    const srcW = src.naturalWidth||src.videoWidth||cam.mainCanvas?.width||640;
+    const srcH = src.naturalHeight||src.videoHeight||cam.mainCanvas?.height||360;
+    const canvW = cam.mainCanvas?.width||640;
+    const canvH = cam.mainCanvas?.height||360;
+    const scaleX = canvW/srcW;
+    const scaleY = canvH/srcH;
+
+    // Map COCO-SSD predictions → internal detection format
+    const detections = predictions.map((p,i)=>{
+      // bbox: [x, y, width, height] in src pixels
+      const [bx,by,bw,bh] = p.bbox;
+      const cx = (bx + bw/2) * scaleX;
+      const cy = (by + bh/2) * scaleY;
+      const threat = cocoThreat(p.class, p.score);
+      return {
+        label: p.class,
+        confidence: p.score,
+        threat,
+        // Scaled canvas coordinates for overlay drawing
+        _x: Math.max(20, Math.min(canvW-20, cx)),
+        _y: Math.max(20, Math.min(canvH-20, cy)),
+        // Bounding box in canvas coords for accurate rect drawing
+        _bx: bx*scaleX, _by: by*scaleY, _bw: bw*scaleX, _bh: bh*scaleY,
+        _id: i
+      };
+    });
+
+    cam.aiDetections = detections;
+
+    // Alerts for high-threat detections
+    const highThreats = detections.filter(d=>d.threat==='high');
+    highThreats.forEach(t=>{
+      this._addAlert(`${cam.name} V-AI: High threat — ${t.label} (${Math.round(t.confidence*100)}%)`,'crit');
+    });
+    if(!highThreats.length&&detections.length>0){
+      this._addAlert(`${cam.name} V-AI: ${detections.length} object(s) — ${[...new Set(detections.map(d=>d.label))].join(', ')}`,'ai');
+    }
+
+    this._logEvent('ai',`V-AI: ${detections.length} detection(s) [${[...new Set(detections.map(d=>d.label))].join(',')}]`,cam.name);
+
+    if(cam.id===this.activeCamId){
+      this._renderAiResultPanel(cam, detections);
+    }
+  }
+
+  // ── OVERLAY DRAWING (updated to use bbox for coco detections) ─────────────
+
+  _drawOverlays(cam,w,h){
+    const ctx=cam.mainCtx;ctx.save();
+    if(this.cfg.showGrid){ctx.strokeStyle='rgba(0,212,255,0.04)';ctx.lineWidth=1;for(let x=0;x<w;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}for(let y=0;y<h;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}}
+    // Built-in motion tracker boxes
+    if(this.cfg.showBoxes){cam.trackedObjs.forEach(obj=>{const sz=Math.sqrt(obj.size)*2.2;const col={low:'#30b060',med:'#d99018',high:'#d44040'}[obj.threat]||'#00d4ff';ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.setLineDash([]);ctx.strokeRect(obj.x-sz/2,obj.y-sz/2,sz,sz);if(this.cfg.showLabels){const lbl=`${obj.threat.toUpperCase()} ${obj.depth}m`;ctx.fillStyle='rgba(7,9,11,0.78)';ctx.fillRect(obj.x-sz/2,obj.y-sz/2-13,lbl.length*5.5+6,12);ctx.fillStyle=col;ctx.font='8px IBM Plex Mono,monospace';ctx.fillText(lbl,obj.x-sz/2+3,obj.y-sz/2-4);}});}
+    // COCO-SSD AI detection bounding boxes
+    if(cam.aiDetections.length>0){
+      cam.aiDetections.forEach(det=>{
+        const col = det.threat==='high'?'#d44040':det.threat==='medium'?'#d99018':'#00d4ff';
+        ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([4,3]);
+        // Use precise bbox if available, otherwise circle fallback
+        if(det._bx!=null){
+          ctx.strokeRect(det._bx, det._by, det._bw, det._bh);
+          if(this.cfg.showLabels){
+            const conf=Math.round(det.confidence*100);
+            const lbl=`${det.label} ${conf}%`;
+            const tw=ctx.measureText(lbl).width+8;
+            ctx.fillStyle='rgba(7,9,11,0.88)';
+            ctx.fillRect(det._bx, Math.max(0,det._by-13), tw, 13);
+            ctx.fillStyle=col;ctx.font='bold 8px IBM Plex Mono,monospace';
+            ctx.fillText(lbl, det._bx+4, Math.max(10,det._by-3));
+          }
+        }else{
+          // Circle fallback
+          ctx.beginPath();ctx.arc(det._x,det._y,25,0,Math.PI*2);ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      });
+    }
+    if(this.cfg.showZones){const camZones=this._getZonesForCam(cam.id);camZones.forEach(z=>{const color=z.color||'#00d4ff';const intruded=cam.trackedObjs.some(o=>o.x>z.x&&o.x<z.x+z.w&&o.y>z.y&&o.y<z.y+z.h)||cam.aiDetections.some(d=>d._x>z.x&&d._x<z.x+z.w&&d._y>z.y&&d._y<z.y+z.h);ctx.strokeStyle=intruded?'#d44040':color;ctx.lineWidth=intruded?2:1;ctx.setLineDash(intruded?[2,3]:[4,6]);ctx.strokeRect(z.x,z.y,z.w,z.h);ctx.setLineDash([]);ctx.fillStyle=intruded?'rgba(212,64,64,0.05)':'rgba(0,212,255,0.02)';ctx.fillRect(z.x,z.y,z.w,z.h);if(this.cfg.showLabels){ctx.fillStyle='rgba(7,9,11,0.78)';ctx.fillRect(z.x,z.y,z.name.length*5.5+6,12);ctx.fillStyle=color;ctx.font='8px IBM Plex Mono,monospace';ctx.fillText(z.name,z.x+3,z.y+9);}});}
+    ctx.restore();
+  }
+
+  // ── RESULT PANEL ──────────────────────────────────────────────────────────
+
+  _renderAiResultPanel(cam,detections){
+    if(!detections.length){
+      this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-eye"></i> ${cam.name} · COCO-SSD · 0 OBJ</div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">No objects detected</div></div>`;
+      return;
+    }
+    this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-eye"></i> ${cam.name} · COCO-SSD · ${detections.length} OBJ</div><div class="ai-detection-list">${detections.map(d=>`<div class="ai-det-item"><span class="ai-det-label">${d.label}</span><span class="ai-det-conf">${Math.round(d.confidence*100)}%</span><span class="othreat ${d.threat==='medium'?'med':d.threat||'low'}">${(d.threat||'low').toUpperCase()}</span></div>`).join('')}</div></div>`;
+  }
+
+  _handleAiError(cam,msg){
+    cam.aiScanning=false;
+    this.$('sv-ai').textContent='ERR';
+    const shortMsg=msg.slice(0,60);
+    this._addAlert(`${cam.name} V-AI error: ${shortMsg}`,'crit');
+    if(cam.id===this.activeCamId){
+      this.$('aiResultArea').innerHTML=`<div class="ai-panel" style="border-color:rgba(212,64,64,.25);"><div class="ai-panel-hdr" style="color:var(--red);"><i class="fas fa-exclamation-triangle"></i> ${cam.name} · V-AI ERROR</div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">${shortMsg}</div></div>`;
+    }
+  }
+
+  // ── ALL REMAINING METHODS (unchanged) ────────────────────────────────────
 
   _bindNav(){
     const NL={dashboard:'DASHBOARD',analytics:'ANALYTICS',zones:'ZONES',models:'VISION AI',export:'EXPORT'};
@@ -1163,7 +1384,8 @@ class LumenOS {
       this.$('playBtn').disabled=!cam.connected;
       this.$('stopBtn').disabled=!cam.connected||cam.sourceType==='img';
       this.$('snapBtn').disabled=!cam.connected;
-      this.$('manualScanBtn').disabled=!cam.connected;
+      // Manual scan only available when model is ready and cam is connected
+      this.$('manualScanBtn').disabled=!(cam.connected&&this.modelReady);
       this.$('aiScanBtn').classList.toggle('ai-active',cam.aiEnabled);
       this._renderCamList();
       if(cam.sourceType==='video'&&cam.srcVideo){cam.srcVideo.ontimeupdate=()=>this._updateProgress(cam);this._updateProgress(cam);}
@@ -1264,6 +1486,7 @@ class LumenOS {
       cam.mainCanvas=document.getElementById('camCanvas_'+cam.id);
       if(cam.mainCanvas){cam.mainCtx=cam.mainCanvas.getContext('2d');cam.mainCanvas.width=640;cam.mainCanvas.height=360;}
       cam.srcVideo=document.createElement('video');cam.srcVideo.style.display='none';cam.srcVideo.playsinline=true;
+      // crossOrigin not needed for local file blobs
       document.getElementById('camStack_'+cam.id)?.appendChild(cam.srcVideo);
       if(cam.srcVideo.src)URL.revokeObjectURL(cam.srcVideo.src);
       cam.srcVideo.src=URL.createObjectURL(file);
@@ -1277,6 +1500,7 @@ class LumenOS {
 
   _tryMjpeg(cam,url){
     cam.srcImg=document.createElement('img');cam.srcImg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:none;';
+    cam.srcImg.crossOrigin='anonymous';
     const stack=document.getElementById('camStack_'+cam.id);if(stack)stack.appendChild(cam.srcImg);
     const to=setTimeout(()=>{cam.srcImg.onerror=cam.srcImg.onload=null;this._tryVideoStream(cam,url);},5000);
     cam.srcImg.onerror=()=>{clearTimeout(to);cam.srcImg.style.display='none';this._tryVideoStream(cam,url);};
@@ -1286,7 +1510,7 @@ class LumenOS {
 
   _tryVideoStream(cam,url){
     cam.srcVideo=document.createElement('video');cam.srcVideo.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:none;';
-    cam.srcVideo.playsinline=true;
+    cam.srcVideo.playsinline=true;cam.srcVideo.crossOrigin='anonymous';
     const stack=document.getElementById('camStack_'+cam.id);if(stack)stack.appendChild(cam.srcVideo);
     cam.srcVideo.onerror=()=>{this._setConnStatus(cam,'disconnected');this._addAlert(`${cam.name}: Cannot connect`,'crit');};
     cam.srcVideo.oncanplay=()=>{if(!cam.connected)this._onCameraConnected(cam,'video');};
@@ -1311,7 +1535,8 @@ class LumenOS {
     }
     if(this.activeCamId===cam.id){
       this.$('playBtn').disabled=false;this.$('snapBtn').disabled=false;
-      this.$('stopBtn').disabled=(type==='img');this.$('manualScanBtn').disabled=false;
+      this.$('stopBtn').disabled=(type==='img');
+      this.$('manualScanBtn').disabled=!this.modelReady;
       this.$('activeCamLabel').textContent=cam.name;
     }
     this._startCamProcessing(cam);this._renderCamList();
@@ -1354,7 +1579,8 @@ class LumenOS {
       const src=cam.sourceType==='img'?cam.srcImg:cam.srcVideo;
       if(src&&(src.naturalWidth||src.videoWidth))this._processFrame(cam);
       cam.trackFps();
-      if(cam.aiEnabled&&!cam.aiScanning&&cam.connected){
+      // Trigger COCO-SSD scan on interval if AI is enabled
+      if(cam.aiEnabled&&!cam.aiScanning&&cam.connected&&this.modelReady){
         const now=Date.now(),interval=this.state.aiInterval*1000;
         const shouldScan=this.state.aiTrigger==='manual'?false:this.state.aiTrigger==='motion'?cam.motionActive:true;
         if(shouldScan&&(now-cam.lastAiScan)>=interval)this._doAIScan(cam);
@@ -1413,15 +1639,6 @@ class LumenOS {
     for(let i=0;i<mot.length;i+=4){if(mot[i]>0){const pi=i/4,px=pi%w,py=Math.floor(pi/w);const gx=Math.min(Math.floor(px/cell),gw-1),gy=Math.min(Math.floor(py/cell),gh-1);cam.heatGrid[gy][gx]+=this.cfg.motionSens*.08;}}
   }
 
-  _drawOverlays(cam,w,h){
-    const ctx=cam.mainCtx;ctx.save();
-    if(this.cfg.showGrid){ctx.strokeStyle='rgba(0,212,255,0.04)';ctx.lineWidth=1;for(let x=0;x<w;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}for(let y=0;y<h;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}}
-    if(this.cfg.showBoxes){cam.trackedObjs.forEach(obj=>{const sz=Math.sqrt(obj.size)*2.2;const col={low:'#30b060',med:'#d99018',high:'#d44040'}[obj.threat]||'#00d4ff';ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.setLineDash([]);ctx.strokeRect(obj.x-sz/2,obj.y-sz/2,sz,sz);if(this.cfg.showLabels){const lbl=`${obj.threat.toUpperCase()} ${obj.depth}m`;ctx.fillStyle='rgba(7,9,11,0.78)';ctx.fillRect(obj.x-sz/2,obj.y-sz/2-13,lbl.length*5.5+6,12);ctx.fillStyle=col;ctx.font='8px IBM Plex Mono,monospace';ctx.fillText(lbl,obj.x-sz/2+3,obj.y-sz/2-4);}});}
-    if(cam.aiDetections.length>0){cam.aiDetections.forEach(det=>{if(det._x==null)return;const col=det.threat==='high'?'#d44040':det.threat==='medium'?'#d99018':'#00d4ff';const sz=50;ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(det._x,det._y,sz/2,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);if(this.cfg.showLabels){const conf=Math.round((det.confidence||.8)*100);const lbl=`${det.label} ${conf}%`;const lw=ctx.measureText(lbl).width+8;ctx.fillStyle='rgba(7,9,11,0.85)';ctx.fillRect(det._x-lw/2,det._y+sz/2+2,lw,13);ctx.fillStyle=col;ctx.font='bold 8.5px IBM Plex Mono,monospace';ctx.textAlign='center';ctx.fillText(lbl,det._x,det._y+sz/2+12);ctx.textAlign='left';}});}
-    if(this.cfg.showZones){const camZones=this._getZonesForCam(cam.id);camZones.forEach(z=>{const color=z.color||'#00d4ff';const intruded=cam.trackedObjs.some(o=>o.x>z.x&&o.x<z.x+z.w&&o.y>z.y&&o.y<z.y+z.h);ctx.strokeStyle=intruded?'#d44040':color;ctx.lineWidth=intruded?2:1;ctx.setLineDash(intruded?[2,3]:[4,6]);ctx.strokeRect(z.x,z.y,z.w,z.h);ctx.setLineDash([]);ctx.fillStyle=intruded?'rgba(212,64,64,0.05)':'rgba(0,212,255,0.02)';ctx.fillRect(z.x,z.y,z.w,z.h);if(this.cfg.showLabels){ctx.fillStyle='rgba(7,9,11,0.78)';ctx.fillRect(z.x,z.y,z.name.length*5.5+6,12);ctx.fillStyle=color;ctx.font='8px IBM Plex Mono,monospace';ctx.fillText(z.name,z.x+3,z.y+9);}});}
-    ctx.restore();
-  }
-
   _getZonesForCam(camId){return this.data.zones.filter(z=>z.camId==='global'||z.camId===camId||!z.camId);}
 
   _updateCamHud(cam){
@@ -1447,7 +1664,7 @@ class LumenOS {
     if(anyMotion){mDot.classList.add('active');mLbl.classList.add('active');mLbl.textContent='MOTION DETECTED';}
     else{mDot.classList.remove('active');mLbl.classList.remove('active');mLbl.textContent='NO MOTION';}
     const allTracked=[...this.cameras.flatMap(c=>c.trackedObjs.slice(0,2).map(o=>({label:`${c.name} #${String(o.id%100).padStart(2,'0')}`,threat:o.threat,extra:o.depth+'m',ai:false,camName:c.name}))),
-      ...this.cameras.flatMap(c=>c.aiDetections.slice(0,2).map(d=>({label:d.label,threat:d.threat==='medium'?'med':(d.threat||'low'),extra:Math.round((d.confidence||.8)*100)+'%',ai:true,camName:c.name})))];
+      ...this.cameras.flatMap(c=>c.aiDetections.slice(0,2).map(d=>({label:d.label,threat:d.threat==='medium'?'med':(d.threat||'low'),extra:Math.round(d.confidence*100)+'%',ai:true,camName:c.name})))];
     const ol=this.$('objList');this.$('trackedCount').textContent=allObjs+' ACTIVE';
     if(!allTracked.length){ol.innerHTML='<div style="font-family:var(--mono);font-size:8px;color:var(--slate);text-align:center;padding:7px 0;">No objects tracked</div>';}
     else{ol.innerHTML=allTracked.map(o=>`<div class="obj-item" style="${o.ai?'border-color:rgba(0,212,255,.2);':''}"><span style="font-family:var(--mono);font-size:7px;color:var(--slate);margin-right:3px;">${o.camName}</span><span class="olabel" style="${o.ai?'color:var(--lumen);':''}">${o.label}</span><span class="othreat ${o.threat}">${o.threat.toUpperCase()}</span><span style="font-family:var(--mono);font-size:7.5px;color:var(--muted);">${o.extra}</span></div>`).join('');}
@@ -1459,6 +1676,8 @@ class LumenOS {
     cam.aiEnabled=!cam.aiEnabled;
     if(cam.id===this.activeCamId)this.$('aiScanBtn').classList.toggle('ai-active',cam.aiEnabled);
     this._addAlert(`${cam.name}: Vision AI ${cam.aiEnabled?'enabled':'disabled'}`,cam.aiEnabled?'ai':'info');
+    // If model not loaded yet, kick off loading
+    if(cam.aiEnabled&&!this.modelReady&&!this.modelLoading)this._loadLocalModel();
     this._renderCamList();this._updateMonSummary();
     const hdrAi=this.$('hdrAi');
     const anyOn=this.cameras.some(c=>c.aiEnabled);
@@ -1475,73 +1694,8 @@ class LumenOS {
     hdrAi.textContent=!anyOn?'ALL ON':'OFF';
     hdrAi.className=!anyOn?'v ai-on':'v';
     this._addAlert(`Vision AI ${!anyOn?'enabled on all cameras':'disabled on all cameras'}`,!anyOn?'ai':'info');
+    if(!anyOn&&!this.modelReady&&!this.modelLoading)this._loadLocalModel();
     this._renderCamList();this._updateMonSummary();
-  }
-
-  async _doAIScan(cam){
-    if(!cam||cam.aiScanning)return;
-    const src=cam.sourceType==='img'?cam.srcImg:cam.srcVideo;if(!src)return;
-    cam.aiScanning=true;cam.lastAiScan=Date.now();
-    this.$('sv-ai').textContent='SCAN';this.$('sv-ai-sub').textContent=`${cam.name}...`;
-    const tmpCanvas=document.createElement('canvas');
-    const w=src.naturalWidth||src.videoWidth||cam.mainCanvas?.width||640;
-    const h=src.naturalHeight||src.videoHeight||cam.mainCanvas?.height||360;
-    tmpCanvas.width=Math.min(w,640);tmpCanvas.height=Math.min(h,360);
-    const tmpCtx=tmpCanvas.getContext('2d');tmpCtx.drawImage(src,0,0,tmpCanvas.width,tmpCanvas.height);
-    const imageBase64=tmpCanvas.toDataURL('image/jpeg',.75).split(',')[1];
-    const modePrompts={
-      security:`You are LumenOS Vision AI, a security camera inference engine. Analyze this surveillance frame and identify ALL visible objects. For each object return: label, position as one of top-left/top-center/top-right/center-left/center/center-right/bottom-left/bottom-center/bottom-right, confidence 0-1, and threat level (low/medium/high). Return ONLY valid JSON array, no markdown: [{"label":"person","position":"center","confidence":0.92,"threat":"medium","count":1},...]`,
-      detailed:`You are LumenOS Vision AI. Analyze this camera frame thoroughly. List every visible object with: label, position (x_percent, y_percent), confidence 0-1, threat (low/medium/high), description. Return ONLY valid JSON array.`,
-      count:`You are LumenOS Vision AI. Count all objects in this security camera image. Return ONLY valid JSON: {"people":0,"vehicles":0,"animals":0,"packages":0,"total":0,"summary":"brief description"}`
-    };
-    const prompt=modePrompts[this.state.aiMode]||modePrompts.security;
-    try{
-      const response=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:imageBase64}},{type:'text',text:prompt}]}]})});
-      const data=await response.json();
-      if(data.error){this._handleAiError(cam,data.error.message||'API error');return;}
-      const textContent=data.content?.find(c=>c.type==='text')?.text||'';
-      if(this.state.aiMode==='count')this._handleAiCountResult(cam,textContent);else this._handleAiDetectionResult(cam,textContent,tmpCanvas.width,tmpCanvas.height);
-    }catch(err){this._handleAiError(cam,err.message);}
-    finally{cam.aiScanning=false;this.$('sv-ai').textContent='ON';this.$('sv-ai-sub').textContent='Last: '+new Date().toLocaleTimeString('en-US',{hour12:false});}
-  }
-
-  _handleAiDetectionResult(cam,text,imgW,imgH){
-    try{
-      const clean=text.replace(/```json|```/g,'').trim();const detections=JSON.parse(clean);if(!Array.isArray(detections))throw new Error('Not array');
-      cam.aiDetections=detections;
-      const posMap={'top-left':[.15,.15],'top-center':[.5,.15],'top-right':[.85,.15],'center-left':[.15,.5],'center':[.5,.5],'center-right':[.85,.5],'bottom-left':[.15,.85],'bottom-center':[.5,.85],'bottom-right':[.85,.85]};
-      const W=cam.mainCanvas?.width||640,H=cam.mainCanvas?.height||360;
-      detections.forEach((det,i)=>{let x,y;if(det.position&&typeof det.position==='object'){x=(det.position.x/100)*W;y=(det.position.y/100)*H;}else{const pm=posMap[det.position]||[.5,.5];x=pm[0]*W;y=pm[1]*H;if(i>0){x+=(Math.random()-.5)*W*.2;y+=(Math.random()-.5)*H*.2;}}det._x=Math.max(40,Math.min(W-40,x));det._y=Math.max(40,Math.min(H-40,y));det._id=i;});
-      const threats=detections.filter(d=>d.threat==='high');threats.forEach(t=>this._addAlert(`${cam.name} Vision AI: High threat — ${t.label}`,'crit'));
-      if(!threats.length&&detections.length>0)this._addAlert(`${cam.name} Vision AI: ${detections.length} object(s) identified`,'ai');
-      this._logEvent('ai',`Vision AI: ${detections.length} detections`,cam.name);
-      if(cam.id===this.activeCamId)this._renderAiResultPanel(cam,detections);
-    }catch{this._renderAiRawResult(cam,text);}
-  }
-
-  _handleAiCountResult(cam,text){
-    try{
-      const clean=text.replace(/```json|```/g,'').trim();const result=JSON.parse(clean);
-      this._addAlert(`${cam.name} Vision AI count: ${result.total} objects`,'ai');
-      if(cam.id===this.activeCamId)this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-calculator"></i> ${cam.name} · LUMEN V-AI COUNT</div><div style="font-size:10px;color:var(--text2);">${result.summary||''}</div></div>`;
-    }catch{this._renderAiRawResult(cam,text);}
-  }
-
-  _renderAiResultPanel(cam,detections){
-    if(!detections.length){this.$('aiResultArea').innerHTML=`<div style="font-family:var(--mono);font-size:8px;color:var(--muted);text-align:center;padding:8px 0;">No objects detected in ${cam.name}</div>`;return;}
-    this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-eye"></i> ${cam.name} · LUMEN V-AI · ${detections.length} OBJ</div><div class="ai-detection-list">${detections.map(d=>`<div class="ai-det-item"><span class="ai-det-label">${d.label}${d.count>1?` ×${d.count}`:''}</span><span class="ai-det-conf">${Math.round((d.confidence||.8)*100)}%</span><span class="othreat ${d.threat==='medium'?'med':d.threat||'low'}">${(d.threat||'low').toUpperCase()}</span></div>`).join('')}</div></div>`;
-  }
-
-  _renderAiRawResult(cam,text){
-    this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-comment-alt"></i> ${cam.name} · LUMEN V-AI</div><div class="ai-result">${text.slice(0,300)}${text.length>300?'...':''}</div></div>`;
-    this._addAlert(`${cam.name}: Vision AI scan complete`,'ai');
-  }
-
-  _handleAiError(cam,msg){
-    cam.aiScanning=false;this.$('sv-ai').textContent='ERR';
-    const shortMsg=msg.includes('authentication')?'API key required':msg.includes('rate')?'Rate limited':msg.slice(0,50);
-    this._addAlert(`${cam.name} Vision AI error: ${shortMsg}`,'crit');
-    if(cam.id===this.activeCamId)this.$('aiResultArea').innerHTML=`<div class="ai-panel" style="border-color:rgba(212,64,64,.25);"><div class="ai-panel-hdr" style="color:var(--red);"><i class="fas fa-exclamation-triangle"></i> ${cam.name} · LUMEN V-AI ERROR</div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">${shortMsg}</div></div>`;
   }
 
   _bindVideoControls(){
@@ -1550,7 +1704,7 @@ class LumenOS {
     this.$('snapBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam)this._snapshot(cam);});
     this.$('muteBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam)this._toggleMute(cam);});
     this.$('aiScanBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam)this._toggleCamAI(cam.id);});
-    this.$('manualScanBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam)this._doAIScan(cam);});
+    this.$('manualScanBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam&&this.modelReady)this._doAIScan(cam);else if(!this.modelReady)this._loadLocalModel();});
     this.$('progWrap').addEventListener('click',e=>{const cam=this._getActiveCam();if(cam)this._seek(cam,e);});
   }
 
@@ -1791,14 +1945,14 @@ class LumenOS {
     const type=document.querySelector('.exp-card.active')?.dataset.et||'log';const fmt=document.querySelector('#fmtGroup .tpill.on')?.dataset.fmt||'json';
     const camFilter=this.$('expCamSel').value;
     const prog=this.$('expProg'),fill=this.$('epFill'),msg=this.$('epMsg');prog.style.display='block';let p=0;this.$('exportBtn').disabled=true;
-    const iv=setInterval(()=>{p+=5;fill.style.width=p+'%';msg.textContent=p<40?'Gathering data...':p<75?'Processing...':'Finalising...';if(p>=100){clearInterval(iv);setTimeout(()=>{this.$('exportBtn').disabled=false;prog.style.display='none';if(type==='snapshot'){const cam=camFilter==='all'?this._getActiveCam():this._getCam(parseInt(camFilter));if(cam)this._snapshot(cam);return;}let content='',mime='text/plain';const logs=camFilter==='all'?this.data.eventLog:this.data.eventLog.filter(e=>e.camName===this._getCam(parseInt(camFilter))?.name);if(type==='analysis')content=this._genReport(camFilter);else if(type==='data'){content=JSON.stringify({generated:new Date().toISOString(),cameras:this.cameras.map(c=>({id:c.id,name:c.name,fps:c.fps,aiEnabled:c.aiEnabled,trackedObjs:c.trackedObjs,aiDetections:c.aiDetections})),alerts:this.data.alerts,events:logs,config:this.cfg,zones:this.data.zones},null,2);mime='application/json';}else if(type==='log')content=logs.map(e=>`[${e.ts}] [${e.camName}] [${e.type.toUpperCase()}] ${e.msg}`).join('\n');if(fmt==='csv')content=this._toCsv(logs);const blob=new Blob([content],{type:mime});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`lumenos_${type}_${Date.now()}.${fmt}`;a.click();URL.revokeObjectURL(url);this._addAlert(`Exported: ${type}.${fmt}`,'info');},300);}},50);
+    const iv=setInterval(()=>{p+=5;fill.style.width=p+'%';msg.textContent=p<40?'Gathering data...':p<75?'Processing...':'Finalising...';if(p>=100){clearInterval(iv);setTimeout(()=>{this.$('exportBtn').disabled=false;prog.style.display='none';if(type==='snapshot'){const cam=camFilter==='all'?this._getActiveCam():this._getCam(parseInt(camFilter));if(cam)this._snapshot(cam);return;}let content='',mime='text/plain';const logs=camFilter==='all'?this.data.eventLog:this.data.eventLog.filter(e=>e.camName===this._getCam(parseInt(camFilter))?.name);if(type==='analysis')content=this._genReport(camFilter);else if(type==='data'){content=JSON.stringify({generated:new Date().toISOString(),modelEngine:'COCO-SSD TensorFlow.js',cameras:this.cameras.map(c=>({id:c.id,name:c.name,fps:c.fps,aiEnabled:c.aiEnabled,trackedObjs:c.trackedObjs,aiDetections:c.aiDetections})),alerts:this.data.alerts,events:logs,config:this.cfg,zones:this.data.zones},null,2);mime='application/json';}else if(type==='log')content=logs.map(e=>`[${e.ts}] [${e.camName}] [${e.type.toUpperCase()}] ${e.msg}`).join('\n');if(fmt==='csv')content=this._toCsv(logs);const blob=new Blob([content],{type:mime});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`lumenos_${type}_${Date.now()}.${fmt}`;a.click();URL.revokeObjectURL(url);this._addAlert(`Exported: ${type}.${fmt}`,'info');},300);}},50);
   }
 
   _toCsv(arr){if(!arr.length)return'No data';const keys=Object.keys(arr[0]);return[keys.join(','),...arr.map(r=>keys.map(k=>JSON.stringify(r[k]??'')).join(','))].join('\n');}
 
   _genReport(camFilter){
     const cams=camFilter==='all'?this.cameras:[this._getCam(parseInt(camFilter))].filter(Boolean);
-    return`LUMENOS STEREOVISION SECURITY REPORT\n=====================================\nGenerated : ${new Date().toLocaleString()}\nEngine    : LumenOS Vision AI v3.1.0\nCameras   : ${cams.map(c=>c.name).join(', ')}\n\nCAMERA STATUS\n-------------\n${cams.map(c=>`  ${c.name}: ${c.connected?'CONNECTED':'DISCONNECTED'} | ${c.fps} FPS | ${c.trackedObjs.length} tracked | V-AI: ${c.aiEnabled?'ON':'OFF'}`).join('\n')}\n\nSUMMARY\n-------\nTotal alerts    : ${this.data.alerts.length}\nEvents logged   : ${this.data.eventLog.length}\nActive zones    : ${this.data.zones.length}\n\nCONFIG\n------\n${JSON.stringify(this.cfg,null,2)}\n\nV-AI DETECTIONS (last scan)\n---------------------------\n${cams.map(c=>c.aiDetections.length?`  ${c.name}:\n${c.aiDetections.map(d=>`    ${d.label} [${d.threat}] ${Math.round((d.confidence||.8)*100)}%`).join('\n')}`:'  '+c.name+': None').join('\n')}\n\nDETECTION ZONES\n---------------\n${this.data.zones.map(z=>`  ${z.name}: (${Math.round(z.x)},${Math.round(z.y)}) ${Math.round(z.w)}×${Math.round(z.h)} cam:${z.camId||'global'}`).join('\n')}\n\nRECENT ALERTS\n-------------\n${this.data.alerts.slice(-20).map(a=>`[${a.ts}] [${a.type.toUpperCase()}] ${a.msg}`).join('\n')}\n`;}
+    return`LUMENOS STEREOVISION SECURITY REPORT\n=====================================\nGenerated   : ${new Date().toLocaleString()}\nEngine      : LumenOS Vision AI — COCO-SSD TF.js (on-device)\nModel ready : ${this.modelReady}\nCameras     : ${cams.map(c=>c.name).join(', ')}\n\nCAMERA STATUS\n-------------\n${cams.map(c=>`  ${c.name}: ${c.connected?'CONNECTED':'DISCONNECTED'} | ${c.fps} FPS | ${c.trackedObjs.length} tracked | V-AI: ${c.aiEnabled?'ON':'OFF'}`).join('\n')}\n\nSUMMARY\n-------\nTotal alerts    : ${this.data.alerts.length}\nEvents logged   : ${this.data.eventLog.length}\nActive zones    : ${this.data.zones.length}\n\nCONFIG\n------\n${JSON.stringify(this.cfg,null,2)}\n\nCOCO-SSD DETECTIONS (last scan)\n--------------------------------\n${cams.map(c=>c.aiDetections.length?`  ${c.name}:\n${c.aiDetections.map(d=>`    ${d.label} [${d.threat}] ${Math.round(d.confidence*100)}%`).join('\n')}`:'  '+c.name+': None').join('\n')}\n\nDETECTION ZONES\n---------------\n${this.data.zones.map(z=>`  ${z.name}: (${Math.round(z.x)},${Math.round(z.y)}) ${Math.round(z.w)}×${Math.round(z.h)} cam:${z.camId||'global'}`).join('\n')}\n\nRECENT ALERTS\n-------------\n${this.data.alerts.slice(-20).map(a=>`[${a.ts}] [${a.type.toUpperCase()}] ${a.msg}`).join('\n')}\n`;}
 
   _bindMisc(){
     this.$('clearAlertsBtn').addEventListener('click',()=>{this.data.alerts=[];this.$('alertFeed').innerHTML='';this.$('sv-alerts').textContent='0';this.$('evtBadge').textContent='0';this.$('notifBadge').classList.remove('show');});
