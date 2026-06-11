@@ -814,7 +814,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
           <div class="model-slot ai-active" id="cocoSlot">
             <div class="ms-icon"><i class="fas fa-eye"></i></div>
             <div class="ms-title">Object Recognition</div>
-            <div class="ms-desc">COCO-SSD detects 80 object classes with confidence scores and bounding boxes. Supports continuous mode (every 3 frames) for real-time tracking.</div>
+            <div class="ms-desc">COCO-SSD detects 80 object classes with confidence scores and bounding boxes. Continuous mode runs inference every 3 frames for real-time tracking with live bbox overlay.</div>
             <div class="ms-status loading" id="cocoSlotStatus"><i class="fas fa-spinner fa-spin"></i> LOADING MODEL</div>
           </div>
           <div class="model-slot">
@@ -978,7 +978,6 @@ class CameraFeed{
     this.lastAiScan=0;this.trackedObjs=[];this.aiDetections=[];
     this.motionData=[];this.depthHistory=[];this.heatGrid=[];
     this._prevFrame=null;this._objIdCtr=0;
-    // Continuous AI mode
     this.continuousMode=false;
     this.frameCounter=0;
     this.cellEl=null;this.mainCanvas=null;this.mainCtx=null;
@@ -1071,6 +1070,10 @@ class LumenOS{
     if(modelStatusInline)modelStatusInline.textContent=s==='ready'?'Ready — COCO-SSD loaded':s==='loading'?'Loading…':'Load error';
   }
 
+  // ─── FIX 1: _doAIScan ───────────────────────────────────────────────────────
+  // Detect on the offscreen processing canvas (_offProc) which always holds the
+  // exact frame that was just drawn. Snapshot it to an ImageBitmap so the async
+  // inference doesn't race against the next frame being written to the same canvas.
   async _doAIScan(cam){
     if(!cam||cam.aiScanning)return;
     if(!this.modelReady){
@@ -1079,15 +1082,26 @@ class LumenOS{
       this.$('sv-ai-sub').textContent='Model loading…';
       return;
     }
-    const src=cam.sourceType==='img'?cam.srcImg:cam.srcVideo;
-    if(!src)return;
+    // Prefer the offscreen proc canvas — it is always sized to the source frame
+    // and holds the most recent decoded frame pixels.
+    const inferSrc=cam._offProc&&cam._offProc.width>0?cam._offProc:
+                    (cam.sourceType==='img'?cam.srcImg:cam.srcVideo);
+    if(!inferSrc)return;
+    // Snapshot to ImageBitmap so inference runs on a frozen frame, not a canvas
+    // that keeps being overwritten by the render loop every ~16 ms.
+    let snapSrc=inferSrc;
+    if(inferSrc instanceof HTMLCanvasElement&&typeof createImageBitmap==='function'){
+      try{snapSrc=await createImageBitmap(inferSrc);}catch(e){snapSrc=inferSrc;}
+    }
     cam.aiScanning=true;cam.lastAiScan=Date.now();
     this.$('sv-ai').textContent='SCAN';
     this.$('sv-ai-sub').textContent=`${cam.name}…`;
     try{
-      const predictions=await this.localModel.detect(src);
-      this._handleCocoDetections(cam,predictions,src);
+      const predictions=await this.localModel.detect(snapSrc);
+      if(snapSrc instanceof ImageBitmap)snapSrc.close();
+      this._handleCocoDetections(cam,predictions,inferSrc);
     }catch(err){
+      if(snapSrc instanceof ImageBitmap)try{snapSrc.close();}catch(e){}
       this._handleAiError(cam,err.message||'Inference error');
     }finally{
       cam.aiScanning=false;
@@ -1096,23 +1110,34 @@ class LumenOS{
     }
   }
 
+  // ─── FIX 2: _handleCocoDetections ──────────────────────────────────────────
+  // Store RAW (inference-space) bbox coordinates + the source dimensions at scan
+  // time. _drawOverlays then scales them to the canvas at draw time, so boxes
+  // stay aligned even if the canvas resizes between scan and draw.
   _handleCocoDetections(cam,predictions,src){
     if(!predictions||!predictions.length){
       cam.aiDetections=[];
       if(cam.id===this.activeCamId)this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-eye"></i> ${cam.name} · COCO-SSD · 0 OBJ</div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">No objects detected</div></div>`;
       return;
     }
-    const srcW=src.naturalWidth||src.videoWidth||cam.mainCanvas?.width||640;
-    const srcH=src.naturalHeight||src.videoHeight||cam.mainCanvas?.height||360;
-    const canvW=cam.mainCanvas?.width||640,canvH=cam.mainCanvas?.height||360;
-    const scaleX=canvW/srcW,scaleY=canvH/srcH;
+    // Determine spatial dimensions of the inference source.
+    // HTMLCanvasElement exposes .width/.height directly; video/img use natural* / video*.
+    const srcW=(src instanceof HTMLCanvasElement?src.width:null)||
+               src.naturalWidth||src.videoWidth||
+               cam._offProc?.width||cam.mainCanvas?.width||640;
+    const srcH=(src instanceof HTMLCanvasElement?src.height:null)||
+               src.naturalHeight||src.videoHeight||
+               cam._offProc?.height||cam.mainCanvas?.height||360;
     const detections=predictions.map((p,i)=>{
       const[bx,by,bw,bh]=p.bbox;
-      const cx=(bx+bw/2)*scaleX,cy=(by+bh/2)*scaleY;
       const threat=cocoThreat(p.class,p.score);
-      return{label:p.class,confidence:p.score,threat,
-        _x:Math.max(20,Math.min(canvW-20,cx)),_y:Math.max(20,Math.min(canvH-20,cy)),
-        _bx:bx*scaleX,_by:by*scaleY,_bw:bw*scaleX,_bh:bh*scaleY,_id:i};
+      return{
+        label:p.class,confidence:p.score,threat,
+        // RAW inference-space coordinates — scaled at draw time in _drawOverlays
+        rawBx:bx,rawBy:by,rawBw:bw,rawBh:bh,
+        srcW,srcH,
+        _id:i
+      };
     });
     cam.aiDetections=detections;
     const highThreats=detections.filter(d=>d.threat==='high');
@@ -1122,12 +1147,34 @@ class LumenOS{
     if(cam.id===this.activeCamId)this._renderAiResultPanel(cam,detections);
   }
 
+  // ─── FIX 3: _drawOverlays — scale raw bbox at draw time ────────────────────
   _drawOverlays(cam,w,h){
     const ctx=cam.mainCtx;ctx.save();
     if(this.cfg.showGrid){ctx.strokeStyle='rgba(0,212,255,0.04)';ctx.lineWidth=1;for(let x=0;x<w;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}for(let y=0;y<h;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}}
     if(this.cfg.showBoxes){cam.trackedObjs.forEach(obj=>{const sz=Math.sqrt(obj.size)*2.2;const col={low:'#30b060',med:'#d99018',high:'#d44040'}[obj.threat]||'#00d4ff';ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.setLineDash([]);ctx.strokeRect(obj.x-sz/2,obj.y-sz/2,sz,sz);if(this.cfg.showLabels){const lbl=`${obj.threat.toUpperCase()} ${obj.depth}m`;ctx.fillStyle='rgba(7,9,11,0.78)';ctx.fillRect(obj.x-sz/2,obj.y-sz/2-13,lbl.length*5.5+6,12);ctx.fillStyle=col;ctx.font='8px IBM Plex Mono,monospace';ctx.fillText(lbl,obj.x-sz/2+3,obj.y-sz/2-4);}});}
-    if(cam.aiDetections.length>0){cam.aiDetections.forEach(det=>{const col=det.threat==='high'?'#d44040':det.threat==='medium'?'#d99018':'#00d4ff';ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([4,3]);if(det._bx!=null){ctx.strokeRect(det._bx,det._by,det._bw,det._bh);if(this.cfg.showLabels){const conf=Math.round(det.confidence*100),lbl=`${det.label} ${conf}%`,tw=ctx.measureText(lbl).width+8;ctx.fillStyle='rgba(7,9,11,0.88)';ctx.fillRect(det._bx,Math.max(0,det._by-13),tw,13);ctx.fillStyle=col;ctx.font='bold 8px IBM Plex Mono,monospace';ctx.fillText(lbl,det._bx+4,Math.max(10,det._by-3));}}else{ctx.beginPath();ctx.arc(det._x,det._y,25,0,Math.PI*2);ctx.stroke();}ctx.setLineDash([]);});}
-    if(this.cfg.showZones){const camZones=this._getZonesForCam(cam.id);camZones.forEach(z=>{const color=z.color||'#00d4ff';const intruded=cam.trackedObjs.some(o=>o.x>z.x&&o.x<z.x+z.w&&o.y>z.y&&o.y<z.y+z.h)||cam.aiDetections.some(d=>d._x>z.x&&d._x<z.x+z.w&&d._y>z.y&&d._y<z.y+z.h);ctx.strokeStyle=intruded?'#d44040':color;ctx.lineWidth=intruded?2:1;ctx.setLineDash(intruded?[2,3]:[4,6]);ctx.strokeRect(z.x,z.y,z.w,z.h);ctx.setLineDash([]);ctx.fillStyle=intruded?'rgba(212,64,64,0.05)':'rgba(0,212,255,0.02)';ctx.fillRect(z.x,z.y,z.w,z.h);if(this.cfg.showLabels){ctx.fillStyle='rgba(7,9,11,0.78)';ctx.fillRect(z.x,z.y,z.name.length*5.5+6,12);ctx.fillStyle=color;ctx.font='8px IBM Plex Mono,monospace';ctx.fillText(z.name,z.x+3,z.y+9);}});}
+    // COCO-SSD bounding boxes: scale raw inference-space coords to current canvas size
+    if(cam.aiDetections.length>0){
+      cam.aiDetections.forEach(det=>{
+        const col=det.threat==='high'?'#d44040':det.threat==='medium'?'#d99018':'#00d4ff';
+        ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([4,3]);
+        // Compute scale from stored inference-source dimensions to current canvas size
+        const sx=w/(det.srcW||w),sy=h/(det.srcH||h);
+        const bx=det.rawBx*sx,by=det.rawBy*sy,bw=det.rawBw*sx,bh=det.rawBh*sy;
+        ctx.strokeRect(bx,by,bw,bh);
+        if(this.cfg.showLabels){
+          const conf=Math.round(det.confidence*100),lbl=`${det.label} ${conf}%`;
+          ctx.font='bold 9px IBM Plex Mono,monospace';
+          const tw=ctx.measureText(lbl).width+8;
+          // Clamp label to canvas bounds
+          const lx=Math.max(0,Math.min(bx,w-tw));
+          const ly=Math.max(13,by);
+          ctx.fillStyle='rgba(7,9,11,0.88)';ctx.fillRect(lx,ly-13,tw,13);
+          ctx.fillStyle=col;ctx.fillText(lbl,lx+4,ly-3);
+        }
+        ctx.setLineDash([]);
+      });
+    }
+    if(this.cfg.showZones){const camZones=this._getZonesForCam(cam.id);camZones.forEach(z=>{const color=z.color||'#00d4ff';const intruded=cam.trackedObjs.some(o=>o.x>z.x&&o.x<z.x+z.w&&o.y>z.y&&o.y<z.y+z.h)||cam.aiDetections.some(d=>{const sx2=w/(d.srcW||w),sy2=h/(d.srcH||h);const cx=(d.rawBx+d.rawBw/2)*sx2,cy=(d.rawBy+d.rawBh/2)*sy2;return cx>z.x&&cx<z.x+z.w&&cy>z.y&&cy<z.y+z.h;});ctx.strokeStyle=intruded?'#d44040':color;ctx.lineWidth=intruded?2:1;ctx.setLineDash(intruded?[2,3]:[4,6]);ctx.strokeRect(z.x,z.y,z.w,z.h);ctx.setLineDash([]);ctx.fillStyle=intruded?'rgba(212,64,64,0.05)':'rgba(0,212,255,0.02)';ctx.fillRect(z.x,z.y,z.w,z.h);if(this.cfg.showLabels){ctx.fillStyle='rgba(7,9,11,0.78)';ctx.fillRect(z.x,z.y,z.name.length*5.5+6,12);ctx.fillStyle=color;ctx.font='8px IBM Plex Mono,monospace';ctx.fillText(z.name,z.x+3,z.y+9);}});}
     ctx.restore();
   }
 
@@ -1258,7 +1305,6 @@ class LumenOS{
       this.$('snapBtn').disabled=!cam.connected;
       this.$('manualScanBtn').disabled=!(cam.connected&&this.modelReady);
       this.$('aiScanBtn').classList.toggle('ai-active',cam.aiEnabled);
-      // Update continuous toggle button state
       const contBtn=this.$('continuousToggleBtn');
       if(contBtn)contBtn.classList.toggle('ai-active',cam.continuousMode);
       this._renderCamList();
@@ -1451,22 +1497,28 @@ class LumenOS{
     this.$('noCamsMsg').style.display=this.cameras.length===0?'block':'none';
   }
 
+  // ─── FIX 4: _startCamProcessing — correct continuous mode cadence ───────────
+  // Count frames unconditionally. Only fire a new scan when the previous async
+  // scan has fully completed (aiScanning===false) AND the frame counter has
+  // reached the threshold. This prevents scan queuing while keeping a smooth
+  // per-frame cadence for the detection overlay updates.
   _startCamProcessing(cam){
     if(cam._raf)cancelAnimationFrame(cam._raf);
     const loop=()=>{
       const src=cam.sourceType==='img'?cam.srcImg:cam.srcVideo;
       if(src&&(src.naturalWidth||src.videoWidth))this._processFrame(cam);
       cam.trackFps();
-      if(cam.aiEnabled&&!cam.aiScanning&&cam.connected&&this.modelReady){
+      if(cam.aiEnabled&&cam.connected&&this.modelReady){
         if(cam.continuousMode){
-          // Run AI every 3 frames
-          cam.frameCounter++;
-          if(cam.frameCounter>=3){
+          // Always count frames so the cadence stays consistent.
+          // Only trigger a scan once the previous one is done.
+          cam.frameCounter=(cam.frameCounter||0)+1;
+          if(!cam.aiScanning&&cam.frameCounter>=3){
             cam.frameCounter=0;
             this._doAIScan(cam);
           }
-        }else{
-          // Original interval / motion logic
+        }else if(!cam.aiScanning){
+          // Interval / motion-triggered mode (unchanged)
           const now=Date.now(),interval=this.state.aiInterval*1000;
           const shouldScan=this.state.aiTrigger==='manual'?false:this.state.aiTrigger==='motion'?cam.motionActive:true;
           if(shouldScan&&(now-cam.lastAiScan)>=interval)this._doAIScan(cam);
@@ -1587,7 +1639,6 @@ class LumenOS{
     this._addAlert(`Vision AI ${!anyOn?'enabled on all cameras':'disabled on all cameras'}`,!anyOn?'ai':'info');
     if(!anyOn&&!this.modelReady&&!this.modelLoading)this._loadLocalModel();
     this._renderCamList();this._updateMonSummary();
-    // Reset continuous button state
     if(this.activeCamId)this._selectCamera(this.activeCamId);
   }
 
@@ -1601,7 +1652,6 @@ class LumenOS{
     if(contBtn&&cam.id===this.activeCamId)contBtn.classList.toggle('ai-active',cam.continuousMode);
     const contBadge=document.getElementById('camContBadge_'+cam.id);
     if(contBadge)contBadge.style.display=cam.continuousMode?'inline-flex':'none';
-    // Update global button text
     this._syncGlobalContinuousBtn();
     this._renderCamList();
   }
