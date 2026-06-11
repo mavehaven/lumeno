@@ -1001,8 +1001,6 @@ const ZONE_COLORS=['#3d8ef0','#d99018','#30b060','#d44040','#00bca0','#7c4dff','
 const SNAP_THRESHOLD=12;
 const CAM_COLORS=['#00d4ff','#d99018','#30b060','#d44040','#00bca0','#7c4dff','#f05c3d','#e0c020'];
 
-// ── COCO-SSD threat classification ─────────────────────────────────────────
-// Maps COCO class label → baseline threat level (before confidence weighting)
 const COCO_THREAT_MAP = {
   person:'medium', car:'medium', truck:'medium', bus:'medium', motorcycle:'medium',
   bicycle:'low', dog:'low', cat:'low', bird:'low',
@@ -1012,7 +1010,6 @@ const COCO_THREAT_MAP = {
   default:'low'
 };
 
-// Returns {threat:'low'|'medium'|'high'} based on class + confidence
 function cocoThreat(label, confidence){
   const base = COCO_THREAT_MAP[label] || COCO_THREAT_MAP.default;
   if(confidence >= 0.80){
@@ -1067,11 +1064,9 @@ class LumenOS {
     this.data={alerts:[],eventLog:[],motionData:[],depthHistory:[],savedFeeds:JSON.parse(localStorage.getItem('lm_feeds')||'[]'),zones:[]};
     this._zoneMode='draw';this._zoneSelected=null;this._zoneDrawing=null;this._zoneDragState=null;
     this._snapEnabled=false;this._zoneCamFilter='global';
-    // ── Local model state ──────────────────────────────────────────────────
-    this.localModel=null;         // cocoSsd model instance
-    this.modelReady=false;        // true once loaded
+    this.localModel=null;
+    this.modelReady=false;
     this.modelLoading=false;
-    // ──────────────────────────────────────────────────────────────────────
     this.$=id=>document.getElementById(id);
     this._initAll();window.LumenOS=this;
   }
@@ -1085,27 +1080,30 @@ class LumenOS {
     this._startClock();this._startIdleChartLoop();
     this._resizeZoneCanvas();this._renderZoneCanvas();this._renderZonesList();
     this._addAlert('LumenOS Vision AI system initialised','info');
-    // Start loading COCO-SSD in background
     this._loadLocalModel();
   }
 
-  // ── COCO-SSD LOCAL MODEL ──────────────────────────────────────────────────
+  // ── FIX 1: Model Loading with cocoSsd existence check ────────────────────
 
   async _loadLocalModel(){
-    if(this.modelLoading||this.modelReady)return;
+    if(this.modelLoading||this.modelReady) return;
+    // Wait for cocoSsd global to exist (script may still be parsing)
+    if(typeof cocoSsd === 'undefined'){
+      console.warn('COCO-SSD not loaded yet, retrying in 1s');
+      setTimeout(()=>this._loadLocalModel(), 1000);
+      return;
+    }
     this.modelLoading=true;
     this._setModelStatus('loading');
     this._addAlert('Loading COCO-SSD model (first load ~10–30s)…','info');
     try{
-      // cocoSsd is provided by the @tensorflow-models/coco-ssd script tag
       this.localModel = await cocoSsd.load({base:'lite_mobilenet_v2'});
       this.modelReady=true;
       this.modelLoading=false;
       this._setModelStatus('ready');
       this._addAlert('COCO-SSD model ready — on-device Vision AI active','ai');
-      // Enable manual scan button if a cam is active
       const cam=this._getActiveCam();
-      if(cam&&cam.connected)this.$('manualScanBtn').disabled=false;
+      if(cam&&cam.connected) this.$('manualScanBtn').disabled=false;
     }catch(err){
       this.modelLoading=false;
       this._setModelStatus('error');
@@ -1132,19 +1130,18 @@ class LumenOS {
     if(modelStatusInline){modelStatusInline.textContent=s==='ready'?'Ready — COCO-SSD loaded':s==='loading'?'Loading…':'Load error';}
   }
 
-  // ── MAIN AI SCAN (replaces old Anthropic fetch) ───────────────────────────
+  // ── FIX 1b: _doAIScan guard ───────────────────────────────────────────────
 
   async _doAIScan(cam){
-    if(!cam||cam.aiScanning)return;
+    if(!cam||cam.aiScanning) return;
     if(!this.modelReady){
-      // Model not ready yet — try loading, show status
-      if(!this.modelLoading)this._loadLocalModel();
+      if(!this.modelLoading) this._loadLocalModel();
       this.$('sv-ai').textContent='WAIT';
       this.$('sv-ai-sub').textContent='Model loading…';
       return;
     }
     const src = cam.sourceType==='img' ? cam.srcImg : cam.srcVideo;
-    if(!src)return;
+    if(!src) return;
 
     cam.aiScanning=true;
     cam.lastAiScan=Date.now();
@@ -1152,8 +1149,6 @@ class LumenOS {
     this.$('sv-ai-sub').textContent=`${cam.name}…`;
 
     try{
-      // Run COCO-SSD detection on the live source element
-      // (works directly on HTMLVideoElement or HTMLImageElement)
       const predictions = await this.localModel.detect(src);
       this._handleCocoDetections(cam, predictions, src);
     }catch(err){
@@ -1174,7 +1169,6 @@ class LumenOS {
       return;
     }
 
-    // Source dimensions for coordinate mapping to canvas
     const srcW = src.naturalWidth||src.videoWidth||cam.mainCanvas?.width||640;
     const srcH = src.naturalHeight||src.videoHeight||cam.mainCanvas?.height||360;
     const canvW = cam.mainCanvas?.width||640;
@@ -1182,9 +1176,7 @@ class LumenOS {
     const scaleX = canvW/srcW;
     const scaleY = canvH/srcH;
 
-    // Map COCO-SSD predictions → internal detection format
     const detections = predictions.map((p,i)=>{
-      // bbox: [x, y, width, height] in src pixels
       const [bx,by,bw,bh] = p.bbox;
       const cx = (bx + bw/2) * scaleX;
       const cy = (by + bh/2) * scaleY;
@@ -1193,10 +1185,8 @@ class LumenOS {
         label: p.class,
         confidence: p.score,
         threat,
-        // Scaled canvas coordinates for overlay drawing
         _x: Math.max(20, Math.min(canvW-20, cx)),
         _y: Math.max(20, Math.min(canvH-20, cy)),
-        // Bounding box in canvas coords for accurate rect drawing
         _bx: bx*scaleX, _by: by*scaleY, _bw: bw*scaleX, _bh: bh*scaleY,
         _id: i
       };
@@ -1204,7 +1194,6 @@ class LumenOS {
 
     cam.aiDetections = detections;
 
-    // Alerts for high-threat detections
     const highThreats = detections.filter(d=>d.threat==='high');
     highThreats.forEach(t=>{
       this._addAlert(`${cam.name} V-AI: High threat — ${t.label} (${Math.round(t.confidence*100)}%)`,'crit');
@@ -1220,19 +1209,14 @@ class LumenOS {
     }
   }
 
-  // ── OVERLAY DRAWING (updated to use bbox for coco detections) ─────────────
-
   _drawOverlays(cam,w,h){
     const ctx=cam.mainCtx;ctx.save();
     if(this.cfg.showGrid){ctx.strokeStyle='rgba(0,212,255,0.04)';ctx.lineWidth=1;for(let x=0;x<w;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}for(let y=0;y<h;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}}
-    // Built-in motion tracker boxes
     if(this.cfg.showBoxes){cam.trackedObjs.forEach(obj=>{const sz=Math.sqrt(obj.size)*2.2;const col={low:'#30b060',med:'#d99018',high:'#d44040'}[obj.threat]||'#00d4ff';ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.setLineDash([]);ctx.strokeRect(obj.x-sz/2,obj.y-sz/2,sz,sz);if(this.cfg.showLabels){const lbl=`${obj.threat.toUpperCase()} ${obj.depth}m`;ctx.fillStyle='rgba(7,9,11,0.78)';ctx.fillRect(obj.x-sz/2,obj.y-sz/2-13,lbl.length*5.5+6,12);ctx.fillStyle=col;ctx.font='8px IBM Plex Mono,monospace';ctx.fillText(lbl,obj.x-sz/2+3,obj.y-sz/2-4);}});}
-    // COCO-SSD AI detection bounding boxes
     if(cam.aiDetections.length>0){
       cam.aiDetections.forEach(det=>{
         const col = det.threat==='high'?'#d44040':det.threat==='medium'?'#d99018':'#00d4ff';
         ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([4,3]);
-        // Use precise bbox if available, otherwise circle fallback
         if(det._bx!=null){
           ctx.strokeRect(det._bx, det._by, det._bw, det._bh);
           if(this.cfg.showLabels){
@@ -1245,7 +1229,6 @@ class LumenOS {
             ctx.fillText(lbl, det._bx+4, Math.max(10,det._by-3));
           }
         }else{
-          // Circle fallback
           ctx.beginPath();ctx.arc(det._x,det._y,25,0,Math.PI*2);ctx.stroke();
         }
         ctx.setLineDash([]);
@@ -1254,8 +1237,6 @@ class LumenOS {
     if(this.cfg.showZones){const camZones=this._getZonesForCam(cam.id);camZones.forEach(z=>{const color=z.color||'#00d4ff';const intruded=cam.trackedObjs.some(o=>o.x>z.x&&o.x<z.x+z.w&&o.y>z.y&&o.y<z.y+z.h)||cam.aiDetections.some(d=>d._x>z.x&&d._x<z.x+z.w&&d._y>z.y&&d._y<z.y+z.h);ctx.strokeStyle=intruded?'#d44040':color;ctx.lineWidth=intruded?2:1;ctx.setLineDash(intruded?[2,3]:[4,6]);ctx.strokeRect(z.x,z.y,z.w,z.h);ctx.setLineDash([]);ctx.fillStyle=intruded?'rgba(212,64,64,0.05)':'rgba(0,212,255,0.02)';ctx.fillRect(z.x,z.y,z.w,z.h);if(this.cfg.showLabels){ctx.fillStyle='rgba(7,9,11,0.78)';ctx.fillRect(z.x,z.y,z.name.length*5.5+6,12);ctx.fillStyle=color;ctx.font='8px IBM Plex Mono,monospace';ctx.fillText(z.name,z.x+3,z.y+9);}});}
     ctx.restore();
   }
-
-  // ── RESULT PANEL ──────────────────────────────────────────────────────────
 
   _renderAiResultPanel(cam,detections){
     if(!detections.length){
@@ -1274,8 +1255,6 @@ class LumenOS {
       this.$('aiResultArea').innerHTML=`<div class="ai-panel" style="border-color:rgba(212,64,64,.25);"><div class="ai-panel-hdr" style="color:var(--red);"><i class="fas fa-exclamation-triangle"></i> ${cam.name} · V-AI ERROR</div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">${shortMsg}</div></div>`;
     }
   }
-
-  // ── ALL REMAINING METHODS (unchanged) ────────────────────────────────────
 
   _bindNav(){
     const NL={dashboard:'DASHBOARD',analytics:'ANALYTICS',zones:'ZONES',models:'VISION AI',export:'EXPORT'};
@@ -1384,7 +1363,6 @@ class LumenOS {
       this.$('playBtn').disabled=!cam.connected;
       this.$('stopBtn').disabled=!cam.connected||cam.sourceType==='img';
       this.$('snapBtn').disabled=!cam.connected;
-      // Manual scan only available when model is ready and cam is connected
       this.$('manualScanBtn').disabled=!(cam.connected&&this.modelReady);
       this.$('aiScanBtn').classList.toggle('ai-active',cam.aiEnabled);
       this._renderCamList();
@@ -1486,7 +1464,6 @@ class LumenOS {
       cam.mainCanvas=document.getElementById('camCanvas_'+cam.id);
       if(cam.mainCanvas){cam.mainCtx=cam.mainCanvas.getContext('2d');cam.mainCanvas.width=640;cam.mainCanvas.height=360;}
       cam.srcVideo=document.createElement('video');cam.srcVideo.style.display='none';cam.srcVideo.playsinline=true;
-      // crossOrigin not needed for local file blobs
       document.getElementById('camStack_'+cam.id)?.appendChild(cam.srcVideo);
       if(cam.srcVideo.src)URL.revokeObjectURL(cam.srcVideo.src);
       cam.srcVideo.src=URL.createObjectURL(file);
@@ -1498,9 +1475,12 @@ class LumenOS {
     },50);
   }
 
+  // ── FIX 3: CORS removed for external feeds ────────────────────────────────
+
   _tryMjpeg(cam,url){
     cam.srcImg=document.createElement('img');cam.srcImg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:none;';
-    cam.srcImg.crossOrigin='anonymous';
+    // FIX 3: null instead of 'anonymous' to avoid CORS preflight blocking local network cameras
+    cam.srcImg.crossOrigin=null;
     const stack=document.getElementById('camStack_'+cam.id);if(stack)stack.appendChild(cam.srcImg);
     const to=setTimeout(()=>{cam.srcImg.onerror=cam.srcImg.onload=null;this._tryVideoStream(cam,url);},5000);
     cam.srcImg.onerror=()=>{clearTimeout(to);cam.srcImg.style.display='none';this._tryVideoStream(cam,url);};
@@ -1510,7 +1490,9 @@ class LumenOS {
 
   _tryVideoStream(cam,url){
     cam.srcVideo=document.createElement('video');cam.srcVideo.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:none;';
-    cam.srcVideo.playsinline=true;cam.srcVideo.crossOrigin='anonymous';
+    cam.srcVideo.playsinline=true;
+    // FIX 3: null instead of 'anonymous' to avoid CORS preflight blocking local network cameras
+    cam.srcVideo.crossOrigin=null;
     const stack=document.getElementById('camStack_'+cam.id);if(stack)stack.appendChild(cam.srcVideo);
     cam.srcVideo.onerror=()=>{this._setConnStatus(cam,'disconnected');this._addAlert(`${cam.name}: Cannot connect`,'crit');};
     cam.srcVideo.oncanplay=()=>{if(!cam.connected)this._onCameraConnected(cam,'video');};
@@ -1519,9 +1501,16 @@ class LumenOS {
     cam.srcVideo.src=url;cam.srcVideo.load();cam.srcVideo.play().catch(()=>{});
   }
 
+  // ── FIX 2: Canvas guard + force-resolve in _onCameraConnected ─────────────
+
   _onCameraConnected(cam,type){
     cam.sourceType=type;cam.connected=true;cam.live=(type==='img');cam.playing=true;
     this._setConnStatus(cam,'connected');
+    // FIX 2: Resolve canvas reference if it wasn't ready during cell creation
+    if(!cam.mainCanvas){
+      cam.mainCanvas=document.getElementById('camCanvas_'+cam.id);
+      if(cam.mainCanvas) cam.mainCtx=cam.mainCanvas.getContext('2d');
+    }
     const idleEl=document.getElementById('camIdle_'+cam.id);if(idleEl)idleEl.style.display='none';
     if(type==='img'){if(cam.srcImg)cam.srcImg.style.display='block';}
     else{if(cam.srcVideo)cam.srcVideo.style.display='block';}
@@ -1579,7 +1568,6 @@ class LumenOS {
       const src=cam.sourceType==='img'?cam.srcImg:cam.srcVideo;
       if(src&&(src.naturalWidth||src.videoWidth))this._processFrame(cam);
       cam.trackFps();
-      // Trigger COCO-SSD scan on interval if AI is enabled
       if(cam.aiEnabled&&!cam.aiScanning&&cam.connected&&this.modelReady){
         const now=Date.now(),interval=this.state.aiInterval*1000;
         const shouldScan=this.state.aiTrigger==='manual'?false:this.state.aiTrigger==='motion'?cam.motionActive:true;
@@ -1590,10 +1578,15 @@ class LumenOS {
     cam._raf=requestAnimationFrame(loop);
   }
 
+  // ── FIX 2: Canvas null guard in _processFrame ─────────────────────────────
+
   _processFrame(cam){
+    // FIX 2: Bail early if canvas not yet attached to DOM
+    if(!cam.mainCanvas||!cam.mainCtx) return;
     const src=cam.sourceType==='img'?cam.srcImg:cam.srcVideo;
+    if(!src) return;
     const w=src.naturalWidth||src.videoWidth||640,h=src.naturalHeight||src.videoHeight||360;
-    if(!w||!h||!cam.mainCanvas)return;
+    if(!w||!h)return;
     if(cam.mainCanvas.width!==w||cam.mainCanvas.height!==h){cam.mainCanvas.width=w;cam.mainCanvas.height=h;}
     if(cam._offProc.width!==w||cam._offProc.height!==h){cam._offProc.width=w;cam._offProc.height=h;}
     if(cam._offMot.width!==w||cam._offMot.height!==h){cam._offMot.width=w;cam._offMot.height=h;}
@@ -1676,7 +1669,6 @@ class LumenOS {
     cam.aiEnabled=!cam.aiEnabled;
     if(cam.id===this.activeCamId)this.$('aiScanBtn').classList.toggle('ai-active',cam.aiEnabled);
     this._addAlert(`${cam.name}: Vision AI ${cam.aiEnabled?'enabled':'disabled'}`,cam.aiEnabled?'ai':'info');
-    // If model not loaded yet, kick off loading
     if(cam.aiEnabled&&!this.modelReady&&!this.modelLoading)this._loadLocalModel();
     this._renderCamList();this._updateMonSummary();
     const hdrAi=this.$('hdrAi');
