@@ -1083,11 +1083,8 @@ class LumenOS {
     this._loadLocalModel();
   }
 
-  // ── FIX 1: Model Loading with cocoSsd existence check ────────────────────
-
   async _loadLocalModel(){
     if(this.modelLoading||this.modelReady) return;
-    // Wait for cocoSsd global to exist (script may still be parsing)
     if(typeof cocoSsd === 'undefined'){
       console.warn('COCO-SSD not loaded yet, retrying in 1s');
       setTimeout(()=>this._loadLocalModel(), 1000);
@@ -1130,8 +1127,6 @@ class LumenOS {
     if(modelStatusInline){modelStatusInline.textContent=s==='ready'?'Ready — COCO-SSD loaded':s==='loading'?'Loading…':'Load error';}
   }
 
-  // ── FIX 1b: _doAIScan guard ───────────────────────────────────────────────
-
   async _doAIScan(cam){
     if(!cam||cam.aiScanning) return;
     if(!this.modelReady){
@@ -1142,12 +1137,10 @@ class LumenOS {
     }
     const src = cam.sourceType==='img' ? cam.srcImg : cam.srcVideo;
     if(!src) return;
-
     cam.aiScanning=true;
     cam.lastAiScan=Date.now();
     this.$('sv-ai').textContent='SCAN';
     this.$('sv-ai-sub').textContent=`${cam.name}…`;
-
     try{
       const predictions = await this.localModel.detect(src);
       this._handleCocoDetections(cam, predictions, src);
@@ -1168,14 +1161,12 @@ class LumenOS {
       }
       return;
     }
-
     const srcW = src.naturalWidth||src.videoWidth||cam.mainCanvas?.width||640;
     const srcH = src.naturalHeight||src.videoHeight||cam.mainCanvas?.height||360;
     const canvW = cam.mainCanvas?.width||640;
     const canvH = cam.mainCanvas?.height||360;
     const scaleX = canvW/srcW;
     const scaleY = canvH/srcH;
-
     const detections = predictions.map((p,i)=>{
       const [bx,by,bw,bh] = p.bbox;
       const cx = (bx + bw/2) * scaleX;
@@ -1191,9 +1182,7 @@ class LumenOS {
         _id: i
       };
     });
-
     cam.aiDetections = detections;
-
     const highThreats = detections.filter(d=>d.threat==='high');
     highThreats.forEach(t=>{
       this._addAlert(`${cam.name} V-AI: High threat — ${t.label} (${Math.round(t.confidence*100)}%)`,'crit');
@@ -1201,9 +1190,7 @@ class LumenOS {
     if(!highThreats.length&&detections.length>0){
       this._addAlert(`${cam.name} V-AI: ${detections.length} object(s) — ${[...new Set(detections.map(d=>d.label))].join(', ')}`,'ai');
     }
-
     this._logEvent('ai',`V-AI: ${detections.length} detection(s) [${[...new Set(detections.map(d=>d.label))].join(',')}]`,cam.name);
-
     if(cam.id===this.activeCamId){
       this._renderAiResultPanel(cam, detections);
     }
@@ -1238,12 +1225,12 @@ class LumenOS {
     ctx.restore();
   }
 
-  _renderAiResultPanel(cam,detections){
+  _renderAiResultPanel(cam, detections){
     if(!detections.length){
       this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-eye"></i> ${cam.name} · COCO-SSD · 0 OBJ</div><div style="font-family:var(--mono);font-size:8px;color:var(--muted);">No objects detected</div></div>`;
       return;
     }
-    this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-eye"></i> ${cam.name} · COCO-SSD · ${detections.length} OBJ</div><div class="ai-detection-list">${detections.map(d=>`<div class="ai-det-item"><span class="ai-det-label">${d.label}</span><span class="ai-det-conf">${Math.round(d.confidence*100)}%</span><span class="othreat ${d.threat==='medium'?'med':d.threat||'low'}">${(d.threat||'low').toUpperCase()}</span></div>`).join('')}</div></div>`;
+    this.$('aiResultArea').innerHTML=`<div class="ai-panel"><div class="ai-panel-hdr"><i class="fas fa-eye"></i> ${cam.name} · COCO-SSD · ${detections.length} OBJ</div><div class="ai-detection-list">${detections.map(d=>`<div class="ai-det-item"><span class="ai-det-label" style="font-weight:600;color:var(--white);">${d.label}</span><span class="ai-det-conf">${Math.round(d.confidence*100)}%</span><span class="othreat ${d.threat==='high'?'high':d.threat==='medium'?'med':'low'}" style="margin-left:auto;">${(d.threat||'low').toUpperCase()}</span></div>`).join('')}</div></div>`;
   }
 
   _handleAiError(cam,msg){
@@ -1475,11 +1462,8 @@ class LumenOS {
     },50);
   }
 
-  // ── FIX 3: CORS removed for external feeds ────────────────────────────────
-
   _tryMjpeg(cam,url){
     cam.srcImg=document.createElement('img');cam.srcImg.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:none;';
-    // FIX 3: null instead of 'anonymous' to avoid CORS preflight blocking local network cameras
     cam.srcImg.crossOrigin=null;
     const stack=document.getElementById('camStack_'+cam.id);if(stack)stack.appendChild(cam.srcImg);
     const to=setTimeout(()=>{cam.srcImg.onerror=cam.srcImg.onload=null;this._tryVideoStream(cam,url);},5000);
@@ -1491,7 +1475,6 @@ class LumenOS {
   _tryVideoStream(cam,url){
     cam.srcVideo=document.createElement('video');cam.srcVideo.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;display:none;';
     cam.srcVideo.playsinline=true;
-    // FIX 3: null instead of 'anonymous' to avoid CORS preflight blocking local network cameras
     cam.srcVideo.crossOrigin=null;
     const stack=document.getElementById('camStack_'+cam.id);if(stack)stack.appendChild(cam.srcVideo);
     cam.srcVideo.onerror=()=>{this._setConnStatus(cam,'disconnected');this._addAlert(`${cam.name}: Cannot connect`,'crit');};
@@ -1501,12 +1484,9 @@ class LumenOS {
     cam.srcVideo.src=url;cam.srcVideo.load();cam.srcVideo.play().catch(()=>{});
   }
 
-  // ── FIX 2: Canvas guard + force-resolve in _onCameraConnected ─────────────
-
   _onCameraConnected(cam,type){
     cam.sourceType=type;cam.connected=true;cam.live=(type==='img');cam.playing=true;
     this._setConnStatus(cam,'connected');
-    // FIX 2: Resolve canvas reference if it wasn't ready during cell creation
     if(!cam.mainCanvas){
       cam.mainCanvas=document.getElementById('camCanvas_'+cam.id);
       if(cam.mainCanvas) cam.mainCtx=cam.mainCanvas.getContext('2d');
@@ -1578,10 +1558,7 @@ class LumenOS {
     cam._raf=requestAnimationFrame(loop);
   }
 
-  // ── FIX 2: Canvas null guard in _processFrame ─────────────────────────────
-
   _processFrame(cam){
-    // FIX 2: Bail early if canvas not yet attached to DOM
     if(!cam.mainCanvas||!cam.mainCtx) return;
     const src=cam.sourceType==='img'?cam.srcImg:cam.srcVideo;
     if(!src) return;
@@ -1660,7 +1637,7 @@ class LumenOS {
       ...this.cameras.flatMap(c=>c.aiDetections.slice(0,2).map(d=>({label:d.label,threat:d.threat==='medium'?'med':(d.threat||'low'),extra:Math.round(d.confidence*100)+'%',ai:true,camName:c.name})))];
     const ol=this.$('objList');this.$('trackedCount').textContent=allObjs+' ACTIVE';
     if(!allTracked.length){ol.innerHTML='<div style="font-family:var(--mono);font-size:8px;color:var(--slate);text-align:center;padding:7px 0;">No objects tracked</div>';}
-    else{ol.innerHTML=allTracked.map(o=>`<div class="obj-item" style="${o.ai?'border-color:rgba(0,212,255,.2);':''}"><span style="font-family:var(--mono);font-size:7px;color:var(--slate);margin-right:3px;">${o.camName}</span><span class="olabel" style="${o.ai?'color:var(--lumen);':''}">${o.label}</span><span class="othreat ${o.threat}">${o.threat.toUpperCase()}</span><span style="font-family:var(--mono);font-size:7.5px;color:var(--muted);">${o.extra}</span></div>`).join('');}
+    else{ol.innerHTML=allTracked.map(o=>`<div class="obj-item" style="${o.ai?'border-color:rgba(0,212,255,.2);':''}"><span style="font-family:var(--mono);font-size:7px;color:var(--slate);margin-right:3px;">${o.camName}</span><span class="olabel" style="font-weight:${o.ai?'600':'400'};${o.ai?'color:var(--lumen);':''}">${o.label}</span><span class="othreat ${o.threat}">${o.threat.toUpperCase()}</span><span style="font-family:var(--mono);font-size:7.5px;color:var(--muted);">${o.extra}</span></div>`).join('');}
     this.$('sc-alerts').className='stat-card'+(this.data.alerts.length>10?' bad':this.data.alerts.length>4?' warn':'');
   }
 
