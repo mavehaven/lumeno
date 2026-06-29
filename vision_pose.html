@@ -1109,10 +1109,8 @@ class GeminiAnalyser{
     this._apiKey=sessionStorage.getItem('lm_gemini_key')||'';
     this._audioEnabled=true;
     this.stats={total:0,crit:0,high:0,elev:0,clear:0,riskSum:0};
-    // FIX: model name corrected — "gemini-3-pro-preview" is not a valid
-    // endpoint and would 404 on every call. Using current Flash model.
-    this.MODEL='gemini-1.5-flash';
-    console.log('[Gemini] Analyser constructed. Key present:',!!this._apiKey);
+    this.MODEL='gemini-3.1-pro-preview';
+    console.log('[Gemini] Analyser constructed. Model:',this.MODEL,'Key present:',!!this._apiKey);
   }
 
   setKey(k){
@@ -1139,7 +1137,7 @@ class GeminiAnalyser{
     const gs2=document.getElementById('geminiModelBadgeText');
     if(gs2)gs2.textContent=hasKey?'KEY ACTIVE':'NO KEY';
     const gi=document.getElementById('geminiModelStatusInline');
-    if(gi)gi.textContent=hasKey?'Key active — ready':'No key set';
+    if(gi)gi.textContent=hasKey?'3.1 Pro Preview — ready':'No key set';
     const hg=document.getElementById('hdrGemini');
     if(hg){hg.textContent=hasKey?'READY':'OFF';hg.style.color=hasKey?'var(--purple)':'';}
   }
@@ -1167,7 +1165,7 @@ class GeminiAnalyser{
         imageData=cam.mainCanvas.toDataURL('image/jpeg',0.72).split(',')[1];
     }catch(e){console.warn('[Gemini] requestScan: canvas capture failed',e);return;}
     if(!imageData){console.warn('[Gemini] requestScan aborted: no image data (canvas not ready / width 0)');return;}
-    console.log('[Gemini] Queuing scan for',cam.name);
+    console.log('[Gemini] Queuing scan for',cam.name,'using model',this.MODEL);
     this._queue.push({cam,detections,hitZones,motionIntensity,poseEvent,imageData,ts:new Date()});
     if(!this._processing)this._processQueue();
   }
@@ -1191,7 +1189,7 @@ class GeminiAnalyser{
     const scanInd=document.getElementById('geminiScanInd');
     const scanTxt=document.getElementById('geminiScanTxt');
     if(scanInd)scanInd.classList.add('show');
-    if(scanTxt)scanTxt.textContent=`Analysing ${cam.name}…`;
+    if(scanTxt)scanTxt.textContent=`Analysing ${cam.name} via Gemini 3.1 Pro…`;
 
     let result=null;
     try{
@@ -1259,9 +1257,9 @@ class GeminiAnalyser{
     if(scanInd)scanInd.classList.remove('show');
 
     if(finalScore>=50){
-      this.app._addAlert(`[GEMINI] ${cam.name}: ${entry.scene} — RISK ${finalScore}`,'gemini');
+      this.app._addAlert(`[GEMINI 3.1 PRO] ${cam.name}: ${entry.scene} — RISK ${finalScore}`,'gemini');
     }
-    this.app._logEvent('gemini',`Gemini Intel: risk=${finalScore} — ${entry.scene.slice(0,50)}`,cam.name);
+    this.app._logEvent('gemini',`Gemini 3.1 Pro Intel: risk=${finalScore} — ${entry.scene.slice(0,50)}`,cam.name);
     if(this._audioEnabled&&finalScore>=50){AlertSound.play(finalLevel.label);}
     this._renderPanel();
     this._syncKeyUi();
@@ -1467,18 +1465,10 @@ class LumenOS{
     this._resizeZoneCanvas();this._renderZoneCanvas();this._renderZonesList();
     this._addAlert('LumenOS Vision AI system initialised','info');
     this._loadLocalModel();
-    // FIX: always sync UI on init (not just when a key exists) so the
-    // "No API key set" / red state renders correctly from the start.
     this.gemini._syncKeyUi();
   }
 
   _bindGemini(){
-    // FIX: previously, if the input still contained the masked bullet
-    // characters from a prior save (e.g. user clicked Save twice without
-    // clearing/retyping), saveKey would silently no-op and the key would
-    // never reach this.gemini._apiKey. Now it skips the mask check
-    // entirely and just trusts explicit Save clicks / Enter presses,
-    // and logs what happened so it's never a silent failure again.
     const saveKey=(inp)=>{
       const v=inp.value.trim();
       if(!v){
@@ -1487,9 +1477,7 @@ class LumenOS{
       }
       if(v.startsWith('•')){
         console.warn('[Gemini] Save Key input still shows masked value — please clear the field and paste your key again');
-        this.app && this.app._addAlert
-          ? this.app._addAlert('Gemini: please clear the key field and re-paste your key','warn')
-          : this._addAlert('Gemini: please clear the key field and re-paste your key','warn');
+        this._addAlert('Gemini: please clear the key field and re-paste your key','warn');
         return;
       }
       this.gemini.setKey(v);
@@ -1503,9 +1491,6 @@ class LumenOS{
     if(ki&&sb){
       sb.addEventListener('click',()=>saveKey(ki));
       ki.addEventListener('keydown',e=>{if(e.key==='Enter')saveKey(ki);});
-      // FIX: clear the masked placeholder as soon as the user focuses the
-      // field to type a new key, so the startsWith('•') guard above can
-      // never block a legitimate re-entry.
       ki.addEventListener('focus',()=>{if(ki.value.startsWith('•'))ki.value='';});
     }
     if(ki2&&sb2){
@@ -1719,16 +1704,12 @@ class LumenOS{
       this._addAlert(`${cam.name}: ${dets.length} object(s) — ${unique}${hitZones.length?' [ZONE: '+hitZones.join(',')+']':''}`,dets.some(d=>d.threat==='medium')?'warn':'ai');
     }
     if(hitZones.length>0){
-      // FIX: the original template literal had a stray nested backtick
-      // producing the literal text "}" at the end of every zone-breach
-      // alert (e.g. "... (person,car)}"). Cleaned up below.
-      const objList=dets.length?' ('+dets.map(d=>d.label).join(',')+')':'';
+      const objList=dets.length?' ('+dets.map(d=>d.label).join(',')+')'  :'';
       this._addAlert(`${cam.name}: Zone breach — ${hitZones.join(', ')}${objList}`,'warn');
     }
     this._logEvent('ai',`V-AI: ${dets.length} det [${[...new Set(dets.map(d=>d.label))].join(',')||'none'}]${hitZones.length?' ZONE:'+hitZones.join(','):''}`,cam.name);
     this._renderAiLog();
     this._updateGlobalStats();
-    // GEMINI TRIGGER
     const totalMotion=cam.trackedObjs.reduce((a,o)=>a+o.n,0);
     const motionIntensity=Math.min(1,totalMotion/2000);
     console.log('[Gemini] Checking trigger for',cam.name,'geminiEnabled:',cam.geminiEnabled,'dets:',dets.length);
@@ -1785,7 +1766,6 @@ class LumenOS{
     this._addAlert(`${cam.name}: FALL DETECTED — possible person down`,'crit');
     this._logEvent('pose',`FALL DETECTED (torso ratio ${torsoRatio.toFixed(2)})`,cam.name);
     this._renderAiLog();this._updateGlobalStats();
-    // Fall immediately triggers Gemini, bypassing cooldown
     if(cam.geminiEnabled&&this.gemini.getKey()){
       this.gemini._camCooldowns[cam.id]=0;
       this.gemini.requestScan(cam,cam.aiDetections,[],1.0,poseEvent);
@@ -2413,7 +2393,7 @@ class LumenOS{
           <button class="cli-act ai-tog" title="Toggle Vision AI" style="color:${aiColor}"><i class="fas fa-eye"></i></button>
           <button class="cli-act cont-tog" title="Toggle Continuous AI" style="color:${contColor}"><i class="fas fa-infinity"></i></button>
           <button class="cli-act pose-tog" title="Toggle Pose AI" style="color:${poseColor}"><i class="fas fa-walking"></i></button>
-          <button class="cli-act gem-tog" title="Toggle Gemini Intel" style="color:${gemColor}"><i class="fas fa-satellite-dish"></i></button>
+          <button class="cli-act gem-tog" title="Toggle Gemini 3.1 Pro Intel" style="color:${gemColor}"><i class="fas fa-satellite-dish"></i></button>
           <button class="cli-act del"><i class="fas fa-times"></i></button>
         </div>`;
       el.addEventListener('click',()=>this._selectCamera(cam.id));
@@ -2431,7 +2411,7 @@ class LumenOS{
     const cam=this._getCam(camId);if(!cam)return;
     cam.geminiEnabled=!cam.geminiEnabled;
     if(cam.id===this.activeCamId)this.$('geminiToggleBtn').classList.toggle('gemini-active',cam.geminiEnabled);
-    this._addAlert(`${cam.name}: Gemini Intel ${cam.geminiEnabled?'enabled':'disabled'}`,'info');
+    this._addAlert(`${cam.name}: Gemini 3.1 Pro Intel ${cam.geminiEnabled?'enabled':'disabled'}`,'info');
     console.log('[Gemini] Camera',cam.name,'geminiEnabled now:',cam.geminiEnabled);
     this._renderCamList();this._updateGlobalStats();
   }
@@ -2567,7 +2547,7 @@ class LumenOS{
     const contOn=this.cameras.filter(c=>c.continuousMode).length;
     const poseOn=this.cameras.filter(c=>c.poseEnabled).length;
     const gemOn=this.cameras.filter(c=>c.geminiEnabled).length;
-    this.$('monSummary').textContent=`SENS ${this.cfg.motionSens} · V-AI ${aiOn?aiOn+' CAM':'OFF'}${contOn?' · ∞ '+contOn:''}${poseOn?' · POSE '+poseOn:''}${gemOn&&this.gemini.getKey()?' · GEMINI '+gemOn:''}`;
+    this.$('monSummary').textContent=`SENS ${this.cfg.motionSens} · V-AI ${aiOn?aiOn+' CAM':'OFF'}${contOn?' · ∞ '+contOn:''}${poseOn?' · POSE '+poseOn:''}${gemOn&&this.gemini.getKey()?' · G3.1PRO '+gemOn:''}`;
   }
 
   _bindMonitoring(){
@@ -2886,7 +2866,7 @@ class LumenOS{
           else if(type==='data'){
             content=JSON.stringify({
               generated:new Date().toISOString(),
-              engines:{object:'COCO-SSD TF.js',pose:'MoveNet Lightning TF.js',intelligence:'Gemini 1.5 Flash'},
+              engines:{object:'COCO-SSD TF.js',pose:'MoveNet Lightning TF.js',intelligence:'Gemini 3.1 Pro Preview'},
               modelStatus:{coco:this.modelReady,pose:this.poseModelReady,gemini:!!this.gemini.getKey()},
               cameras:this.cameras.map(c=>({id:c.id,name:c.name,fps:c.fps,aiEnabled:c.aiEnabled,continuousMode:c.continuousMode,poseEnabled:c.poseEnabled,geminiEnabled:c.geminiEnabled,fallActive:c.fallActive,aiDetections:c.aiDetections})),
               aiLog:this.data.aiLog,aiStats:this.data.aiStats,
@@ -2915,7 +2895,7 @@ class LumenOS{
     return`LUMENOS STEREOVISION SECURITY REPORT
 =====================================
 Generated      : ${new Date().toLocaleString()}
-Engines        : COCO-SSD + MoveNet + Gemini 1.5 Flash (hybrid)
+Engines        : COCO-SSD + MoveNet + Gemini 3.1 Pro Preview (hybrid)
 COCO ready     : ${this.modelReady}
 Pose ready     : ${this.poseModelReady}
 Gemini active  : ${!!this.gemini.getKey()}
@@ -2931,8 +2911,8 @@ Low threat          : ${st.low}
 Zone breaches       : ${st.zonesHit}
 Falls detected      : ${st.falls}
 
-GEMINI INTELLIGENCE STATS
---------------------------
+GEMINI 3.1 PRO INTELLIGENCE STATS
+-----------------------------------
 Total analyses      : ${gs.total}
 CRITICAL            : ${gs.crit}
 HIGH                : ${gs.high}
@@ -2944,8 +2924,8 @@ CAMERA STATUS
 -------------
 ${cams.map(c=>`  ${c.name}: ${c.connected?'CONNECTED':'DISCONNECTED'} | ${c.fps} FPS | V-AI: ${c.aiEnabled?'ON':'OFF'} | Continuous: ${c.continuousMode?'ON':'OFF'} | Pose: ${c.poseEnabled?'ON':'OFF'} | Gemini: ${c.geminiEnabled?'ON':'OFF'} | Fall: ${c.fallActive?'ACTIVE':'normal'}`).join('\n')}
 
-RECENT GEMINI INTELLIGENCE (last 20)
---------------------------------------
+RECENT GEMINI 3.1 PRO INTELLIGENCE (last 20)
+----------------------------------------------
 ${this.gemini.log.slice(0,20).map(e=>`[${e.ts instanceof Date?e.ts.toLocaleTimeString('en-US',{hour12:false}):e.ts}] [${e.cam}] RISK:${e.risk_score} ${e.level?.label||''} — ${e.scene}${e.action_recommended?' | ACTION: '+e.action:''}`).join('\n')||'No analyses yet.'}
 
 RECENT AI ACTIVITY (last 30)
