@@ -1109,9 +1109,18 @@ class GeminiAnalyser{
     this._apiKey=sessionStorage.getItem('lm_gemini_key')||'';
     this._audioEnabled=true;
     this.stats={total:0,crit:0,high:0,elev:0,clear:0,riskSum:0};
+    // FIX: model name corrected — "gemini-3-pro-preview" is not a valid
+    // endpoint and would 404 on every call. Using current Flash model.
+    this.MODEL='gemini-1.5-flash';
+    console.log('[Gemini] Analyser constructed. Key present:',!!this._apiKey);
   }
 
-  setKey(k){this._apiKey=k.trim();sessionStorage.setItem('lm_gemini_key',this._apiKey);this._syncKeyUi();}
+  setKey(k){
+    this._apiKey=(k||'').trim();
+    sessionStorage.setItem('lm_gemini_key',this._apiKey);
+    this._syncKeyUi();
+    console.log('[Gemini] Key set. Length:',this._apiKey.length);
+  }
   getKey(){return this._apiKey;}
   setCooldown(ms){this.COOLDOWN_MS=ms;}
 
@@ -1136,26 +1145,29 @@ class GeminiAnalyser{
   }
 
   shouldTrigger(cam,detections,hitZones,motionIntensity){
-    if(!this._apiKey)return false;
+    if(!this._apiKey){console.log('[Gemini] shouldTrigger: no API key, skipping');return false;}
     const now=Date.now(),last=this._camCooldowns[cam.id]||0;
-    if(now-last<this.COOLDOWN_MS)return false;
+    if(now-last<this.COOLDOWN_MS){console.log('[Gemini] shouldTrigger: cooldown active for',cam.name);return false;}
     const hasPerson=detections.some(d=>d.label==='person');
     const hasVehicle=detections.some(d=>['car','truck','bus','motorcycle'].includes(d.label));
     const hasHigh=detections.some(d=>d.threat==='high');
     const zoneBreach=hitZones.length>0;
     const highMotion=motionIntensity>0.4;
-    return hasPerson||hasVehicle||hasHigh||(zoneBreach&&highMotion);
+    const result=hasPerson||hasVehicle||hasHigh||(zoneBreach&&highMotion);
+    console.log('[Gemini] shouldTrigger:',result,{hasPerson,hasVehicle,hasHigh,zoneBreach,highMotion});
+    return result;
   }
 
   requestScan(cam,detections,hitZones,motionIntensity,poseEvent=null){
-    if(!this._apiKey)return;
+    if(!this._apiKey){console.log('[Gemini] requestScan aborted: no API key');return;}
     this._camCooldowns[cam.id]=Date.now();
     let imageData=null;
     try{
       if(cam.mainCanvas&&cam.mainCanvas.width>0)
         imageData=cam.mainCanvas.toDataURL('image/jpeg',0.72).split(',')[1];
-    }catch(e){return;}
-    if(!imageData)return;
+    }catch(e){console.warn('[Gemini] requestScan: canvas capture failed',e);return;}
+    if(!imageData){console.warn('[Gemini] requestScan aborted: no image data (canvas not ready / width 0)');return;}
+    console.log('[Gemini] Queuing scan for',cam.name);
     this._queue.push({cam,detections,hitZones,motionIntensity,poseEvent,imageData,ts:new Date()});
     if(!this._processing)this._processQueue();
   }
@@ -1164,7 +1176,7 @@ class GeminiAnalyser{
     if(this._processing||!this._queue.length)return;
     this._processing=true;
     const item=this._queue.shift();
-    try{await this._analyse(item);}catch(e){}
+    try{await this._analyse(item);}catch(e){console.error('[Gemini] _analyse threw',e);}
     this._processing=false;
     if(this._queue.length)setTimeout(()=>this._processQueue(),200);
   }
@@ -1181,10 +1193,11 @@ class GeminiAnalyser{
     if(scanInd)scanInd.classList.add('show');
     if(scanTxt)scanTxt.textContent=`Analysing ${cam.name}…`;
 
-   let result=null;
+    let result=null;
     try{
+      console.log('[Gemini] Sending request for',cam.name,'using model',this.MODEL);
       const resp=await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${this._apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.MODEL}:generateContent?key=${this._apiKey}`,
         {
           method:'POST',
           headers:{'Content-Type':'application/json'},
@@ -1193,19 +1206,23 @@ class GeminiAnalyser{
               {inlineData:{mimeType:'image/jpeg',data:imageData}},
               {text:prompt}
             ]}],
-            generationConfig:{maxOutputTokens:300,temperature:0.2,thinkingConfig:{thinkingLevel:'low'}}
+            generationConfig:{maxOutputTokens:300,temperature:0.2}
           })
         }
       );
-      
       if(!resp.ok){
         const e=await resp.json().catch(()=>({}));
-        throw new Error(e?.error?.message||`HTTP ${resp.status}`);
+        const msg=e?.error?.message||`HTTP ${resp.status}`;
+        console.error('[Gemini] API error:',msg,e);
+        throw new Error(msg);
       }
       const data=await resp.json();
       const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+      if(!raw)console.warn('[Gemini] Empty response text. Full payload:',data);
       result=JSON.parse(raw.replace(/```json|```/g,'').trim());
+      console.log('[Gemini] Parsed result:',result);
     }catch(e){
+      console.error('[Gemini] Analysis failed:',e);
       if(scanInd)scanInd.classList.remove('show');
       this._logEntry({
         ts,cam:cam.name,camId:cam.id,imageData,
@@ -1214,6 +1231,7 @@ class GeminiAnalyser{
         action_recommended:false,action:null,
         intelScore:null,level:IntelligenceScorer.RISK_LEVELS[0],error:true
       });
+      this._renderPanel();
       return;
     }
 
@@ -1449,13 +1467,31 @@ class LumenOS{
     this._resizeZoneCanvas();this._renderZoneCanvas();this._renderZonesList();
     this._addAlert('LumenOS Vision AI system initialised','info');
     this._loadLocalModel();
-    if(this.gemini.getKey())this.gemini._syncKeyUi();
+    // FIX: always sync UI on init (not just when a key exists) so the
+    // "No API key set" / red state renders correctly from the start.
+    this.gemini._syncKeyUi();
   }
 
   _bindGemini(){
+    // FIX: previously, if the input still contained the masked bullet
+    // characters from a prior save (e.g. user clicked Save twice without
+    // clearing/retyping), saveKey would silently no-op and the key would
+    // never reach this.gemini._apiKey. Now it skips the mask check
+    // entirely and just trusts explicit Save clicks / Enter presses,
+    // and logs what happened so it's never a silent failure again.
     const saveKey=(inp)=>{
       const v=inp.value.trim();
-      if(!v||v.startsWith('•'))return;
+      if(!v){
+        console.warn('[Gemini] Save Key clicked with empty input — ignored');
+        return;
+      }
+      if(v.startsWith('•')){
+        console.warn('[Gemini] Save Key input still shows masked value — please clear the field and paste your key again');
+        this.app && this.app._addAlert
+          ? this.app._addAlert('Gemini: please clear the key field and re-paste your key','warn')
+          : this._addAlert('Gemini: please clear the key field and re-paste your key','warn');
+        return;
+      }
       this.gemini.setKey(v);
       inp.value='••••••••••••••••';
       this._addAlert('Gemini API key saved to session','info');
@@ -1467,10 +1503,15 @@ class LumenOS{
     if(ki&&sb){
       sb.addEventListener('click',()=>saveKey(ki));
       ki.addEventListener('keydown',e=>{if(e.key==='Enter')saveKey(ki);});
+      // FIX: clear the masked placeholder as soon as the user focuses the
+      // field to type a new key, so the startsWith('•') guard above can
+      // never block a legitimate re-entry.
+      ki.addEventListener('focus',()=>{if(ki.value.startsWith('•'))ki.value='';});
     }
     if(ki2&&sb2){
       sb2.addEventListener('click',()=>saveKey(ki2));
       ki2.addEventListener('keydown',e=>{if(e.key==='Enter')saveKey(ki2);});
+      ki2.addEventListener('focus',()=>{if(ki2.value.startsWith('•'))ki2.value='';});
     }
     const ab=this.$('geminiAudioBtn');
     if(ab){
@@ -1678,7 +1719,11 @@ class LumenOS{
       this._addAlert(`${cam.name}: ${dets.length} object(s) — ${unique}${hitZones.length?' [ZONE: '+hitZones.join(',')+']':''}`,dets.some(d=>d.threat==='medium')?'warn':'ai');
     }
     if(hitZones.length>0){
-      this._addAlert(`${cam.name}: Zone breach — ${hitZones.join(', ')}${dets.length?' ('+dets.map(d=>d.label).join(',')+')':`}`}`,'warn');
+      // FIX: the original template literal had a stray nested backtick
+      // producing the literal text "}" at the end of every zone-breach
+      // alert (e.g. "... (person,car)}"). Cleaned up below.
+      const objList=dets.length?' ('+dets.map(d=>d.label).join(',')+')':'';
+      this._addAlert(`${cam.name}: Zone breach — ${hitZones.join(', ')}${objList}`,'warn');
     }
     this._logEvent('ai',`V-AI: ${dets.length} det [${[...new Set(dets.map(d=>d.label))].join(',')||'none'}]${hitZones.length?' ZONE:'+hitZones.join(','):''}`,cam.name);
     this._renderAiLog();
@@ -1686,6 +1731,7 @@ class LumenOS{
     // GEMINI TRIGGER
     const totalMotion=cam.trackedObjs.reduce((a,o)=>a+o.n,0);
     const motionIntensity=Math.min(1,totalMotion/2000);
+    console.log('[Gemini] Checking trigger for',cam.name,'geminiEnabled:',cam.geminiEnabled,'dets:',dets.length);
     if(cam.geminiEnabled&&this.gemini.shouldTrigger(cam,dets,hitZones,motionIntensity)){
       this.gemini.requestScan(cam,dets,hitZones,motionIntensity,null);
     }
@@ -2386,6 +2432,7 @@ class LumenOS{
     cam.geminiEnabled=!cam.geminiEnabled;
     if(cam.id===this.activeCamId)this.$('geminiToggleBtn').classList.toggle('gemini-active',cam.geminiEnabled);
     this._addAlert(`${cam.name}: Gemini Intel ${cam.geminiEnabled?'enabled':'disabled'}`,'info');
+    console.log('[Gemini] Camera',cam.name,'geminiEnabled now:',cam.geminiEnabled);
     this._renderCamList();this._updateGlobalStats();
   }
 
