@@ -1459,6 +1459,7 @@ class LumenOS{
     this._bindNav();this._bindSidebar();this._bindGrid();this._bindModal();
     this._bindMonDrawer();this._bindMonitoring();this._bindVideoControls();
     this._bindZones();this._bindExport();this._bindMisc();this._bindGemini();
+    this._bindNetworkScan();
     this._initColorSwatches();this._loadZones();
     this._renderCameraGrid();this._renderCamList();
     this._startClock();this._startIdleChartLoop();
@@ -2219,6 +2220,8 @@ class LumenOS{
         tab.classList.add('active');
         this.$('mpane-'+tab.dataset.msrc).classList.add('active');
         if(tab.dataset.msrc==='saved')this._renderModalSaved();
+        const connectBtn=this.$('modalConnectBtn');
+        if(connectBtn)connectBtn.style.display=(tab.dataset.msrc==='scan')?'none':'inline-flex';
       });
     });
     const dz=this.$('mDropZone'),fi=this.$('mFileInput');
@@ -2227,12 +2230,38 @@ class LumenOS{
     dz.addEventListener('dragover',e=>{e.preventDefault();dz.style.borderColor='var(--lumen2)';});
     dz.addEventListener('dragleave',()=>dz.style.borderColor='');
     dz.addEventListener('drop',e=>{e.preventDefault();dz.style.borderColor='';const f=e.dataTransfer.files[0];if(f)this._modalLoadFile(f);});
+
+    const authTog=this.$('mAuthToggle');
+    if(authTog)authTog.addEventListener('change',()=>{
+      this.$('mCredRow').style.display=authTog.checked?'grid':'none';
+    });
+    const protoSel=this.$('mUrlProto');
+    if(protoSel)protoSel.addEventListener('change',e=>{
+      const isRtsp=e.target.value==='rtsp://'||e.target.value==='rtmp://';
+      this.$('mRtspProxyBox').style.display=isRtsp?'block':'none';
+      if(isRtsp){
+        const saved=localStorage.getItem('lm_rtsp_proxy')||'';
+        if(saved&&this.$('mProxyUrl'))this.$('mProxyUrl').value=saved;
+      }
+    });
   }
 
   _openModal(){
     this.$('mFeedName').value='';this.$('mUrlInput').value='';
     this.$('mUrlErr').style.display='none';this.$('mFileErr').style.display='none';
     this.$('mFileInput').value='';
+    this.$('mUrlProto').value='http://';
+    const authTog=this.$('mAuthToggle');if(authTog)authTog.checked=false;
+    const credRow=this.$('mCredRow');if(credRow)credRow.style.display='none';
+    if(this.$('mUser'))this.$('mUser').value='';
+    if(this.$('mPass'))this.$('mPass').value='';
+    const proxyBox=this.$('mRtspProxyBox');if(proxyBox)proxyBox.style.display='none';
+    if(this.$('mProxyUrl'))this.$('mProxyUrl').value=localStorage.getItem('lm_rtsp_proxy')||'';
+    document.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.modal-pane').forEach(p=>p.classList.remove('active'));
+    document.querySelector('.modal-tab[data-msrc="url"]').classList.add('active');
+    this.$('mpane-url').classList.add('active');
+    const connectBtn=this.$('modalConnectBtn');if(connectBtn)connectBtn.style.display='inline-flex';
     this._renderModalSaved();this.$('addCamModal').classList.add('show');this.$('mFeedName').focus();
   }
   _closeModal(){this.$('addCamModal').classList.remove('show');}
@@ -2245,10 +2274,40 @@ class LumenOS{
     const proto=this.$('mUrlProto').value,path=this.$('mUrlInput').value.trim();
     const err=this.$('mUrlErr');
     if(!path){err.textContent='Please enter a URL or IP address';err.style.display='block';return;}
-    if(proto==='rtsp://'||proto==='rtmp://'){err.textContent='RTSP/RTMP not supported natively — use an HTTP proxy.';err.style.display='block';return;}
-    err.style.display='none';
-    const url=(path.startsWith('http')||path.startsWith('rtsp'))?path:proto+path;
+    const useAuth=!!this.$('mAuthToggle')?.checked;
+    const user=useAuth?this.$('mUser').value.trim():'';
+    const pass=useAuth?this.$('mPass').value:'';
     const name=this.$('mFeedName').value.trim()||`CAM-${String(this.cameras.length+1).padStart(2,'0')}`;
+
+    if(proto==='rtsp://'||proto==='rtmp://'){
+      const proxyBase=(this.$('mProxyUrl').value||'').trim().replace(/\/+$/,'');
+      if(!proxyBase){
+        err.textContent='RTSP needs a proxy server address — see the box above';
+        err.style.display='block';
+        return;
+      }
+      localStorage.setItem('lm_rtsp_proxy',proxyBase);
+      err.style.display='none';
+      const bareTarget=path.replace(/^rtsp:\/\//i,'').replace(/^rtmp:\/\//i,'');
+      const rtspTarget=user
+        ?`${proto}${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${bareTarget}`
+        :proto+bareTarget;
+      const proxied=`${proxyBase}/stream.mjpg?src=${encodeURIComponent(rtspTarget)}`;
+      this._closeModal();this._addCameraStream(proxied,name);
+      return;
+    }
+
+    err.style.display='none';
+    let url=path.startsWith('http')?path:proto+path;
+    if(user){
+      try{
+        const u=new URL(url);
+        u.username=encodeURIComponent(user);u.password=encodeURIComponent(pass);
+        url=u.toString();
+      }catch(e){
+        url=url.replace(/^(https?:\/\/)/i,`$1${encodeURIComponent(user)}:${encodeURIComponent(pass)}@`);
+      }
+    }
     this._closeModal();this._addCameraStream(url,name);
   }
 
@@ -2956,6 +3015,112 @@ ${this.data.alerts.slice(-20).map(a=>`[${a.ts}] [${a.type.toUpperCase()}] ${a.ms
     this.$('tbAlerts').addEventListener('click',()=>document.querySelector('[data-sec="dashboard"]').click());
     const loadPoseBtn=this.$('loadPoseModelBtn');
     if(loadPoseBtn)loadPoseBtn.addEventListener('click',()=>{if(!this.poseModelReady&&!this.poseModelLoading)this._loadPoseModel();});
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // NETWORK SCAN — best-effort LAN camera discovery
+  // Browsers cannot open raw TCP sockets or ping arbitrary ports, so
+  // this probes a small set of well-known HTTP/MJPEG camera paths
+  // across the subnet using <img> load/error timing. It will only
+  // find HTTP/MJPEG cameras with an open, unauthenticated video
+  // endpoint. RTSP-only cameras and password-protected feeds need to
+  // be added manually on the Stream URL tab.
+  // ══════════════════════════════════════════════════════════════════
+  _bindNetworkScan(){
+    this._scanning=false;this._scanAbort=false;
+    const startBtn=this.$('mScanStartBtn'),stopBtn=this.$('mScanStopBtn');
+    if(startBtn)startBtn.addEventListener('click',()=>this._runNetworkScan());
+    if(stopBtn)stopBtn.addEventListener('click',()=>{this._scanAbort=true;});
+    this._guessSubnet();
+  }
+
+  async _guessSubnet(){
+    try{
+      const pc=new RTCPeerConnection({iceServers:[]});
+      pc.createDataChannel('');
+      const offer=await pc.createOffer();await pc.setLocalDescription(offer);
+      pc.onicecandidate=e=>{
+        if(!e.candidate)return;
+        const m=/(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}/.exec(e.candidate.candidate);
+        if(m&&this.$('mScanSubnet')&&!this.$('mScanSubnet').value)this.$('mScanSubnet').value=m[1];
+        try{pc.close();}catch(err){}
+      };
+      setTimeout(()=>{try{pc.close();}catch(err){}},1500);
+    }catch(e){/* WebRTC unavailable or blocked — user enters subnet manually */}
+  }
+
+  _probeCamera(ip,timeoutMs=900){
+    return new Promise(resolve=>{
+      const candidates=[
+        {path:`http://${ip}:8080/video`,label:'MJPEG :8080/video'},
+        {path:`http://${ip}:8080/videofeed`,label:'MJPEG :8080/videofeed'},
+        {path:`http://${ip}/mjpg/video.mjpg`,label:'MJPEG :80/mjpg/video.mjpg'},
+        {path:`http://${ip}:81/mjpg/video.mjpg`,label:'MJPEG :81/mjpg/video.mjpg'},
+        {path:`http://${ip}/video`,label:'MJPEG :80/video'}
+      ];
+      let idx=0;
+      const tryNext=()=>{
+        if(this._scanAbort){resolve(null);return;}
+        if(idx>=candidates.length){resolve(null);return;}
+        const cand=candidates[idx++];
+        const img=new Image();
+        let settled=false;
+        const to=setTimeout(()=>{if(settled)return;settled=true;img.src='';tryNext();},timeoutMs);
+        img.onload=()=>{if(settled)return;settled=true;clearTimeout(to);resolve({ip,url:cand.path,label:cand.label});};
+        img.onerror=()=>{if(settled)return;settled=true;clearTimeout(to);tryNext();};
+        img.src=cand.path+(cand.path.includes('?')?'&':'?')+'_ts='+Date.now();
+      };
+      tryNext();
+    });
+  }
+
+  async _runNetworkScan(){
+    if(this._scanning)return;
+    const subnet=(this.$('mScanSubnet').value||'').trim().replace(/\.$/,'');
+    if(!/^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(subnet)){
+      this._addAlert('Enter a valid subnet, e.g. 192.168.1','warn');
+      return;
+    }
+    this._scanning=true;this._scanAbort=false;
+    this.$('mScanStartBtn').style.display='none';
+    this.$('mScanStopBtn').style.display='inline-flex';
+    this.$('mScanProgWrap').classList.add('show');
+    this.$('mScanResults').innerHTML='';
+    const found=[];
+    const total=254,CONCURRENCY=12;
+    let completed=0;
+    const hosts=Array.from({length:total},(_,i)=>i+1);
+    const worker=async()=>{
+      while(hosts.length&&!this._scanAbort){
+        const h=hosts.shift();
+        const ip=`${subnet}.${h}`;
+        this.$('mScanStatusTxt').textContent=`Probing ${ip}…  (${found.length} found)`;
+        const res=await this._probeCamera(ip,900);
+        completed++;
+        this.$('mScanBarFill').style.width=Math.round(completed/total*100)+'%';
+        if(res){found.push(res);this._renderScanResult(res);}
+      }
+    };
+    await Promise.all(Array.from({length:CONCURRENCY},worker));
+    this._scanning=false;
+    this.$('mScanStartBtn').style.display='inline-flex';
+    this.$('mScanStopBtn').style.display='none';
+    this.$('mScanStatusTxt').textContent=this._scanAbort?`Stopped — ${found.length} found`:`Scan complete — ${found.length} found`;
+    if(!found.length){
+      this.$('mScanResults').innerHTML=`<div class="scan-empty">No open HTTP/MJPEG feeds found on ${subnet}.1–254.<br><span style="color:var(--slate);">Try the Stream URL tab and enter the camera's address manually, or confirm this browser is on the same network as the cameras.</span></div>`;
+    }
+  }
+
+  _renderScanResult(res){
+    const wrap=this.$('mScanResults');
+    if(wrap.querySelector('.scan-empty'))wrap.innerHTML='';
+    const el=document.createElement('div');el.className='scan-result-item';
+    el.innerHTML=`<img class="scan-result-thumb" src="${res.url}" alt=""><div class="scan-result-info"><div class="scan-result-ip">${res.ip}</div><div class="scan-result-meta">${res.label}</div></div><i class="fas fa-plus" style="color:var(--lumen);font-size:9px;"></i>`;
+    el.addEventListener('click',()=>{
+      const name=`CAM-${String(this.cameras.length+1).padStart(2,'0')}`;
+      this._closeModal();this._addCameraStream(res.url,name);
+    });
+    wrap.appendChild(el);
   }
 
   _startClock(){
