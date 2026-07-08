@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{
   --ink:#07090b;--ink2:#0c1118;--ink3:#101820;--ink4:#151f28;
@@ -173,6 +174,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .cam-badge.pose{background:rgba(124,77,255,.18);border:1px solid rgba(124,77,255,.4);color:var(--purple)}
 .cam-badge.fall{background:rgba(212,64,64,.22);border:1px solid var(--red);color:#fff}
 .cam-badge.gemini{background:rgba(124,77,255,.18);border:1px solid rgba(124,77,255,.4);color:var(--purple)}
+.cam-badge.anpr{background:rgba(217,144,24,.18);border:1px solid rgba(217,144,24,.4);color:var(--amber)}
 .cam-badge .bdot{width:4px;height:4px;border-radius:50%;background:currentColor;animation:hpulse 1s infinite}
 .cam-label{font-family:var(--mono);font-size:7.5px;color:rgba(255,255,255,.6);background:rgba(7,9,11,.7);padding:1px 5px;border-radius:1px}
 .cam-fps{font-family:var(--mono);font-size:7px;color:var(--slate);background:rgba(7,9,11,.6);padding:1px 4px;border-radius:1px}
@@ -195,6 +197,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .ctrl-btn.ai-active{color:var(--lumen);border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.08)}
 .ctrl-btn.pose-active{color:var(--purple);border-color:rgba(124,77,255,.4);background:rgba(124,77,255,.08)}
 .ctrl-btn.gemini-active{color:var(--purple);border-color:rgba(124,77,255,.4);background:rgba(124,77,255,.08);animation:lumenPulse 1.5s ease infinite}
+.ctrl-btn.anpr-active{color:var(--amber);border-color:rgba(217,144,24,.4);background:rgba(217,144,24,.08)}
 .prog-area{flex:1;cursor:pointer;padding:8px 0}
 .prog-track{height:3px;background:var(--border);border-radius:1px;position:relative}
 .prog-fill{height:100%;background:linear-gradient(90deg,var(--lumen2),var(--lumen));border-radius:1px;width:0%;transition:width .1s}
@@ -253,6 +256,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .stat-card.ai{border-left-color:var(--lumen2)}
 .stat-card.pose{border-left-color:var(--purple)}
 .stat-card.gemini{border-left-color:var(--purple)}
+.stat-card.anpr{border-left-color:var(--amber)}
 .sc-lbl{font-family:var(--mono);font-size:7px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
 .sc-val{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--bright);line-height:1;letter-spacing:-.02em}
 .sc-val.md{font-size:12px}
@@ -269,6 +273,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .ai-log-entry.threat-med{border-left:2px solid var(--amber);padding-left:6px}
 .ai-log-entry.threat-low{border-left:2px solid var(--lumen3);padding-left:6px}
 .ai-log-entry.threat-fall{border-left:2px solid var(--purple);padding-left:6px;background:rgba(124,77,255,.04)}
+.ai-log-entry.threat-anpr{border-left:2px solid var(--amber);padding-left:6px;background:rgba(217,144,24,.04)}
 .aile-time{font-family:var(--mono);font-size:7.5px;color:var(--lumen2);white-space:nowrap;padding-top:1px;flex-shrink:0}
 .aile-body{flex:1;min-width:0}
 .aile-cam{font-family:var(--mono);font-size:7px;color:var(--slate);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
@@ -278,6 +283,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .aile-obj-tag.med{background:rgba(217,144,24,.1);border:1px solid rgba(217,144,24,.28);color:var(--amber)}
 .aile-obj-tag.low{background:rgba(0,212,255,.07);border:1px solid rgba(0,212,255,.2);color:var(--lumen)}
 .aile-obj-tag.fall{background:rgba(124,77,255,.12);border:1px solid rgba(124,77,255,.35);color:var(--purple)}
+.aile-obj-tag.plate{background:rgba(217,144,24,.14);border:1px solid rgba(217,144,24,.4);color:var(--amber);font-weight:600;letter-spacing:.05em}
 .aile-zones{font-family:var(--mono);font-size:7.5px;color:var(--amber);margin-top:2px}
 .aile-no-det{font-family:var(--mono);font-size:8px;color:var(--slate);font-style:italic}
 .ai-log-stats{display:flex;align-items:center;gap:8px;padding:4px 8px;background:rgba(0,212,255,.04);border-bottom:1px solid rgba(0,212,255,.1)}
@@ -316,6 +322,22 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .gemini-stat span{color:var(--purple);}
 .gemini-powered-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:2px;font-family:var(--mono);font-size:7px;letter-spacing:.09em;background:rgba(124,77,255,.08);border:1px solid rgba(124,77,255,.25);color:var(--purple);white-space:nowrap;}
 .gemini-powered-tag i{font-size:7px;animation:lumenPulse 2s ease infinite;}
+/* ── ANPR / PLATE OCR PANEL ──────────────────────────────────── */
+.anpr-powered-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:2px;font-family:var(--mono);font-size:7px;letter-spacing:.09em;background:rgba(217,144,24,.08);border:1px solid rgba(217,144,24,.25);color:var(--amber);white-space:nowrap;}
+.anpr-powered-tag i{font-size:7px;animation:lumenPulse 2s ease infinite;}
+.anpr-scan-ind{display:none;align-items:center;gap:5px;padding:3px 8px;background:rgba(217,144,24,.08);border-bottom:1px solid rgba(217,144,24,.2);}
+.anpr-scan-ind.show{display:flex;}
+.anpr-scan-spinner{width:8px;height:8px;border:1.5px solid rgba(217,144,24,.2);border-top-color:var(--amber);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}
+.anpr-scan-txt{font-family:var(--mono);font-size:7.5px;color:var(--amber);letter-spacing:.09em;}
+.anpr-log-wrap{display:flex;flex-direction:column;gap:0;max-height:260px;overflow-y:auto;}
+.anpr-log-wrap::-webkit-scrollbar{width:2px;}
+.anpr-log-wrap::-webkit-scrollbar-thumb{background:rgba(217,144,24,.3);border-radius:2px;}
+.anpr-entry{padding:7px 9px;border-bottom:1px solid rgba(255,255,255,.04);display:flex;gap:8px;align-items:center;}
+.anpr-entry:last-child{border-bottom:none;}
+.anpr-plate-chip{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.1em;color:#07090b;background:linear-gradient(180deg,#f5d78e,#d99018);padding:3px 9px;border-radius:2px;border:1px solid rgba(0,0,0,.2);white-space:nowrap;}
+.anpr-intel-stats{display:flex;align-items:center;gap:10px;padding:4px 8px;background:rgba(217,144,24,.04);border-bottom:1px solid rgba(217,144,24,.1);}
+.anpr-stat{font-family:var(--mono);font-size:7.5px;color:var(--muted);}
+.anpr-stat span{color:var(--amber);}
 /* ── ─────────────────────────────────────────────────────────────── */
 .alert-feed{display:flex;flex-direction:column;gap:0;max-height:160px;overflow-y:auto}
 .alert-feed::-webkit-scrollbar{width:2px}
@@ -329,6 +351,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .adot.ai{background:var(--lumen)}
 .adot.pose{background:var(--purple)}
 .adot.gemini{background:var(--purple)}
+.adot.anpr{background:var(--amber)}
 .amsg{font-size:10.5px;color:var(--text2);line-height:1.35}
 .atime{font-family:var(--mono);font-size:7.5px;color:var(--slate);margin-top:2px}
 .mini-chart{width:100%;height:100px;display:block}
@@ -341,7 +364,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .tl-msg{font-size:10px;color:var(--muted);line-height:1.35}
 .mon-drawer{background:var(--ink2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:max-height .3s ease,opacity .2s ease}
 .mon-drawer.collapsed{max-height:35px}
-.mon-drawer.open{max-height:900px}
+.mon-drawer.open{max-height:1200px}
 .mon-drawer-header{display:flex;align-items:center;gap:6px;padding:7px 11px;cursor:pointer;user-select:none;border-bottom:1px solid transparent;transition:border-color .2s}
 .mon-drawer.open .mon-drawer-header{border-bottom-color:var(--border)}
 .mon-drawer-header:hover{background:rgba(255,255,255,.01)}
@@ -427,15 +450,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
 .model-slot{padding:11px;border:1px dashed var(--border2);border-radius:var(--radius);background:var(--ink3);position:relative;transition:var(--trans)}
 .model-slot.ai-active{border-style:solid;border-color:var(--lumen2);background:rgba(0,212,255,.04)}
 .model-slot.pose-active{border-style:solid;border-color:var(--purple);background:rgba(124,77,255,.04)}
+.model-slot.anpr-active{border-style:solid;border-color:var(--amber);background:rgba(217,144,24,.04)}
 .ms-icon{font-size:1.1rem;color:var(--border2);margin-bottom:5px}
 .model-slot.ai-active .ms-icon{color:var(--lumen)}
 .model-slot.pose-active .ms-icon{color:var(--purple)}
+.model-slot.anpr-active .ms-icon{color:var(--amber)}
 .ms-title{font-family:var(--mono);font-size:8.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
 .ms-desc{font-size:10px;color:var(--muted);line-height:1.4}
 .ms-status{display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:7px;padding:2px 5px;border-radius:2px;margin-top:6px}
 .ms-status.stub{background:rgba(255,255,255,.04);color:var(--slate);border:1px solid var(--border)}
 .ms-status.ai-on{background:rgba(0,212,255,.08);color:var(--lumen);border:1px solid rgba(0,212,255,.25)}
 .ms-status.pose-on{background:rgba(124,77,255,.08);color:var(--purple);border:1px solid rgba(124,77,255,.3)}
+.ms-status.anpr-on{background:rgba(217,144,24,.08);color:var(--amber);border:1px solid rgba(217,144,24,.3)}
 .ms-status.loading{background:rgba(0,212,255,.05);color:var(--lumen2);border:1px solid rgba(0,212,255,.18);animation:blinkop 1.2s infinite}
 .lumen-ai-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.18);border-radius:var(--radius);margin-bottom:9px}
 .lumen-ai-logo{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--lumen);letter-spacing:.12em;white-space:nowrap}
@@ -479,6 +505,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
       <div class="tb-pill"><span class="k">POSE AI</span>&nbsp;<span class="v" id="hdrPose">OFF</span></div>
       <div class="tb-vsep"></div>
       <div class="tb-pill"><span class="k">GEMINI</span>&nbsp;<span class="v" id="hdrGemini" style="color:var(--purple);">OFF</span></div>
+      <div class="tb-vsep"></div>
+      <div class="tb-pill"><span class="k">ANPR</span>&nbsp;<span class="v" id="hdrAnpr" style="color:var(--amber);">OFF</span></div>
       <div class="tb-vsep"></div>
       <div class="tb-pill"><span class="k">TIME</span>&nbsp;<span class="v" id="hdrTime">—</span></div>
     </div>
@@ -555,6 +583,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
                   <div class="mc-ctrl-btn off" id="globalAiBtn"><i class="fas fa-eye"></i> V-AI ALL</div>
                   <div class="mc-ctrl-btn off" id="globalContinuousBtn"><i class="fas fa-infinity"></i> CONT</div>
                   <div class="mc-ctrl-btn off" id="globalPoseBtn" style="border-color:rgba(124,77,255,.3);color:var(--purple);"><i class="fas fa-walking"></i> POSE ALL</div>
+                  <div class="mc-ctrl-btn off" id="globalAnprBtn" style="border-color:rgba(217,144,24,.3);color:var(--amber);"><i class="fas fa-id-card"></i> ANPR ALL</div>
                 </div>
                 <div class="mc-hint" id="mcHint">0 cameras</div>
                 <button class="btn btn-sm btn-p" id="addCamBtn" style="margin-left:4px;"><i class="fas fa-plus"></i> Add</button>
@@ -572,6 +601,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
                 <button class="ctrl-btn" id="continuousToggleBtn" title="Continuous AI"><i class="fas fa-infinity"></i></button>
                 <button class="ctrl-btn" id="poseToggleBtn" title="Toggle Pose AI"><i class="fas fa-walking"></i></button>
                 <button class="ctrl-btn" id="geminiToggleBtn" title="Toggle Gemini Intelligence on this camera"><i class="fas fa-brain"></i></button>
+                <button class="ctrl-btn" id="anprToggleBtn" title="Toggle ANPR (plate OCR) on this camera"><i class="fas fa-id-card"></i></button>
                 <div class="prog-area" id="progWrap"><div class="prog-track"><div class="prog-fill" id="progFill"></div></div></div>
                 <div class="time-lbl" id="timeLbl">--:-- / --:--</div>
                 <button class="btn btn-sm btn-a" id="manualScanBtn" disabled style="margin-left:4px;"><i class="fas fa-search"></i> Scan Now</button>
@@ -585,6 +615,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
                   <div class="mkv">AI DET <span id="objCountBar">0</span></div>
                   <div class="mkv">FALLS <span id="fallCountBar" style="color:var(--purple);">0</span></div>
                   <div class="mkv">INTEL <span id="intelCountBar" style="color:var(--purple);">0</span></div>
+                  <div class="mkv">PLATES <span id="plateCountBar" style="color:var(--amber);">0</span></div>
                 </div>
               </div>
             </div>
@@ -653,6 +684,35 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
                   Set your Gemini API key above and enable Vision AI on a camera.<br>
                   Gemini analyses are triggered automatically when <span style="color:var(--lumen);">persons, vehicles</span> or <span style="color:var(--red);">high-threat objects</span> are detected.<br>
                   <span style="color:var(--slate);">Each analysis captures the live frame and scores risk 0–100.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ANPR / PLATE OCR FEED — NEW PANEL -->
+            <div class="panel">
+              <div class="ph">
+                <div class="ptitle" style="color:var(--amber);"><i class="fas fa-id-card" style="color:var(--amber);"></i> ANPR — Plate Recognition Feed</div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span class="anpr-powered-tag"><i class="fas fa-circle"></i> TESSERACT.JS · ON-DEVICE</span>
+                  <span style="font-family:var(--mono);font-size:7.5px;color:var(--muted);" id="anprStatus">Model not loaded</span>
+                  <button class="btn btn-sm btn-d" id="clearAnprLogBtn"><i class="fas fa-trash"></i></button>
+                </div>
+              </div>
+              <div class="anpr-intel-stats">
+                <div class="anpr-stat">READS <span id="as-total">0</span></div>
+                <div class="anpr-stat">UNIQUE PLATES <span id="as-unique">0</span></div>
+                <div class="anpr-stat">AVG CONF <span id="as-avgconf">—</span></div>
+                <div class="anpr-stat" style="margin-left:auto;">ENGINE <span id="as-engine">IDLE</span></div>
+              </div>
+              <div class="anpr-scan-ind" id="anprScanInd">
+                <div class="anpr-scan-spinner"></div>
+                <div class="anpr-scan-txt" id="anprScanTxt">Reading plate…</div>
+              </div>
+              <div class="anpr-log-wrap" id="anprLogWrap">
+                <div style="padding:14px;text-align:center;font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.8;">
+                  Enable Vision AI and ANPR on a camera to start reading plates.<br>
+                  ANPR crops the lower-centre region of any detected car/truck/bus and runs on-device OCR.<br>
+                  <span style="color:var(--slate);">Heuristic — best on clear, front/rear, well-lit plates. Not a substitute for a certified ANPR system.</span>
                 </div>
               </div>
             </div>
@@ -748,6 +808,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
                     </div>
                     <div style="font-family:var(--mono);font-size:7.5px;color:var(--slate);line-height:1.6;">Min seconds between Gemini calls per camera. Audio alerts fire at HIGH (50+) and CRITICAL (75+) risk scores.</div>
                   </div>
+                  <div class="divider"></div>
+                  <div style="font-family:var(--mono);font-size:8px;letter-spacing:.11em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;">ANPR · Plate OCR (Tesseract.js, on-device)</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div>
+                      <div class="ctrl-group">
+                        <div class="ctrl-lbl">ANPR Scan Interval <span class="cv" id="anprIntervalVal" style="color:var(--amber);">4s</span></div>
+                        <input type="range" id="anprInterval" min="2" max="20" value="4" step="1">
+                      </div>
+                      <div class="ctrl-group">
+                        <div class="ctrl-lbl">Min OCR confidence <span class="cv" id="anprConfVal" style="color:var(--amber);">55%</span></div>
+                        <input type="range" id="anprConf" min="20" max="90" value="55" step="5">
+                      </div>
+                    </div>
+                    <div>
+                      <div class="ctrl-group">
+                        <div class="ctrl-lbl">Plate band height <span class="cv" id="anprBandVal" style="color:var(--amber);">30%</span></div>
+                        <input type="range" id="anprBand" min="15" max="50" value="30" step="5">
+                      </div>
+                      <div style="font-family:var(--mono);font-size:7.5px;color:var(--slate);line-height:1.6;">Crops the lower-centre band of each detected vehicle box and runs OCR on it. Heuristic region-of-interest — no dedicated plate detector model.</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -763,10 +844,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
                   <div class="stat-card ai"><div class="sc-lbl">Vision AI</div><div class="sc-val sm" id="sv-ai">IDLE</div><div class="sc-sub" id="sv-ai-sub">Loading model…</div></div>
                   <div class="stat-card pose"><div class="sc-lbl">Pose AI</div><div class="sc-val sm" id="sv-pose">IDLE</div><div class="sc-sub" id="sv-pose-sub">Not loaded</div></div>
                   <div class="stat-card gemini"><div class="sc-lbl">Gemini Intel</div><div class="sc-val sm" id="sv-gemini">OFF</div><div class="sc-sub" id="sv-gemini-sub">No key set</div></div>
+                  <div class="stat-card anpr"><div class="sc-lbl">ANPR OCR</div><div class="sc-val sm" id="sv-anpr">IDLE</div><div class="sc-sub" id="sv-anpr-sub">Not loaded</div></div>
                   <div class="stat-card" id="sc-det"><div class="sc-lbl">AI Detections</div><div class="sc-val" id="sv-objects">0</div><div class="sc-sub">This session</div></div>
                   <div class="stat-card" id="sc-alerts"><div class="sc-lbl">Alerts</div><div class="sc-val" id="sv-alerts">0</div><div class="sc-sub">Total</div></div>
                   <div class="stat-card" id="sc-falls"><div class="sc-lbl">Falls Detected</div><div class="sc-val" id="sv-falls">0</div><div class="sc-sub">This session</div></div>
                   <div class="stat-card gemini" id="sc-intel"><div class="sc-lbl">Intel Risk Avg</div><div class="sc-val sm" id="sv-intel-avg">—</div><div class="sc-sub" id="sv-intel-sub">0 analyses</div></div>
+                  <div class="stat-card anpr" id="sc-plates"><div class="sc-lbl">Plates Read</div><div class="sc-val" id="sv-plates">0</div><div class="sc-sub" id="sv-plates-sub">0 unique</div></div>
                 </div>
               </div>
             </div>
@@ -901,13 +984,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
         <div class="lumen-ai-banner">
           <div>
             <div class="lumen-ai-logo">LUMEN<span>OS</span> VISION AI</div>
-            <div style="font-family:var(--mono);font-size:7.5px;color:var(--muted);margin-top:2px;letter-spacing:.1em;">ON-DEVICE INFERENCE · COCO-SSD + MOVENET + TENSORFLOW.JS + GEMINI 1.5 FLASH · HYBRID PIPELINE</div>
+            <div style="font-family:var(--mono);font-size:7.5px;color:var(--muted);margin-top:2px;letter-spacing:.1em;">ON-DEVICE INFERENCE · COCO-SSD + MOVENET + TESSERACT.JS + TENSORFLOW.JS + GEMINI 1.5 FLASH · HYBRID PIPELINE</div>
           </div>
-          <div class="lumen-ai-desc">Object model: <span id="modelStatusInline" style="color:var(--lumen);">Loading…</span> · Pose model: <span id="poseModelStatusInline" style="color:var(--purple);">Idle</span> · Gemini: <span id="geminiModelStatusInline" style="color:var(--purple);">No key</span></div>
+          <div class="lumen-ai-desc">Object model: <span id="modelStatusInline" style="color:var(--lumen);">Loading…</span> · Pose model: <span id="poseModelStatusInline" style="color:var(--purple);">Idle</span> · Gemini: <span id="geminiModelStatusInline" style="color:var(--purple);">No key</span> · ANPR: <span id="anprModelStatusInline" style="color:var(--amber);">Idle</span></div>
           <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
             <div class="lumen-ai-badge" id="modelBadge"><i class="fas fa-circle" style="animation:lumenPulse 1s infinite;"></i> <span id="modelBadgeText">LOADING</span></div>
             <div class="lumen-ai-badge" id="poseModelBadge" style="border-color:rgba(124,77,255,.3);color:var(--purple);background:rgba(124,77,255,.08);"><i class="fas fa-circle"></i> <span id="poseModelBadgeText">NOT LOADED</span></div>
             <div class="lumen-ai-badge" id="geminiModelBadge" style="border-color:rgba(124,77,255,.3);color:var(--purple);background:rgba(124,77,255,.08);"><i class="fas fa-circle"></i> <span id="geminiModelBadgeText">NO KEY</span></div>
+            <div class="lumen-ai-badge" id="anprModelBadge" style="border-color:rgba(217,144,24,.3);color:var(--amber);background:rgba(217,144,24,.08);"><i class="fas fa-circle"></i> <span id="anprModelBadgeText">NOT LOADED</span></div>
           </div>
         </div>
         <div class="panel" style="margin-bottom:9px;">
@@ -926,6 +1010,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
             <input type="password" class="gemini-key-inp" id="geminiKeyInp2" placeholder="Gemini API key…" autocomplete="off" style="max-width:300px;">
             <button class="gemini-save-btn" id="geminiSaveKeyBtn2"><i class="fas fa-key" style="font-size:7px;margin-right:3px;"></i> Save Key</button>
           </div>
+        </div>
+        <div class="panel" style="margin-bottom:9px;">
+          <div class="ph"><div class="ptitle" style="color:var(--amber);"><i class="fas fa-id-card" style="color:var(--amber);"></i> Tesseract.js — On-Device ANPR / Plate OCR</div><span class="ms-status stub" id="anprPipelineStatus"><i class="fas fa-plug"></i> NOT LOADED</span></div>
+          <div class="pb" style="font-size:11px;color:var(--text);line-height:1.7;">When COCO-SSD detects a car/truck/bus/motorcycle, LumenOS crops the lower-centre band of that box (where plates usually sit), upscales and binarises it, then runs it through a local Tesseract.js OCR worker restricted to A–Z0–9 characters. Results are filtered by a minimum confidence threshold and a loose plate-shape pattern before being logged. This is a heuristic, fully free, on-device approach — it runs entirely in the browser with no cloud calls, but has no dedicated plate-detector model behind it, so accuracy depends heavily on camera angle, lighting and plate clarity. It is not a certified ANPR system.</div>
+          <div class="pb" style="padding-top:0;"><button class="btn btn-a btn-sm" id="loadAnprModelBtn" style="border-color:rgba(217,144,24,.3);color:var(--amber);"><i class="fas fa-download"></i> Load Tesseract.js Now</button></div>
         </div>
         <div class="model-grid">
           <div class="model-slot ai-active" id="cocoSlot">
@@ -946,8 +1035,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;heigh
             <div class="ms-desc">Cloud vision analysis via Gemini 1.5 Flash. Scene context, threats, risk score 0–100, action recommendations.</div>
             <div class="ms-status stub" id="geminiSlotStatus"><i class="fas fa-plug"></i> SET API KEY</div>
           </div>
+          <div class="model-slot" id="anprSlot">
+            <div class="ms-icon"><i class="fas fa-id-card" style="color:var(--amber);"></i></div>
+            <div class="ms-title">ANPR / Plate OCR</div>
+            <div class="ms-desc">Tesseract.js on-device OCR on cropped vehicle plate bands. Free, local, heuristic region-of-interest.</div>
+            <div class="ms-status stub" id="anprSlotStatus"><i class="fas fa-plug"></i> NOT LOADED</div>
+          </div>
           <div class="model-slot"><div class="ms-icon"><i class="fas fa-layer-group"></i></div><div class="ms-title">Depth Estimation</div><div class="ms-desc">Monocular depth via luminance-gradient estimation.</div><div class="ms-status stub"><i class="fas fa-plug"></i> BUILT-IN</div></div>
-          <div class="model-slot"><div class="ms-icon"><i class="fas fa-id-card"></i></div><div class="ms-title">Plate Recognition</div><div class="ms-desc">Automatic licence plate extraction.</div><div class="ms-status stub"><i class="fas fa-plug"></i> COMING SOON</div></div>
           <div class="model-slot"><div class="ms-icon"><i class="fas fa-fire-alt"></i></div><div class="ms-title">Hazard Detection</div><div class="ms-desc">Fire, smoke, flooding detection.</div><div class="ms-status stub"><i class="fas fa-plug"></i> COMING SOON</div></div>
         </div>
       </div>
@@ -1380,6 +1474,11 @@ const POSE_EDGES=[
   ['left_hip','left_knee'],['left_knee','left_ankle'],['right_hip','right_knee'],['right_knee','right_ankle'],
   ['left_shoulder','left_ear'],['right_shoulder','right_ear'],['left_ear','right_ear']
 ];
+// ANPR — vehicle classes that are candidates for a plate-region crop, and a
+// loose shape filter for OCR output. This is a heuristic, not a certified
+// plate-detector model, so the filter is intentionally permissive.
+const ANPR_VEHICLE_CLASSES=['car','truck','bus','motorcycle'];
+const ANPR_PLATE_REGEX=/^[A-Z0-9]{4,10}$/;
 let _camIdCtr=0;
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1408,6 +1507,9 @@ class CameraFeed{
     this.poseEnabled=false;this.poseFrameCounter=0;this.lastPoseScan=0;
     this.poseResult=null;this.poseSrcW=0;this.poseSrcH=0;
     this.fallActive=false;this._fallStreak=0;this._fallAlerted=false;
+    // ANPR (on-device plate OCR via Tesseract.js)
+    this.anprEnabled=false;this.lastAnprScan=0;
+    this.anprOverlays=[];this.platesSeen=new Map();
   }
   initCanvases(){
     this._offProc=document.createElement('canvas');
@@ -1436,20 +1538,25 @@ class LumenOS{
     this.cfg={
       motionSens:6,motionThresh:30,gridSize:10,minObjSize:20,
       showBoxes:true,showZones:true,showLabels:true,showGrid:true,showPose:true,
-      contFrames:3,poseInterval:5,fallConfirmFrames:2,poseMinConf:0.3
+      contFrames:3,poseInterval:5,fallConfirmFrames:2,poseMinConf:0.3,
+      anprInterval:4,anprConfidence:55,anprBandPct:30
     };
     this.state={aiMode:'security',aiTrigger:'auto',aiInterval:5};
     this.data={
       alerts:[],eventLog:[],motionData:[],depthHistory:[],
       savedFeeds:JSON.parse(localStorage.getItem('lm_feeds')||'[]'),
-      zones:[],aiLog:[],
-      aiStats:{total:0,high:0,med:0,low:0,zonesHit:0,sessionDetections:0,falls:0}
+      zones:[],aiLog:[],anprLog:[],
+      aiStats:{total:0,high:0,med:0,low:0,zonesHit:0,sessionDetections:0,falls:0},
+      anprStats:{total:0,confSum:0}
     };
     this._zoneMode='draw';this._zoneSelected=null;this._zoneDrawing=null;this._zoneDragState=null;
     this._snapEnabled=false;this._zoneCamFilter='global';
     this.localModel=null;this.modelReady=false;this.modelLoading=false;
     this.poseModel=null;this.poseModelReady=false;this.poseModelLoading=false;
     this.gemini=new GeminiAnalyser(this);
+    // ANPR (Tesseract.js on-device OCR)
+    this.anprWorker=null;this.anprReady=false;this.anprLoading=false;
+    this._anprBusy=false;this.anprAllPlates=new Map();
     this.$=id=>document.getElementById(id);
     this._initAll();
     window.LumenOS=this;
@@ -1459,7 +1566,7 @@ class LumenOS{
     this._bindNav();this._bindSidebar();this._bindGrid();this._bindModal();
     this._bindMonDrawer();this._bindMonitoring();this._bindVideoControls();
     this._bindZones();this._bindExport();this._bindMisc();this._bindGemini();
-    this._bindNetworkScan();
+    this._bindAnpr();this._bindNetworkScan();
     this._initColorSwatches();this._loadZones();
     this._renderCameraGrid();this._renderCamList();
     this._startClock();this._startIdleChartLoop();
@@ -1467,6 +1574,8 @@ class LumenOS{
     this._addAlert('LumenOS Vision AI system initialised','info');
     this._loadLocalModel();
     this.gemini._syncKeyUi();
+    this._setAnprStatus('idle');
+    this._renderAnprLog();
   }
 
   _bindGemini(){
@@ -1530,6 +1639,26 @@ class LumenOS{
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ANPR — bind load / clear buttons. Interval, confidence and band
+  // sliders are bound in _bindMonitoring() alongside the other
+  // detection controls.
+  // ══════════════════════════════════════════════════════════════════
+  _bindAnpr(){
+    const loadBtn=this.$('loadAnprModelBtn');
+    if(loadBtn)loadBtn.addEventListener('click',()=>{if(!this.anprReady&&!this.anprLoading)this._loadAnprModel();});
+    const clearBtn=this.$('clearAnprLogBtn');
+    if(clearBtn){
+      clearBtn.addEventListener('click',()=>{
+        this.data.anprLog=[];
+        this.data.anprStats={total:0,confSum:0};
+        this.anprAllPlates=new Map();
+        this._renderAnprLog();
+        this._updateAnprStats();
+      });
+    }
+  }
+
   async _loadLocalModel(){
     if(this.modelLoading||this.modelReady)return;
     if(typeof cocoSsd==='undefined'){setTimeout(()=>this._loadLocalModel(),1000);return;}
@@ -1567,6 +1696,33 @@ class LumenOS{
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ANPR — load the Tesseract.js worker (real library: naptha/tesseract.js,
+  // loaded from the official jsDelivr CDN build, global `Tesseract` object).
+  // Restricted to A-Z0-9 and PSM 7 (single text line) since we feed it a
+  // tight crop of a candidate plate region rather than a full frame.
+  // ══════════════════════════════════════════════════════════════════
+  async _loadAnprModel(){
+    if(this.anprLoading||this.anprReady)return;
+    if(typeof Tesseract==='undefined'){setTimeout(()=>this._loadAnprModel(),1000);return;}
+    this.anprLoading=true;this._setAnprStatus('loading');
+    this._addAlert('Loading Tesseract.js OCR engine…','info');
+    try{
+      this.anprWorker=await Tesseract.createWorker('eng');
+      await this.anprWorker.setParameters({
+        tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        tessedit_pageseg_mode:'7'
+      });
+      this.anprReady=true;this.anprLoading=false;
+      this._setAnprStatus('ready');
+      this._addAlert('Tesseract.js ready — ANPR plate OCR active','anpr');
+      this._updateGlobalStats();
+    }catch(err){
+      this.anprLoading=false;this._setAnprStatus('error');
+      this._addAlert('ANPR engine load failed: '+err.message,'crit');
+    }
+  }
+
   _setModelStatus(s){
     const M={
       loading:{badge:'LOADING',bc:'loading',slot:'LOADING MODEL',si:'fa-spinner fa-spin',sub:'Loading model…',co:'LOADING'},
@@ -1596,6 +1752,35 @@ class LumenOS{
     this._setTxt('sv-pose-sub',m.sub);
     this._setTxt('poseModelStatusInline',m.inline);
     this._setTxt('sv-pose',s==='ready'?'READY':s==='loading'?'LOAD':s==='error'?'ERROR':'IDLE');
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ANPR — status sync across topbar pill, System Status card, Vision AI
+  // pipeline panel/slot, and the feed panel header. Mirrors _setPoseModelStatus.
+  // ══════════════════════════════════════════════════════════════════
+  _setAnprStatus(s){
+    const M={
+      loading:{badge:'LOADING',bc:'loading',slot:'LOADING ENGINE',si:'fa-spinner fa-spin',sub:'Loading engine…',co:'LOADING',inline:'Loading…',feed:'Loading engine…',engine:'LOADING'},
+      ready:{badge:'ON-DEVICE',bc:'anpr-on',slot:'TESSERACT.JS READY',si:'fa-check',sub:'Tesseract.js ready',co:'READY',inline:'Ready — Tesseract.js loaded',feed:'Engine ready',engine:'READY'},
+      error:{badge:'ERROR',bc:'stub',slot:'LOAD ERROR',si:'fa-times',sub:'Engine error',co:'ERROR',inline:'Load error',feed:'Engine error',engine:'ERROR'}
+    };
+    const m=M[s]||{badge:'NOT LOADED',bc:'stub',slot:'NOT LOADED',si:'fa-plug',sub:'Not loaded',co:'NOT LOADED',inline:'Idle',feed:'Model not loaded',engine:'IDLE'};
+    this._setTxt('anprModelBadgeText',m.badge);
+    const ss=this.$('anprSlotStatus');if(ss){ss.className='ms-status '+m.bc;ss.innerHTML=`<i class="fas ${m.si}"></i> ${m.slot}`;}
+    const ps=this.$('anprPipelineStatus');if(ps){ps.className='ms-status '+m.bc;ps.innerHTML=`<i class="fas ${m.si}"></i> ${m.co}`;}
+    const slotEl=this.$('anprSlot');if(slotEl)slotEl.classList.toggle('anpr-active',s==='ready');
+    this._setTxt('sv-anpr-sub',m.sub);
+    this._setTxt('anprModelStatusInline',m.inline);
+    this._setTxt('sv-anpr',s==='ready'?'READY':s==='loading'?'LOAD':s==='error'?'ERROR':'IDLE');
+    this._setTxt('anprStatus',m.feed);
+    this._setTxt('as-engine',m.engine);
+    const hdr=this.$('hdrAnpr');
+    if(hdr){
+      const anyOn=this.cameras.some(c=>c.anprEnabled);
+      hdr.style.color='var(--amber)';
+      if(s==='ready'&&anyOn){hdr.textContent=this.cameras.filter(c=>c.anprEnabled).length+' CAM';hdr.className='v ai-on';}
+      else{hdr.textContent=s==='loading'?'LOAD':'OFF';hdr.className='v';}
+    }
   }
 
   _setTxt(id,v){const el=this.$(id);if(el)el.textContent=v;}
@@ -1717,6 +1902,13 @@ class LumenOS{
     if(cam.geminiEnabled&&this.gemini.shouldTrigger(cam,dets,hitZones,motionIntensity)){
       this.gemini.requestScan(cam,dets,hitZones,motionIntensity,null);
     }
+    // ANPR — plate OCR runs off the same fresh COCO-SSD detections, gated
+    // by its own interval and a vehicle-class filter.
+    if(cam.anprEnabled){
+      this._maybeRunAnpr(cam,dets);
+    }else if(cam.anprOverlays.length){
+      cam.anprOverlays=[];
+    }
   }
 
   _handlePose(cam,pose,srcW,srcH){
@@ -1815,6 +2007,136 @@ class LumenOS{
         </div>
       </div>`;
     }).join('');
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ANPR — heuristic pipeline
+  //
+  // 1. _maybeRunAnpr: gate on the ANPR interval and pick the largest
+  //    vehicle-class detection from the latest COCO-SSD pass.
+  // 2. _runAnprOnVehicle: crop the lower-centre band of that box (where
+  //    plates usually sit), upscale + grayscale + contrast-stretch it,
+  //    then hand the crop canvas straight to the Tesseract.js worker
+  //    (worker.recognize accepts a canvas element directly).
+  // 3. _logPlateRead: filter by confidence + a loose alphanumeric shape,
+  //    dedupe repeats from the same camera within a short window, log it.
+  // ══════════════════════════════════════════════════════════════════
+  _maybeRunAnpr(cam,dets){
+    if(!this.anprReady||this._anprBusy)return;
+    const now=Date.now();
+    if(now-cam.lastAnprScan<this.cfg.anprInterval*1000)return;
+    const vehicles=dets.filter(d=>ANPR_VEHICLE_CLASSES.includes(d.label));
+    if(!vehicles.length){cam.anprOverlays=[];return;}
+    cam.lastAnprScan=now;
+    const best=vehicles.reduce((a,b)=>(b.rawBw*b.rawBh>a.rawBw*a.rawBh?b:a));
+    this._runAnprOnVehicle(cam,best);
+  }
+
+  async _runAnprOnVehicle(cam,det){
+    if(!cam.mainCanvas||this._anprBusy||!this.anprWorker)return;
+    this._anprBusy=true;
+    const ind=this.$('anprScanInd'),txt=this.$('anprScanTxt');
+    if(cam.id===this.activeCamId&&ind){ind.classList.add('show');if(txt)txt.textContent=`Reading plate on ${cam.name}…`;}
+    this._setTxt('as-engine','SCANNING');
+    try{
+      const cw=cam.mainCanvas.width,ch=cam.mainCanvas.height;
+      const sx=cw/(det.srcW||cw),sy=ch/(det.srcH||ch);
+      const bx=det.rawBx*sx,by=det.rawBy*sy,bw=det.rawBw*sx,bh=det.rawBh*sy;
+      const bandPct=this.cfg.anprBandPct/100;
+      const cropH=Math.max(14,bh*bandPct);
+      const cropY=Math.max(0,by+bh-cropH);
+      const cropW=Math.max(12,bw*0.9);
+      const cropX=Math.max(0,bx+bw*0.05);
+      if(cropW<12||cropH<8||cropX+cropW>cw+2||cropY+cropH>ch+2){
+        cam.anprOverlays=[];
+        return;
+      }
+      const scaleFactor=Math.max(1,220/cropW);
+      const oc=document.createElement('canvas');
+      oc.width=Math.max(1,Math.round(cropW*scaleFactor));
+      oc.height=Math.max(1,Math.round(cropH*scaleFactor));
+      const octx=oc.getContext('2d');
+      octx.imageSmoothingEnabled=true;
+      octx.drawImage(cam.mainCanvas,cropX,cropY,cropW,cropH,0,0,oc.width,oc.height);
+      // grayscale + simple contrast stretch — improves OCR on low-contrast plates
+      const imgData=octx.getImageData(0,0,oc.width,oc.height);
+      const d=imgData.data;
+      let mn=255,mx=0;
+      for(let i=0;i<d.length;i+=4){
+        const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+        if(g<mn)mn=g;if(g>mx)mx=g;
+      }
+      const range=Math.max(1,mx-mn);
+      for(let i=0;i<d.length;i+=4){
+        const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+        const n=Math.max(0,Math.min(255,((g-mn)/range)*255));
+        d[i]=d[i+1]=d[i+2]=n;
+      }
+      octx.putImageData(imgData,0,0);
+      cam.anprOverlays=[{x:cropX,y:cropY,w:cropW,h:cropH}];
+      const ret=await this.anprWorker.recognize(oc);
+      const raw=(ret?.data?.text||'').trim();
+      const conf=ret?.data?.confidence||0;
+      const cleaned=raw.toUpperCase().replace(/[^A-Z0-9]/g,'');
+      if(cleaned.length>=4&&cleaned.length<=10&&ANPR_PLATE_REGEX.test(cleaned)&&conf>=this.cfg.anprConfidence){
+        this._logPlateRead(cam,cleaned,conf,{x:cropX,y:cropY,w:cropW,h:cropH});
+      }
+    }catch(err){
+      console.warn('[ANPR] recognize failed',err);
+    }finally{
+      this._anprBusy=false;
+      if(ind)ind.classList.remove('show');
+      this._setTxt('as-engine',this.anprReady?'READY':'IDLE');
+    }
+  }
+
+  _logPlateRead(cam,plate,conf,box){
+    const now=Date.now();
+    const lastSeen=cam.platesSeen.get(plate);
+    if(lastSeen&&(now-lastSeen)<20000)return; // dedupe same plate/camera within 20s
+    cam.platesSeen.set(plate,now);
+    const ts=new Date().toLocaleTimeString('en-US',{hour12:false});
+    const entry={ts,cam:cam.name,camId:cam.id,plate,conf:Math.round(conf),box};
+    this.data.anprLog.unshift(entry);
+    if(this.data.anprLog.length>200)this.data.anprLog.pop();
+    const st=this.data.anprStats;
+    st.total++;st.confSum+=conf;
+    const g=this.anprAllPlates.get(plate)||{count:0,bestConf:0};
+    g.count++;g.bestConf=Math.max(g.bestConf,conf);g.lastSeen=now;
+    this.anprAllPlates.set(plate,g);
+    this._addAlert(`[ANPR] ${cam.name}: plate read ${plate} (${Math.round(conf)}%)`,'anpr');
+    this._logEvent('anpr',`Plate read: ${plate} (${Math.round(conf)}%)`,cam.name);
+    this._renderAnprLog();
+    this._updateAnprStats();
+    this._updateGlobalStats();
+  }
+
+  _renderAnprLog(){
+    const wrap=this.$('anprLogWrap');if(!wrap)return;
+    const log=this.data.anprLog;
+    if(!log.length){
+      wrap.innerHTML='<div style="padding:14px;text-align:center;font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.8;">Enable Vision AI and ANPR on a camera to start reading plates.<br>ANPR crops the lower-centre region of any detected car/truck/bus and runs on-device OCR.<br><span style="color:var(--slate);">Heuristic — best on clear, front/rear, well-lit plates. Not a substitute for a certified ANPR system.</span></div>';
+      return;
+    }
+    wrap.innerHTML=log.slice(0,40).map(e=>`
+      <div class="anpr-entry">
+        <span class="anpr-plate-chip">${e.plate}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text2);">${e.cam}</div>
+          <div style="font-family:var(--mono);font-size:7.5px;color:var(--muted);">${e.ts} · conf ${e.conf}%</div>
+        </div>
+      </div>`).join('');
+  }
+
+  _updateAnprStats(){
+    const st=this.data.anprStats;
+    this._setTxt('as-total',st.total);
+    this._setTxt('as-unique',this.anprAllPlates.size);
+    const avg=st.total?Math.round(st.confSum/st.total):0;
+    this._setTxt('as-avgconf',st.total?avg+'%':'—');
+    this._setTxt('sv-plates',st.total);
+    this._setTxt('sv-plates-sub',this.anprAllPlates.size+' unique');
+    this._setTxt('plateCountBar',st.total);
   }
 
   _startCamProcessing(cam){
@@ -2008,6 +2330,19 @@ class LumenOS{
         }
       }
     }
+    if(cam.anprEnabled&&cam.anprOverlays&&cam.anprOverlays.length){
+      cam.anprOverlays.forEach(ov=>{
+        ctx.strokeStyle='#d99018';ctx.lineWidth=2;ctx.setLineDash([]);
+        ctx.strokeRect(ov.x,ov.y,ov.w,ov.h);
+        if(this.cfg.showLabels){
+          const lbl='ANPR ROI';
+          ctx.font='8px IBM Plex Mono,monospace';
+          const tw=ctx.measureText(lbl).width+6;
+          ctx.fillStyle='rgba(217,144,24,.9)';ctx.fillRect(ov.x,Math.max(0,ov.y-11),tw,11);
+          ctx.fillStyle='#07090b';ctx.fillText(lbl,ov.x+3,Math.max(9,ov.y-2));
+        }
+      });
+    }
     if(this.cfg.showZones){
       this._getZonesForCam(cam.id).forEach(z=>{
         const color=z.color||'#00d4ff';
@@ -2043,6 +2378,8 @@ class LumenOS{
     const fallBadge=document.getElementById('camFallBadge_'+cam.id);if(fallBadge)fallBadge.style.display=cam.fallActive?'inline-flex':'none';
     const geminiBadge=document.getElementById('camGeminiBadge_'+cam.id);
     if(geminiBadge)geminiBadge.style.display=(cam.geminiEnabled&&this.gemini.getKey())?'inline-flex':'none';
+    const anprBadge=document.getElementById('camAnprBadge_'+cam.id);
+    if(anprBadge)anprBadge.style.display=cam.anprEnabled?'inline-flex':'none';
     const cell=document.querySelector(`.cam-cell[data-cam-id="${cam.id}"]`);
     if(cell)cell.classList.toggle('alert-cam',
       cam.fallActive||(cam.motionActive&&(cam.aiDetections.some(d=>d.threat==='high')||cam.trackedObjs.some(o=>o.threat==='high')))
@@ -2056,6 +2393,7 @@ class LumenOS{
     const anyContOn=this.cameras.some(c=>c.continuousMode);
     const anyPoseOn=this.cameras.some(c=>c.poseEnabled);
     const anyFallActive=this.cameras.some(c=>c.fallActive);
+    const anyAnprOn=this.cameras.some(c=>c.anprEnabled);
     this.$('hdrObj').textContent=allAI;this.$('objCountBar').textContent=allAI;
     this.$('fallCountBar').textContent=this.data.aiStats.falls;
     this.$('sv-alerts').textContent=this.data.alerts.length;
@@ -2073,9 +2411,17 @@ class LumenOS{
       else if(anyPoseOn){hdrPose.textContent=`${this.cameras.filter(c=>c.poseEnabled).length} CAM`;hdrPose.className='v ai-on';}
       else{hdrPose.textContent='OFF';hdrPose.className='v';}
     }
+    const hdrAnpr=this.$('hdrAnpr');
+    if(hdrAnpr){
+      hdrAnpr.style.color='var(--amber)';
+      if(anyAnprOn&&this.anprReady){hdrAnpr.textContent=`${this.cameras.filter(c=>c.anprEnabled).length} CAM`;hdrAnpr.className='v ai-on';}
+      else if(anyAnprOn&&this.anprLoading){hdrAnpr.textContent='LOAD';hdrAnpr.className='v';}
+      else{hdrAnpr.textContent='OFF';hdrAnpr.className='v';}
+    }
     const gai=this.$('globalAiBtn');if(gai){gai.classList.toggle('on',anyAiOn);gai.classList.toggle('off',!anyAiOn);}
     const gcont=this.$('globalContinuousBtn');if(gcont){gcont.classList.toggle('on',anyContOn);gcont.classList.toggle('off',!anyContOn);}
     const gpose=this.$('globalPoseBtn');if(gpose){gpose.classList.toggle('on',anyPoseOn);gpose.classList.toggle('off',!anyPoseOn);}
+    const ganpr=this.$('globalAnprBtn');if(ganpr){ganpr.classList.toggle('on',anyAnprOn);ganpr.classList.toggle('off',!anyAnprOn);}
   }
 
   _bindNav(){
@@ -2111,6 +2457,7 @@ class LumenOS{
     this.$('globalAiBtn').addEventListener('click',()=>this._toggleGlobalAI());
     this.$('globalContinuousBtn').addEventListener('click',()=>this._toggleGlobalContinuous());
     this.$('globalPoseBtn').addEventListener('click',()=>this._toggleGlobalPose());
+    this.$('globalAnprBtn').addEventListener('click',()=>this._toggleGlobalAnpr());
     ['addCamBtn','addCamBtn2','addFirstCamBtn','noCamsAddLink'].forEach(id=>{
       const el=this.$(id);if(el)el.addEventListener('click',()=>this._openModal());
     });
@@ -2159,6 +2506,7 @@ class LumenOS{
           <span class="cam-badge ai" id="camAiBadge_${cam.id}" style="display:${cam.aiEnabled?'inline-flex':'none'};"><i class="fas fa-eye" style="font-size:6px;"></i>V-AI</span>
           <span class="cam-badge pose" id="camPoseBadge_${cam.id}" style="display:${cam.poseEnabled?'inline-flex':'none'};"><i class="fas fa-walking" style="font-size:6px;"></i>POSE</span>
           <span class="cam-badge gemini" id="camGeminiBadge_${cam.id}" style="display:none;"><i class="fas fa-satellite-dish" style="font-size:6px;"></i>INTEL</span>
+          <span class="cam-badge anpr" id="camAnprBadge_${cam.id}" style="display:${cam.anprEnabled?'inline-flex':'none'};"><i class="fas fa-id-card" style="font-size:6px;"></i>ANPR</span>
           <span class="cam-badge cont" id="camContBadge_${cam.id}" style="display:${cam.continuousMode?'inline-flex':'none'};">∞</span>
         </div>
         <div class="cam-hud-br">
@@ -2197,6 +2545,7 @@ class LumenOS{
       this.$('continuousToggleBtn').classList.toggle('ai-active',cam.continuousMode);
       this.$('poseToggleBtn').classList.toggle('pose-active',cam.poseEnabled);
       this.$('geminiToggleBtn').classList.toggle('gemini-active',cam.geminiEnabled);
+      this.$('anprToggleBtn').classList.toggle('anpr-active',cam.anprEnabled);
       this._renderCamList();
       if(cam.sourceType==='video'&&cam.srcVideo){
         cam.srcVideo.ontimeupdate=()=>this._updateProgress(cam);
@@ -2443,6 +2792,7 @@ class LumenOS{
       const contColor=cam.continuousMode?'var(--lumen)':'';
       const poseColor=cam.poseEnabled?'var(--purple)':'';
       const gemColor=(cam.geminiEnabled&&this.gemini.getKey())?'var(--purple)':'';
+      const anprColor=cam.anprEnabled?'var(--amber)':'';
       el.innerHTML=`<div class="cli-dot ${cam.connected?((cam.fallActive||cam.motionActive)?'motion':'conn'):'disc'}"></div>
         <div class="cli-info">
           <div class="cli-name">${cam.name}${cam.continuousMode?' <span style="color:var(--lumen);font-size:8px;">∞</span>':''}${cam.fallActive?' <span style="color:var(--red);font-size:8px;">FALL</span>':''}</div>
@@ -2453,6 +2803,7 @@ class LumenOS{
           <button class="cli-act cont-tog" title="Toggle Continuous AI" style="color:${contColor}"><i class="fas fa-infinity"></i></button>
           <button class="cli-act pose-tog" title="Toggle Pose AI" style="color:${poseColor}"><i class="fas fa-walking"></i></button>
           <button class="cli-act gem-tog" title="Toggle Gemini 3.1 Pro Intel" style="color:${gemColor}"><i class="fas fa-satellite-dish"></i></button>
+          <button class="cli-act anpr-tog" title="Toggle ANPR (plate OCR)" style="color:${anprColor}"><i class="fas fa-id-card"></i></button>
           <button class="cli-act del"><i class="fas fa-times"></i></button>
         </div>`;
       el.addEventListener('click',()=>this._selectCamera(cam.id));
@@ -2460,6 +2811,7 @@ class LumenOS{
       el.querySelector('.cont-tog').addEventListener('click',e=>{e.stopPropagation();this._toggleContinuousMode(this._getCam(cam.id));});
       el.querySelector('.pose-tog').addEventListener('click',e=>{e.stopPropagation();this._toggleCamPose(cam.id);});
       el.querySelector('.gem-tog').addEventListener('click',e=>{e.stopPropagation();this._toggleCamGemini(cam.id);});
+      el.querySelector('.anpr-tog').addEventListener('click',e=>{e.stopPropagation();this._toggleCamAnpr(cam.id);});
       el.querySelector('.del').addEventListener('click',e=>{e.stopPropagation();this._removeCamera(cam.id);});
       panel.appendChild(el);
     });
@@ -2522,6 +2874,46 @@ class LumenOS{
     this._renderCamList();this._updateMonSummary();this._updateGlobalStats();
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ANPR — per-camera and global toggles, mirroring _toggleCamPose /
+  // _toggleGlobalPose. Enabling ANPR implicitly enables Vision AI (it
+  // needs COCO-SSD's vehicle boxes) and lazy-loads the Tesseract worker.
+  // ══════════════════════════════════════════════════════════════════
+  _toggleCamAnpr(camId){
+    const cam=this._getCam(camId);if(!cam)return;
+    cam.anprEnabled=!cam.anprEnabled;
+    if(cam.anprEnabled){
+      if(!cam.aiEnabled){cam.aiEnabled=true;if(!this.modelReady&&!this.modelLoading)this._loadLocalModel();}
+      if(!this.anprReady&&!this.anprLoading)this._loadAnprModel();
+    }else{
+      cam.anprOverlays=[];
+    }
+    if(cam.id===this.activeCamId){
+      this.$('anprToggleBtn').classList.toggle('anpr-active',cam.anprEnabled);
+      this.$('aiScanBtn').classList.toggle('ai-active',cam.aiEnabled);
+    }
+    this._addAlert(`${cam.name}: ANPR ${cam.anprEnabled?'enabled':'disabled'}`,cam.anprEnabled?'anpr':'info');
+    const badge=document.getElementById('camAnprBadge_'+cam.id);if(badge)badge.style.display=cam.anprEnabled?'inline-flex':'none';
+    this._renderCamList();this._updateMonSummary();this._updateGlobalStats();
+  }
+
+  _toggleGlobalAnpr(){
+    const anyOn=this.cameras.some(c=>c.anprEnabled);
+    this.cameras.forEach(c=>{
+      c.anprEnabled=!anyOn;
+      if(!anyOn&&!c.aiEnabled)c.aiEnabled=true;
+      if(anyOn)c.anprOverlays=[];
+      const badge=document.getElementById('camAnprBadge_'+c.id);if(badge)badge.style.display=c.anprEnabled?'inline-flex':'none';
+    });
+    if(!anyOn){
+      if(!this.modelReady&&!this.modelLoading)this._loadLocalModel();
+      if(!this.anprReady&&!this.anprLoading)this._loadAnprModel();
+    }
+    this._addAlert(`ANPR ${!anyOn?'enabled on all cameras':'disabled'}`,!anyOn?'anpr':'info');
+    this._renderCamList();this._updateMonSummary();this._updateGlobalStats();
+    if(this.activeCamId)this._selectCamera(this.activeCamId);
+  }
+
   _toggleGlobalPose(){
     const anyOn=this.cameras.some(c=>c.poseEnabled);
     this.cameras.forEach(c=>{
@@ -2544,7 +2936,7 @@ class LumenOS{
     const anyOn=this.cameras.some(c=>c.aiEnabled);
     this.cameras.forEach(c=>{
       c.aiEnabled=!anyOn;
-      if(anyOn){c.continuousMode=false;c.frameCounter=0;c.aiDetections=[];c.poseEnabled=false;c.poseResult=null;c._fallStreak=0;c.fallActive=false;}
+      if(anyOn){c.continuousMode=false;c.frameCounter=0;c.aiDetections=[];c.poseEnabled=false;c.poseResult=null;c._fallStreak=0;c.fallActive=false;c.anprEnabled=false;c.anprOverlays=[];}
     });
     if(!anyOn&&!this.modelReady&&!this.modelLoading)this._loadLocalModel();
     this._addAlert(`Vision AI ${!anyOn?'enabled on all cameras':'disabled'}`,!anyOn?'ai':'info');
@@ -2573,6 +2965,7 @@ class LumenOS{
     this.$('continuousToggleBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam)this._toggleContinuousMode(cam);});
     this.$('poseToggleBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam)this._toggleCamPose(cam.id);});
     this.$('geminiToggleBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam)this._toggleCamGemini(cam.id);});
+    this.$('anprToggleBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam)this._toggleCamAnpr(cam.id);});
     this.$('manualScanBtn').addEventListener('click',()=>{const cam=this._getActiveCam();if(cam&&this.modelReady)this._requestScan(cam);else if(!this.modelReady)this._loadLocalModel();});
     this.$('progWrap').addEventListener('click',e=>{const cam=this._getActiveCam();if(cam)this._seek(cam,e);});
   }
@@ -2606,7 +2999,8 @@ class LumenOS{
     const contOn=this.cameras.filter(c=>c.continuousMode).length;
     const poseOn=this.cameras.filter(c=>c.poseEnabled).length;
     const gemOn=this.cameras.filter(c=>c.geminiEnabled).length;
-    this.$('monSummary').textContent=`SENS ${this.cfg.motionSens} · V-AI ${aiOn?aiOn+' CAM':'OFF'}${contOn?' · ∞ '+contOn:''}${poseOn?' · POSE '+poseOn:''}${gemOn&&this.gemini.getKey()?' · G3.1PRO '+gemOn:''}`;
+    const anprOn=this.cameras.filter(c=>c.anprEnabled).length;
+    this.$('monSummary').textContent=`SENS ${this.cfg.motionSens} · V-AI ${aiOn?aiOn+' CAM':'OFF'}${contOn?' · ∞ '+contOn:''}${poseOn?' · POSE '+poseOn:''}${gemOn&&this.gemini.getKey()?' · G3.1PRO '+gemOn:''}${anprOn?' · ANPR '+anprOn:''}`;
   }
 
   _bindMonitoring(){
@@ -2626,6 +3020,9 @@ class LumenOS{
     bind('poseInterval','poseInterval','poseIntervalVal',v=>parseInt(v)+'s');
     bind('fallConfirm','fallConfirmFrames','fallConfirmVal');
     bind('poseConf','poseMinConf','poseConfVal',v=>parseFloat(v).toFixed(2));
+    bind('anprInterval','anprInterval','anprIntervalVal',v=>parseInt(v)+'s');
+    bind('anprConf','anprConfidence','anprConfVal',v=>parseInt(v)+'%');
+    bind('anprBand','anprBandPct','anprBandVal',v=>parseInt(v)+'%');
     document.querySelectorAll('[data-aim]').forEach(b=>b.addEventListener('click',()=>{b.closest('.toggle-group').querySelectorAll('.tpill').forEach(x=>x.classList.remove('on'));b.classList.add('on');this.state.aiMode=b.dataset.aim;}));
     document.querySelectorAll('[data-ait]').forEach(b=>b.addEventListener('click',()=>{b.closest('.toggle-group').querySelectorAll('.tpill').forEach(x=>x.classList.remove('on'));b.classList.add('on');this.state.aiTrigger=b.dataset.ait;}));
     document.querySelectorAll('[data-ov]').forEach(b=>b.addEventListener('click',()=>{
@@ -2642,6 +3039,7 @@ class LumenOS{
         c.trackedObjs=[];c.motionData=[];c.aiDetections=[];c.motionActive=false;c._prevFrame=null;c.heatGrid=[];
         c.continuousMode=false;c.frameCounter=0;c._scanChain=Promise.resolve();c._scanPending=false;
         c.poseResult=null;c._fallStreak=0;c.fallActive=false;c.poseFrameCounter=0;c.lastPoseScan=0;
+        c.anprOverlays=[];c.lastAnprScan=0;c.platesSeen=new Map();
       });
       this._addAlert('Detection reset — all cameras','info');
       this._updateGlobalStats();
@@ -2925,12 +3323,14 @@ class LumenOS{
           else if(type==='data'){
             content=JSON.stringify({
               generated:new Date().toISOString(),
-              engines:{object:'COCO-SSD TF.js',pose:'MoveNet Lightning TF.js',intelligence:'Gemini 3.1 Pro Preview'},
-              modelStatus:{coco:this.modelReady,pose:this.poseModelReady,gemini:!!this.gemini.getKey()},
-              cameras:this.cameras.map(c=>({id:c.id,name:c.name,fps:c.fps,aiEnabled:c.aiEnabled,continuousMode:c.continuousMode,poseEnabled:c.poseEnabled,geminiEnabled:c.geminiEnabled,fallActive:c.fallActive,aiDetections:c.aiDetections})),
+              engines:{object:'COCO-SSD TF.js',pose:'MoveNet Lightning TF.js',intelligence:'Gemini 3.1 Pro Preview',anpr:'Tesseract.js (on-device OCR)'},
+              modelStatus:{coco:this.modelReady,pose:this.poseModelReady,gemini:!!this.gemini.getKey(),anpr:this.anprReady},
+              cameras:this.cameras.map(c=>({id:c.id,name:c.name,fps:c.fps,aiEnabled:c.aiEnabled,continuousMode:c.continuousMode,poseEnabled:c.poseEnabled,geminiEnabled:c.geminiEnabled,anprEnabled:c.anprEnabled,fallActive:c.fallActive,aiDetections:c.aiDetections})),
               aiLog:this.data.aiLog,aiStats:this.data.aiStats,
               geminiLog:this.gemini.log.map(e=>({...e,imageData:undefined})),
               geminiStats:this.gemini.stats,
+              anprLog:this.data.anprLog,anprStats:this.data.anprStats,
+              anprUniquePlates:Array.from(this.anprAllPlates.entries()).map(([plate,v])=>({plate,...v})),
               alerts:this.data.alerts,events:logs,config:this.cfg,zones:this.data.zones
             },null,2);
             mime='application/json';
@@ -2950,14 +3350,15 @@ class LumenOS{
 
   _genReport(camFilter){
     const cams=camFilter==='all'?this.cameras:[this._getCam(parseInt(camFilter))].filter(Boolean);
-    const st=this.data.aiStats;const gs=this.gemini.stats;
+    const st=this.data.aiStats;const gs=this.gemini.stats;const as=this.data.anprStats;
     return`LUMENOS STEREOVISION SECURITY REPORT
 =====================================
 Generated      : ${new Date().toLocaleString()}
-Engines        : COCO-SSD + MoveNet + Gemini 3.1 Pro Preview (hybrid)
+Engines        : COCO-SSD + MoveNet + Gemini 3.1 Pro Preview + Tesseract.js ANPR (hybrid)
 COCO ready     : ${this.modelReady}
 Pose ready     : ${this.poseModelReady}
 Gemini active  : ${!!this.gemini.getKey()}
+ANPR ready     : ${this.anprReady}
 Cameras        : ${cams.map(c=>c.name).join(', ')}
 
 AI SESSION STATS
@@ -2979,13 +3380,23 @@ ELEVATED            : ${gs.elev}
 CLEAR               : ${gs.clear}
 Average risk score  : ${gs.total?Math.round(gs.riskSum/gs.total):'—'}
 
+ANPR / PLATE OCR STATS (Tesseract.js, on-device, heuristic)
+-------------------------------------------------------------
+Total plate reads    : ${as.total}
+Unique plates        : ${this.anprAllPlates.size}
+Average OCR conf     : ${as.total?Math.round(as.confSum/as.total)+'%':'—'}
+
 CAMERA STATUS
 -------------
-${cams.map(c=>`  ${c.name}: ${c.connected?'CONNECTED':'DISCONNECTED'} | ${c.fps} FPS | V-AI: ${c.aiEnabled?'ON':'OFF'} | Continuous: ${c.continuousMode?'ON':'OFF'} | Pose: ${c.poseEnabled?'ON':'OFF'} | Gemini: ${c.geminiEnabled?'ON':'OFF'} | Fall: ${c.fallActive?'ACTIVE':'normal'}`).join('\n')}
+${cams.map(c=>`  ${c.name}: ${c.connected?'CONNECTED':'DISCONNECTED'} | ${c.fps} FPS | V-AI: ${c.aiEnabled?'ON':'OFF'} | Continuous: ${c.continuousMode?'ON':'OFF'} | Pose: ${c.poseEnabled?'ON':'OFF'} | Gemini: ${c.geminiEnabled?'ON':'OFF'} | ANPR: ${c.anprEnabled?'ON':'OFF'} | Fall: ${c.fallActive?'ACTIVE':'normal'}`).join('\n')}
 
 RECENT GEMINI 3.1 PRO INTELLIGENCE (last 20)
 ----------------------------------------------
 ${this.gemini.log.slice(0,20).map(e=>`[${e.ts instanceof Date?e.ts.toLocaleTimeString('en-US',{hour12:false}):e.ts}] [${e.cam}] RISK:${e.risk_score} ${e.level?.label||''} — ${e.scene}${e.action_recommended?' | ACTION: '+e.action:''}`).join('\n')||'No analyses yet.'}
+
+RECENT ANPR PLATE READS (last 30)
+------------------------------------
+${this.data.anprLog.slice(0,30).map(e=>`[${e.ts}] [${e.cam}] PLATE:${e.plate} conf:${e.conf}%`).join('\n')||'No plates read yet.'}
 
 RECENT AI ACTIVITY (last 30)
 ------------------------------
@@ -3149,4 +3560,4 @@ ${this.data.alerts.slice(-20).map(a=>`[${a.ts}] [${a.type.toUpperCase()}] ${a.ms
 }
 
 document.addEventListener('DOMContentLoaded',()=>{window._app=new LumenOS();});
-</script>
+</script></body></html>
