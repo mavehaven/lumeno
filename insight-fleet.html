@@ -882,6 +882,74 @@ tbody tr:hover td{background:var(--sf2);}
     </div>
   </div>
 </section>
+<!-- FLEET COMMAND -->
+<section id="p-fleet" class="panel" aria-label="Fleet Command">
+  <div class="ph">
+    <div><div class="ph-t">Fleet <span>Command</span></div><div class="ph-s">Dynamic drone & robot control · Live logs from connected apps</div></div>
+    <div class="ph-a">
+      <button class="btn bs2 bsm" onclick="loadFleetUnits();loadFleetLogs()">↻ Refresh</button>
+      <button class="btn bp bsm" onclick="openM('addUnit')">+ Register Unit</button>
+    </div>
+  </div>
+  <div class="share-tabs" id="fleetTabs" role="tablist" style="max-width:280px;">
+    <div class="share-tab active" role="tab" onclick="switchFleetTab('units',this)">Units</div>
+    <div class="share-tab" role="tab" onclick="switchFleetTab('logs',this)">Logs</div>
+  </div>
+  <p class="sm muted" style="margin-bottom:12px;">Nothing here is fixed — units and logs can carry any JSON shape. A unit only moves when something on its own hardware (drone flight controller, robot firmware, etc.) is listening for new rows in <span class="mono">fleet_commands</span> and acting on them.</p>
+  <div id="fleet-tab-units" class="share-tab-pane active">
+    <div id="fleetUnitsList"><div class="empty"><p>No units registered yet. Click "+ Register Unit" to add a drone or robot.</p></div></div>
+  </div>
+  <div id="fleet-tab-logs" class="share-tab-pane">
+    <div id="fleetLogsList"><div class="empty"><p>No logs received yet — connect another app using the snippet below.</p></div></div>
+  </div>
+  <div class="card mt4">
+    <div class="cardt">Connect Another App</div>
+    <p class="sm muted" style="margin-bottom:10px;">Paste this into any other app (e.g. VisionAI) to push logs here in real time — send whatever fields matter, the payload shape is entirely up to you.</p>
+    <pre class="cb" id="fleetConnSnippet" style="font-size:11px;white-space:pre-wrap;word-break:break-all;"></pre>
+    <div class="fx g2i mt4"><button class="btn bs2 bsm" onclick="copyFleetSnippet()">Copy Snippet</button></div>
+  </div>
+  <div class="card mt4">
+    <div class="cardt">Supabase Setup SQL</div>
+    <p class="sm muted" style="margin-bottom:10px;">Run once in the Supabase SQL editor to create the tables this panel needs.</p>
+    <pre class="cb" id="fleetSetupSql" style="font-size:11px;white-space:pre-wrap;">create table fleet_units (
+  id text primary key,
+  name text,
+  type text default 'other',
+  status text default 'offline',
+  data jsonb default '{}',
+  last_seen timestamptz default now()
+);
+
+create table fleet_commands (
+  id uuid default gen_random_uuid() primary key,
+  unit_id text references fleet_units(id),
+  command text not null,
+  parameters jsonb default '{}',
+  status text default 'pending',
+  created_at timestamptz default now()
+);
+
+create table fleet_logs (
+  id uuid default gen_random_uuid() primary key,
+  unit_id text,
+  source text,
+  payload jsonb not null,
+  created_at timestamptz default now()
+);
+
+alter publication supabase_realtime add table fleet_logs;
+
+alter table fleet_units enable row level security;
+alter table fleet_commands enable row level security;
+alter table fleet_logs enable row level security;
+
+create policy "fleet_units_all" on fleet_units for all using (true) with check (true);
+create policy "fleet_commands_all" on fleet_commands for all using (true) with check (true);
+create policy "fleet_logs_insert" on fleet_logs for insert with check (true);
+create policy "fleet_logs_select" on fleet_logs for select using (true);</pre>
+    <div class="fx g2i mt4"><button class="btn bs2 bsm" onclick="copyFleetSQL()">Copy SQL</button></div>
+  </div>
+</section>
 </main>
 <!-- ══ NEO DRAWER ══ -->
 <div class="ndrawer" id="ndr" role="complementary" aria-label="Neo AI Assistant" aria-hidden="true">
@@ -1052,6 +1120,32 @@ tbody tr:hover td{background:var(--sf2);}
     <div class="mtit">Response Detail</div>
     <div id="respDetailContent"></div>
     <div class="mft"><button class="btn bg" onclick="closeM('resp-detail')">Close</button></div>
+  </div>
+</div>
+<!-- REGISTER FLEET UNIT -->
+<div class="mov" id="modal-addUnit" role="dialog" aria-modal="true" aria-label="Register Fleet Unit">
+  <div class="modal" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" style="max-width:480px;">
+    <div class="mdrag"></div>
+    <div class="mtit">Register Unit</div>
+    <div class="field"><label for="un-id">Unit ID *</label><input id="un-id" placeholder="e.g. DRONE_001, ARM_02"></div>
+    <div class="field"><label for="un-name">Name</label><input id="un-name" placeholder="e.g. Perimeter Drone 1"></div>
+    <div class="field"><label for="un-type">Type</label><input id="un-type" list="unitTypes" placeholder="drone, robot, sensor, other…"><datalist id="unitTypes"><option value="drone"><option value="robot"><option value="sensor"><option value="other"></datalist></div>
+    <div class="field"><label for="un-data">Data (JSON, optional)</label><textarea id="un-data" placeholder='{"battery_pct":92,"gps":"lat,lng","payload":"camera"}' style="min-height:90px;font-family:'JetBrains Mono',monospace;font-size:12px;"></textarea></div>
+    <div style="padding:10px;background:var(--sf2);border:1px solid var(--bd);border-radius:7px;font-size:11px;color:var(--t4);font-family:'JetBrains Mono',monospace;margin-bottom:14px;">
+      No fixed schema — put whatever telemetry fields matter for this unit (drone or robot) in the JSON above.
+    </div>
+    <div class="mft"><button class="btn bp" onclick="registerUnit()">Register</button><button class="btn bg" onclick="closeM('addUnit')">Cancel</button></div>
+  </div>
+</div>
+<!-- SEND FLEET COMMAND -->
+<div class="mov" id="modal-sendCmd" role="dialog" aria-modal="true" aria-label="Send Fleet Command">
+  <div class="modal" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" style="max-width:440px;">
+    <div class="mdrag"></div>
+    <div class="mtit">Send Command — <span class="mono" id="sc-unit-label" style="color:var(--ac2);font-size:13px;"></span></div>
+    <input type="hidden" id="sc-unit">
+    <div class="field"><label for="sc-command">Command *</label><input id="sc-command" placeholder="e.g. land, return_home, move_to, pick_up"></div>
+    <div class="field"><label for="sc-params">Parameters (JSON, optional)</label><textarea id="sc-params" placeholder='{"waypoint":"WP-04"}' style="min-height:80px;font-family:'JetBrains Mono',monospace;font-size:12px;"></textarea></div>
+    <div class="mft"><button class="btn bp" onclick="confirmSendCmd()">Send</button><button class="btn bg" onclick="closeM('sendCmd')">Cancel</button></div>
   </div>
 </div>
 <!-- TOAST -->
@@ -1593,7 +1687,8 @@ function goPanel(id, el) {
     sharing:   loadRLS,
     responses: () => { loadResponses(); loadPublishedForms(); },
     forms:     () => { loadPublishedForms(); populateDimSelect(); },
-    dashboard: updateDashFeed
+    dashboard: updateDashFeed,
+    fleet:     loadFleet
   };
   if (handlers[id]) handlers[id]();
   setTimeout(() => { p?.querySelector('.ph-t')?.setAttribute('tabindex','-1'); p?.querySelector('.ph-t')?.focus(); }, 50);
@@ -2870,6 +2965,116 @@ function saveBrand() {
 function applyCol(hex){document.documentElement.style.setProperty('--ac',hex);const bar=document.querySelector('.wl-preview-bar');if(bar)bar.style.background=hex;const hexInp=document.getElementById('cfgColHex');if(hexInp)hexInp.value=hex;}
 function saveCfg(){const url=document.getElementById('cfgUrl').value.trim(),key=document.getElementById('cfgKey').value.trim();if(url){SUPABASE_URL=url;localStorage.setItem('il_sb_url',url);}if(key){SUPABASE_KEY=key;localStorage.setItem('il_sb_key',key);}toast('Config saved — reconnecting…','✓');initSupabase().then(ok=>{if(ok)loadDashboard();});}
 async function testSupa(){const res=document.getElementById('supaRes');res.textContent='Testing…';res.style.color='var(--t3)';if(!SB){res.textContent='✗ Not initialised';res.style.color='var(--dg)';return;}try{const{error}=await SB.from('clients').select('count',{count:'exact',head:true});if(error)throw error;res.textContent='✓ Connected';res.style.color='var(--ok)';toast('Supabase connected','✓');}catch(e){res.textContent='✗ '+e.message;res.style.color='var(--dg)';}}
+// ═══════════════════════════════════════════
+// FLEET COMMAND — dynamic drone/robot control + cross-app log ingestion
+// ═══════════════════════════════════════════
+let fleetLogsSub = null;
+let fleetActiveTab = 'units';
+function loadFleet() {
+  renderFleetSnippet();
+  loadFleetUnits();
+  loadFleetLogs();
+}
+function switchFleetTab(tab, el) {
+  fleetActiveTab = tab;
+  document.querySelectorAll('#fleetTabs .share-tab').forEach(t=>{t.classList.remove('active');t.setAttribute('aria-selected','false');});
+  document.querySelectorAll('#p-fleet .share-tab-pane').forEach(p=>p.classList.remove('active'));
+  if (el) { el.classList.add('active'); el.setAttribute('aria-selected','true'); }
+  document.getElementById('fleet-tab-'+tab)?.classList.add('active');
+  if (tab==='logs') loadFleetLogs(); else loadFleetUnits();
+}
+async function loadFleetUnits() {
+  const el = document.getElementById('fleetUnitsList'); if (!el) return;
+  if (!SB) { el.innerHTML = '<div class="empty"><p>Connect to Supabase first.</p></div>'; return; }
+  const { data, error } = await SB.from('fleet_units').select('*').order('last_seen',{ascending:false}).limit(100);
+  if (error) { el.innerHTML = '<div class="empty"><p>Table not found — run the setup SQL below first.</p></div>'; const b=document.getElementById('fleetBadge'); if(b)b.textContent='0'; return; }
+  if (!data || !data.length) { el.innerHTML = '<div class="empty"><p>No units registered yet. Click "+ Register Unit" to add a drone or robot.</p></div>'; const b=document.getElementById('fleetBadge'); if(b)b.textContent='0'; return; }
+  const badge = document.getElementById('fleetBadge'); if (badge) badge.textContent = data.length;
+  el.innerHTML = data.map(u => {
+    const dataObj = safeJson(u.data, {});
+    const entries = Object.entries(dataObj);
+    return `<div class="client-card" style="flex-wrap:wrap;border-left:4px solid ${u.status==='online'?'var(--ok)':'var(--dg)'};">
+      <div class="client-info">
+        <div class="client-name">${escHtml(u.name||u.id)} <span class="badge bn mono">${escHtml(u.type||'unit')}</span> <span class="badge ${u.status==='online'?'bs':'bd2'}">${escHtml(u.status||'offline')}</span></div>
+        <div class="client-meta">ID: ${escHtml(u.id)} · Last seen: ${u.last_seen ? new Date(u.last_seen).toLocaleTimeString() : '—'}</div>
+        ${entries.length ? `<div class="resp-ans" style="margin-top:6px;">${entries.map(([k,v])=>`<span class="resp-ans-item"><strong>${escHtml(k)}:</strong> ${escHtml(typeof v==='object'?JSON.stringify(v):String(v))}</span>`).join('')}</div>` : ''}
+      </div>
+      <div class="client-actions">
+        <button class="btn bp bsm" onclick="openSendCmd('${escHtml(u.id)}')">Send Command</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function openSendCmd(unitId) {
+  document.getElementById('sc-unit').value = unitId;
+  document.getElementById('sc-unit-label').textContent = unitId;
+  document.getElementById('sc-command').value = '';
+  document.getElementById('sc-params').value = '';
+  openM('sendCmd');
+}
+async function confirmSendCmd() {
+  const unitId = document.getElementById('sc-unit').value;
+  const command = document.getElementById('sc-command').value.trim();
+  const paramsRaw = document.getElementById('sc-params').value.trim();
+  if (!command) { toast('Enter a command','⚠'); return; }
+  let params = {};
+  if (paramsRaw) { try { params = JSON.parse(paramsRaw); } catch(e) { toast('Parameters must be valid JSON','⚠'); return; } }
+  if (!SB) { toast('Supabase required','⚠'); return; }
+  const { error } = await SB.from('fleet_commands').insert({ unit_id: unitId, command, parameters: params, status: 'pending' });
+  if (error) toast('Command failed: '+error.message,'✗');
+  else toast('Command "'+command+'" sent to '+unitId,'✓');
+  log(`Fleet command "${command}" sent to ${unitId}`, 'system');
+  closeM('sendCmd');
+}
+async function registerUnit() {
+  const id = document.getElementById('un-id').value.trim();
+  const name = document.getElementById('un-name').value.trim();
+  const type = document.getElementById('un-type').value.trim();
+  const dataRaw = document.getElementById('un-data').value.trim();
+  if (!id) { toast('Enter a unit ID','⚠'); return; }
+  let dataObj = {};
+  if (dataRaw) { try { dataObj = JSON.parse(dataRaw); } catch(e) { toast('Data must be valid JSON','⚠'); return; } }
+  if (!SB) { toast('Supabase required','⚠'); return; }
+  const { error } = await SB.from('fleet_units').upsert({ id, name: name||id, type: type||'other', status: 'online', data: dataObj, last_seen: new Date().toISOString() });
+  if (error) { toast('Error: '+error.message,'✗'); return; }
+  closeM('addUnit'); toast('Unit "'+(name||id)+'" registered','✓'); log('Fleet unit registered: '+id,'system');
+  document.getElementById('un-id').value=''; document.getElementById('un-name').value=''; document.getElementById('un-type').value=''; document.getElementById('un-data').value='';
+  loadFleetUnits();
+}
+async function loadFleetLogs() {
+  const el = document.getElementById('fleetLogsList'); if (!el) return;
+  if (!SB) { el.innerHTML = '<div class="empty"><p>Connect to Supabase first.</p></div>'; return; }
+  const { data, error } = await SB.from('fleet_logs').select('*').order('created_at',{ascending:false}).limit(100);
+  if (error) { el.innerHTML = '<div class="empty"><p>Table not found — run the setup SQL below first.</p></div>'; return; }
+  renderFleetLogs(data||[]);
+  subscribeFleetLogs();
+}
+function renderFleetLogs(logs) {
+  const el = document.getElementById('fleetLogsList'); if (!el) return;
+  if (!logs.length) { el.innerHTML = '<div class="empty"><p>No logs received yet — connect another app using the snippet below.</p></div>'; return; }
+  el.innerHTML = logs.map(l => {
+    const payload = safeJson(l.payload, {});
+    const entries = Object.entries(payload);
+    return `<div class="resp-row"><div class="resp-meta"><span class="badge bn mono">${new Date(l.created_at).toLocaleString('en-ZA',{dateStyle:'short',timeStyle:'short'})}</span><span class="badge bi mono">${escHtml(l.source||'unknown')}</span>${l.unit_id?`<span class="badge bn mono">${escHtml(l.unit_id)}</span>`:''}</div><div class="resp-ans">${entries.map(([k,v])=>`<span class="resp-ans-item"><strong>${escHtml(k)}:</strong> ${escHtml(typeof v==='object'?JSON.stringify(v):String(v))}</span>`).join('')}</div></div>`;
+  }).join('');
+}
+function subscribeFleetLogs() {
+  if (!SB || fleetLogsSub) return;
+  try {
+    fleetLogsSub = SB.channel('rt_fleet_logs')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'fleet_logs'}, payload => {
+        toast('New log received from '+(payload.new?.source||'external app'),'📡');
+        log('Fleet log received from '+(payload.new?.source||'unknown'),'system');
+        if (fleetActiveTab==='logs') loadFleetLogs();
+      }).subscribe();
+  } catch(e) {}
+}
+function renderFleetSnippet() {
+  const el = document.getElementById('fleetConnSnippet'); if (!el) return;
+  el.textContent = `const supabase = window.supabase.createClient(\n  '${SUPABASE_URL}',\n  '${SUPABASE_KEY}'\n);\n\nawait supabase.from('fleet_logs').insert({\n  source: 'visionai',   // name of the sending app\n  unit_id: null,         // optional — link to a fleet_units.id\n  payload: { anything: 'you want', detections: 3, camera: 'gate-1' }\n});`;
+}
+function copyFleetSnippet(){ const el=document.getElementById('fleetConnSnippet'); if(!el) return; navigator.clipboard.writeText(el.textContent).then(()=>toast('Snippet copied','✓')).catch(()=>toast('Copy manually','⚠')); }
+function copyFleetSQL(){ const el=document.getElementById('fleetSetupSql'); if(!el) return; navigator.clipboard.writeText(el.innerText).then(()=>toast('SQL copied','✓')).catch(()=>toast('Select & copy manually','⚠')); }
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
